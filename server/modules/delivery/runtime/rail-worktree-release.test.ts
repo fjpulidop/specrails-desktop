@@ -9,6 +9,7 @@ import { releaseRailWorktrees, durableSettlementIgnoredPaths } from './rail-work
 import type { GitRunner } from '../../../worktree-manager'
 import { applyWorktreeOverlay, fingerprintOverlayCleanupPath } from '../../../worktree-overlay'
 import { authenticateWarmNodeModulesLinks, linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
+import { installWorktreeProcessReaper } from '../../terminals/runtime/worktree-process-reaper'
 
 function overlayQuarantineRoots(worktreePath: string): string[] {
   const parent = path.dirname(worktreePath)
@@ -167,6 +168,29 @@ describe('releaseRailWorktrees', () => {
     expect(calls.some((call) => call.args[0] === 'worktree')).toBe(false)
     expect(getRailWorktree(db, 'changed')?.merge_state).toBe('needs-review')
     db.close()
+  })
+
+  it('reaps the run\'s leftover processes in a worktree before removing it', async () => {
+    const db = initDb(':memory:')
+    const wtPath = realWt('reap')
+    createRailWorktree(db, { id: 'reap', railIndex: 0, ticketId: 1, branch: 'feat/reap', worktreePath: wtPath, mergeState: 'built' })
+    const order: string[] = []
+    installWorktreeProcessReaper(async (request) => {
+      order.push(`reap:${request.reason}:${request.worktreePaths.join(',')}`)
+      return { worktreePaths: [...request.worktreePaths], reaped: [], unavailable: false }
+    })
+    try {
+      const remove = vi.fn(async () => { order.push('remove') })
+      await releaseRailWorktrees({
+        db, git: verifiedGit().git, repoDir: '/repo', worktreeIds: ['reap'], remove,
+        expectedHeadByBranch: new Map([['feat/reap', sha]]),
+        overlayEvidenceByBranch: new Map(),
+      })
+      expect(order).toEqual([`reap:worktree-removed:${wtPath}`, 'remove'])
+    } finally {
+      installWorktreeProcessReaper(null)
+      db.close()
+    }
   })
 
   it('uses non-force removal so a write racing after verification is still preserved', async () => {
@@ -355,7 +379,7 @@ describe('releaseRailWorktrees', () => {
     removeOverlayQuarantines(worktree)
   })
 
-  it('persistently quarantines a stable copied overlay directory, including writes after rename', async () => {
+  it('removes a stable copied overlay directory without leaving a safety archive', async () => {
     const db = initDb(':memory:')
     const worktree = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-directory-clean-'))
     const overlayDirectory = path.join(worktree, '.claude', 'rules')
@@ -377,7 +401,6 @@ describe('releaseRailWorktrees', () => {
       },
     }
     const remove = vi.fn(async () => {})
-    let quarantinePath = ''
     const safetyArchives: string[] = []
 
     await expect(releaseRailWorktrees({
@@ -388,18 +411,12 @@ describe('releaseRailWorktrees', () => {
         kind: 'directory',
         digest: fingerprint!.digest,
       }]]]),
-      afterOverlayQuarantine: (movedPath) => {
-        quarantinePath = movedPath
-        fs.writeFileSync(path.join(movedPath, 'nested', 'owned.md'), 'post-rename write')
-      },
       onSafetyArchive: (archive) => safetyArchives.push(archive),
     })).resolves.toEqual([])
 
     expect(fs.existsSync(overlayDirectory)).toBe(false)
-    expect(quarantinePath).not.toBe('')
-    expect(safetyArchives).toHaveLength(1)
-    expect(path.relative(safetyArchives[0], quarantinePath)).toBe(path.join('.claude', 'rules'))
-    expect(fs.readFileSync(path.join(quarantinePath, 'nested', 'owned.md'), 'utf8')).toBe('post-rename write')
+    expect(safetyArchives).toEqual([])
+    expect(overlayQuarantineRoots(worktree)).toEqual([])
     expect(remove).toHaveBeenCalledOnce()
     expect(getRailWorktree(db, 'directory-clean')?.merge_state).toBe('released')
     db.close()
@@ -407,22 +424,63 @@ describe('releaseRailWorktrees', () => {
     removeOverlayQuarantines(worktree)
   })
 
-  it('discloses one durable batch root containing more than eight overlay roots', async () => {
+  it('keeps a copied overlay directory written to after the rename (re-proven before deletion)', async () => {
+    const db = initDb(':memory:')
+    const worktree = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-directory-late-'))
+    const overlayDirectory = path.join(worktree, '.claude', 'rules')
+    fs.mkdirSync(path.join(overlayDirectory, 'nested'), { recursive: true })
+    fs.writeFileSync(path.join(overlayDirectory, 'nested', 'owned.md'), 'nested copy')
+    const fingerprint = fingerprintOverlayCleanupPath(overlayDirectory)!
+    createRailWorktree(db, {
+      id: 'directory-late', railIndex: 0, ticketId: 1, branch: 'feat/directory-late',
+      worktreePath: worktree, mergeState: 'built',
+    })
+    const git: GitRunner = {
+      async run(args) {
+        if (args[0] === 'status') return { code: 0, stdout: '', stderr: '' }
+        if (args[0] === 'ls-files') return { code: 1, stdout: '', stderr: 'not tracked' }
+        if (args[0] === 'rev-parse') return { code: 0, stdout: `${sha}\n`, stderr: '' }
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    }
+    const remove = vi.fn(async () => {})
+    const safetyArchives: string[] = []
+    let quarantinePath = ''
+
+    await expect(releaseRailWorktrees({
+      db, git, repoDir: '/repo', worktreeIds: ['directory-late'], remove,
+      expectedHeadByBranch: new Map([['feat/directory-late', sha]]),
+      overlayEvidenceByBranch: new Map([['feat/directory-late', [{ path: '.claude/rules', ...fingerprint }]]]),
+      afterOverlayRename: (_source, moved) => {
+        quarantinePath = moved
+        fs.writeFileSync(path.join(moved, 'nested', 'owned.md'), 'post-rename write')
+      },
+      onSafetyArchive: (archive) => safetyArchives.push(archive),
+    })).resolves.toEqual([expect.stringMatching(/changed during atomic quarantine.*overlay data is preserved at/)])
+
+    expect(safetyArchives).toHaveLength(1)
+    expect(fs.readFileSync(path.join(quarantinePath, 'nested', 'owned.md'), 'utf8')).toBe('post-rename write')
+    expect(remove).not.toHaveBeenCalled()
+    expect(getRailWorktree(db, 'directory-late')?.merge_state).toBe('needs-review')
+    db.close()
+    fs.rmSync(worktree, { recursive: true, force: true })
+    removeOverlayQuarantines(worktree)
+  })
+
+  it('discloses one durable batch root containing more than eight kept paths', async () => {
     const db = initDb(':memory:')
     const worktree = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-many-overlays-'))
-    const overlayNames = Array.from({ length: 12 }, (_, index) => `.specrails-overlay-${index}.json`)
-    const evidence = overlayNames.map((name, index) => {
-      const target = path.join(worktree, name)
-      fs.writeFileSync(target, `overlay-${index}`)
-      return { path: name, ...fingerprintOverlayCleanupPath(target)! }
-    })
+    const names = Array.from({ length: 12 }, (_, index) => `ignored-${index}.json`)
+    for (const [index, name] of names.entries()) fs.writeFileSync(path.join(worktree, name), `kept-${index}`)
     createRailWorktree(db, {
       id: 'many-overlays', railIndex: 0, ticketId: 1, branch: 'feat/many-overlays',
       worktreePath: worktree, mergeState: 'built',
     })
     const git: GitRunner = {
       async run(args) {
-        if (args[0] === 'status') return { code: 0, stdout: '', stderr: '' }
+        if (args[0] === 'status') {
+          return { code: 0, stdout: names.filter((name) => fs.existsSync(path.join(worktree, name))).map((name) => `!! ${name}\n`).join(''), stderr: '' }
+        }
         if (args[0] === 'ls-files') return { code: 1, stdout: '', stderr: 'not tracked' }
         if (args[0] === 'rev-parse') return { code: 0, stdout: `${sha}\n`, stderr: '' }
         return { code: 0, stdout: '', stderr: '' }
@@ -435,13 +493,14 @@ describe('releaseRailWorktrees', () => {
       await expect(releaseRailWorktrees({
         db, git, repoDir: '/repo', worktreeIds: ['many-overlays'], remove,
         expectedHeadByBranch: new Map([['feat/many-overlays', sha]]),
-        overlayEvidenceByBranch: new Map([['feat/many-overlays', evidence]]),
+        overlayEvidenceByBranch: new Map(),
+        settlementIgnoredByBranch: new Map([['feat/many-overlays', names]]),
         onSafetyArchive: (archive) => safetyArchives.push(archive),
       })).resolves.toEqual([])
 
       expect(safetyArchives).toHaveLength(1)
-      for (const [index, name] of overlayNames.entries()) {
-        expect(fs.readFileSync(path.join(safetyArchives[0], name), 'utf8')).toBe(`overlay-${index}`)
+      for (const [index, name] of names.entries()) {
+        expect(fs.readFileSync(path.join(safetyArchives[0], name), 'utf8')).toBe(`kept-${index}`)
       }
       expect(remove).toHaveBeenCalledOnce()
     } finally {
@@ -788,7 +847,9 @@ describe('releaseRailWorktrees + warm dependency links', () => {
 
     expect(warnings).toEqual([])
     expect(getRailWorktree(db, 'dedupe')?.merge_state).toBe('released')
-    expect(overlayQuarantineRoots(wt)).toHaveLength(1)
+    // An unchanged app-created link is removed, never archived; its target stays.
+    expect(overlayQuarantineRoots(wt)).toEqual([])
+    expect(fs.existsSync(path.join(repoDir, 'node_modules'))).toBe(true)
 
     removeOverlayQuarantines(wt)
     fs.rmSync(wt, { recursive: true, force: true })
@@ -866,11 +927,8 @@ describe('releaseRailWorktrees + registered subdirectory dependencies', () => {
       expect(getRailWorktree(db, 'nested-restart')?.repository_path).toBe(registered)
       expect(gitCalls).toContainEqual({ args: ['worktree', 'remove', worktree], cwd: registered })
       expect(fs.existsSync(worktree)).toBe(false)
-      const archive = overlayQuarantineRoots(worktree)
-      expect(archive).toHaveLength(1)
-      for (const relative of expectedPaths) {
-        expect(fs.lstatSync(path.join(archive[0], relative)).isSymbolicLink()).toBe(true)
-      }
+      // Verified warm links are removed outright: no safety archive is left.
+      expect(overlayQuarantineRoots(worktree)).toEqual([])
       expect(fs.readFileSync(path.join(registered, 'node_modules/@example/components/index.js'), 'utf8')).toBe('module.exports = "original package"')
       expect(fs.readFileSync(path.join(registered, 'node_modules/.yarn-state.yml'), 'utf8')).toContain('version: 1')
     } finally { db.close(); fs.rmSync(fixture.root, { recursive: true, force: true }) }
@@ -937,5 +995,58 @@ describe('durableSettlementIgnoredPaths', () => {
       { branch: 'feat/a', settlementIgnoredPaths: null },
     ])
     expect(out.has('feat/a')).toBe(false)
+  })
+})
+
+describe('releaseRailWorktrees with copied env files (worktreeEnvFiles)', () => {
+  it('deletes the copies with the worktree, even after the run edited one, and never archives them', async () => {
+    const { syncWorktreeEnvFiles } = await import('../../../worktree-env-files')
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'sr-release-env-')))
+    const repo = path.join(root, 'repo')
+    const worktree = path.join(root, 'worktree')
+    fs.mkdirSync(repo)
+    const runGit = (args: string[], cwd: string): { code: number; stdout: string; stderr: string } => {
+      const result = spawnSync('git', args, { cwd, encoding: 'utf8' })
+      return { code: result.status ?? 1, stdout: result.stdout ?? '', stderr: result.stderr ?? '' }
+    }
+    const mustGit = (args: string[], cwd = repo): void => {
+      const result = runGit(args, cwd)
+      if (result.code !== 0) throw new Error(result.stderr || result.stdout)
+    }
+    mustGit(['init', '-b', 'main'])
+    mustGit(['config', 'user.email', 'specrails@example.test'])
+    mustGit(['config', 'user.name', 'Specrails Test'])
+    fs.writeFileSync(path.join(repo, '.gitignore'), '.env*\n')
+    fs.writeFileSync(path.join(repo, 'README.md'), 'base\n')
+    mustGit(['add', '.'])
+    mustGit(['commit', '-m', 'base'])
+    fs.writeFileSync(path.join(repo, '.env'), 'APP_KEY=base64:FAKEFAKEFAKEFAKE=\n')
+    fs.writeFileSync(path.join(repo, '.env.local'), 'TOKEN=fake-token-value\n')
+    mustGit(['worktree', 'add', '-b', 'feat/env', worktree, 'main'])
+    const git: GitRunner = { run: async (args, cwd) => runGit(args, cwd) }
+    const synced = await syncWorktreeEnvFiles({ git, repoDir: repo, worktreePath: worktree, enabled: true })
+    expect(synced.copied.sort()).toEqual(['.env', '.env.local'])
+    // The run regenerated its key (Laravel `key:generate` rewrites .env).
+    fs.writeFileSync(path.join(worktree, '.env'), 'APP_KEY=base64:REGENERATEDREGENERATED=\n')
+    const expected = runGit(['rev-parse', '--verify', 'HEAD'], worktree).stdout.trim()
+    const db = initDb(':memory:')
+    createRailWorktree(db, { id: 'env', railIndex: 0, ticketId: 1, branch: 'feat/env', worktreePath: worktree, mergeState: 'built' })
+    const archives: string[] = []
+    await expect(releaseRailWorktrees({
+      db, git, repoDir: repo, worktreeIds: ['env'],
+      expectedHeadByBranch: new Map([['feat/env', expected]]),
+      overlayEvidenceByBranch: new Map(),
+      // The settlement snapshot never listed them (they were excluded at capture).
+      settlementIgnoredByBranch: new Map([['feat/env', []]]),
+      onSafetyArchive: (archive) => { archives.push(archive) },
+    })).resolves.toEqual([])
+    expect(getRailWorktree(db, 'env')?.merge_state).toBe('released')
+    expect(fs.existsSync(worktree)).toBe(false)
+    expect(archives).toEqual([])
+    expect(overlayQuarantineRoots(worktree)).toEqual([])
+    // The person's files are untouched.
+    expect(fs.readFileSync(path.join(repo, '.env'), 'utf8')).toBe('APP_KEY=base64:FAKEFAKEFAKEFAKE=\n')
+    db.close()
+    fs.rmSync(root, { recursive: true, force: true })
   })
 })

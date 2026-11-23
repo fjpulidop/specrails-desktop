@@ -40,3 +40,37 @@ describe('assertGitAllowed', () => {
     expect(() => assertGitAllowed('gh', ['pr', 'create'], { protectedBranch: 'main' })).not.toThrow()
   })
 })
+
+describe('run-scoped git rules (agent policy hook)', () => {
+  it('detects +refspec, --mirror and combined short force flags', async () => {
+    const { isForcePush } = await import('./git-guardrails')
+    expect(isForcePush(['push', 'origin', '+HEAD:b'])).toBe(true)
+    expect(isForcePush(['push', '--mirror', 'backup'])).toBe(true)
+    expect(isForcePush(['push', '-uf', 'origin', 'b'])).toBe(true)
+    expect(isForcePush(['push', '-o', '+x', 'origin', 'b'])).toBe(false)
+  })
+
+  it('resolves implicit push destinations to the current branch', async () => {
+    const { pushDestinations } = await import('./git-guardrails')
+    expect(pushDestinations(['push'], 'feat')).toEqual(['feat'])
+    expect(pushDestinations(['push', 'origin', 'HEAD'], 'main')).toEqual(['main'])
+    expect(pushDestinations(['push', 'origin', 'a:refs/heads/b'], 'x')).toEqual(['b'])
+  })
+
+  it('detects remote deletes, hard resets and branch deletes', async () => {
+    const { pushDeletesRemoteBranch, isHardReset, branchDeleteTargets } = await import('./git-guardrails')
+    expect(pushDeletesRemoteBranch(['push', 'origin', ':old'])).toBe(true)
+    expect(pushDeletesRemoteBranch(['push', '--delete', 'origin', 'old'])).toBe(true)
+    expect(pushDeletesRemoteBranch(['push', 'origin', 'new'])).toBe(false)
+    expect(isHardReset(['reset', '--hard', 'HEAD'])).toBe(true)
+    expect(isHardReset(['reset', 'HEAD'])).toBe(false)
+    expect(branchDeleteTargets(['branch', '-D', 'a', 'b'])).toEqual(['a', 'b'])
+    expect(branchDeleteTargets(['branch', '-df', 'a'])).toEqual(['a'])
+    expect(branchDeleteTargets(['branch', '--list'])).toEqual([])
+  })
+
+  it('still lets the app push a verified commit to the run branch', () => {
+    expect(() => assertGitAllowed('git', ['push', 'origin', `${'a'.repeat(40)}:refs/heads/sr/p/ticket-1`], { protectedBranch: 'main' })).not.toThrow()
+    expect(() => assertGitAllowed('git', ['push', 'origin', '+HEAD:sr/p/ticket-1'], { protectedBranch: 'main' })).toThrow(GitGuardrailError)
+  })
+})

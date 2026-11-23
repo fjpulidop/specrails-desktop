@@ -163,7 +163,7 @@ describe('ExploreReviewOverlay', () => {
     expect(onBack).toHaveBeenCalledTimes(1)
   })
 
-  it('disables Create Spec when title is empty', () => {
+  it('disables Create spec when title is empty', () => {
     render(
       <ExploreReviewOverlay
         baseline={EMPTY_REVIEW_BASELINE}
@@ -176,7 +176,7 @@ describe('ExploreReviewOverlay', () => {
     expect(commitBtn.disabled).toBe(true)
   })
 
-  it('renders Update Spec label when mode is edit', () => {
+  it('renders Update spec label when mode is edit', () => {
     render(
       <ExploreReviewOverlay
         baseline={EMPTY_REVIEW_BASELINE}
@@ -186,11 +186,11 @@ describe('ExploreReviewOverlay', () => {
         onCommit={onCommit}
       />,
     )
-    expect(screen.getByTestId('review-commit')).toHaveTextContent('Update Spec')
-    expect(screen.getByTestId('review-commit')).not.toHaveTextContent('Create Spec')
+    expect(screen.getByTestId('review-commit')).toHaveTextContent('Update spec')
+    expect(screen.getByTestId('review-commit')).not.toHaveTextContent('Create spec')
   })
 
-  it('renders Create Spec label by default (mode unset)', () => {
+  it('renders Create spec label by default (mode unset)', () => {
     render(
       <ExploreReviewOverlay
         baseline={EMPTY_REVIEW_BASELINE}
@@ -199,7 +199,7 @@ describe('ExploreReviewOverlay', () => {
         onCommit={onCommit}
       />,
     )
-    expect(screen.getByTestId('review-commit')).toHaveTextContent('Create Spec')
+    expect(screen.getByTestId('review-commit')).toHaveTextContent('Create spec')
   })
 
   it('disables both actions while isCommitting', () => {

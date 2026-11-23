@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "Collapse left sidebar (keep pinned)",
       "pinnedCollapsed": "Unpin left sidebar",
-      "unpinned": "Pin left sidebar open"
+      "unpinned": "Pin left sidebar open",
+      "showOverlay": "Show sidebar",
+      "hideOverlay": "Hide sidebar"
     },
     "right": {
       "pinnedOpen": "Collapse right sidebar (keep pinned)",
@@ -47,7 +49,7 @@
     "docs": "Docs",
     "analytics": "All-projects analytics",
     "companion": "Companion",
-    "settings": "App settings",
+    "settings": "Settings",
     "plugins": "Plugins",
     "review": "Review",
     "landmark": "Projects and missions",
@@ -58,7 +60,8 @@
       "label": "Show only active missions",
       "tooltip": "Show only active missions",
       "empty": "No active missions"
-    }
+    },
+    "liveBoard": "Live board"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops are open in the mission window.",
@@ -86,10 +89,9 @@
     "activeCli": "Active CLI: {{label}}"
   },
   "statusBar": {
-    "connected": "connected",
-    "syncing": "syncing...",
-    "reconnecting": "reconnecting...",
-    "disconnected": "disconnected",
+    "syncing": "Syncing…",
+    "reconnecting": "Reconnecting…",
+    "disconnected": "Offline",
     "connectionRestored": "Connection restored"
   },
   "titleBar": {
@@ -154,11 +156,11 @@
   },
   "keepAwake": {
     "label": "Keep computer awake",
-    "on": "On",
-    "off": "Off",
     "active": "Prevents idle sleep. The display can turn off.",
     "inactive": "Normal sleep allowed.",
-    "failed": "Could not change sleep prevention."
+    "failed": "Could not change sleep prevention.",
+    "turnOff": "Allow sleep again",
+    "activeHint": "Keeping the computer awake. Click to allow sleep."
   },
   "skipToContent": "Skip to main content",
   "places": {

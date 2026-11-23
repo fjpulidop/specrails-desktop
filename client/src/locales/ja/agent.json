@@ -317,7 +317,8 @@
       "reopen": "再オープン中…",
       "merge-local": "ローカルで統合中…",
       "recover-and-retry": "保存された結果をコミットして再プッシュしています…",
-      "acknowledge-no-changes": "完了に変更中…"
+      "acknowledge-no-changes": "完了に変更中…",
+      "refresh-on-base": "新しいベースで更新しています…"
     },
     "markDone": "完了にする",
     "refine": "改善する",
@@ -346,7 +347,7 @@
       "building": "分離されたワークツリーで実装中…",
       "buildingInPlace": "プロジェクトフォルダーで実装中…",
       "buildingExistingPr": "既存の PR に変更を適用中…",
-      "paused": "人の判断が必要です",
+      "paused": "一時停止中",
       "on_review": "実装のレビュー準備完了",
       "pr_draft": "ドラフト PR を作成しました",
       "pr_draft_degraded": "PR の公開が未完了",
@@ -410,7 +411,7 @@
     "confirmDiscard": "破棄しますか？",
     "mergedNote": "マージ済み。スペックを完了に移動しました",
     "discardedNote": "破棄済み。スペックをバックログに戻しました",
-    "implementationFailedNote": "実装の実行は、配信可能な成果物が生成される前に失敗しました。実行ログで失敗内容を確認し、再実行する前にこのカードを破棄してください。",
+    "implementationFailedNote": "実行は納品できるものができる前に停止しました。ログを開いて理由を確認してください。",
     "dismiss": "フォローアップを閉じる",
     "discardLocalResult": "ローカル結果を破棄",
     "retryPush": "プッシュを再試行",
@@ -428,8 +429,6 @@
     "retryPushNote": "実装は成功し、変更はローカルに安全に保存されています。プッシュのみ再試行してください。",
     "cleanupIncomplete_one": "クリーンアップが不完全です（警告 {{count}} 件）",
     "cleanupIncomplete_other": "クリーンアップが不完全です（警告 {{count}} 件）",
-    "safetyArchiveTitle": "安全アーカイブ（{{count}}）",
-    "safetyArchiveHint": "念のため、一時ワークスペースファイルを PR の外部に保存しました。内容を確認するか、手動で削除できます。",
     "confirm": {
       "recoverAndRetryTitle": "保存された結果をコミットして push しますか？",
       "recoverAndRetryBody": "Specrails は {{branch}} 用の隔離 worktree または記録済みの fast-forward 可能なブランチだけを使用します。必要に応じて配信対象ファイルをコミットし、PR が想定された head/base のまま開いている場合に限り、その正確なコミットだけを push します。メインのプロジェクトフォルダーと未コミットの変更には一切触れません。",
@@ -442,7 +441,7 @@
       "mergeLocalTitle": "ローカルで統合しますか？",
       "mergeLocalBody": "提供されたブランチをローカルの {{base}} にマージします。既存の変更は保持されます。変更が重なる場合は、統合前に解決が必要になることがあります。",
       "freshDiscardTitle": "この配信を破棄しますか？",
-      "freshDiscardBody": "PR はリモートブランチを削除せずにクローズされます。SpecRails が所有し、記録済みコミットのままのローカルブランチと worktree だけが削除されます。変更されたものは警告とともに保持されます。spec はバックログに戻ります。削除されたローカルリソースは復旧できません。",
+      "freshDiscardBody": "PR はリモートブランチを削除せずにクローズされます。Specrails が所有し、記録済みコミットのままのローカルブランチと worktree だけが削除されます。変更されたものは警告とともに保持されます。spec はバックログに戻ります。削除されたローカルリソースは復旧できません。",
       "implementationFailedDiscardTitle": "失敗した配信を破棄しますか？",
       "implementationFailedDiscardBody": "カードを閉じ、spec をバックログに戻します。ローカルの作業とブランチは確認できるよう保持されます。安全にクリーンアップできることが確認されたリソースのみ削除される場合があります。",
       "dismissTitle": "このフォローアップを閉じますか？",
@@ -544,7 +543,11 @@
       "failing_pr": "{{pr}}: 失敗したチェック: {{checks}}"
     },
     "ciBuildingHint": "チェックを待ち、コードの失敗を修正して同じ PR にプッシュします。コード以外が原因の失敗は再試行せずに報告します。",
-    "runStoppedNote": "何も納品される前にこの実行を停止しました。続けたいときに再実行してください。"
+    "runStoppedNote": "納品前にこの実行を停止しました。続行すると、同じ worktree で止まったところから再開します。",
+    "runStoppedNoteNoContinue": "納品前にこの実行を停止しました。作業は worktree に残っています。",
+    "continue": "続行",
+    "startOver": "最初からやり直す",
+    "startOverHint": "ベースから新しく実行します。この試行の作業は古い worktree に残ります。"
   },
   "specDraft": {
     "heading": "スペック下書き",
@@ -815,7 +818,8 @@
       "feature_unavailable": "Intent は利用できません",
       "daily_budget_exceeded": "1日の予算に達しました。何も起動していません。",
       "review_wip_limit_reached": "レビュー上限に達しました。何も起動していません。",
-      "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails がプロジェクトの分離されたコピーを作成できるよう、最初のコミットを作成してください。"
+      "repository_has_no_commits": "このリポジトリにはまだコミットがありません。Specrails がプロジェクトの分離されたコピーを作成できるよう、最初のコミットを作成してください。",
+      "launch_preflight_blocked": "起動する前に失敗したチェックを解決してください。"
     },
     "stub": {
       "launched": "起動しました → レール {{rail}}",
@@ -934,7 +938,26 @@
     "add": "分割表示に会話を追加",
     "close": "分割表示を閉じる",
     "loadFailed": "この会話を読み込めませんでした。",
-    "retry": "再試行"
+    "retry": "再試行",
+    "openRight": "右に開く",
+    "openBelow": "下に開く",
+    "layoutMenu": "ペインを分割・配置",
+    "splitRight": "右に分割",
+    "splitDown": "下に分割",
+    "moveLeft": "左へ移動",
+    "moveRight": "右へ移動",
+    "moveUp": "上へ移動",
+    "moveDown": "下へ移動",
+    "swap": "入れ替え",
+    "maximize": "ペインを最大化",
+    "restore": "レイアウトを元に戻す",
+    "equalize": "ペインを均等にする",
+    "closePane": "ペインを閉じる",
+    "noMissions": "開けるミッションは他にありません",
+    "noRoom": "このレイアウトには幅が足りません",
+    "stacks": "重ねて表示",
+    "resize": "{{first}} と {{second}} のサイズを変更",
+    "panes": "開いているミッション"
   },
   "runtimeSelector": {
     "label": "モデルと推論の強度",
@@ -1389,7 +1412,7 @@
     "paused": "一時停止中。あなたの対応を待っています",
     "pausedReason": "一時停止中：{{reason}}",
     "decision": {
-      "approval": "あなたの承認待ち",
+      "approval": "要対応",
       "changes": "レビュアーが変更を求めています",
       "on_review": "レビューの準備ができました",
       "pr_draft": "ドラフト PR を公開できます",
@@ -1434,7 +1457,7 @@
     "announce": {
       "settled": "{{run}} が終了しました",
       "shown": "{{run}} を表示中：{{state}}",
-      "needsYou": "{{run}} があなたの対応を待っています"
+      "needsYou": "{{run}} の対応が必要です"
     },
     "event": {
       "launched": "{{run}} で起動しました",
@@ -1452,7 +1475,7 @@
       "discarded": "{{run}} は破棄されました",
       "changes": "{{run}}：レビュアーが変更を求めています"
     },
-    "needsYou": "対応待ち",
+    "needsYou": "対応が必要",
     "opensCard": "実行のカードを開き、そこで確認できます",
     "open": {
       "decision": "判断を開く",
@@ -1537,11 +1560,7 @@
     "greeting": "{{project}} で次に出荷するものは何ですか?",
     "greetingNoProject": "次に出荷するものは何ですか?",
     "statusTodo_one": "{{count}} 件が未着手",
-    "statusTodo_other": "{{count}} 件が未着手",
-    "statusReview_one": "{{count}} 件がレビュー待ち",
-    "statusReview_other": "{{count}} 件がレビュー待ち",
-    "statusRunning_one": "{{count}} 件実行中",
-    "statusRunning_other": "{{count}} 件実行中"
+    "statusTodo_other": "{{count}} 件が未着手"
   },
   "prCi": {
     "title": "PR {{pr}} の CI を監視して修正",
@@ -1620,5 +1639,68 @@
     "history": "履歴",
     "peakValue": "ピーク {{value}}",
     "historyHint": "ミッションの作業中は 3 秒ごとに 1 点。線にカーソルを合わせると時刻と値が表示されます。"
+  },
+  "contextUsage": {
+    "open": "使用中のコンテキスト: {{percent}}%",
+    "title": "コンテキスト",
+    "description": "このミッションのプロバイダーセッションのコンテキストの使用量(プロバイダーの報告値)。",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}}%",
+    "model": "モデル",
+    "sourceResponse": "最後の応答から計測",
+    "sourceSessionFile": "{{provider}} セッションから読み取り",
+    "compacted": "前回のターン中にプロバイダーがコンテキストを圧縮しました。",
+    "highNote": "コンテキストがいっぱいになると、プロバイダーが自動的に圧縮します。要約を添えて新しいセッションを始めるのも効果的です。",
+    "openUnknown": "コンテキスト：ウィンドウの使用率は不明",
+    "tokensUsedOnly": "{{used}} トークン使用",
+    "windowUnknown": "プロバイダーがコンテキストウィンドウを報告していないため、使用率は不明です。",
+    "usageUnknown": "プロバイダーが圧縮した直後のため、コンテキストの使用量は不明です。"
+  },
+  "sessionRenew": {
+    "action": "要約して新しく始める",
+    "hint": "このミッションの要約を作成します。次のメッセージから、その要約だけを知る新しいセッションが始まります。",
+    "confirmBody": "Specrails がこのミッションの要約（目的、決定事項、現在の状態、次のステップ）を作成します。次のメッセージから、その要約だけを知る新しいプロバイダーセッションが始まります。会話は履歴に残ります。",
+    "confirm": "新しく始める",
+    "cancel": "キャンセル",
+    "running": "要約を作成しています…",
+    "retry": "再試行",
+    "blockedBusy": "現在のターンが終わると利用できます。",
+    "blockedMode": "このモードでは利用できません（専用のセッションで動作します）。",
+    "marker": "セッションを更新 · 要約",
+    "markerDetail": "新しいセッションが知っていること",
+    "showSummary": "要約を表示",
+    "hideSummary": "要約を隠す",
+    "basedOn": "会話全体に基づく",
+    "basedOnPartial": "全 {{total}} 件中、最新の {{included}} 件のメッセージに基づく",
+    "errors": {
+      "MISSION_BUSY": "現在のターンが終わってから、もう一度お試しください。",
+      "MISSION_IN_INTENT": "このミッションは Intent 中で、専用のセッションで動作しています。新しいセッションを始めるには Intent を終了してください。",
+      "MISSION_ARCHIVED": "新しいセッションを始める前に、アーカイブされたミッションを復元してください。",
+      "NOTHING_TO_SUMMARIZE": "まだ要約する会話がありません。",
+      "RENEWAL_CANCELLED": "新しいセッションはキャンセルされました。",
+      "generic": "要約を作成できませんでした。",
+      "SHUTTING_DOWN": "要約の作成中に Specrails が再起動しました。何も変更されていません。もう一度お試しください。"
+    }
+  },
+  "ask": {
+    "menu": "これについて質問",
+    "title": "これについて質問",
+    "description": "選択したテキストについて、このミッションのこれまでの文脈を使って別に会話します。ミッション自体は変更されません。",
+    "selection": "選択したテキスト",
+    "showAll": "すべて表示",
+    "showLess": "折りたたむ",
+    "thread": "サイド会話",
+    "running": "考え中…",
+    "failed": "回答を取得できませんでした。もう一度お試しください。",
+    "retry": "再試行",
+    "inputLabel": "選択したテキストについての質問",
+    "placeholder": "質問を入力、または Enter で説明 · 保存されません",
+    "placeholderFollowUp": "続けて質問 · 保存されません",
+    "send": "質問する",
+    "footer": "{{model}} が回答 · 閉じるとこの会話は破棄されます",
+    "footerPending": "{{model}} を使用 · 閉じるとこの会話は破棄されます",
+    "answer": "回答",
+    "defaultQuestion": "この文脈でこれが何を意味するか説明してください。",
+    "providerDefault": "{{provider}} の既定モデル"
   }
 }

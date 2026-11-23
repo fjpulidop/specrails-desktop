@@ -35,19 +35,19 @@
       "openInStudio": "Open in Studio →",
       "tip": "Tip: click a tag pill on any card to filter by that tag.",
       "categories": {
-        "software-engineering": "Software Engineering",
+        "software-engineering": "Software engineering",
         "testing-qa": "Testing & QA",
-        "data-analytics": "Data & Analytics",
-        "security-compliance": "Security & Compliance",
-        "product-design": "Product & Design",
-        "business-operations": "Business & Operations",
-        "marketing-growth": "Marketing & Growth",
-        "science-research": "Science & Research",
+        "data-analytics": "Data & analytics",
+        "security-compliance": "Security & compliance",
+        "product-design": "Product & design",
+        "business-operations": "Business & operations",
+        "marketing-growth": "Marketing & growth",
+        "science-research": "Science & research",
         "education": "Education",
-        "health-medicine": "Health & Medicine",
+        "health-medicine": "Health & medicine",
         "legal": "Legal",
-        "arts-creative": "Arts & Creative",
-        "management-leadership": "Management & Leadership"
+        "arts-creative": "Arts & creative",
+        "management-leadership": "Management & leadership"
       }
     },
     "generate": {

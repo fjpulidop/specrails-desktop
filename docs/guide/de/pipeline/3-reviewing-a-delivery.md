@@ -22,6 +22,17 @@ Wähle Zeilen per Klick auf ihre Nummern (Umschalt-Klick erweitert den Bereich),
 
 **Im Editor öffnen** öffnet die Datei an der ausgewählten Zeile in VS Code, Cursor oder einer JetBrains-IDE. Den Editor wählst du unter **Einstellungen → Code → Editor**. Die Datei öffnet sich aus deinem eigenen Checkout des Projekts, in dem der Review-Branch möglicherweise nicht ausgecheckt ist.
 
+## Konflikte sehen, bevor du mergst {#merge-preview}
+
+Jede Lieferung, die auf dich wartet, wird mit ihrem Basis-Branch **im aktuellen Stand** (dem zuletzt geholten `origin/<base>`) verglichen, ohne deinen Checkout anzufassen: Git führt beide im Speicher zusammen, und in dein Repository wird nichts geschrieben. Rail-Karte, Review-Paket und Live-Board zeigen dann:
+
+- **Konflikt mit main in …**: die Änderung lässt sich nicht mehr sauber mergen; die Dateien werden aufgelistet. Sie erscheint im Warnaussehen.
+- **Kollidiert mit Rail N in …**: eine andere wartende Lieferung auf derselben Basis ändert dieselben Zeilen, daher hat die zweite beim Mergen Konflikte.
+- **main ist seit dem Abzweigen dieses Branches um N Commits weitergegangen**: die Basis ist vorangekommen; aktualisiere den Branch eventuell, bevor du entscheidest.
+- **Bereits in main**: die Änderung ist schon gelandet (etwa nach einem Squash-Merge).
+
+Auf dem Live-Board ist das Ergebnis ein kurzer Chip (**2 Konflikte**, **Überschneidet 1 Run**, **Basis weiter**), dessen vollständiger Satz beim Überfahren mit der Maus oder beim Fokussieren erscheint. Die Vorschau aktualisiert sich, wenn eine Lieferung ihren Zustand ändert oder ein Run endet. Wenn Specrails mehrere Ergebnisse selbst zurückmergt, mergt es zuerst die, die sauber passen. Benötigt wird Git 2.38 oder neuer; mit älterem Git meldet die Vorschau, dass sie nicht verfügbar ist.
+
 ## Entscheiden, was mit einer Lieferung geschieht {#pr-decision}
 
 Ein abgeschlossener Lauf fragt dich nur eines: Was soll mit dem Ergebnis passieren? Die Karte zeigt eine Hauptschaltfläche für den nächsten Schritt (PR erstellen, veröffentlichen oder prüfen) und daneben **Prüfen**, das das verständliche Review-Paket öffnet. Alles andere liegt hinter **Weitere Aktionen**:
@@ -31,6 +42,12 @@ Ein abgeschlossener Lauf fragt dich nur eines: Was soll mit dem Ergebnis passier
 - **Verwerfen** entfernt das Ergebnis und seinen Branch. Du bestätigst vorher.
 
 Schlägt eine Aktion fehl, nennt die Meldung, was nicht geklappt hat, und bietet **Wiederholen** an.
+
+## Specrails den PR grün halten lassen {#pr-ci}
+
+Nachdem du aus einer Mission einen PR erstellt hast, bietet das Gespräch **CI von PR #N überwachen und reparieren** an. Das ist optional und startet nie von selbst. Wähle **Starten**, und Specrails wartet auf die Checks des PR, behebt die fehlschlagenden, löst Konflikte mit dem Basis-Branch, indem es ihn einmergt, prüft das Ergebnis auf deinem Rechner und pusht die Korrektur in denselben PR, bis die Checks grün sind. Du kannst das im Lauf-Streifen verfolgen („Warte auf die CI“, „Behebe fehlschlagende Checks“, „Pushe die Korrektur in den PR“).
+
+Es macht nie einen Force-Push, schreibt den Branch nie um, schwächt nie einen Check ab und veröffentlicht, mergt oder schließt den PR nie: Diese Entscheidungen bleiben deine. Kann es nicht abschließen (die Checks schlagen weiter fehl, ein erforderlicher Check meldet sich nie, es braucht ein Secret, das nur du liefern kannst), hält es an und sagt, warum. **Nicht jetzt** blendet das Angebot für diese Lieferung aus. Du kannst es später mit **CI / Konflikte reparieren** unter **Weitere Aktionen** auf der PR-Karte oder am Rail starten.
 
 ## Tastatur
 

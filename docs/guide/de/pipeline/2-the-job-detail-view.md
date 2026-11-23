@@ -1,12 +1,22 @@
 # Die Job-Detail-Ansicht
 
-Klick auf eine beliebige Job-Karte auf der **Jobs**-Seite, und du landest hier: dem Cockpit für einen einzelnen Rail-Lauf. Alles dreht sich um ein Versprechen — **die Live-Zahlen, die du siehst, sind echt, niemals geraten.** Diese Seite führt dich durch die Phasen, die Live-Metriken, die Ticket-Karten — und den Composer, mit dem du **mit dem laufenden Job sprechen** kannst.
+Klick auf eine beliebige Job-Karte auf der **Jobs**-Seite, und du landest hier: dem Cockpit für einen einzelnen Rail-Lauf. Alles dreht sich um ein Versprechen — **die Live-Zahlen, die du siehst, sind echt, niemals geraten.** Diese Seite führt dich durch die Phasen, die Live-Metriken, die Spec-Karten — und den Composer, mit dem du **mit dem laufenden Job sprechen** kannst.
 
 ## Das Layout
 
-Der kompakte Header enthält Status, Laufzeit, Phase, Aktionen und Pipeline-Chips. Bei fehlgeschlagenen oder abgebrochenen Läufen mit Diagnose ist **Fehlerursachen** zuerst ausgewählt; andere öffnen **Protokoll**. Auch eine beantwortbare offene Frage macht Fehlerursachen verfügbar: Die Frageschaltfläche öffnet Details zum Antworten, auch ohne Diagnose.
+Der kompakte Header enthält Status, Laufzeit, Phase, Aktionen und Pipeline-Chips. Direkt darunter bündelt **eine Navigationszeile** alles, was du dir ansehen kannst:
 
-Fehlerursachen enthält Ursache, Abhilfen und **Details** in einem begrenzten, intern scrollbaren Panel. Andernfalls bleiben Details im Protokoll. Loops bieten **Ausführungsgraph** und **Protokolldetails**; andere Jobs nur die Details. Bereich und aufgeklappte Details werden für Seite und Missionsmodal getrennt gespeichert; der Haupttab wird bei jedem Besuch zurückgesetzt. Der Composer bleibt darunter.
+- **Fehlerursachen** – vorhanden bei einem fehlgeschlagenen oder abgebrochenen Lauf mit Diagnose und dann zuerst ausgewählt. Eine beantwortbare offene Frage macht den Tab ebenfalls verfügbar: Ein Klick auf die Frage-Schaltfläche im Header führt dorthin, auch ohne Diagnose.
+- **Ausführungsgraph** und **Protokolldetails** – bei Loop-Läufen der Graph des Workflows und das Protokoll Schritt für Schritt.
+- **Protokoll** – bei einfachen Jobs das Streaming-Log.
+
+Neben den Tabs stehen nur die Chips, die der Lauf tatsächlich hat: **Verifizierung** (mit der Anzahl der Prüfungen, in der Farbe seines Zustands), wenn der Lauf Verifizierungsnachweise aufgezeichnet hat – ein Klick zeigt die Prüfungen und ihre Ausgabe –, und eine Schaltfläche **Details** (Balkendiagramm-Symbol), wenn es echte Messwerte gibt. Beide öffnen sich als Popover, sodass das Log immer die volle Höhe behält. Der zuletzt gewählte Log-Bereich wird für die Seite und das Missionsfenster getrennt gespeichert; der ausgewählte Tab wird bei jedem Besuch zurückgesetzt.
+
+### Ausführungsanweisungen
+
+Solange ein Lauf sie noch lesen kann, ist unten am Log ein einzeiliger Composer angedockt: Schreibe, was der Agent berücksichtigen soll, und drücke die Senden-Schaltfläche oder **⌘↵** (**Strg+Enter**). **Enter** fügt eine Zeile hinzu. Das **ⓘ** erklärt die Regel: Anweisungen werden beim nächsten passenden Zug des Agenten angewendet; sie beantworten keine Frage und erteilen keine Freigabe. Was du gesendet hast, erscheint als Chip neben dem Composer – *1 wartend*, *2 angewendet* –, der jede Nachricht mit ihrem Status auflistet. Sobald der Lauf abgeschlossen ist, verschwindet der Composer; ein vergangener Lauf mit Anweisungen behält den Chip schreibgeschützt neben den Tabs.
+
+In der Desktop-App erscheint ein aus einer Mission geöffneter Job in **einem eigenen Fenster**, ein Fenster pro Job. Drücke **Escape** oder schließe das Fenster, um zurückzukehren; die Browser-Version zeigt denselben Inhalt in einem Modal.
 
 ## Pipeline-Phasen
 
@@ -29,7 +39,7 @@ Welcher Agent welche Phase übernimmt, entscheidet das **Agent-Profil** des Proj
 
 ## Live-Metriken — ehrlich von Grund auf
 
-Der kompakte Header zeigt Status, Laufzeit, Aktivität, Schritte und Aktionen. Echte Messwerte und Fortsetzungsaktionen stehen im begrenzten Bereich **Details**:
+Der kompakte Header zeigt Status, Laufzeit, Aktivität, Schritte und Aktionen. Echte Messwerte und Hinweise zur Fortsetzung öffnen sich über die Schaltfläche **Details** neben den Tabs:
 
 | Metrik | Wann du den echten Wert siehst |
 |--------|------------------------------|
@@ -42,18 +52,18 @@ Das Designprinzip: **keine ungefähren oder geschätzten Zahlen während des Lau
 
 Das Label und das Icon im Header entsprechen dem Status des Jobs, und das Panel wird für `running`-, `completed`- und `failed`-Jobs gleichermaßen gerendert — die Detail-Ansicht eines abgeschlossenen Jobs zeigt also dieselben Metriken, eingefroren auf ihren Endwerten.
 
-## Die Ticket-Karten
+## Die Spec-Karten
 
-Der **Ticket-Header** sitzt zwischen dem Status-Header und dem Log. Es ist eine hochwertige Identitäts-Karte, die einen Chip für jede Spec zeigt, die der Job berührt hat — aus dem gestarteten Befehl abgeglichen, sodass er exakt widerspiegelt, um welche Tickets es bei diesem Lauf ging.
+Der **Spec-Header** sitzt zwischen dem Status-Header und dem Log. Es ist eine hochwertige Identitäts-Karte, die einen Chip für jede Spec zeigt, die der Job berührt hat — aus dem gestarteten Befehl abgeglichen, sodass er exakt widerspiegelt, um welche Specs es bei diesem Lauf ging.
 
-- **2–3 Tickets** — als Liste von Chips angezeigt.
+- **2–3 Specs** — als Liste von Chips angezeigt.
 - **4 oder mehr** — werden zu einem kompakten `+ N more`-Modus mit einem Aufklapp-Chevron zusammengefasst, damit der Header aufgeräumt bleibt.
 
-Ein Klick auf einen Chip öffnet die Detailansicht dieser Spec **über der Job-Seite** — du verlierst deinen Platz nicht und wechselst die Route nicht. Eine schnelle Möglichkeit, noch einmal nachzulesen, was ein Job liefern soll, während du ihm bei der Arbeit zusiehst. (Auf tabletbreiten Bildschirmen kannst du ein Ticket-Modal sogar zur Seite ziehen, um zwei Specs nebeneinander zu vergleichen.)
+Ein Klick auf einen Chip öffnet die Detailansicht dieser Spec **über der Job-Seite** — du verlierst deinen Platz nicht und wechselst die Route nicht. Eine schnelle Möglichkeit, noch einmal nachzulesen, was ein Job liefern soll, während du ihm bei der Arbeit zusiehst. (Auf tabletbreiten Bildschirmen kannst du ein Spec-Modal sogar zur Seite ziehen, um zwei Specs nebeneinander zu vergleichen.)
 
 ## Das Streaming-Log
 
-Öffne **Protokoll → Protokolldetails** für das Live-Protokoll oder Story bei aktivierter Erzählansicht. Die Ausgabe kommt in Echtzeit über WebSocket:
+Öffne **Protokoll** (einfache Jobs) oder **Protokolldetails** (Loop-Läufe) für das Streaming-Log oder wähle Story bei aktivierter Erzählansicht. Die Rohausgabe kommt in Echtzeit über WebSocket:
 
 - **Auto-Scroll** hält die neueste Ausgabe im Blick (scrollst du hoch, pausiert es, damit du in Ruhe lesen kannst).
 - **Suche**, um zu einer Stelle zu springen.
@@ -61,16 +71,23 @@ Ein Klick auf einen Chip öffnet die Detailansicht dieser Spec **über der Job-S
 
 Das ist die rohe Wahrheit darüber, was die KI tut — jeder Tool-Aufruf, jede Dateibearbeitung, jeder Testlauf.
 
-## Loop-Läufe: der Schritt-Explorer
+## Loop-Läufe: der Graph und das Schritt-Protokoll
 
-Bei einem **Loop-Lauf** (siehe [Der Loop Builder](the-loop-builder)) zeigt **Protokoll → Ausführungsgraph** den **Schritt-Explorer**. Protokolldetails bietet separat das Rohprotokoll und bei Aktivierung die Erzählansicht:
+Bei einem **Loop-Lauf** (siehe [Der Loop Builder](the-loop-builder)) zeigen zwei Tabs die Belege.
 
-- **Die Übersichtsleiste** oben ist die Live-Karte des Loops — ein Chip pro Knoten (KI-Schritt, Shell, Loop-Entscheider…), in der Reihenfolge, in der der Graph fließt. Die Chips leuchten auf, während der Lauf voranschreitet: abgedunkelt im Wartezustand, pulsierend während der Ausführung, danach ein Haken oder ein Kreuz. Der Chip eines Entscheiders zeigt zudem das Urteil, nach dem er geroutet hat — zurück in die Schleife oder weiter — und ein Iterationszähler (`Iteration 3/10`) führt rechts Buch. Klick auf einen beliebigen Chip, um direkt zum letzten Schritt dieses Knotens zu springen.
+**Ausführungsgraph** ist der Workflow, so wie er gelaufen ist. Er ist immer ausgeklappt und folgt dem laufenden Schritt oder dem, der fehlgeschlagen ist:
+
+- **Der gegangene Pfad ist durchgezogen.** Schritte, die der Lauf durchlaufen hat, sind durchgezogen gezeichnet; nie erreichte Schritte sind gestrichelt und abgeschwächt. Schalte **Nur der gegangene Pfad** ein, um den Rest auszublenden. Eine Legende steht direkt daneben.
+- **Einen Schritt untersuchen.** Wähle einen Knoten, um seine Versuche mit Zustand und Dauer aufzulisten. Klicke auf einen Versuch, um sein Protokoll in Protokolldetails zu öffnen. **Ab hier wiederholen** steht in der Zeile jedes abgeschlossenen Versuchs, sodass ein verknüpfter Lauf genau bei dem Versuch beginnt, den du gewählt hast. Technische IDs stehen unter **Trace**.
+
+**Protokolldetails** enthält die Schrittspur und das Protokoll und öffnet sich beim fehlgeschlagenen Schritt:
+
+- **Die Schrittleiste** oben listet nur die Schritte, die der Lauf erreicht hat, in Reihenfolge, mit einem Iterationszähler (`Iteration 3/10`) rechts. Die Chips sind im Wartezustand abgedunkelt, pulsieren während der Ausführung und zeigen danach einen Haken oder ein Kreuz; der Chip eines Entscheiders zeigt zudem das Urteil, nach dem er geroutet hat. Klicke auf einen Chip, um zu diesem Schritt zu springen.
 - **Eine aufklappbare Box pro Schritt.** Jeder Durchlauf über einen Knoten wird zu einer eigenen Sektion mit Schrittnummer, Name, Iterations-Badge, der Dauer nach Abschluss — und einem eigenen Kopieren-Button, mit dem du dir exakt die Ausgabe eines Schritts holst. (Das Kopieren in der Werkzeugleiste nimmt weiterhin das ganze Log.) Alles, was vor dem ersten Schritt ausgegeben wird — das Start-Banner, der Worktree-Hinweis — landet in einer **Vorbereitung**-Sektion.
 - **Der Folgemodus** ist standardmäßig an: Der laufende Schritt bleibt offen und scrollt automatisch mit, während sich frühere Schritte zusammenfalten. Sobald du hochscrollst oder einen älteren Schritt öffnest, pausiert das Folgen, damit du lesen kannst — eine schwebende Pille **Verfolgung fortsetzen** bringt dich zurück ins Live-Geschehen. **Alle ausklappen / Alle einklappen** sitzen in der Werkzeugleiste, und die Suche durchsucht alle Schritte auf einmal.
 - **Auch unterbrochene Schritte sind ehrlich.** Ein Schritt, der sein Ergebnis nie melden konnte — der Lauf wurde abgebrochen oder die App ging mitten im Schritt aus — wird mit gestrichelter Umrandung als **Unterbrochen** markiert, statt so zu tun, als wäre er fertig geworden.
 
-Graph-Erkundung und pausierte Protokollposition bleiben beim Bereichswechsel erhalten. Jobs ohne Loop zeigen Protokolldetails ohne Graph-Steuerung.
+Story wird bei aktivierter Erzählansicht innerhalb von Protokolldetails angeboten. Graph-Erkundung und eine pausierte Protokollposition bleiben beim Tabwechsel erhalten.
 
 ## Sprich mit dem laufenden Job
 
@@ -85,7 +102,7 @@ Ein paar Dinge, die man wissen sollte:
 
 ## Diagnose-Export
 
-Wenn [Telemetrie](../settings/customizing) für den Job aktiviert war, erscheint im Header ein Button **Export diagnostic**. Er lädt ein ZIP herunter, das Folgendes enthält:
+Wenn [Telemetrie](../settings/pipeline-telemetry-and-diagnostics) für den Job aktiviert war, erscheint im Header ein Button **Export diagnostic**. Er lädt ein ZIP herunter, das Folgendes enthält:
 
 - `job-metadata.json` — Befehl, Status, Profil, Plugins.
 - `telemetry.ndjson` — unkomprimierte OTLP/JSON-Signale.
@@ -97,26 +114,49 @@ Praktisch, um einen Lauf mit einem Teammitglied zu teilen oder einen präzisen F
 
 ## Wenn ein Lauf fehlschlägt
 
-Bei fehlgeschlagenen oder abgebrochenen Jobs mit Diagnose zeigt **Fehlerursachen** die **Diagnosekarte** mit Ursache und bekannten Gründen. Über den Tabs steht keine zusätzliche Ursachenzusammenfassung:
+Bei einem fehlgeschlagenen oder abgebrochenen Job mit Diagnose öffnet sich **Fehlerursachen** mit der **Diagnosekarte**, die die Ursache erklärt und, wenn bekannt, warum es dazu kam. Hat die Laufzeit festgehalten, welcher Schritt fehlgeschlagen ist, nennt die Karte ihn: Schritt, Versuch, Iteration und Zeitpunkt. Die Ursachen:
 
 - **Tests fehlgeschlagen**: Die Prüfungen schlagen nach den Korrekturrunden weiter fehl.
-- **Anbieterlimit**: Das Nutzungslimit des KI-Anbieters ist erreicht. Die Karte nennt den Zeitpunkt des Zurücksetzens in den Worten des Anbieters.
+- **Anbieterlimit** — das Nutzungslimit des KI-Anbieters wurde erreicht. Die Karte nennt den Reset in deiner Ortszeit, wenn der Anbieter den genauen Zeitpunkt gemeldet hat, sonst in den Worten des Anbieters. Ein Lauf, der noch am Limit pausiert, zeigt stattdessen seine eigene Karte: wann er von selbst fortsetzt, **Jetzt fortsetzen** und **Jetzt mit** einem anderen Anbieter **fortsetzen**. Siehe [Nutzungslimits](1-rails-and-jobs.md#usage-limits).
 - **Umgebung**: Der Rechner kann die Prüfungen nicht ausführen (Zugangsdaten, fehlendes Werkzeug, fehlschlagender Setup-Befehl). *Umgebung reparieren* zeigt genau, was auszuführen oder zu ändern ist.
+- **Port belegt**: Die Prüfung oder der Server des Laufs konnte nicht starten, weil ein anderer Prozess seinen Port schon belegte (`EADDRINUSE`). Das zählt nicht als fehlgeschlagene Tests. Jedes Lauf-Worktree bekommt eigene Ports über `PORT` und `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; ein Projekt, das `PORT` liest, kollidiert nie. Beende den anderen Prozess oder lass das Projekt `PORT` lesen, dann **Erneut ausführen**.
 - **Blockiert**, **Zeit überschritten**, **stumm geblieben** und **unerwartet gestoppt** nennen das Limit oder den Prozess, der den Lauf angehalten hat.
-- **Unbekannte Ursache**: Die App rät nicht. Sie zeigt das Ende des Protokolls, damit du es selbst lesen kannst.
+- **Unerledigte Aufgaben**: Der Lauf hat die Arbeit gemacht, aber freigegebene Aufgaben nicht abgehakt, etwa eine visuelle Prüfung. Die Karte listet sie. **Fortsetzen** behält die Arbeit und startet den Entwickler mit dem Browser-Werkzeug und der Regel, Fehlendes zu installieren, für genau diese Aufgaben neu; sind nur noch Prüfungen übrig, die ein Mensch machen muss, schickt **Weiter zur Prüfung** ihn mit ihnen als *Prüfungen von Hand* im Prüfpaket zur Prüfung.
+- **Spezifikation abgelehnt**: OpenSpec hat den Plan oder die Spezifikation abgelehnt, und die Planung konnte es nicht reparieren. **Spec bearbeiten und neu starten**.
+- **Unbekannte Ursache**: Die Aufzeichnungen des Laufs nennen keine Ursache, und die App rät nicht. Die Karte zeigt stattdessen zuerst die KI-Analyse, als solche gekennzeichnet, oder bietet **Mit KI analysieren** als erste Aktion an; das Ende des Logs bleibt einen Klick entfernt.
 
-Unter der Diagnose stehen bis zu drei gereihte Abhilfen, und nur solche, die hier funktionieren können: **Fortsetzen ab** der angehaltenen Phase, **Erneut ausführen**, **Spec bearbeiten und neu starten** (die Nachträge der Spec tragen deine Änderung in den nächsten Lauf), **Umgebung reparieren** und **Protokoll am Fehler öffnen**. Dieselbe Ursache erscheint als einzeilige Bezeichnung im [Liste „Offen“](../getting-started/the-dashboard-tour), und die Lauf-Karte der Mission zeigt dieselbe Karte.
+Unter der Diagnose stehen bis zu drei gereihte Abhilfen, und nur solche, die hier funktionieren, jede mit einer Zeile darunter, was sie mit deiner Arbeit macht: **Fortsetzen**, **Weiter zur Prüfung**, **Spec bearbeiten und neu starten** (die Nachträge der Spec tragen deine Änderung in den nächsten Lauf), **Umgebung reparieren** und **Logs beim Fehler öffnen**. **Neu beginnen** wartet im Menü **⋯**: Es startet einen neuen Lauf ab der Basis, und die Arbeit dieses Versuchs wird nicht übernommen (sie bleibt im alten Worktree). Dieselbe Ursache erscheint als einzeilige Angabe im [Eingang](../getting-started/the-dashboard-tour), und die Laufkarte der Mission zeigt dieselbe Karte.
+
+Implement-Läufe prüfen Oberfläche und visuelles Verhalten selbst: Jeder Lauf erhält ein Headless-Browser-Werkzeug (`$SPECRAILS_BROWSE`), das die App auf dem eigenen Port des Laufs oder eine Seite des Repositorys in Desktop- und Handygröße öffnet und Screenshots liefert, die der Agent liest. Eine Prüfung, die nur ein Mensch machen kann (Geschmack, ein echtes Gerät, echte Zugangsdaten), wird als *Prüfung von Hand* geplant: Der Lauf scheitert nie daran, und sie erreicht dich im Review-Paket.
+
+### Einen Lauf fortsetzen {#continue}
+
+**Fortsetzen** ist der eine Weg weiter für einen fehlgeschlagenen oder angehaltenen Lauf. Es behält alles, was der Lauf getan hat, und macht im selben Worktree weiter: Ein pausierter Lauf wird an Ort und Stelle fortgesetzt; ein fehlgeschlagener oder angehaltener geht als sein nächster *Versuch* weiter, ab dem fehlgeschlagenen Schritt oder dort, wo du ihn angehalten hast. Es sagt dem Agenten auch, was schiefging: bei unerledigten Aufgaben die genauen Aufgaben mit dem Browser-Werkzeug und der Regel, Fehlendes zu installieren; bei einem Problem der Maschine, was fehlte und wie man es installiert; nach einem vorübergehenden Anbieterfehler nichts (derselbe Schritt läuft einfach erneut).
+
+Ein Lauf, den du angehalten hast, sagt das (**Du hast diesen Lauf angehalten**) und bietet dasselbe **Fortsetzen**, nie einen Neustart von vorn.
+
+Versuche derselben Arbeit sind eine Einheit. Das Lauffenster zeigt, wo dieser steht, etwa *Versuch 3 von 4 · fortgesetzt ab dem Schritt Entwickler von Versuch 2*; ein Klick zeigt jeden Versuch, öffnet jeden davon und was sich dazwischen geändert hat (wer fortgesetzt hat, ab welchem Schritt, die gesendeten Hinweise). Eingang, Live-Board, Jobliste und **⌘K** zeigen nur den neuesten Versuch mit seiner Nummer: Ein früherer fehlgeschlagener Versuch, den ein späterer übernommen hat, zählt nicht mehr als etwas, das dich braucht.
+
+Ist die Ursache bekannt und kann weitere Arbeit sie beheben (unerledigte Aufgaben, ein fehlendes Werkzeug, ein vorübergehender Anbieterfehler, ein festgefahrener Versuch), setzt Specrails **einmal** selbst fort und schreibt *Specrails hat automatisch fortgesetzt* in den Verlauf des Laufs. Nie bei Zugangsdaten oder Geheimnissen, Richtlinienablehnungen, Ausgabenlimits, Nutzungslimits, einem von dir gewählten Stopp oder demselben Fehler zweimal. Abschalten unter **Einstellungen → Specrails-Agenten → Fehlgeschlagene Läufe fortsetzen**.
+
+Schlägt die KI-Analyse unten einen Schritt vor, der eine dieser Abhilfen ist, erscheint er als Schaltfläche neben dem Schritt.
+
+### KI-Analyse {#ai-failure-analysis}
+
+Unter der Karte liest eine **KI-Analyse** das Protokoll und erklärt, warum der Lauf gestoppt hat: die Ursache, **Nächste Schritte** und die Zeilen **Aus dem Protokoll**, auf die sie sich stützt, wörtlich zitiert. Sie läuft mit demselben Anbieter und Modell, die den Job ausgeführt haben, sodass dein Konto sie immer ausführen kann. Sie startet von selbst, außer wenn das Limit des Anbieters die Ursache war; dann drücke **Mit KI analysieren**. Die Analyse wird mit dem Job gespeichert. Ändert sich das Protokoll danach, sagt sie das und bietet **Erneut analysieren** an.
+
+Die Analyse ist als KI-Lesart gekennzeichnet und ersetzt nie die Karte: Diagnose, Ursache und Abhilfen bleiben das, was die App erfasst hat. Prüfe die zitierten Zeilen, bevor du danach handelst. Ihre Kosten zählen unter **Support** in [Analytics](../insights/analytics-and-cost-tracking).
 
 ## Wie es weitergeht
 
 - [Rails & Jobs](rails-and-jobs) — Starten und Einreihen in die Queue.
-- [Kosten verfolgen](../analytics/tracking-cost) — aus Kosten pro Job Projekt-Analysen machen.
+- [Analytics & Kostenverfolgung](../insights/analytics-and-cost-tracking) — aus Kosten pro Job Projekt-Analysen machen.
 
 ## Nach einem Workflow-Neustart
 
 Setze nach einem Absturz den gespeicherten Workflow mit seiner ursprünglichen Konfiguration und seinen ursprünglichen Repositorys fort. Prüfe bei einem unterbrochenen Schreibvorgang zuerst den Worktree-Diff und wähle dann den genauen Versuch aus. Abgeschlossene Schritte bleiben erhalten. Ein Anbieteraufruf mit verlorener Antwort wird weiterhin als unterbrochen mit unbekanntem Verbrauch gezählt, niemals als kostenlos. Lässt sich die ursprüngliche Auslieferung anhand der gespeicherten Daten nicht belegen, zeigt die Wiederherstellung einen Fehler und erhält den Worktree.
 
-Wenn ein Entscheidungsschritt wegen einer Frage pausiert, verwendet die Fortsetzung die gespeicherte Entscheidung und gibt die menschliche Antwort an den nächsten Schritt weiter. Das Modell wird für dieselbe Entscheidung nicht erneut aufgerufen. Ein pausierter Prompt kann einen weiteren Modellaufruf benötigen, um Ihre Antwort umzusetzen.
+Wenn ein Entscheidungsschritt wegen einer Frage pausiert, verwendet die Fortsetzung die gespeicherte Entscheidung und gibt die menschliche Antwort an den nächsten Schritt weiter. Das Modell wird für dieselbe Entscheidung nicht erneut aufgerufen. Ein pausierter Prompt kann einen weiteren Modellaufruf benötigen, um deine Antwort umzusetzen.
 
 ## Aufbewahrung des Verlaufs
 

@@ -15,6 +15,8 @@ import { cn } from '../../../lib/utils'
 import { formatUsd } from '../../../lib/format-usd'
 import { formatElapsed } from '../../../lib/format-duration'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
+import type { RunState } from '../../../components/ui/run-state/run-state'
 
 type SettlementStatus = 'pending' | 'done' | 'skipped' | 'failed' | null
 
@@ -186,16 +188,20 @@ export function costView(cost: IntentDeliveredRow['cost'], includedText: string)
 
 type Lamp = 'done' | 'pending' | 'muted'
 
-/** One line of the story: a lamp (dot) and its words; pending lines breathe. */
+/** A line's lamp in the status vocabulary: settled, still being done (the working lamp), or kept as is. */
+const LAMP_RUN_STATE = { done: 'done', pending: 'working', muted: 'stopped' } as const satisfies Record<Lamp, RunState>
+
+/** One line of the story: a lamp (dot) and its words. */
 function Line({ icon: Icon, lamp, children, testId }: { icon: typeof CheckCircle2; lamp: Lamp; children: React.ReactNode; testId: string }) {
   return (
     <li
       data-testid={testId}
       data-lamp={lamp}
-      className={cn('flex min-w-0 items-start gap-2 leading-4', lamp === 'done' ? 'text-foreground' : 'text-muted-foreground', lamp === 'pending' && 'motion-safe:animate-pulse')}
+      data-run-state={LAMP_RUN_STATE[lamp]}
+      className={cn('flex min-w-0 items-start gap-2 leading-4', lamp === 'done' ? 'text-foreground' : 'text-muted-foreground')}
     >
       <span className="mt-1 flex h-2 w-2 shrink-0 items-center justify-center" aria-hidden>
-        <span className={cn('block h-1.5 w-1.5 rounded-full', lamp === 'done' ? 'bg-accent-success' : 'border border-muted-foreground/60')} />
+        <RunStateDot state={LAMP_RUN_STATE[lamp]} />
       </span>
       <Icon className={cn('mt-px h-3 w-3 shrink-0', lamp === 'done' ? 'text-accent-success' : 'text-muted-foreground')} aria-hidden />
       <span className="min-w-0 break-words">{children}</span>

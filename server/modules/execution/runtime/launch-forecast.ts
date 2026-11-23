@@ -75,5 +75,8 @@ export function getLaunchForecast(db: DbInstance, projectId: string, target: Lau
   const factoryCommand = target.loopId ? FACTORY_COMMAND[target.loopId] : undefined
   if (target.loopId && !factoryCommand) return forecastFromSamples(loopRunSamples(db, projectId, target.loopId, provider))
   const shape = factoryCommand ?? target.commandShape
-  return forecastFromSamples(shape ? jobCommandSamples(db, shape, provider) : [])
+  const jobs = shape ? jobCommandSamples(db, shape, provider) : []
+  // Rails launch the factory workflows as loop runs too (`loop_runs.loop_id`): both are runs like this one.
+  const loops = factoryCommand ? loopRunSamples(db, projectId, target.loopId!, provider) : []
+  return forecastFromSamples([...loops, ...jobs])
 }

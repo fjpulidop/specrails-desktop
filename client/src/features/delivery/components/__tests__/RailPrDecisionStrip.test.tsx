@@ -95,6 +95,16 @@ beforeEach(() => {
   })
 })
 
+function inspectFetch(archive: string, fileCount = 1) {
+  const original = global.fetch
+  global.fetch = vi.fn(async (input: RequestInfo | URL) => String(input).includes('/worktrees/quarantines/inspect')
+    ? new Response(JSON.stringify({ items: [{ projectId: 'p1', path: archive, status: 'present', quarantine: {
+      path: archive, worktreeName: 'ticket-1', createdAt: 0, fileCount, bytes: 9, files: [{ path: 'CLAUDE.md', kind: 'file', bytes: 9 }], truncated: false,
+    } }] }), { status: 200 })
+    : original(input)) as unknown as typeof fetch
+  return () => { global.fetch = original }
+}
+
 describe('grouped RailPrDecisionStrip actions', () => {
   const repositories: RepositoryDeliverySnapshot[] = ['web', 'api'].map((repositoryId) => ({
     repositoryId, name: repositoryId, path: `/repos/${repositoryId}`, deliveryId: `child-${repositoryId}`,
@@ -209,6 +219,12 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         renderRail(snapshot({ decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/5', prNumber: 5, prState: 'pr-created' }), density)
         const strip = screen.getByTestId('rail-pr-strip')
         expect(within(strip).getByText('PR ready')).toBeInTheDocument()
+        // Ready to decide: an open PR in the review tone — GitMerge means merged only.
+        const pill = within(strip).getByText('PR ready').closest('[data-run-state]')!
+        expect(pill).toHaveAttribute('data-run-state', 'review')
+        expect(pill.className).toContain('text-accent-review')
+        expect(pill.querySelector('.lucide-git-pull-request')).not.toBeNull()
+        expect(pill.querySelector('.lucide-git-merge')).toBeNull()
         expect(within(strip).getByTestId('rail-pr-link')).toHaveTextContent('#5')
         expect(within(strip).getByTestId('rail-pr-poll')).toHaveTextContent('Verify PR')
         expect(menuItem('rail-pr-discard')).toBeInTheDocument()
@@ -218,6 +234,12 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         renderRail(snapshot({ decision: 'pr_failed' }), density)
         const strip = screen.getByTestId('rail-pr-strip')
         expect(within(strip).getByText('PR failed')).toBeInTheDocument()
+        // A failure is XCircle in the destructive tone; AlertTriangle is reserved for blocked.
+        const pill = within(strip).getByText('PR failed').closest('[data-run-state]')!
+        expect(pill).toHaveAttribute('data-run-state', 'failed')
+        expect(pill.className).toContain('text-destructive')
+        expect(pill.querySelector('.lucide-circle-x')).not.toBeNull()
+        expect(pill.querySelector('.lucide-triangle-alert')).toBeNull()
         expect(within(strip).getByTestId('rail-pr-create')).toHaveTextContent('Retry')
         expect(menuItem('rail-pr-discard')).toBeInTheDocument()
       })
@@ -227,7 +249,7 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         const strip = screen.getByTestId('rail-pr-strip')
         expect(strip).toHaveAttribute('data-decision', 'implementation_failed')
         expect(within(strip).getByText('Implementation failed')).toBeInTheDocument()
-        expect(menuItem('rail-pr-discard')).toHaveAttribute('title', expect.stringContaining('implementation run failed'))
+        expect(menuItem('rail-pr-discard')).toHaveAttribute('title', expect.stringContaining('The run\'s log stays available'))
         expect(within(strip).queryByTestId('rail-pr-create')).toBeNull()
         expect(within(strip).queryByTestId('rail-pr-merge-local')).toBeNull()
       })
@@ -237,6 +259,8 @@ describe('RailPrDecisionStrip states (via RailRow, both densities)', () => {
         const strip = screen.getByTestId('rail-pr-strip')
         expect(within(strip).getByTestId('rail-pr-run-stopped')).toHaveTextContent('Stopped')
         expect(within(strip).getByTestId('rail-pr-run-stopped').className).not.toContain('destructive')
+        expect(within(strip).getByTestId('rail-pr-run-stopped')).toHaveAttribute('data-run-state', 'stopped')
+        expect(within(strip).getByTestId('rail-pr-run-stopped').querySelector('.lucide-circle-slash')).not.toBeNull()
         expect(within(strip).queryByText('Implementation failed')).toBeNull()
         // The status-code chip would only repeat the pill.
         expect(within(strip).queryByTestId('rail-pr-status-code')).toBeNull()
@@ -513,7 +537,7 @@ describe('RailPrDecisionStrip interactions', () => {
     const dialog = await screen.findByTestId('rail-pr-discard-confirm')
     expect(dialog).toHaveTextContent('Discard this delivery?')
     expect(dialog).toHaveTextContent('PR will be closed without deleting its remote branch')
-    expect(dialog).toHaveTextContent('SpecRails-owned local branches and worktrees that are still at their recorded commit')
+    expect(dialog).toHaveTextContent('Specrails-owned local branches and worktrees that are still at their recorded commit')
     expect(dialog).toHaveTextContent('anything changed will be preserved with a warning')
     expect(dialog).toHaveTextContent('specs will return to the Specs backlog')
     expect(dialog).toHaveTextContent('Removed local resources cannot be recovered')
@@ -1089,17 +1113,20 @@ describe('RailPrDecisionStrip orthogonal implementation/delivery outcomes', () =
     expect(dialog).toHaveTextContent('specs will return to the Specs backlog')
   })
 
-  it('discloses durable safety archives without mislabeling cleanup as incomplete', () => {
-    renderStrip(snapshot({
-      decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/45', prState: 'pr-created',
-      safetyArchives: ['/worktrees/ticket-1.specrails-overlay-quarantine-a1/.mcp.json'],
-      cleanupWarnings: [],
-    }))
-
-    const archives = screen.getByTestId('rail-pr-safety-archives')
-    expect(archives).toHaveTextContent('Safety archive (1)')
-    expect(archives).toHaveTextContent('ticket-1.specrails-overlay-quarantine-a1/.mcp.json')
-    expect(screen.queryByText(/Cleanup is incomplete/)).toBeNull()
+  it('discloses really kept files without mislabeling cleanup as incomplete', async () => {
+    const archive = '/worktrees/run/ticket-1.specrails-overlay-quarantine-a1B2c3'
+    const restore = inspectFetch(archive)
+    try {
+      renderStrip(snapshot({
+        decision: 'pr_ready', prUrl: 'https://github.com/o/r/pull/45', prState: 'pr-created',
+        safetyArchives: [archive],
+        cleanupWarnings: [],
+      }))
+      const archives = await screen.findByTestId('rail-pr-safety-archives')
+      expect(archives).toHaveTextContent("1 file was kept that didn't go into the PR")
+      expect(archives).not.toHaveTextContent(archive)
+      expect(screen.queryByText(/Cleanup is incomplete/)).toBeNull()
+    } finally { restore() }
   })
 
   it('distinguishes local-only delivery from a pushed branch', () => {
@@ -1190,9 +1217,29 @@ describe('strip: one primary, readable detail, honest spinners', () => {
     global.fetch = vi.fn().mockResolvedValue(new Response('{}', { status: 202 })) as unknown as typeof fetch
     setActiveProjectId('p1')
     renderStrip(snapshot({ decision: 'implementation_failed', railIndex: 2 }))
-    expect(screen.getByTestId('rail-pr-detail-line')).toHaveTextContent(/implementation run failed/i)
+    // Without a known cause the card says what happened and where to look; never "discard before relaunching".
+    expect(screen.getByTestId('rail-pr-detail-line')).toHaveTextContent('The run stopped before it had anything to deliver. Open its log to see why.')
+    expect(screen.getByTestId('rail-pr-detail-line')).not.toHaveTextContent(/discard/i)
     fireEvent.click(screen.getByTestId('rail-pr-relaunch'))
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/rails\/2\/relaunch$/), expect.objectContaining({ method: 'POST', body: JSON.stringify({ sourceId: 'del-1' }) })))
+  })
+
+  it('implementation_failed says the run window\'s reason once: one pill, the diagnosis headline, no repeated chips', async () => {
+    global.fetch = vi.fn(async (url: RequestInfo | URL) => {
+      const href = String(url)
+      if (href.includes('/loop-runs/run-9')) return new Response(JSON.stringify({ loopRun: { failureDiagnosis: { kind: 'provider_unavailable', confidence: 'high', detail: 'API Error: 500', phase: 'architect', remedies: [] } } }), { status: 200 })
+      return new Response('{}', { status: 200 })
+    }) as unknown as typeof fetch
+    setActiveProjectId('p1')
+    renderStrip(snapshot({ decision: 'implementation_failed', statusCode: 'implementation_failed', runIds: ['run-9'], deliverySha: 'abcdef1234567',
+      units: [{ ticketId: 1, branch: 'feat/1', implementationOutcome: 'failed', deliveryOutcome: 'not_started', succeeded: false, runId: 'run-9' }] } as never))
+    expect(await screen.findByTestId('rail-pr-failure-reason')).toHaveTextContent(/Architect/)
+    expect(screen.queryByTestId('rail-pr-detail-line')).toBeNull()
+    expect(screen.getAllByText(/implementation failed/i)).toHaveLength(1)
+    expect(screen.queryByTestId('rail-pr-status-code')).toBeNull()
+    expect(screen.queryByTestId('rail-pr-unit-evidence')).toBeNull()
+    // Nothing was delivered: the recorded commit is only the base it started from.
+    expect(screen.queryByTestId('rail-pr-delivery-sha')).toBeNull()
   })
 
   describe('resumable failed attempt', () => {
@@ -1232,6 +1279,36 @@ describe('strip: one primary, readable detail, honest spinners', () => {
       renderStrip(snapshot({ decision: 'implementation_failed', runIds: ['run-1'] }))
       await waitFor(() => expect(screen.getByTestId('rail-pr-relaunch')).toBeDisabled())
       expect(screen.getByTestId('rail-pr-relaunch')).toHaveAttribute('title', 'The rail still has an active run')
+    })
+
+    it('continues a settled definition run where it failed or stopped, never relaunching it from the base', async () => {
+      routeFetch([run({ engineVersion: 2, canResume: false, status: 'cancelled' })])
+      renderStrip(snapshot({ decision: 'implementation_failed', implementationOutcome: 'failed', statusCode: 'run_stopped', railIndex: 2, runIds: ['run-1'] }))
+      const go = await screen.findByTestId('rail-pr-continue')
+      expect(screen.queryByTestId('rail-pr-relaunch')).toBeNull()
+      expect(screen.getByTestId('rail-pr-detail-line')).toHaveTextContent('Continue picks it up where it stopped')
+      fireEvent.click(go)
+      await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/loop-runs\/run-1\/remedy$/), expect.objectContaining({ method: 'POST', body: JSON.stringify({ remedy: 'continue' }) })))
+    })
+
+    it('continues a stopped run the runtime list no longer shows, from the run\'s own record', async () => {
+      global.fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+        const href = String(url)
+        if (init?.method === 'POST') return new Response('{}', { status: 201 })
+        if (href.includes('/attempts')) return new Response(JSON.stringify({ chain: null, continuable: true }), { status: 200 })
+        if (href.includes('/agent-runtime/runs')) return new Response(JSON.stringify({ runs: [] }), { status: 200 })
+        return new Response('{}', { status: 200 })
+      }) as unknown as typeof fetch
+      renderStrip(snapshot({ decision: 'implementation_failed', implementationOutcome: 'failed', statusCode: 'run_stopped', railIndex: 2, runIds: ['run-1'] }))
+      fireEvent.click(await screen.findByTestId('rail-pr-continue'))
+      await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/loop-runs\/run-1\/remedy$/), expect.objectContaining({ method: 'POST' })))
+    })
+
+    it('offers no Continue for an attempt a later one already took over', async () => {
+      routeFetch([run({ engineVersion: 2, canResume: false, forkSuccessor: 'fork-1' })])
+      renderStrip(snapshot({ decision: 'implementation_failed', railIndex: 2, runIds: ['run-1'] }))
+      await act(async () => {})
+      expect(screen.queryByTestId('rail-pr-continue')).toBeNull()
     })
 
     it('never offers the plain rail Relaunch for an Intent session to Spec run', async () => {

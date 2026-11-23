@@ -659,7 +659,7 @@ export function formatMissingSetupPrerequisites(status = getSetupPrerequisitesSt
   if (status.ok) return null
 
   return [
-    'SpecRails setup needs a few developer tools before it can install this project.',
+    'Specrails setup needs a few developer tools before it can install this project.',
     '',
     ...status.missingRequired.map((item) => {
       if (!item.installed) {

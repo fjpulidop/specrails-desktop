@@ -44,6 +44,24 @@ export function isSpecrailsManagedPath(p: string): boolean {
   return MANAGED_GENERATED_RES.some((re) => re.test(normalized))
 }
 
+/**
+ * Files Specrails' project setup writes untracked into the checkout (OpenSpec's
+ * config and placeholders next to the managed skills/commands). When a saved
+ * UNTRACKED copy of one meets a delivered (tracked) version after the advance,
+ * the delivered one wins: the setup regenerates it, and it is not the person's
+ * work. A tracked edit of these files is never treated this way.
+ */
+const SETUP_UNTRACKED_RES: readonly RegExp[] = [
+  /^openspec\/config\.ya?ml$/,
+  /^openspec\/(?:specs|changes|changes\/archive)\/\.gitkeep$/,
+  /^\.[^/]+\/skills\/\.openspec-target$/,
+]
+
+export function isSpecrailsSetupUntrackedPath(p: string): boolean {
+  const normalized = p.replace(/\\/g, '/')
+  return isSpecrailsManagedPath(normalized) || SETUP_UNTRACKED_RES.some((re) => re.test(normalized))
+}
+
 /** `specrails: before integrating #12, #13 (<deliveryId>)`. */
 export function localStashMessage(ticketIds: readonly number[], deliveryId: string): string {
   const tickets = ticketIds.length > 0 ? ticketIds.map((id) => `#${id}`).join(', ') : 'delivery'
@@ -324,10 +342,23 @@ export async function restoreLocalChanges(git: GitRunner, record: Pick<LocalStas
     // saved work and a rollback could not tell them apart. Keep both.
     return { state: 'blocked', reason: 'dirty', detail: `These files changed again since they were saved: ${busy.slice(0, 5).join(', ')}` }
   }
-  const applied = await safeRun(git, ['stash', 'apply', '--quiet', record.sha], repo)
+  // Untracked files the stash would re-create that now exist (the delivery
+  // added them, tracked): `git stash apply` refuses the whole restore for one
+  // of them. Identical ones need nothing; Specrails' own setup files take the
+  // delivered version; only the person's own differing files are a conflict.
+  const collisions = await untrackedCollisions(git, repo, carried.untracked)
+  if (!collisions) return { state: 'blocked', reason: 'unavailable', detail: 'The saved changes could not be compared with the integrated files.' }
+  if (collisions.own.length > 0) {
+    // Nothing was applied: the integrated tree is intact and the stash is kept.
+    return { state: 'needs_attention', conflictPaths: collisions.own.slice(0, 20), warnings: [] }
+  }
+  const skipped = new Set([...collisions.same, ...collisions.managed])
+  const applied = skipped.size === 0
+    ? await safeRun(git, ['stash', 'apply', '--quiet', record.sha], repo)
+    : await applySkipping(git, repo, record.sha, carried, skipped)
   if (applied.code === 0) {
     const warning = await dropBySha(git, repo, record.sha)
-    return { state: 'restored', warnings: warning ? [warning] : [] }
+    return { state: 'restored', warnings: warning ? [warning] : [], ...(collisions.managed.length > 0 ? { managedPaths: collisions.managed } : {}) }
   }
   const unmerged = await safeRun(git, ['diff', '--name-only', '-z', '--diff-filter=U'], repo)
   const conflictPaths = unmerged.code === 0 ? nulList(unmerged.stdout) : []
@@ -362,6 +393,42 @@ export async function restoreLocalChanges(git: GitRunner, record: Pick<LocalStas
     warnings.push('The integrated tree could not be fully restored after the conflicting apply; your saved changes are still in the stash.')
   }
   return { state: 'needs_attention', conflictPaths: (conflictPaths.length > 0 ? conflictPaths : touched).slice(0, 20), warnings }
+}
+
+/** Classify the stash's untracked files that already exist in the checkout. Null when git fails. */
+async function untrackedCollisions(git: GitRunner, repo: string, untracked: ReadonlyMap<string, string>): Promise<{ same: string[]; managed: string[]; own: string[] } | null> {
+  const same: string[] = [], managed: string[] = [], own: string[] = []
+  for (const [file, blob] of untracked) {
+    let present: fs.Stats | null = null
+    try { present = fs.lstatSync(path.join(repo, file)) } catch { present = null }
+    if (!present) continue
+    const hashed = present.isFile() ? await safeRun(git, ['hash-object', '--', file], repo) : null
+    if (hashed && hashed.code !== 0) return null
+    if (hashed && hashed.stdout.trim() === blob) same.push(file)
+    else if (isSpecrailsSetupUntrackedPath(file)) managed.push(file)
+    else own.push(file)
+  }
+  return { same, managed, own }
+}
+
+/**
+ * `git stash apply` without some of its untracked files: the tracked part is
+ * applied from a two-parent copy of the stash (same tree, no untracked parent),
+ * then the remaining untracked files are written back unstaged.
+ */
+async function applySkipping(git: GitRunner, repo: string, sha: string, carried: { tracked: string[]; untracked: Map<string, string> }, skipped: ReadonlySet<string>): Promise<GitResult> {
+  if (carried.tracked.length > 0) {
+    const copy = await safeRun(git, ['-c', 'user.name=Specrails', '-c', 'user.email=specrails@localhost', 'commit-tree', `${sha}^{tree}`, '-p', `${sha}^1`, '-p', `${sha}^2`, '-m', 'specrails: restore tracked changes'], repo)
+    const copySha = copy.stdout.trim()
+    if (copy.code !== 0 || !SHA_RE.test(copySha)) return copy.code !== 0 ? copy : { code: 1, stdout: '', stderr: 'copying the saved changes produced no commit' }
+    const tracked = await safeRun(git, ['stash', 'apply', '--quiet', copySha], repo)
+    if (tracked.code !== 0) return tracked
+  }
+  const files = [...carried.untracked.keys()].filter((file) => !skipped.has(file))
+  const written = await inChunks(files, (chunk) => safeRun(git, ['checkout', `${sha}^3`, '--', ...chunk.map(literal)], repo))
+  if (written) return written
+  const unstaged = await inChunks(files, (chunk) => safeRun(git, ['rm', '--cached', '-q', '--ignore-unmatch', '--', ...chunk.map(literal)], repo))
+  return unstaged ?? { code: 0, stdout: '', stderr: '' }
 }
 
 /** Specrails stashes in a repository, keyed by delivery id (from the message). */

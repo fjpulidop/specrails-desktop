@@ -161,15 +161,15 @@
   },
   "templates": {
     "security-reviewer": {
-      "label": "Revisor de Segurança",
+      "label": "Revisor de segurança",
       "blurb": "Encontra bugs de autenticação, injeção e exposição de dados num diff antes do envio."
     },
     "performance-profiler": {
-      "label": "Profiler de Desempenho",
+      "label": "Profiler de desempenho",
       "blurb": "Encontra hot paths, queries N+1, loops sem limite, bundles inchados."
     },
     "data-engineer": {
-      "label": "Engenheiro de Dados",
+      "label": "Engenheiro de dados",
       "blurb": "Migrações de schema, pipelines ETL, transformações de dados."
     },
     "ui-ux-polisher": {
@@ -181,7 +181,7 @@
       "blurb": "Versionamento, paginação, formatos de erro, retrocompatibilidade."
     },
     "database-architect": {
-      "label": "Arquiteto de Base de Dados",
+      "label": "Arquiteto de base de dados",
       "blurb": "Índices, normalização vs desnormalização, formatos de queries."
     },
     "devops-sre": {
@@ -189,7 +189,7 @@
       "blurb": "CI/CD, observabilidade, preparação para incidentes, runbooks."
     },
     "mobile-engineer": {
-      "label": "Engenheiro Mobile",
+      "label": "Engenheiro mobile",
       "blurb": "Padrões iOS + Android, offline-first, atenção à bateria."
     },
     "ml-engineer": {
@@ -197,51 +197,51 @@
       "blurb": "Pipelines, avaliação, reprodutibilidade, monitorização de drift."
     },
     "accessibility-auditor": {
-      "label": "Auditor de Acessibilidade",
+      "label": "Auditor de acessibilidade",
       "blurb": "Revisão WCAG 2.2: contraste, foco, ARIA, teclado."
     },
     "qa-test-strategist": {
-      "label": "Estratega de Testes QA",
+      "label": "Estratega de testes QA",
       "blurb": "Planos de teste: divisão unitários / integração / E2E, lacunas de cobertura."
     },
     "load-tester": {
-      "label": "Tester de Carga / Stress",
+      "label": "Tester de carga / stress",
       "blurb": "Planeamento de capacidade, cenários k6 / Locust, caça aos gargalos."
     },
     "integration-tester": {
-      "label": "Tester de Integração",
+      "label": "Tester de integração",
       "blurb": "Contratos entre serviços, fixtures, redução de testes instáveis."
     },
     "regression-hunter": {
-      "label": "Caçador de Regressões",
+      "label": "Caçador de regressões",
       "blurb": "Faz bisect, reproduz e escreve primeiro o teste que falha."
     },
     "data-analyst": {
-      "label": "Analista de Dados",
+      "label": "Analista de dados",
       "blurb": "Transforma perguntas vagas em queries + conclusões legíveis."
     },
     "etl-reviewer": {
-      "label": "Revisor de Pipelines ETL",
+      "label": "Revisor de pipelines ETL",
       "blurb": "Idempotência, backfills, dados que chegam tarde."
     },
     "dashboard-designer": {
-      "label": "Designer de Dashboards",
+      "label": "Designer de dashboards",
       "blurb": "Dashboards de leitura imediata, eixos honestos, uma ação por gráfico."
     },
     "iac-reviewer": {
-      "label": "Revisor de IaC / Cloud",
+      "label": "Revisor de iaC / cloud",
       "blurb": "Terraform / CloudFormation: IAM, exposição pública, custos."
     },
     "compliance-reviewer": {
-      "label": "Revisor de Conformidade",
+      "label": "Revisor de conformidade",
       "blurb": "Verificações no âmbito do RGPD / SOC2 / HIPAA sobre fluxos de dados."
     },
     "threat-modeler": {
-      "label": "Modelador de Ameaças",
+      "label": "Modelador de ameaças",
       "blurb": "STRIDE / LINDDUN sobre diagramas de arquitetura."
     },
     "product-manager": {
-      "label": "Product Manager",
+      "label": "Product manager",
       "blurb": "Enquadramento do problema, PRDs, priorização."
     },
     "ux-researcher": {
@@ -249,27 +249,27 @@
       "blurb": "Guiões de entrevista, planos de testes de usabilidade, síntese."
     },
     "technical-writer": {
-      "label": "Redator Técnico",
+      "label": "Redator técnico",
       "blurb": "Documentação que realmente se lê — tutoriais, referências, changelogs."
     },
     "design-reviewer": {
-      "label": "Revisor de Design System",
+      "label": "Revisor de design system",
       "blurb": "Desvio de tokens, mau uso de componentes, consistência entre fluxos."
     },
     "financial-analyst": {
-      "label": "Analista Financeiro",
+      "label": "Analista financeiro",
       "blurb": "Unit economics, modelos de coortes, análise de cenários."
     },
     "pricing-strategist": {
-      "label": "Estratega de Preços",
+      "label": "Estratega de preços",
       "blurb": "Níveis, empacotamento, estudos de disposição a pagar."
     },
     "market-researcher": {
-      "label": "Investigador de Mercado",
+      "label": "Investigador de mercado",
       "blurb": "TAM/SAM/SOM, mapas competitivos, segmentos de clientes."
     },
     "ops-optimizer": {
-      "label": "Otimizador de Operações",
+      "label": "Otimizador de operações",
       "blurb": "Tempo de ciclo, deteção de gargalos, candidatos a automação."
     },
     "seo-auditor": {
@@ -277,79 +277,79 @@
       "blurb": "SEO técnico + de conteúdo: indexabilidade, IA, correspondência de intenção."
     },
     "growth-hacker": {
-      "label": "Experimentador de Growth",
+      "label": "Experimentador de growth",
       "blurb": "Diagnóstico de funil, experiências de lift, loops de ativação."
     },
     "social-strategist": {
-      "label": "Estratega de Redes Sociais",
+      "label": "Estratega de redes sociais",
       "blurb": "Conteúdo adequado ao canal, calendário editorial, consistência de voz."
     },
     "literature-reviewer": {
-      "label": "Revisor de Literatura",
+      "label": "Revisor de literatura",
       "blurb": "Resumos de revisões sistemáticas, grafos de citações, conflitos."
     },
     "experiment-designer": {
-      "label": "Designer de Experiências",
+      "label": "Designer de experiências",
       "blurb": "Hipóteses, controlos, tamanho da amostra, pré-registo."
     },
     "statistical-analyst": {
-      "label": "Analista Estatístico",
+      "label": "Analista estatístico",
       "blurb": "Escolhe o teste certo, reporta tamanhos de efeito, não apenas p-values."
     },
     "scientific-writer": {
-      "label": "Redator Científico",
+      "label": "Redator científico",
       "blurb": "Estrutura IMRaD, limites honestos, abstracts legíveis."
     },
     "curriculum-designer": {
-      "label": "Designer de Currículos",
+      "label": "Designer de currículos",
       "blurb": "Objetivos de aprendizagem → atividades → avaliação."
     },
     "assessment-author": {
-      "label": "Autor de Avaliações",
+      "label": "Autor de avaliações",
       "blurb": "Itens que medem compreensão, não memorização."
     },
     "tutor-explainer": {
-      "label": "Tutor / Explicador",
+      "label": "Tutor / explicador",
       "blurb": "Explicações simples à Feynman com exemplos resolvidos."
     },
     "clinical-guideline-reviewer": {
-      "label": "Revisor de Diretrizes Clínicas",
+      "label": "Revisor de diretrizes clínicas",
       "blurb": "Compara a prática com as mais recentes diretrizes baseadas na evidência."
     },
     "medical-summarizer": {
-      "label": "Sintetizador de Literatura Médica",
+      "label": "Sintetizador de literatura médica",
       "blurb": "Abstracts para clínicos: o que mudou, qualidade da evidência."
     },
     "protocol-designer": {
-      "label": "Designer de Protocolos",
+      "label": "Designer de protocolos",
       "blurb": "Protocolos clínicos: endpoints, critérios de inclusão, segurança."
     },
     "contract-reviewer": {
-      "label": "Revisor de Contratos",
+      "label": "Revisor de contratos",
       "blurb": "Sinaliza cláusulas de risco; explica o que realmente significam."
     },
     "privacy-counsel": {
-      "label": "Consultor de Privacidade",
+      "label": "Consultor de privacidade",
       "blurb": "RGPD / CCPA / LGPD aplicados a fluxos concretos."
     },
     "copy-editor": {
-      "label": "Editor de Texto",
+      "label": "Editor de texto",
       "blurb": "Edições linha a linha: voz, cadência, cortar 30% sem perder o sentido."
     },
     "brand-voice-guardian": {
-      "label": "Guardião da Voz da Marca",
+      "label": "Guardião da voz da marca",
       "blurb": "Aplica as regras de voz; deteta formulações fora da marca."
     },
     "creative-brainstormer": {
-      "label": "Brainstormer Criativo",
+      "label": "Brainstormer criativo",
       "blurb": "Divergente e depois convergente; mata vacas sagradas com delicadeza."
     },
     "hiring-interviewer": {
-      "label": "Entrevistador de Recrutamento",
+      "label": "Entrevistador de recrutamento",
       "blurb": "Entrevistas estruturadas, focadas no sinal, conscientes de vieses."
     },
     "strategic-planner": {
-      "label": "Planeador Estratégico",
+      "label": "Planeador estratégico",
       "blurb": "Objetivos → apostas → métricas; poda projetos de estimação."
     },
     "coach-1on1": {
@@ -357,7 +357,7 @@
       "blurb": "Ajuda a enquadrar feedback, progressão de carreira, conversas difíceis."
     },
     "meeting-facilitator": {
-      "label": "Facilitador de Reuniões",
+      "label": "Facilitador de reuniões",
       "blurb": "Agendas que produzem decisões, não atualizações."
     }
   }

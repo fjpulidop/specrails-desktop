@@ -40,7 +40,8 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
       'config.review_wip_limit',
       'config.agent_env_mode',
       'config.agent_audit_retention_days',
-      'config.jira_post_clarifications', 'config.baseline_on_touch'
+      'config.jira_post_clarifications', 'config.baseline_on_touch',
+      'config.worktree_env_files'
     )
   `).all() as Array<{ key: string; value: string }>
   const settings = new Map(rows.map(row => [row.key, row]))
@@ -68,6 +69,7 @@ export function getProjectSettings(db: DbInstance): ProjectSettings {
     agentAuditRetentionDays: readAgentAuditRetentionDays(settings.get('config.agent_audit_retention_days')?.value),
     jiraPostClarifications: settings.get('config.jira_post_clarifications')?.value === 'true',
     baselineOnTouch: settings.get('config.baseline_on_touch')?.value === 'true',
+    worktreeEnvFiles: settings.get('config.worktree_env_files')?.value === 'true',
   }
 }
 
@@ -124,7 +126,7 @@ export function updateProjectSettings(db: DbInstance, patch: Partial<ProjectSett
     else db.prepare(`DELETE FROM queue_state WHERE key = 'config.reviewer_family_suggestion_dismissed'`).run()
   }
   // Opt-in booleans: the row exists only while the setting is on.
-  for (const [key, row] of [['jiraPostClarifications', 'config.jira_post_clarifications'], ['baselineOnTouch', 'config.baseline_on_touch']] as const) {
+  for (const [key, row] of [['jiraPostClarifications', 'config.jira_post_clarifications'], ['baselineOnTouch', 'config.baseline_on_touch'], ['worktreeEnvFiles', 'config.worktree_env_files']] as const) {
     if (patch[key] === undefined) continue
     if (patch[key]) db.prepare(`INSERT OR REPLACE INTO queue_state (key, value) VALUES (?, 'true')`).run(row)
     else db.prepare(`DELETE FROM queue_state WHERE key = ?`).run(row)

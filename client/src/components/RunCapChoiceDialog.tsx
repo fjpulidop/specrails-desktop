@@ -19,7 +19,9 @@ interface RunCapChoiceDialogProps {
 /**
  * "Pause and ask at $X": the run reached its per-run soft cap and waits. The
  * person decides explicitly: continue without the cap, or raise it (it must
- * end above what the run already spent). Dismissing leaves the run paused.
+ * end above what the run already spent). Paused before a step expected to cost
+ * more than is left, the person may also run that step once (the cap stands
+ * after it). Dismissing leaves the run paused.
  */
 export function RunCapChoiceDialog({ info, busy = false, onChoose, onDismiss }: RunCapChoiceDialogProps) {
   const { t, i18n } = useTranslation('common')
@@ -38,11 +40,17 @@ export function RunCapChoiceDialog({ info, busy = false, onChoose, onDismiss }: 
       description={info ? dailyBudgetPausedMessage(t, info) : undefined}
       confirmLabel={t('budget.runCap.raise')}
       confirmDisabled={!valid}
+      // Four answers (raise, continue, once, cancel) stack rather than wrap into a ragged row.
+      stackedFooter={!!info?.nextStep}
       busy={busy}
       tone="default"
       testId="run-cap-dialog"
       confirmTestId="run-cap-raise"
-      secondaryAction={<Button variant="outline" disabled={busy} data-testid="run-cap-ignore" onClick={() => onChoose({ runCap: 'ignore' })}>{t('budget.runCap.continue')}</Button>}
+      secondaryAction={<>
+        {/* Paused before a step it expects to cost more than is left: that step alone may run. */}
+        {info?.nextStep && <Button variant="outline" disabled={busy} data-testid="run-cap-once" onClick={() => onChoose({ runCap: 'once' })}>{t('budget.runCap.once')}</Button>}
+        <Button variant="outline" disabled={busy} data-testid="run-cap-ignore" onClick={() => onChoose({ runCap: 'ignore' })}>{t('budget.runCap.continue')}</Button>
+      </>}
       onConfirm={() => { if (valid) onChoose({ runCapUsd: parsed }) }}
     >
       <label className="flex flex-col gap-1 text-caption text-muted-foreground">

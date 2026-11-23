@@ -6,10 +6,10 @@ import type { FailureDiagnosis, RemedyHandlers } from '../lib/failure-diagnosis'
 
 const diagnosis = (over: Partial<FailureDiagnosis> = {}): FailureDiagnosis => ({
   kind: 'tests_failed', confidence: 'high', phase: 'reviewer', rounds: 4, resetAt: null, detail: null, resumablePhase: 'fixer', blocker: null, source: 'core',
-  remedies: ['resume', 'edit-spec', 'open-logs', 'retry'], ...over,
+  remedies: ['continue', 'edit-spec', 'open-logs', 'retry'], ...over,
 })
 const handlers = () => ({
-  resume: { run: vi.fn() }, retry: { run: vi.fn() }, 'edit-spec': { run: vi.fn() }, 'open-logs': { run: vi.fn() },
+  continue: { run: vi.fn() }, retry: { run: vi.fn() }, 'edit-spec': { run: vi.fn() }, 'open-logs': { run: vi.fn() },
 }) satisfies RemedyHandlers
 
 describe('FailureDiagnosisCard', () => {
@@ -24,46 +24,70 @@ describe('FailureDiagnosisCard', () => {
     expect(within(region).getByRole('group', { name: 'Ways to recover' })).toBeInTheDocument()
   })
 
-  it('offers at most three ranked remedies, the first as the primary action, and runs the real handlers', async () => {
+  it('offers at most three ranked remedies, the first as the primary action, each with its consequence, and runs the real handlers', async () => {
     const h = handlers()
     render(<FailureDiagnosisCard diagnosis={diagnosis()} handlers={h} />)
-    const buttons = within(screen.getByRole('group', { name: 'Ways to recover' })).getAllByRole('button')
-    expect(buttons.map((b) => b.textContent)).toEqual(['Resume from Fixer', 'Edit spec and relaunch', 'Open logs at the failure'])
+    const group = screen.getByRole('group', { name: 'Ways to recover' })
+    const buttons = within(group).getAllByRole('button').filter((b) => b.dataset.testid?.startsWith('failure-remedy-') && b.dataset.testid !== 'failure-remedy-more')
+    expect(buttons.map((b) => b.textContent)).toEqual(['Continue from Fixer', 'Edit spec and relaunch', 'Open logs at the failure'])
     expect(buttons[0]).toHaveAttribute('data-primary')
+    expect(buttons[0]).toHaveAccessibleDescription('Keeps everything and goes on from the step that failed.')
+    expect(screen.getByTestId('failure-remedy-consequence-open-logs')).toHaveTextContent('Scrolls to the failed step in the log.')
     await userEvent.click(buttons[0]); await userEvent.click(buttons[1]); await userEvent.click(buttons[2])
-    expect(h.resume.run).toHaveBeenCalledTimes(1)
+    expect(h.continue.run).toHaveBeenCalledTimes(1)
     expect(h['edit-spec'].run).toHaveBeenCalledTimes(1)
     expect(h['open-logs'].run).toHaveBeenCalledTimes(1)
     expect(h.retry.run).not.toHaveBeenCalled()
   })
 
+  it('keeps Start over apart, in the menu, with its warning', async () => {
+    const h = handlers()
+    render(<FailureDiagnosisCard diagnosis={diagnosis()} handlers={h} />)
+    expect(screen.queryByRole('button', { name: 'Start over' })).toBeNull()
+    await userEvent.click(screen.getByTestId('failure-remedy-more'))
+    const item = await screen.findByTestId('failure-remedy-retry')
+    expect(item).toHaveTextContent('Start over')
+    expect(item).toHaveTextContent("A fresh run from the base. This attempt's work is not carried over; it stays in the old worktree.")
+    await userEvent.click(item)
+    expect(h.retry.run).toHaveBeenCalledTimes(1)
+  })
+
+  it('reads the older remedy ids as Continue', () => {
+    const h = handlers()
+    render(<FailureDiagnosisCard diagnosis={diagnosis({ remedies: ['resume', 'retry-with-browser', 'open-logs'] as never })} handlers={h} />)
+    expect(screen.getByTestId('failure-remedy-continue')).toHaveTextContent('Continue from Fixer')
+    expect(screen.getAllByTestId(/^failure-remedy-continue$/)).toHaveLength(1)
+  })
+
   it('does not offer a remedy the surface cannot run', () => {
     render(<FailureDiagnosisCard diagnosis={diagnosis()} handlers={{ 'open-logs': { run: vi.fn() } }} />)
-    expect(screen.queryByTestId('failure-remedy-resume')).toBeNull()
+    expect(screen.queryByTestId('failure-remedy-continue')).toBeNull()
+    expect(screen.queryByTestId('failure-remedy-more')).toBeNull()
     expect(screen.getByTestId('failure-remedy-open-logs')).toBeInTheDocument()
   })
 
   it('disables a busy remedy', () => {
-    render(<FailureDiagnosisCard diagnosis={diagnosis()} handlers={{ resume: { run: vi.fn(), busy: true } }} />)
-    expect(screen.getByTestId('failure-remedy-resume')).toBeDisabled()
-    expect(screen.getByTestId('failure-remedy-resume')).toHaveAttribute('aria-busy', 'true')
+    render(<FailureDiagnosisCard diagnosis={diagnosis()} handlers={{ continue: { run: vi.fn(), busy: true } }} />)
+    expect(screen.getByTestId('failure-remedy-continue')).toBeDisabled()
+    expect(screen.getByTestId('failure-remedy-continue')).toHaveAttribute('aria-busy', 'true')
   })
 
   it('explains a provider limit with the reset time', () => {
-    render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'provider_limit', phase: null, rounds: null, resetAt: '3am (Europe/Madrid)', remedies: ['resume', 'retry', 'open-logs'] })} handlers={handlers()} />)
+    render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'provider_limit', phase: null, rounds: null, resetAt: '3am (Europe/Madrid)', remedies: ['continue', 'open-logs', 'retry'] })} handlers={handlers()} />)
     expect(screen.getByTestId('failure-headline')).toHaveTextContent("The AI provider's usage limit was reached")
-    expect(screen.getByTestId('failure-why')).toHaveTextContent('It resets 3am (Europe/Madrid). Resume once it has.')
+    expect(screen.getByTestId('failure-why')).toHaveTextContent('It resets 3am (Europe/Madrid). Continue then, or run it on another provider.')
+    expect(screen.getByTestId('failure-remedy-consequence-continue')).toHaveTextContent('goes on once the provider accepts requests again')
   })
 
   it('says nothing about a reset it does not know', () => {
     render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'provider_limit', phase: null, rounds: null, remedies: ['retry'] })} handlers={handlers()} />)
-    expect(screen.getByTestId('failure-why')).toHaveTextContent('Wait for the limit to reset, then resume.')
+    expect(screen.getByTestId('failure-why')).toHaveTextContent('Wait for the limit to reset, then continue, or run it on another provider.')
   })
 
   it('shows what the host must do for an environment failure, without running anything', async () => {
     const h = handlers()
     const blocker = { kind: 'network', reason: 'The Playwright browser download cannot reach its CDN', command: 'npx', args: ['playwright', 'install', 'chromium'], cwd: 'ticket-1', requiredAction: 'Run it with network access, then retry' }
-    render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'environment', phase: 'verify', rounds: null, blocker, remedies: ['fix-environment', 'resume', 'open-logs', 'retry'] })} handlers={h} />)
+    render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'environment', phase: 'verify', rounds: null, blocker, remedies: ['continue', 'fix-environment', 'open-logs', 'retry'] })} handlers={h} />)
     const fix = screen.getByTestId('failure-remedy-fix-environment')
     expect(fix).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(fix)
@@ -72,13 +96,13 @@ describe('FailureDiagnosisCard', () => {
     expect(panel).toHaveTextContent('The Playwright browser download cannot reach its CDN')
     expect(panel).toHaveTextContent('npx playwright install chromium')
     expect(panel).toHaveTextContent('Required action: Run it with network access, then retry')
-    expect(h.resume.run).not.toHaveBeenCalled()
+    expect(h.continue.run).not.toHaveBeenCalled()
   })
 
   it('claims no cause when it is unknown: says so and shows the raw log tail', () => {
     render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'unknown', confidence: 'low', phase: null, rounds: null, resumablePhase: null, remedies: ['open-logs', 'retry'] })} handlers={handlers()} logTail={['npm ERR! something', 'exit 1']} />)
     expect(screen.getByTestId('failure-headline')).toHaveTextContent('Unknown cause')
-    expect(screen.getByText("The app can't tell why it stopped, so it won't guess.")).toBeInTheDocument()
+    expect(screen.getByText("The run's own records don't name the cause. An AI reading of the log usually finds it.")).toBeInTheDocument()
     expect(screen.getByTestId('failure-log-tail')).toHaveTextContent('npm ERR! something exit 1')
     expect(screen.queryByTestId('failure-detail')).toBeNull()
     expect(screen.getByTestId('failure-diagnosis-card')).toHaveAttribute('data-confidence', 'low')
@@ -130,4 +154,96 @@ describe('FailureDiagnosisCard: environment plan remedy', () => {
       expect(screen.queryByTestId('failure-environment-plan')).toBeNull()
     } finally { vi.unstubAllGlobals(); setActiveProjectId(null) }
   })
+
+  it('says when a usage limit resets in the person\'s clock, and no longer asks to relaunch', () => {
+    render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'provider_limit', phase: null, rounds: null, resetAt: '3am (Europe/Madrid)', resetsAt: '2026-11-18T14:00:00.000Z', remedies: ['continue', 'open-logs', 'retry'] })} handlers={handlers()} />)
+    const why = screen.getByTestId('failure-why')
+    const time = new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit' }).format(new Date('2026-11-18T14:00:00.000Z'))
+    expect(why).toHaveTextContent(`It resets at`)
+    expect(why.textContent).toContain(time)
+    expect(why).toHaveTextContent('run it on another provider')
+    expect(why.textContent).not.toMatch(/relaunch/i)
+  })
 })
+
+describe('FailureDiagnosisCard: unfinished tasks and causes only an AI reading names', () => {
+  const unknown = () => diagnosis({ kind: 'unknown', confidence: 'low', phase: 'implementation-stalled', rounds: null, resumablePhase: null, source: 'desktop', remedies: ['open-logs', 'retry'] })
+  const ready = { status: 'ready' as const, provider: 'claude', model: 'sonnet', createdAt: '2026-11-18T18:10:00Z', stale: false,
+    analysis: { headline: 'Task 4.1 needed a browser check the developer could not run', cause: 'The developer left the README task unticked.', category: 'incomplete_tasks' as const, failedStep: 'tasks', evidence: [], nextSteps: [] } }
+
+  it('names unfinished tasks, lists them and leads with Continue, which finishes them', async () => {
+    const run = { continue: { run: vi.fn() }, 'continue-to-review': { run: vi.fn() }, 'open-logs': { run: vi.fn() } } satisfies RemedyHandlers
+    render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'incomplete_tasks', phase: 'implementation-stalled', rounds: null, resumablePhase: null, incompleteTasks: ['4.1 [human] Confirm the live charge'], remedies: ['continue', 'continue-to-review', 'open-logs', 'retry'] })} handlers={run} />)
+    expect(screen.getByTestId('failure-headline')).toHaveTextContent('Some approved tasks were left unfinished')
+    expect(screen.getByTestId('failure-incomplete-tasks')).toHaveTextContent('4.1 [human] Confirm the live charge')
+    const buttons = within(screen.getByRole('group', { name: 'Ways to recover' })).getAllByRole('button')
+    expect(buttons.map((b) => b.textContent)).toEqual(['Continue', 'Continue to review', 'Open logs at the failure'])
+    expect(buttons[0]).toHaveAttribute('data-primary')
+    expect(buttons[0]).toHaveAccessibleDescription('Keeps everything and redoes only what was missing, with the browser and install guidance.')
+    expect(buttons[1]).toHaveAccessibleDescription('Sends it to review now, with what is left listed as checks by hand.')
+    await userEvent.click(buttons[0])
+    expect(run.continue.run).toHaveBeenCalledTimes(1)
+  })
+
+  it('leads with the AI cause, labelled as such, instead of an unknown cause', () => {
+    render(<FailureDiagnosisCard diagnosis={unknown()} handlers={handlers()} ai={{ state: ready, run: vi.fn() }} />)
+    expect(screen.getByTestId('failure-ai-label')).toHaveTextContent('From AI analysis')
+    expect(screen.getByTestId('failure-headline')).toHaveTextContent('Task 4.1 needed a browser check the developer could not run')
+    expect(screen.getByTestId('failure-ai-cause')).toHaveTextContent('The developer left the README task unticked.')
+    expect(screen.queryByText('Unknown cause')).toBeNull()
+  })
+
+  it('when nothing names the cause, says how to find it and makes the AI reading the primary action', async () => {
+    const ai = { state: { status: 'idle' as const }, run: vi.fn() }
+    render(<FailureDiagnosisCard diagnosis={unknown()} handlers={handlers()} ai={ai} />)
+    expect(screen.getByTestId('failure-unknown-why')).toHaveTextContent("The run's own records don't name the cause")
+    expect(screen.queryByText(/won't guess/)).toBeNull()
+    const analyze = screen.getByTestId('failure-remedy-analyze')
+    expect(analyze).toHaveAttribute('data-primary')
+    expect(screen.getByTestId('failure-remedy-open-logs')).not.toHaveAttribute('data-primary')
+    await userEvent.click(analyze)
+    expect(ai.run).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the reading in progress without a second button', () => {
+    render(<FailureDiagnosisCard diagnosis={unknown()} handlers={handlers()} ai={{ state: { status: 'running' }, run: vi.fn() }} />)
+    expect(screen.getByTestId('failure-ai-running')).toBeInTheDocument()
+    expect(screen.getByTestId('failure-remedy-analyze')).toBeDisabled()
+  })
+
+  it('says which role\'s model skipped the OpenSpec steps, continues from the step and suggests the stronger model', async () => {
+    const h = handlers()
+    render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'workflow_protocol', phase: 'architect', rounds: null, resumablePhase: 'architect', role: 'plan', model: 'haiku',
+      strongerModel: { provider: 'claude', model: 'sonnet', label: 'Claude Sonnet 5.5' }, detail: 'The plan model (claude/haiku) skipped the required OpenSpec steps (instructions tasks) even after a corrective reminder.',
+      remedies: ['resume', 'retry', 'open-logs'] })} handlers={h} />)
+    expect(screen.getByTestId('failure-diagnosis-card')).toHaveAttribute('data-tone', 'caution')
+    expect(screen.getByTestId('failure-headline')).toHaveTextContent('The Plan model skipped required OpenSpec steps')
+    expect(screen.getByTestId('failure-why')).toHaveTextContent('Claude Haiku is a small model and ended its turn without the steps Specrails requires, even after a reminder. Continue from that step; if it happens again, choose Claude Sonnet 5.5 for this role.')
+    const buttons = within(screen.getByRole('group', { name: 'Ways to recover' })).getAllByRole('button')
+    expect(buttons.map((b) => b.textContent)).toEqual(['Continue from Architect', 'Open logs at the failure', ''])
+    // Run again (Start over) sits apart, in the ⋯ menu.
+    expect(screen.queryByRole('button', { name: 'Run again' })).toBeNull()
+    await userEvent.click(buttons[0])
+    expect(h.continue.run).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not suggest another model when the one that skipped the steps is not small', () => {
+    render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'workflow_protocol', phase: 'architect', rounds: null, resumablePhase: 'architect', role: null, model: 'opus', strongerModel: null, remedies: ['resume', 'retry', 'open-logs'] })} handlers={handlers()} />)
+    expect(screen.getByTestId('failure-headline')).toHaveTextContent('The model skipped required OpenSpec steps')
+    expect(screen.getByTestId('failure-why')).toHaveTextContent('The work before that step is kept: continue from it.')
+    expect(screen.getByTestId('failure-why')).not.toHaveTextContent('choose')
+  })
+
+  it('offers copying the project\'s .env as the one-click remedy of an env-file blocker, with its consequence', async () => {
+    const copy = { run: vi.fn() }
+    const blocker = { kind: 'environment', reason: 'No application encryption key (APP_KEY).', command: 'php', args: ['artisan', 'test'], cwd: '.', requiredAction: 'cp .env.example .env in this worktree' }
+    render(<FailureDiagnosisCard diagnosis={diagnosis({ kind: 'environment', resumablePhase: null, blocker, remedies: ['copy-env-files', 'continue', 'fix-environment', 'open-logs', 'retry'] })} handlers={{ ...handlers(), 'copy-env-files': copy }} />)
+    const button = screen.getByTestId('failure-remedy-copy-env-files')
+    expect(button).toHaveTextContent("Copy this project's .env into runs")
+    expect(button).toHaveAttribute('data-primary')
+    expect(button).toHaveAccessibleDescription(/Agents in its runs can read these files; they are never committed or shown in reviews\./)
+    await userEvent.click(button)
+    expect(copy.run).toHaveBeenCalledTimes(1)
+  })
+})
+

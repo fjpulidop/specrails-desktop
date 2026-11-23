@@ -64,7 +64,7 @@ pub fn permits_command(label: &str, command: &str) -> bool {
     is_mission_window(label) && (command.starts_with("browser_") || matches!(command,
         "plugin_window_open" | "loop_window_open" | "mission_windows_supported" | "mission_windows_list" | "mission_window_current" |
         "mission_window_ready" | "mission_window_attach" | "mission_window_cancel" |
-        "mission_window_focus" | "mission_window_discard" | "desktop_reveal_path" | "desktop_save_text"))
+        "mission_window_focus" | "mission_window_discard" | "desktop_reveal_path" | "desktop_save_text" | "desktop_save_bytes"))
 }
 
 fn ensure_caller(caller: &Webview) -> Result<(), String> {
@@ -452,7 +452,7 @@ mod tests {
         registry().lock().unwrap().insert(item.transfer.window_label.clone(),item);
         assert!(is_trusted_interface("main")); assert!(is_trusted_interface("mission-unit-permissions"));
         assert!(!is_trusted_interface("mission-unregistered")); assert!(!is_trusted_interface("native-browser-mission-unit-permissions"));
-        for cmd in ["restart_app","set_tray_labels","desktop_notify","mission_window_detach","mission_window_ack"] { assert!(!permits_command("mission-unit-permissions",cmd)); }
+        for cmd in ["restart_app","set_tray_labels","desktop_notify","desktop_set_badge","desktop_focus_state","mission_window_detach","mission_window_ack"] { assert!(!permits_command("mission-unit-permissions",cmd)); }
         assert!(permits_command("mission-unit-permissions","browser_capture"));
         registry().lock().unwrap().remove("mission-unit-permissions"); assert!(!is_trusted_interface("mission-unit-permissions"));
     }

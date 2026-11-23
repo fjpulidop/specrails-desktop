@@ -1,126 +1,79 @@
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '../../test-utils'
-import { StatusBar } from '../StatusBar'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, render, screen, waitFor } from '../../test-utils'
+import { SLOW_START_MS, StatusBar, TodaySpend } from '../StatusBar'
 
-vi.mock('../../features/subscription-usage/components/SubscriptionUsageFooter', () => ({ SubscriptionUsageFooter: () => <span>Usage</span> }))
+vi.mock('../../features/subscription-usage/components/SubscriptionUsageFooter', () => ({ SubscriptionUsageFooter: () => <span data-testid="usage" /> }))
+vi.mock('../../features/background/components/AppResourcesFooter', () => ({ AppResourcesFooter: () => <span data-testid="resources" /> }))
 
 vi.mock('../../lib/api', () => ({
   getApiBase: () => '/api',
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
-vi.mock('../NotificationCenter', () => ({ NotificationCenter: () => null }))
+
+const stats = (body: Record<string, unknown>) => vi.fn().mockResolvedValue({ ok: true, json: async () => body })
 
 describe('StatusBar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-  })
-
-  it('shows "connected" text when connectionStatus is connected', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false })
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('says nothing on the left while connected (no "connected" label, no dash)', () => {
     render(<StatusBar connectionStatus="connected" />)
-    expect(screen.getByText('connected')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveClass('sr-only')
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    expect(document.querySelector('footer')).not.toHaveTextContent('—')
+    expect(document.querySelector('footer')).not.toHaveTextContent(/connected/i)
   })
 
-  it('shows "reconnecting..." text when connectionStatus is connecting', () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false })
-    render(<StatusBar connectionStatus="connecting" />)
-    expect(screen.getByText('reconnecting...')).toBeInTheDocument()
-  })
-
-  it('shows "disconnected" text when connectionStatus is disconnected', () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false })
+  it('shows "Offline" in red when disconnected', () => {
     render(<StatusBar connectionStatus="disconnected" />)
-    expect(screen.getByText('disconnected')).toBeInTheDocument()
+    expect(screen.getByText('Offline')).toHaveClass('text-destructive')
+    expect(document.querySelector('.bg-destructive')).toBeInTheDocument()
   })
 
-  it('green indicator is present when connected', () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false })
+  it('names a reconnect after the app was connected', () => {
+    const { rerender } = render(<StatusBar connectionStatus="connected" />)
+    rerender(<StatusBar connectionStatus="connecting" />)
+    expect(screen.getByText('Reconnecting…')).toBeInTheDocument()
+    expect(document.querySelector('.bg-accent-warning')).toBeInTheDocument()
+  })
+
+  it('keeps a first connect quiet unless it takes long', () => {
+    vi.useFakeTimers()
+    render(<StatusBar connectionStatus="connecting" />)
+    expect(screen.queryByText('Reconnecting…')).not.toBeInTheDocument()
+    act(() => { vi.advanceTimersByTime(SLOW_START_MS) })
+    expect(screen.getByText('Reconnecting…')).toBeInTheDocument()
+  })
+
+  it('never fetches project stats for the bar itself', () => {
     render(<StatusBar connectionStatus="connected" />)
-    const indicator = document.querySelector('.bg-accent-success')
-    expect(indicator).toBeInTheDocument()
-  })
-
-  it('minimal: hides the connection cluster while healthy and never fetches stats', () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false })
-    render(<StatusBar connectionStatus="connected" minimal />)
-    // Cluster rendered but faded out + aria-hidden ("silence means healthy").
-    expect(screen.getByText('connected').parentElement).toHaveAttribute('aria-hidden', 'true')
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
-  it('minimal: still surfaces a disconnected state', () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false })
-    render(<StatusBar connectionStatus="disconnected" minimal />)
-    expect(screen.getByText('disconnected').parentElement).not.toHaveAttribute('aria-hidden')
-  })
-
-  it('minimal: never renders the spend figure', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ jobsToday: 2, costToday: 1, totalCostUsd: 12.34 }),
-    })
-    render(<StatusBar connectionStatus="connected" minimal />)
-    await waitFor(() => expect(screen.queryByText(/\$12\.34/)).not.toBeInTheDocument())
-  })
-
-  it('orange indicator is present when connecting', () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false })
-    render(<StatusBar connectionStatus="connecting" />)
-    const indicator = document.querySelector('.bg-accent-warning')
-    expect(indicator).toBeInTheDocument()
-  })
-
-  it('red indicator is present when disconnected', () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false })
-    render(<StatusBar connectionStatus="disconnected" />)
-    const indicator = document.querySelector('.bg-destructive')
-    expect(indicator).toBeInTheDocument()
-  })
-
-  it('fetches and displays stats when available', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        jobsToday: 5,
-        costToday: 0.25,
-        totalCostUsd: 1.50,
-      }),
-    })
-    render(<StatusBar connectionStatus="connected" />)
-
-    await waitFor(() => {
-      expect(screen.getByText('$1.50')).toBeInTheDocument()
-    })
-  })
-
-  it('does not show stats when fetch fails', async () => {
-    global.fetch = vi.fn().mockRejectedValue(new Error('network error'))
-    render(<StatusBar connectionStatus="connected" />)
-    // Wait a tick so the fetch can resolve
-    await new Promise((r) => setTimeout(r, 50))
-    expect(screen.queryByText(/\$/)).not.toBeInTheDocument()
+  it('renders the terminal toggle slot', () => {
+    render(<StatusBar connectionStatus="connected" rightSlot={<button type="button">Terminal</button>} />)
+    expect(screen.getByRole('button', { name: 'Terminal' })).toBeInTheDocument()
   })
 
   it('shows "Connection restored" toast after a real outage (>= 3 s offline)', async () => {
     const { toast } = await import('sonner')
-    global.fetch = vi.fn().mockResolvedValue({ ok: false })
     const now = vi.spyOn(Date, 'now').mockReturnValue(1_000_000)
     const { rerender } = render(<StatusBar connectionStatus="connected" />)
     rerender(<StatusBar connectionStatus="disconnected" />)
     now.mockReturnValue(1_004_000)
     rerender(<StatusBar connectionStatus="connected" />)
-
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Connection restored')
-    })
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Connection restored'))
+    expect(screen.getByText('Syncing…')).toBeInTheDocument()
     now.mockRestore()
   })
 
   it('stays quiet on a short blip and on a plain reload', async () => {
     const { toast } = await import('sonner')
     vi.mocked(toast.success).mockClear()
-    global.fetch = vi.fn().mockResolvedValue({ ok: false })
     const now = vi.spyOn(Date, 'now').mockReturnValue(2_000_000)
     const { rerender } = render(<StatusBar connectionStatus="connecting" />)
     rerender(<StatusBar connectionStatus="connected" />)
@@ -130,90 +83,49 @@ describe('StatusBar', () => {
     expect(toast.success).not.toHaveBeenCalled()
     now.mockRestore()
   })
+})
 
-  it('prefixes ~ and marks data-estimated when cost includes an estimate (BUG-27)', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        jobsToday: 3,
-        costToday: 0.5,
-        totalCostUsd: 1.5,
-        estimatedCostToday: 0.3,
-        estimatedCostUsd: 0.4,
-        includesEstimated: true,
-      }),
-    })
-    render(<StatusBar connectionStatus="connected" />)
+describe('TodaySpend (inside the usage popover)', () => {
+  it("shows today's spend", async () => {
+    global.fetch = stats({ costToday: 0.25, totalCostUsd: 1.5 })
+    render(<TodaySpend />)
+    expect(await screen.findByText('$0.25')).toBeInTheDocument()
+    expect(screen.getByText('Spent today')).toBeInTheDocument()
+  })
 
-    const el = await screen.findByText('~$1.50')
-    expect(el).toBeInTheDocument()
+  it('prefixes ~ and marks data-estimated when today includes an estimate (BUG-27)', async () => {
+    global.fetch = stats({ costToday: 0.5, estimatedCostToday: 0.3 })
+    render(<TodaySpend />)
+    const el = await screen.findByText('~$0.50')
     expect(el).toHaveAttribute('data-estimated', 'true')
   })
 
-  it('does NOT prefix ~ on a pure-claude (authoritative) cost (legacy)', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        jobsToday: 3,
-        costToday: 0.5,
-        totalCostUsd: 1.5,
-        // no estimated fields → legacy claude-only path
-      }),
-    })
-    render(<StatusBar connectionStatus="connected" />)
-
-    const el = await screen.findByText('$1.50')
-    expect(el).toBeInTheDocument()
+  it('does not prefix ~ on an authoritative cost', async () => {
+    global.fetch = stats({ costToday: 0.5 })
+    render(<TodaySpend />)
+    const el = await screen.findByText('$0.50')
     expect(el).not.toHaveAttribute('data-estimated')
-    expect(screen.queryByText('~$1.50')).not.toBeInTheDocument()
   })
 
-  it('does not show cost when totalCostUsd is 0', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        jobsToday: 0,
-        costToday: 0,
-        totalCostUsd: 0,
-      }),
-    })
-    render(<StatusBar connectionStatus="connected" />)
-
-    // Wait a tick so the fetch can resolve
-    await new Promise((r) => setTimeout(r, 50))
-    // No dollar amount shown when cost is 0
-    expect(screen.queryByText(/\$0/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/\$/)).not.toBeInTheDocument()
+  it('renders nothing at zero or on a failed read', async () => {
+    global.fetch = stats({ costToday: 0 })
+    const { container, unmount } = render(<TodaySpend />)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(container).toBeEmptyDOMElement()
+    unmount()
+    global.fetch = vi.fn().mockRejectedValue(new Error('network'))
+    const second = render(<TodaySpend />)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(second.container).toBeEmptyDOMElement()
   })
 
-  it('shows unavailable instead of hiding an all-Kimi cost ledger', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        jobsToday: 2,
-        totalCostUsd: 0,
-        costToday: 0,
-        pricedRuns: 0,
-        unpricedRuns: 2,
-      }),
-    })
-    render(<StatusBar connectionStatus="connected" />)
-    expect(await screen.findByTestId('statusbar-cost-unavailable')).toHaveTextContent('unavailable')
-    expect(screen.queryByText(/\$0/)).not.toBeInTheDocument()
-  })
-
-  it('marks mixed provider cost as a known lower bound', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        jobsToday: 2,
-        totalCostUsd: 1.5,
-        costToday: 1.5,
-        pricedRuns: 1,
-        unpricedRuns: 1,
-      }),
-    })
-    render(<StatusBar connectionStatus="connected" />)
+  it('says unavailable for an all-unpriced ledger and marks a lower bound when some runs are unpriced', async () => {
+    global.fetch = stats({ costToday: 0, pricedRuns: 0, unpricedRuns: 2 })
+    const { unmount } = render(<TodaySpend />)
+    expect(await screen.findByText('unavailable')).toBeInTheDocument()
+    unmount()
+    global.fetch = stats({ costToday: 1.5, pricedRuns: 1, unpricedRuns: 1 })
+    render(<TodaySpend />)
     expect(await screen.findByText('≥$1.50')).toBeInTheDocument()
   })
 })

@@ -59,6 +59,28 @@
     "draft": "Brouillon",
     "onReview": "En révision"
   },
+  "runState": {
+    "queued": "En file",
+    "working": "En cours",
+    "needs-input": "Réponse attendue",
+    "review": "Prêt à relire",
+    "paused": "En pause",
+    "blocked": "Bloqué",
+    "failed": "Échec",
+    "done": "Terminé",
+    "stopped": "Arrêté",
+    "hint": {
+      "queued": "En attente de démarrage",
+      "working": "Le travail est en cours",
+      "needs-input": "Un agent attend votre réponse",
+      "review": "Un résultat attend votre décision",
+      "paused": "En pause : reprenez-le pour continuer",
+      "blocked": "Ne peut pas continuer tant que quelque chose d'extérieur ne change pas",
+      "failed": "Terminé avec une erreur",
+      "done": "Terminé avec succès",
+      "stopped": "Terminé sans aboutir : annulé, ignoré ou remplacé"
+    }
+  },
   "prDeliveryStatus": {
     "implementation_running": "Implémentation en cours",
     "implementation_failed": "Échec de l’implémentation",
@@ -179,6 +201,7 @@
     "stillExceeded": "Le budget quotidien est toujours épuisé.",
     "exceededRun": "Plafond par exécution atteint ({{spent}} sur {{budget}}). L’exécution est en pause.",
     "pausedRun": "En pause au plafond par exécution ({{spent}} sur {{budget}}). Continuez sans lui ou relevez-le.",
+    "pausedRunNext": "En pause avant {{step}} : cette étape coûte en général environ {{next}}, et il reste {{left}} du plafond de {{budget}} par exécution ({{spent}} dépensés). Exécutez-la une fois, continuez sans plafond ou relevez-le.",
     "actionRun": "Continuez sans le plafond, ou relevez-le, puis reprenez.",
     "exceededProject_week": "Budget hebdomadaire du projet atteint ({{spent}} sur {{budget}}). Rien n’a été lancé.",
     "exceededProject_month": "Budget mensuel du projet atteint ({{spent}} sur {{budget}}). Rien n’a été lancé.",
@@ -198,6 +221,7 @@
       "title": "Exécution en pause à son plafond",
       "raise": "Relever le plafond et continuer",
       "continue": "Continuer sans plafond",
+      "once": "Exécuter cette étape une fois",
       "raiseTo": "Relever le plafond à (USD)",
       "mustExceed": "Doit dépasser les {{spent}} déjà dépensés"
     },
@@ -259,7 +283,11 @@
       "specsBoard": "les specs et le backlog",
       "specTimeline": "la chronologie et la passation d’une spec",
       "accessibility": "l'accessibilité et la personnalisation",
-      "prDecision": "les options de livraison"
+      "prDecision": "les options de livraison",
+      "attention": "Notifications",
+      "liveBoard": "le tableau en direct",
+      "serverRecovery": "Si le serveur local s’arrête",
+      "retainedWorktrees": "les worktrees d'exécution conservés sur le disque"
     }
   },
   "forecast": {
@@ -294,8 +322,8 @@
       "startedRail": "Rail {{rail}} : run démarré",
       "pausedBudget": "Run en pause : un plafond de dépense a été atteint",
       "pausedLimit": "Run en pause : limite du fournisseur atteinte",
-      "needsYou": "Un run a besoin de vous",
-      "needsYouRail": "Rail {{rail}} : un run a besoin de vous",
+      "needsYou": "Un run requiert votre attention",
+      "needsYouRail": "Rail {{rail}} : un run requiert votre attention",
       "failed": "Le run a échoué",
       "failedRail": "Rail {{rail}} : le run a échoué",
       "finished": "Run terminé",
@@ -310,12 +338,50 @@
       "finishedSpec": "Rail {{rail}} : #{{id}} terminée",
       "failedSpec": "Rail {{rail}} : #{{id}} a échoué",
       "stoppedSpec": "Rail {{rail}} : #{{id}} arrêtée",
-      "needsYouSpec": "Rail {{rail}} : #{{id}} a besoin de vous",
+      "needsYouSpec": "Rail {{rail}} : #{{id}} requiert votre attention",
       "reviewReadySpec": "Rail {{rail}} : revue de #{{id}} prête"
     }
   },
   "errors": {
     "technicalDetails": "Détails techniques",
     "copyDetails": "Copier les détails"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "Le planificateur a besoin d’une décision",
+      "developer": "Le développeur a besoin que vous décidiez",
+      "fixer": "Le correcteur a besoin que vous décidiez",
+      "reviewer": "Le relecteur a besoin que vous décidiez",
+      "install": "Specrails a besoin de votre accord",
+      "run": "L’exécution attend votre réponse"
+    },
+    "approval": "L’exécution attend votre approbation",
+    "recommended": "Recommandé",
+    "other": "Autre réponse…",
+    "otherLabel": "Votre réponse",
+    "otherPlaceholder": "Écrivez votre réponse",
+    "answer": "Répondre",
+    "approve": "Approuver",
+    "reject": "Refuser",
+    "rejectLabel": "Pourquoi refusez-vous ?",
+    "rejectPlaceholder": "Votre raison",
+    "back": "Retour",
+    "sending": "Envoi…",
+    "consequence": {
+      "waits": "L’exécution attend, sans coût, votre réponse.",
+      "mayEnd": "Si vous dites que ce n’est pas le bon endroit, l’exécution s’arrête.",
+      "endsRunOption": "Choisir « {{label}} » arrête l’exécution.",
+      "reject": "Refuser arrête l’exécution. Rien n’est archivé ni fusionné."
+    },
+    "sent": "Réponse envoyée — l’exécution continue.",
+    "approved": "Approuvé — l’exécution continue.",
+    "rejected": "Refusé — l’exécution s’arrête.",
+    "failed": "Impossible d’envoyer votre réponse",
+    "showMore": "Tout afficher",
+    "showLess": "Afficher moins",
+    "notice": "Attention requise",
+    "notHere": "Ne pas le faire ici",
+    "notHereMeaning": "Cette spec n’appartient pas à ce dépôt ; l’exécution s’arrête sans modification.",
+    "sentEnds": "Réponse envoyée — l’exécution s’arrête."
   }
 }

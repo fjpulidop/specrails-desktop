@@ -16,12 +16,11 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
   type ReactNode,
 } from 'react'
-import { Terminal } from '@xterm/xterm'
-import { FitAddon } from '@xterm/addon-fit'
-import { WebLinksAddon } from '@xterm/addon-web-links'
-import { SearchAddon } from '@xterm/addon-search'
-import { Unicode11Addon } from '@xterm/addon-unicode11'
-import '@xterm/xterm/css/xterm.css'
+import type { Terminal } from '@xterm/xterm'
+import type { FitAddon } from '@xterm/addon-fit'
+import type { WebLinksAddon } from '@xterm/addon-web-links'
+import type { SearchAddon } from '@xterm/addon-search'
+import { getXtermRuntime, loadXtermRuntime } from '../lib/xterm-runtime'
 import type { TerminalSettings } from '../../settings/lib/terminal-settings-types'
 import { DEFAULT_TERMINAL_SETTINGS, TERMINAL_FONT_SIZE_MAX, TERMINAL_FONT_SIZE_MIN, clampFontSize } from '../../settings/lib/terminal-settings-types'
 import { ingestMark, disposeSession as disposeMarksSession, getMarks } from '../../../lib/command-mark-store'
@@ -306,6 +305,8 @@ export function TerminalsProvider({ children, activeProjectId }: ProviderProps) 
         const res = await fetch(`${API_ORIGIN}/api/projects/${activeProjectId}/terminals`)
         if (!res.ok) return
         const body = await res.json() as { sessions: TerminalRef[]; limit: number }
+        // xterm loads with the first session; a project without any never fetches it.
+        if (body.sessions.length > 0) await loadXtermRuntime()
         if (cancelled) return
         updateProject(activeProjectId, (s) => {
           const serverIds = new Set(body.sessions.map((r) => r.id))
@@ -341,6 +342,9 @@ export function TerminalsProvider({ children, activeProjectId }: ProviderProps) 
   const create = useCallback(async (projectId: string, opts?: { cols?: number; rows?: number; name?: string }): Promise<TerminalRef | null> => {
     const cols = opts?.cols ?? 80
     const rows = opts?.rows ?? 24
+    // Fetch xterm alongside the spawn request (no-op once loaded).
+    const xtermLoad = loadXtermRuntime()
+    xtermLoad.catch(() => { /* surfaced by the await below */ })
     try {
       const res = await fetch(`${API_ORIGIN}/api/projects/${projectId}/terminals`, {
         method: 'POST',
@@ -362,6 +366,7 @@ export function TerminalsProvider({ children, activeProjectId }: ProviderProps) 
       }
       const body = await res.json() as { session: TerminalRef }
       const session = body.session
+      await xtermLoad
       // Bootstrap xterm + WS
       ensureXtermForSession(
         projectId, session.id, session.cols, session.rows,
@@ -665,6 +670,7 @@ function ensureXtermForSession(
 ): XtermHandle {
   const existing = handles.get(sessionId)
   if (existing) return existing
+  const { Terminal, FitAddon, WebLinksAddon, SearchAddon, Unicode11Addon } = getXtermRuntime()
 
   const container = document.createElement('div')
   container.style.width = '100%'

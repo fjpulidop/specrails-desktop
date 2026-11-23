@@ -54,14 +54,35 @@ export function saveIsolatedSettlementResult(db: DbInstance, deliveryId: string,
   if (update.changes !== 1) throw new Error('Frozen isolated settlement is missing')
 }
 
-/** The provenance row batch and receipt share the project transaction. */
-export function recordIsolatedProvenanceOnce(db: DbInstance, deliveryId: string, runId: string, record: () => void): void {
-  db.transaction(() => {
+/**
+ * Record a run's provenance at most once. The git capture is async, so it runs
+ * OUTSIDE any transaction; the provenance row batch and the receipt still share
+ * one project transaction: `record` hands its synchronous row write to
+ * `commit`, which re-checks the receipt, writes and marks it atomically. A
+ * record that writes nothing (flag off, no changes) still sets the receipt.
+ */
+export async function recordIsolatedProvenanceOnce(
+  db: DbInstance,
+  deliveryId: string,
+  runId: string,
+  record: (commit: (write: () => void) => void) => unknown,
+): Promise<void> {
+  const readReceipt = (): boolean => {
     const row = db.prepare('SELECT provenance_recorded FROM definition_delivery_settlements WHERE delivery_id=? AND run_id=?')
       .get(deliveryId, runId) as { provenance_recorded: number } | undefined
     if (!row) throw new Error('Frozen isolated settlement is missing')
-    if (row.provenance_recorded) return
-    record()
-    db.prepare('UPDATE definition_delivery_settlements SET provenance_recorded=1 WHERE delivery_id=? AND run_id=?').run(deliveryId, runId)
-  })()
+    return Boolean(row.provenance_recorded)
+  }
+  const mark = () => db.prepare('UPDATE definition_delivery_settlements SET provenance_recorded=1 WHERE delivery_id=? AND run_id=?').run(deliveryId, runId)
+  if (readReceipt()) return
+  let committed = false
+  await record((write) => {
+    db.transaction(() => {
+      if (readReceipt()) return
+      write()
+      mark()
+    })()
+    committed = true
+  })
+  if (!committed) db.transaction(() => { if (!readReceipt()) mark() })()
 }

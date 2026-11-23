@@ -197,6 +197,58 @@ describe('Integrate locally with overlapping local changes (real Git)', () => {
     expect(userStatus()).toBe('')
   })
 
+  it('restores cleanly when only Specrails setup files collide: the delivered copy wins, the person\'s work comes back', async () => {
+    // The setup left OpenSpec's config and skills untracked; the delivery commits its own config.
+    git(['switch', '-c', 'feat/delivery', 'main'])
+    write('openspec/config.yaml', 'schema: spec-driven\n')
+    write('src/feature.js', 'export const x = 1\n')
+    git(['add', '.'])
+    git(['commit', '-m', 'feature'])
+    const sha = git(['rev-parse', 'HEAD'])
+    git(['switch', 'main'])
+    const row = delivery(sha)
+    write('openspec/config.yaml', 'schema: spec-driven\n\n# Project context (optional)\n')
+    write('.claude/skills/openspec-explore/SKILL.md', 'generated skill\n')
+    write('notes/mine.txt', 'my untracked draft\n')
+    write('tracked.txt', LINES.replace('eight', 'eight (my edit)'))
+    const result = await integrate(row.id)
+    expect(result.status).toBe(200)
+    expect(result.body.localChanges).toMatchObject({ state: 'restored' })
+    expect(read('openspec/config.yaml')).toBe('schema: spec-driven\n')
+    expect(read('.claude/skills/openspec-explore/SKILL.md')).toBe('generated skill\n')
+    expect(read('notes/mine.txt')).toBe('my untracked draft\n')
+    expect(read('tracked.txt')).toBe(LINES.replace('eight', 'eight (my edit)'))
+    expect(stashes()).toEqual([])
+    // Nothing left staged: the restored files are uncommitted again, as before.
+    expect(git(['diff', '--cached', '--name-only'])).toBe('')
+    expect(userStatus().split('\n').map((line) => line.trim()).sort()).toEqual(['?? .claude/skills/openspec-explore/SKILL.md', '?? notes/mine.txt', 'M tracked.txt'])
+  })
+
+  it('needs nothing for an untracked file the delivery committed with the same content', async () => {
+    const sha = feature('same.txt', 'identical\n')
+    const row = delivery(sha)
+    write('same.txt', 'identical\n')
+    write('other.txt', 'keep me\n')
+    const result = await integrate(row.id)
+    expect(result.body.localChanges).toMatchObject({ state: 'restored' })
+    expect(read('same.txt')).toBe('identical\n')
+    expect(read('other.txt')).toBe('keep me\n')
+    expect(stashes()).toEqual([])
+  })
+
+  it('a person\'s own untracked file that differs from the delivered one still needs attention, with the tree intact', async () => {
+    const sha = feature('src/app.js', 'delivered\n')
+    const row = delivery(sha)
+    write('src/app.js', 'mine\n')
+    write('.agents/skills/openspec-explore/SKILL.md', 'generated skill\n')
+    const result = await integrate(row.id)
+    expect(result.body.localChanges).toMatchObject({ state: 'needs_attention', conflictPaths: ['src/app.js'] })
+    expect(read('src/app.js')).toBe('delivered\n')
+    expect(userStatus()).toBe('')
+    const record = readLocalStash(getPrDelivery(db, row.id)!.local_stash)!
+    expect(stashes()).toEqual([record.sha])
+  })
+
   it('Restore is idempotent while conflicting and releases once the person resolved the stash', async () => {
     const sha = feature('tracked.txt', LINES.replace('one', 'ONE (delivery)'))
     const row = delivery(sha)
@@ -396,20 +448,21 @@ describe('server-side restoration of a conflicting stash (real Git)', () => {
   }
 
   it('[spec:safe-pr-workflow/housekeeping-and-recovery-commits-are-conventional] (a) applies cleanly in its own worktree, commits there and brings it back only on request', async () => {
-    // The delivery adds a file the person also created (identical content):
-    // the checkout apply is refused (untracked would be overwritten), the
-    // worktree apply is not.
+    // The delivery adds a file the person also created with other content: the
+    // checkout restore needs attention (nothing applied there); the restore
+    // worktree writes both sides and the resolver settles them.
     const sha = feature('shared.txt', 'same\n')
     const row = delivery(sha)
-    write('shared.txt', 'same\n')
+    write('shared.txt', 'mine\n')
     write('tracked.txt', LINES.replace('eight', 'eight (my edit)'))
     const integrated = await integrate(row.id)
-    expect(integrated.body.localChanges).toMatchObject({ state: 'needs_attention' })
+    expect(integrated.body.localChanges).toMatchObject({ state: 'needs_attention', conflictPaths: ['shared.txt'] })
+    expect(read('shared.txt')).toBe('same\n')
     await waitForLocalRestores()
     const record = recordOf(row.id)
-    expect(record.restore).toMatchObject({ status: 'ready', resolvedBy: 'clean', branch: `specrails/restore-local-${record.sha.slice(0, 8)}` })
-    expect(resolver).not.toHaveBeenCalled()
-    expect(record.restore!.files.map((f) => f.path)).toEqual(['tracked.txt'])
+    expect(record.restore).toMatchObject({ status: 'ready', resolvedBy: 'resolver', branch: `specrails/restore-local-${record.sha.slice(0, 8)}` })
+    expect(resolver).toHaveBeenCalledTimes(1)
+    expect(record.restore!.files.map((f) => f.path).sort()).toEqual(['shared.txt', 'tracked.txt'])
     expect(git(['log', '-1', '--format=%s', record.restore!.branch])).toBe('chore: restore local changes (7)')
     // Nothing touched main or the stash yet.
     const mainBefore = git(['rev-parse', 'main'])
@@ -438,7 +491,7 @@ describe('server-side restoration of a conflicting stash (real Git)', () => {
   ])('bounds restore references for %j', async (ticketIds, expected) => {
     const row = delivery(feature('shared.txt', 'same\n'))
     db.prepare('UPDATE rail_pr_deliveries SET ticket_ids=? WHERE id=?').run(JSON.stringify(ticketIds), row.id)
-    write('shared.txt', 'same\n')
+    write('shared.txt', 'mine\n')
     write('tracked.txt', LINES.replace('eight', 'my edit'))
     await integrate(row.id)
     await waitForLocalRestores()

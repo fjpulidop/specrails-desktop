@@ -1,0 +1,559 @@
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { CallToolResult, ServerNotification } from '@modelcontextprotocol/sdk/types.js'
+import { z, type ZodRawShape } from 'zod'
+import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-schema-compat.js'
+import type { ProjectRow } from '../../../desktop-db'
+import type { WsMessage } from '../../../types'
+import { TIER_VALUE_KEY, tierRefusalMessage, type McpTier } from '../../mcp-tiers'
+import { verifyAgentCapability } from '../../agent-capability'
+import { AGENT_CAPABILITY_HEADER } from '../../../modules/missions/runtime/agent-tier'
+import { acknowledgeAgentInputsRead, acknowledgeAgentSteering, onAgentSteering, runWithAgentSteering } from '../../../modules/missions/runtime/agent-steering'
+import { actionEnum } from '../../tools/actions'
+import { ALWAYS_LOAD_META_KEY, getActiveProject, recordMissionMcpAction, toolTierAllowed, type McpToolContext, type ToolHandlerExtra } from '../../tools/types'
+import { shortHash } from './canonical'
+import { askPerson, bindingArgs, carriesSecret, confirmationLedger, readConfirmInClient, readConfirmThreshold, type ConfirmationLedger, type Preview, type VerifyFailure } from './confirm'
+import { askChoice, compactChoices, hasDecision, menuOtherOf, readChoicesInClient, withField, type ChoicePoint } from './choices'
+import { buildDecisionState, confirmNeeded, type ActionPolicy, type ConfirmClass, type DecisionState, type DecisionStateInput, type PolicyLookup } from './decision-state'
+import { V2ToolError, V2_OUTPUT_SCHEMA, failure, isV2Result, success, toCallToolResult, type TextMode, type V2Envelope, type V2Failure } from './envelope'
+import { resolveLang, translator, type Lang, type Translate } from './lang'
+import { requireProjectRow, resolveTarget, type RefKind, type Target } from './refs'
+import { guardSize, viewCap } from './size-guard'
+import { present } from './text'
+import { resolveView, type View } from './views'
+
+/**
+ * The v2 tool registry. Each tool lives in its own file (`v2/tools/<area>.ts`)
+ * and exports a `V2ToolDef`: its final name, description, input fields and an
+ * action table. The registry owns everything around a handler, identically for
+ * every tool: capability admission, tiers, per-action required fields, language,
+ * the confirmation protocol, the envelope, the size guard, activity events and
+ * the mission audit. Handlers only map arguments to the domain.
+ */
+
+export type TierSpec = McpTier | ((args: Record<string, unknown>) => McpTier)
+export type ConfirmSpec = ConfirmClass | null | ((args: Record<string, unknown>) => ConfirmClass | null)
+
+/** What a confirmable action's preview computes (fresh on every call). */
+export interface PreviewInput {
+  /** Localized sentence; default: "<label> will run." plus the class sentence. */
+  effect?: string
+  refs?: string[]
+  /** The entity's `DecisionState.version` (or a hash of what the action depends on). */
+  version: string
+  /** `costly` actions: forecast upper bound and how many runs start. */
+  cost?: { forecastUsd: [number, number] | null; runs: number }
+}
+
+export interface V2ActionDef {
+  tier: TierSpec
+  /** Confirmation class; omitted/null = none. A function decides per call (e.g. `create` mode). */
+  confirm?: ConfirmSpec
+  /** Every listed field must be present (dots allowed: `options.path`). */
+  required?: readonly string[]
+  /** At least one must be present. */
+  oneOf?: readonly string[]
+  /** One line for `specrails_system(help, describe)`. */
+  doc?: string
+  /** Response cap override (o200k tokens), e.g. logs pages. */
+  maxTokens?: number
+  preview?: (ctx: V2CallContext, args: Record<string, unknown>) => Promise<PreviewInput> | PreviewInput
+  /**
+   * A decision point: called without the choice (every one of `fields` absent, the other required fields
+   * present), the call asks the person in the
+   * client's form or returns the choices to the agent (core/choices.ts). `point` returns null when there is
+   * nothing to choose (the usual missing-field error then applies).
+   */
+  choose?: { fields: readonly string[]; point: (ctx: V2CallContext, args: Record<string, unknown>) => Promise<ChoicePoint | null> | ChoicePoint | null }
+  /** Absent: the action is a stub and answers `not_implemented`. */
+  handler?: (ctx: V2CallContext, args: Record<string, unknown>) => Promise<unknown> | unknown
+}
+
+export interface V2ToolDef {
+  name: `specrails_${string}`
+  title: string
+  /** ≤ 2 short sentences; the action enum carries the rest. */
+  description: string
+  /** Work package that owns this file (docs/internals/mcp-v2.md). */
+  owner: string
+  /** Every action is read-only (annotation readOnlyHint). */
+  readOnly?: boolean
+  /** Claude Code loads it up front (`anthropic/alwaysLoad`). */
+  alwaysLoad?: boolean
+  /** Input fields besides `action` (use F.* from views.ts for the common ones). */
+  fields: ZodRawShape
+  /** Tool-specific v1 argument names, applied before the global `V1_ARG_ALIASES` (same rules). */
+  v1Aliases?: ReadonlyArray<readonly [alias: string, field: string]>
+  actions: Record<string, V2ActionDef>
+}
+
+export function defineTool<const T extends V2ToolDef>(def: T): T {
+  if (!/^specrails_[a-z]+$/.test(def.name)) throw new Error(`v2 tool name "${def.name}" must be specrails_<noun>.`)
+  if ('action' in def.fields) throw new Error(`${def.name}: "action" is generated by the registry.`)
+  if (!Object.keys(def.actions).length) throw new Error(`${def.name}: no actions.`)
+  for (const [action, spec] of Object.entries(def.actions)) {
+    if (!/^[a-z][a-z0-9_]*$/.test(action)) throw new Error(`${def.name}: bad action name "${action}".`)
+    for (const field of [...(spec.required ?? []), ...(spec.oneOf ?? [])]) {
+      const top = field.split('.')[0]
+      if (!(top in def.fields)) throw new Error(`${def.name}(${action}) requires unknown field "${field}".`)
+    }
+    if (def.readOnly && spec.tier !== 'read') throw new Error(`${def.name}(${action}): a readOnly tool has only read actions.`)
+  }
+  return def
+}
+
+// ── Catalog ─────────────────────────────────────────────────────────────────
+
+export interface V2Catalog {
+  tools: readonly V2ToolDef[]
+  byName: ReadonlyMap<string, V2ToolDef>
+  policyFor: PolicyLookup
+}
+
+const resolveTier = (tier: TierSpec, args: Record<string, unknown>): McpTier => typeof tier === 'function' ? tier(args) : tier
+const resolveConfirm = (confirm: ConfirmSpec | undefined, args: Record<string, unknown>): ConfirmClass | null =>
+  typeof confirm === 'function' ? confirm(args) : confirm ?? null
+
+export function createCatalog(tools: readonly V2ToolDef[]): V2Catalog {
+  const byName = new Map<string, V2ToolDef>(tools.map((tool) => [tool.name, tool]))
+  if (byName.size !== tools.length) throw new Error('Duplicate v2 tool name.')
+  const policyFor: PolicyLookup = (tool, action, args): ActionPolicy | null => {
+    const spec = byName.get(tool)?.actions[action]
+    if (!spec) return null
+    return { tier: resolveTier(spec.tier, args), confirm: resolveConfirm(spec.confirm, args) }
+  }
+  return { tools, byName, policyFor }
+}
+
+// ── Wire schema ─────────────────────────────────────────────────────────────
+
+export function fieldValue(args: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce<unknown>((value, key) => (value && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined), args)
+}
+
+/**
+ * v1 argument names that keep working on a v2 action of the same tool name
+ * (`specrails_runs(get, jobId)`, `specrails_specs(search, q)`). Each alias maps
+ * to the v2 field only when the tool declares that field, does not declare the
+ * alias itself and the v2 field is absent; the alias is then removed, so the
+ * required check, the handler and the confirmation binding see one shape.
+ * The first present alias of a target wins (order below).
+ */
+export const V1_ARG_ALIASES: ReadonlyArray<readonly [alias: string, field: string]> = [
+  ['projectId', 'project'],
+  ['q', 'query'],
+  ['id', 'ref'], ['jobId', 'ref'], ['itemId', 'ref'], ['runId', 'ref'], ['conversationId', 'ref'],
+]
+
+/** What people call a provider → its id ("on GPT" is Codex). Exact words only; anything else passes through. */
+export const PROVIDER_WORDS: Readonly<Record<string, string>> = { gpt: 'codex', openai: 'codex', chatgpt: 'codex', anthropic: 'claude', google: 'gemini' }
+
+export function normalizeV1Args(def: Pick<V2ToolDef, 'fields' | 'v1Aliases'>, args: Record<string, unknown>): Record<string, unknown> {
+  let out = args
+  const word = typeof args.provider === 'string' ? PROVIDER_WORDS[args.provider.trim().toLowerCase()] : undefined
+  if ('provider' in def.fields && word) out = { ...args, provider: word }
+  for (const [alias, field] of [...(def.v1Aliases ?? []), ...V1_ARG_ALIASES]) {
+    if (alias in def.fields || !(field in def.fields) || !present(out[alias])) continue
+    if (out === args) out = { ...args }
+    const value = out[alias]
+    delete out[alias]
+    if (present(out[field])) continue
+    out[field] = typeof value === 'number' ? String(value) : value
+  }
+  return out
+}
+
+/** `Needs: get, pause: ref; launch: target; answer: answer|optionId` — one line, grouped by signature. */
+export function actionNeedsBrief(def: Pick<V2ToolDef, 'actions'>): string | undefined {
+  const groups = new Map<string, string[]>()
+  for (const [action, spec] of Object.entries(def.actions)) {
+    const parts = [...(spec.required ?? []), ...(spec.oneOf?.length ? [spec.oneOf.join('|')] : [])]
+    if (!parts.length) continue
+    const key = parts.join(', ')
+    groups.set(key, [...(groups.get(key) ?? []), action])
+  }
+  if (!groups.size) return undefined
+  return `Needs: ${[...groups].map(([fields, actions]) => `${actions.join(',')}: ${fields}`).join('; ')}`
+}
+
+/**
+ * The advertised input object: `action` (advertised enum; `hiddenActions`
+ * accepted at runtime for v1 aliases) plus the tool's fields. Loose, so v1
+ * argument names reach the legacy delegate of a colliding tool.
+ */
+export function wireInput(def: V2ToolDef, hiddenActions: readonly string[] = [], legacyShape?: ZodRawShape) {
+  const actions = Object.keys(def.actions) as [string, ...string[]]
+  const brief = actionNeedsBrief(def)
+  const action = actionEnum(actions, hiddenActions)
+  // Only `action` is required on the wire; per-action requirements are checked at runtime.
+  const fields: Record<string, z.ZodTypeAny> = Object.fromEntries(Object.entries(def.fields as Record<string, z.ZodTypeAny>).map(([name, field]) => [name, field.optional()]))
+  // A field both versions define (e.g. v1 `confirm: true`) accepts either at runtime and advertises v2 only.
+  for (const [name, legacy] of Object.entries(legacyShape ?? {})) {
+    const own = fields[name]
+    if (!own || name === 'action') continue
+    const advertised = (toJsonSchemaCompat(z.object({ field: own })) as { properties?: Record<string, Record<string, unknown>> }).properties?.field ?? {}
+    fields[name] = z.union([own, legacy as z.ZodTypeAny]).optional().meta({ ...advertised, anyOf: undefined } as Record<string, unknown>)
+  }
+  return z.object({ action: brief ? action.describe(brief) : action.meta({ description: undefined }), ...fields })
+    .loose()
+    .meta({ $schema: undefined } as Record<string, unknown>)
+}
+
+// ── Call context ────────────────────────────────────────────────────────────
+
+export interface V2SessionState {
+  activeProjectId: string | null
+  /** Per MCP session; confirmTokens bind to it. */
+  sessionKey?: string
+  lang?: Lang | null
+  /** The client can ask the person inside a call (MCP elicitation, form mode). */
+  elicitation?: () => boolean
+}
+
+/** What a v2 handler receives: the v1 tool context plus the v2 helpers of this call. */
+export interface V2CallContext extends McpToolContext {
+  sessionState: V2SessionState
+  v2: {
+    tool: string
+    action: string
+    lang: Lang
+    t: Translate
+    view: View
+    /** Registered projects (app-level read model, no per-project DB opens). */
+    projects(): ProjectRow[]
+    /** The project of this call (explicit, pin, session default); `ambiguous` + choices when none. */
+    project(args: Record<string, unknown>): ProjectRow
+    /** The entity of `args.ref` (or a bare id scoped by project). */
+    target(args: Record<string, unknown>, defaultKind: RefKind, kinds?: readonly RefKind[]): Target
+    /** Builds a DecisionState with this call's language, the catalog's policies and the spend threshold. */
+    state(input: DecisionStateInput): DecisionState
+    confirmAboveUsd: number
+    /** True once the person said yes in the client's own dialog during this call (MCP elicitation), never by a token. */
+    confirmedInClient?: boolean
+    /** The catalog this call was registered with (help, describe, validate). */
+    catalog: V2Catalog
+    /**
+     * Runs another catalog call (an offer's `call`) through its registered
+     * callback: the target's own tier, required fields, confirmation protocol,
+     * size guard and legacy delegate apply, with this call's capability.
+     */
+    dispatch(call: { tool: string; args: Record<string, unknown> }): Promise<V2Envelope>
+    /** `notifications/progress` for the call's `_meta.progressToken`; a no-op when the client sent none. */
+    progress(progress: number, total?: number, message?: string): void
+  }
+}
+
+/** The SDK's request extra, as far as v2 uses it. */
+export type V2HandlerExtra = ToolHandlerExtra & {
+  _meta?: { progressToken?: string | number } & Record<string, unknown>
+  sendNotification?: (notification: ServerNotification) => Promise<void>
+}
+
+export type V2Callback = (args: Record<string, unknown>, extra?: V2HandlerExtra) => Promise<CallToolResult>
+
+/** A v1 envelope (legacy delegate result) read as a v2 one; v2 envelopes pass through. */
+export function envelopeOfResult(reply: CallToolResult): V2Envelope {
+  const value = (reply.structuredContent ?? {}) as Record<string, unknown>
+  if (value.v === 2) return value as unknown as V2Envelope
+  const summary = typeof value.summary === 'string' ? value.summary : ''
+  if (value.ok === false || reply.isError) {
+    const error = (value.error && typeof value.error === 'object' ? value.error : { code: 'internal', message: summary || 'The call failed.', retryable: false }) as V2Failure['error']
+    return { v: 2, ok: false, summary, error, ...(Array.isArray(value.warnings) ? { warnings: value.warnings as string[] } : {}) }
+  }
+  return { v: 2, ok: true, summary, data: 'data' in value ? value.data : null, ...(Array.isArray(value.warnings) ? { warnings: value.warnings as string[] } : {}) }
+}
+
+/** A v1 tool of the same name, still serving its own actions (phase 0–3 compatibility). */
+export interface LegacyDelegate {
+  actions: ReadonlySet<string>
+  /** The v1 input fields (accepted at runtime next to the v2 ones). */
+  shape?: ZodRawShape
+  /** v2 equivalent hint for a v1 action, e.g. `specrails_runs(get)`. */
+  hint(action: string): string | null
+  call(args: Record<string, unknown>, extra?: ToolHandlerExtra): Promise<CallToolResult>
+}
+
+export interface RegisterOptions {
+  catalog: V2Catalog
+  textMode?: TextMode
+  ledger?: ConfirmationLedger
+  /** v1 handler of a colliding tool name (projects, specs, rails, runs, inbox, missions, settings). */
+  legacy?: LegacyDelegate
+  /** v1 equivalent of a v2 action, named in `not_implemented` errors while the action is a stub. */
+  legacyEquivalent?: (tool: string, action: string) => string | null
+  /** Resolves `ctx.v2.dispatch` (registerV2Surface: every registered v2 callback). */
+  dispatch?: (call: { tool: string; args: Record<string, unknown> }, extra?: V2HandlerExtra) => Promise<CallToolResult>
+}
+
+const actionOf = (args: Record<string, unknown>) => typeof args.action === 'string' ? args.action : ''
+
+function annotationsFor(def: V2ToolDef) {
+  return def.readOnly ? { readOnlyHint: true, openWorldHint: false } : { readOnlyHint: false, destructiveHint: true, openWorldHint: true }
+}
+
+/** Adds a deprecation line to a v1 result (structured envelope and its text copy). */
+export function withDeprecation(resultValue: CallToolResult, hint: string): CallToolResult {
+  const structured = resultValue.structuredContent as Record<string, unknown> | undefined
+  if (!structured) return resultValue
+  const warnings = [...(Array.isArray(structured.warnings) ? structured.warnings as string[] : []), hint]
+  const patched = { ...structured, warnings }
+  const first = resultValue.content?.[0]
+  const text = first && first.type === 'text' && first.text.trimStart().startsWith('{') ? JSON.stringify(patched, null, 2) : null
+  return {
+    ...resultValue,
+    structuredContent: patched,
+    content: text !== null ? [{ type: 'text', text }, ...(resultValue.content ?? []).slice(1)]
+      : [...(resultValue.content ?? []), { type: 'text', text: hint }],
+  }
+}
+
+function emitActivity(ctx: McpToolContext, tool: string, action: string, tier: McpTier, title: string): void {
+  try {
+    ctx.broadcast({ type: 'mcp.activity', tool, action, tier, affectedProjectId: ctx.requestProjectId ?? getActiveProject(ctx), title, at: new Date().toISOString() } as unknown as WsMessage)
+  } catch { /* notifications never fail the tool */ }
+}
+
+const STALE_REASON: Record<VerifyFailure, { code: 'stale' | 'confirmation_required'; key: string }> = {
+  stale: { code: 'stale', key: 'core.confirm.stale' },
+  replayed: { code: 'stale', key: 'core.confirm.replayed' },
+  expired: { code: 'stale', key: 'core.confirm.expired' },
+  mismatch: { code: 'confirmation_required', key: 'core.confirm.mismatch' },
+  malformed: { code: 'confirmation_required', key: 'core.confirm.malformed' },
+}
+
+/** The call handler of one v2 tool (exported for tests; `registerV2Tool` wires it to a server). */
+export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: RegisterOptions): V2Callback {
+  const ledger = options.ledger ?? confirmationLedger
+  const textMode = options.textMode ?? 'json'
+  const callback: V2Callback = async (rawArgs, extra) => {
+    let args = rawArgs ?? {}
+    const action = actionOf(args)
+    const label = `${def.name}(${action})`
+    const session = (ctx.sessionState ?? { activeProjectId: null }) as V2SessionState
+    const lang = resolveLang({ explicit: args.lang, session, db: ctx.desktopDb })
+    const t = translator(lang)
+    const reply = (envelope: V2Envelope) => {
+      if (envelope.menuOther === undefined) {
+        // A yes/no confirmation and a held entity's offers are menus as well.
+        const other = envelope.ok ? menuOtherOf(lang, t, envelope)
+          : ['confirmation_required', 'stale'].includes(envelope.error.code) || envelope.error.state?.offers?.length ? menuOtherOf(lang, t, { state: { offers: [true] } }) : undefined
+        if (other) envelope.menuOther = other
+      }
+      return toCallToolResult(envelope, textMode)
+    }
+    const fail = (err: unknown) => reply(failure(err, label))
+
+    if (extra?.signal?.aborted) return fail(new V2ToolError('provider_unavailable', 'MCP request was cancelled before execution.'))
+    const suppliedCapability = extra?.requestInfo?.headers?.[AGENT_CAPABILITY_HEADER]
+    const capability = verifyAgentCapability(suppliedCapability)
+    if (suppliedCapability !== undefined && !capability) return fail(new V2ToolError('unauthorized', 'Agent capability expired or was revoked. Start a new mission turn to reconnect.'))
+
+    const spec = def.actions[action]
+    // A v1 action on a colliding tool name (or a v2 action still stubbed) keeps its v1 behavior.
+    if (options.legacy?.actions.has(action) && (!spec || !spec.handler)) {
+      const legacyResult = await options.legacy.call(rawArgs ?? {}, extra)
+      const hint = options.legacy.hint(action)
+      return hint ? withDeprecation(legacyResult, t('core.summary.deprecated', { target: hint })) : legacyResult
+    }
+    if (!spec) return fail(new V2ToolError('invalid_input', t('core.error.unknown_action', { action, actions: Object.keys(def.actions).join(', ') })))
+    // From here on the v2 handler serves the call: v1 argument names become v2 ones.
+    args = normalizeV1Args(def, args)
+
+    const callCtx = {
+      ...ctx,
+      sessionState: session,
+      ...(capability ? { requestProjectId: capability.projectId, originConversationId: capability.conversationId, firstPartyAgent: true, agentTierLevel: capability.tierLevel } : {}),
+      signal: extra?.signal,
+    } as V2CallContext
+    const rows = () => { try { return ctx.registry.listProjects?.() ?? [] } catch { return [] } }
+    const scope = (a: Record<string, unknown>) => ({ project: a.project, pinnedProjectId: callCtx.requestProjectId ?? null, sessionProjectId: session.activeProjectId })
+    const confirmAboveUsd = readConfirmThreshold(ctx.desktopDb)
+    callCtx.v2 = {
+      tool: def.name, action, lang, t, view: resolveView(args), confirmAboveUsd,
+      projects: rows,
+      project: (a) => requireProjectRow(rows(), scope(a), t),
+      target: (a, defaultKind, kinds) => resolveTarget(rows(), { ...scope(a), ref: a.ref, defaultKind, kinds, label }, t),
+      state: (input) => buildDecisionState(input, { translate: t, policyFor: options.catalog.policyFor, confirmAboveUsd }),
+      catalog: options.catalog,
+      dispatch: async (call) => {
+        if (!options.dispatch) throw new V2ToolError('internal', `${label}: no dispatcher registered for ${call.tool}.`)
+        return envelopeOfResult(await options.dispatch(call, extra))
+      },
+      progress: (progress, total, message) => {
+        const token = extra?._meta?.progressToken
+        if (token === undefined || !extra?.sendNotification) return
+        extra.sendNotification({ method: 'notifications/progress', params: { progressToken: token, progress, ...(total !== undefined ? { total } : {}), ...(message ? { message } : {}) } })
+          .catch(() => { /* notifications never fail the tool */ })
+      },
+    }
+
+    async function decide(point: ChoicePoint): Promise<CallToolResult> {
+      const run = async (call: { tool: string; args: Record<string, unknown> }, chosen: string): Promise<CallToolResult> => {
+        // The decision point's language and wait budget carry over to the chosen call (control fields only).
+        const waitMs = (args.options as Record<string, unknown> | undefined)?.waitMs
+        const callOptions = call.args.options && typeof call.args.options === 'object' ? call.args.options as Record<string, unknown> : {}
+        const callArgs = {
+          ...call.args,
+          ...(args.lang !== undefined && call.args.lang === undefined ? { lang: args.lang } : {}),
+          ...(waitMs !== undefined && callOptions.waitMs === undefined ? { options: { ...callOptions, waitMs } } : {}),
+        }
+        const raw = call.tool === def.name ? await callback(callArgs, extra) : options.dispatch ? await options.dispatch({ tool: call.tool, args: callArgs }, extra) : null
+        if (!raw) return fail(new V2ToolError('internal', `${label}: no dispatcher registered for ${call.tool}.`))
+        return reply({ ...envelopeOfResult(raw), chosen })
+      }
+      const inClient = callCtx.firstPartyAgent !== true && session.elicitation?.() === true && readChoicesInClient(ctx.desktopDb)
+      const picked = inClient ? await askChoice(extra, t, point) : null
+      if (picked && picked !== 'decline' && 'id' in picked) return run(point.choices.find((choice) => choice.id === picked.id)!.call, picked.id)
+      if (picked && picked !== 'decline' && 'other' in picked) {
+        if (point.other?.call && point.other.field) return run({ tool: point.other.call.tool, args: withField(point.other.call.args, point.other.field, picked.other) }, 'other')
+        return reply({ ...success({ other: picked.other }, t('core.choose.wrote', { text: picked.other.slice(0, 200) })), untrusted: ['/data/other', '/summary'], chosen: 'other' })
+      }
+      // No form (or the person closed it): the agent presents the menu and resends the chosen call.
+      const other = point.other?.call && point.other.field ? { other: { field: point.other.field, call: point.other.call } } : {}
+      return reply({ ...success({ question: point.question, choices: compactChoices(point.choices, { calls: true }), ...other }, t(picked === 'decline' ? 'core.choose.declined' : 'core.choose.menu')), untrusted: ['/data/question', '/data/choices/*/label', '/data/choices/*/effect'] })
+    }
+
+    // A decision point called without the choice: the person picks (client form) or the agent gets the menu.
+    if (spec.choose && spec.handler) {
+      const choice = spec.choose
+      const otherMissing = (spec.required ?? []).filter((field) => !choice.fields.includes(field) && !present(fieldValue(args, field)))
+      if (!otherMissing.length && choice.fields.every((field) => !present(fieldValue(args, field)))) {
+        try {
+          const point = await choice.point(callCtx, args)
+          if (hasDecision(point)) return await decide(point)
+        } catch (err) {
+          return fail(err)
+        }
+      }
+    }
+
+    const tier = resolveTier(spec.tier, args)
+    if (!toolTierAllowed(callCtx, tier)) {
+      // An external client is told the exact setting, and the call that turns it on (the person confirms it in the client's dialog).
+      const raise = !callCtx.firstPartyAgent && tier !== 'read' ? { next: [{ tool: 'specrails_settings', args: { action: 'set', section: 'mcp', values: { [TIER_VALUE_KEY[tier]]: true } }, why: 'Turn the tier on (the person confirms it in this client\'s dialog).' }] } : {}
+      return fail(new V2ToolError('unauthorized', tierRefusalMessage(tier), raise))
+    }
+    const missing = (spec.required ?? []).filter((field) => !present(fieldValue(args, field)))
+    const needsOne = spec.oneOf?.length && !spec.oneOf.some((field) => present(fieldValue(args, field)))
+    if (missing.length || needsOne) {
+      const what = [...(missing.length ? [t('core.error.missing_list', { fields: missing.map((f) => `"${f}"`).join(', ') })] : []), ...(needsOne ? [t('core.error.needs_one_of', { fields: spec.oneOf!.join(', ') })] : [])].join('; ')
+      const takes = [...(spec.required ?? []), ...(spec.oneOf?.length ? [spec.oneOf.join('|')] : [])].join(', ')
+      return fail(new V2ToolError('invalid_input', t('core.error.missing_fields', { label, missing: what, takes }), {
+        next: [{ tool: 'specrails_system', args: { action: 'help', options: { describe: `${def.name}.${action}` } }, why: 'The arguments this action takes.' }],
+      }))
+    }
+
+    const operation = async (): Promise<CallToolResult> => {
+      try {
+        const confirmClass = resolveConfirm(spec.confirm, args)
+        const sessionKey = session.sessionKey ?? 'default'
+        const binding = (version: string) => ({ session: sessionKey, tool: def.name, args, version })
+        const buildPreview = async (): Promise<Preview> => {
+          const input: PreviewInput = spec.preview ? await spec.preview(callCtx, args) : { version: `a${shortHash(bindingArgs(args))}`, refs: typeof args.ref === 'string' ? [args.ref] : [] }
+          const sentences = [input.effect ?? t('core.confirm.effect.default', { label })]
+          if (confirmClass) sentences.push(t(`core.confirm.class.${confirmClass}`))
+          if (input.cost) {
+            sentences.push(input.cost.forecastUsd ? t('core.confirm.cost', { low: input.cost.forecastUsd[0].toFixed(2), high: input.cost.forecastUsd[1].toFixed(2) }) : t('core.confirm.cost_unknown'))
+            if (input.cost.runs > 1) sentences.push(t('core.confirm.runs', { count: input.cost.runs }))
+          }
+          return {
+            label, effect: sentences.join(' '), class: confirmClass ?? 'costly', refs: input.refs ?? [],
+            reversible: confirmClass !== 'irreversible', external: confirmClass === 'external',
+            ...(input.cost ? { cost: input.cost } : {}), version: input.version,
+          }
+        }
+        const firstParty = callCtx.firstPartyAgent === true
+
+        // The exact call that confirms: the same arguments (no dryRun) plus the token.
+        // Never echoed when the arguments carry a write-only value (a secret stays out of the transcript).
+        const resend = (confirmToken: string) => carriesSecret(args) ? undefined : { tool: def.name, args: { ...Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'dryRun' && key !== 'confirm')), confirm: confirmToken } }
+        const costOf = (preview: Preview) => ({ highUsd: preview.cost ? preview.cost.forecastUsd?.[1] ?? null : undefined, runs: preview.cost?.runs })
+
+        if (args.dryRun === true) {
+          const preview = await buildPreview()
+          const needed = confirmClass !== null && !firstParty && confirmNeeded(confirmClass, costOf(preview), confirmAboveUsd)
+          const confirmToken = needed ? ledger.issue(binding(preview.version)) : null
+          // A client that can ask in its own dialog needs no separate preview turn: say so (the yes then costs no model turn).
+          const dialog = confirmToken !== null && session.elicitation?.() === true && readConfirmInClient(ctx.desktopDb)
+          const again = confirmToken ? resend(confirmToken) : undefined
+          return reply(success({ preview, wouldExecute: false, ...(confirmToken ? { confirmToken, ...(again ? { resend: again } : {}) } : {}) },
+            t('core.confirm.dry_run', { label, effect: preview.effect }), dialog ? [t('core.confirm.dry_run_dialog')] : []))
+        }
+
+        // The in-app agent's permission ladder and cards govern first-party turns (unchanged).
+        let confirmedInClient = false
+        if (confirmClass && !firstParty) {
+          const preview = await buildPreview()
+          const needed = confirmNeeded(confirmClass, costOf(preview), confirmAboveUsd)
+          if (needed) {
+            const confirmToken = ledger.issue(binding(preview.version))
+            if (args.confirm === undefined || args.confirm === null || args.confirm === '') {
+              // A client that can ask the person inside this call (MCP elicitation) gets the yes without another model turn.
+              const asked = session.elicitation?.() === true && readConfirmInClient(ctx.desktopDb) ? await askPerson(extra, t, preview) : null
+              if (asked === 'accept') {
+                // The dialog may stay open for minutes: the yes holds only for the state the person saw.
+                const now = await buildPreview()
+                if (now.version !== preview.version) {
+                  const fresh = ledger.issue(binding(now.version))
+                  return reply(failure(new V2ToolError('stale', t('core.confirm.stale'), { preview: now, confirmToken: fresh, resend: resend(fresh), reason: 'stale' }), label, `${label}: ${now.effect}`))
+                }
+                confirmedInClient = true
+              } else {
+                const declined = asked === 'decline'
+                return reply(failure(new V2ToolError('confirmation_required', t(declined ? 'core.confirm.declined' : 'core.confirm.required'), { preview, confirmToken, resend: resend(confirmToken), ...(declined ? { reason: 'declined' } : {}) }), label, `${label}: ${preview.effect}`))
+              }
+            } else {
+              const verdict = ledger.verify(args.confirm, binding(preview.version))
+              if (!verdict.ok) {
+                const { code, key } = STALE_REASON[verdict.reason]
+                return reply(failure(new V2ToolError(code, t(key), { preview, confirmToken, resend: resend(confirmToken), reason: verdict.reason }), label, `${label}: ${preview.effect}`))
+              }
+              ledger.consume(args.confirm as string)
+            }
+          }
+        }
+
+        if (!spec.handler) {
+          const legacy = options.legacyEquivalent?.(def.name, action)
+          return fail(new V2ToolError('not_implemented', legacy ? t('core.error.not_implemented_legacy', { label, legacy }) : t('core.error.not_implemented', { label })))
+        }
+        if (capability) recordMissionMcpAction(callCtx, def.name, args)
+        if (confirmedInClient) callCtx.v2.confirmedInClient = true
+        const value = await spec.handler(callCtx, args)
+        if (tier !== 'read') emitActivity(callCtx, def.name, action, tier, def.title)
+        const envelope = success(value, t('core.summary.done', { label }))
+        if (confirmedInClient) envelope.confirmed = 'in_client'
+        const base = isV2Result(value) ? value.pageBase : undefined
+        return reply(guardSize(envelope, { capTokens: spec.maxTokens ?? viewCap(callCtx.v2.view), ...(base ? { baseOffset: base.offset, basePath: base.path, cursorKey: base.key } : {}) }))
+      } catch (err) {
+        return fail(err)
+      }
+    }
+
+    if (capability && typeof suppliedCapability === 'string') {
+      callCtx.acknowledgeAgentUpdates = (revision) => acknowledgeAgentSteering(ctx.desktopDb, suppliedCapability, revision)
+      callCtx.acknowledgeAgentInputsRead = (inputIds) => acknowledgeAgentInputsRead(ctx.desktopDb, suppliedCapability, inputIds)
+      callCtx.onMissionInput = (listener) => onAgentSteering(ctx.desktopDb, suppliedCapability, listener)
+      return runWithAgentSteering(ctx.desktopDb, suppliedCapability, extra?.signal, operation, { acknowledgement: false })
+    }
+    callCtx.acknowledgeAgentUpdates = undefined
+    callCtx.acknowledgeAgentInputsRead = undefined
+    callCtx.onMissionInput = undefined
+    return operation()
+  }
+  return callback
+}
+
+/** Registers one v2 tool and returns its callback (registerV2Surface dispatches through it). */
+export function registerV2Tool(server: McpServer, ctx: McpToolContext, def: V2ToolDef, options: RegisterOptions): V2Callback {
+  const callback = v2ToolCallback(ctx, def, options)
+  const hidden = options.legacy ? [...options.legacy.actions].filter((action) => !(action in def.actions)) : []
+  server.registerTool(def.name, {
+    title: def.title,
+    description: def.description,
+    inputSchema: wireInput(def, hidden, options.legacy?.shape),
+    outputSchema: V2_OUTPUT_SCHEMA,
+    annotations: annotationsFor(def),
+    ...(def.alwaysLoad ? { _meta: { [ALWAYS_LOAD_META_KEY]: true } } : {}),
+  }, callback)
+  return callback
+}

@@ -7,7 +7,7 @@
   },
   "ticketStatus": {
     "todo": "Todo",
-    "inProgress": "In Progress",
+    "inProgress": "In progress",
     "done": "Done",
     "cancelled": "Cancelled",
     "draft": "Draft",
@@ -18,7 +18,7 @@
     "productBacklog": "From product backlog",
     "proposeSpec": "From spec proposal",
     "getBacklogSpecs": "From backlog specs",
-    "freePrompt": "From Raw prompt"
+    "freePrompt": "From raw prompt"
   },
   "fields": {
     "title": "Title",
@@ -53,7 +53,7 @@
     "addLabelPlaceholder": "Add label...",
     "effort": "Effort",
     "assignee": "Assignee",
-    "continueEditing": "Continue Editing",
+    "continueEditing": "Continue editing",
     "ticketFallbackLabel": "Spec #{{id}}",
     "spendingLineHint": "Everything spent on this spec so far: total cost · agent turns (a trailing + means some runs did not report turns) · active time · runs by kind (e.g. “1 quick, 3 loops” = one Quick spec generation and three loop runs). Click to open it in Analytics."
   },

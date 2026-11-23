@@ -39,11 +39,11 @@ function conv(id: string, title: string, minutesAgo: number, pinned: string | nu
   return { id, title, provider: 'claude', model: null, session_id: null, pinned_project_id: pinned, tier_level: 0, reasoning_effort: null, created_at: at, updated_at: at }
 }
 
-// The two newest missions belong to ANOTHER project; seven more of this one follow.
+// The two newest missions belong to ANOTHER project; twelve more of this one follow.
 const conversations: AgentConversation[] = [
   conv('x1', 'Other project newest', 1, 'p2'),
   conv('x2', 'Other project second', 2, 'p2'),
-  ...Array.from({ length: 7 }, (_, i) => conv(`m${i}`, `Own mission ${i}`, 10 + i, 'p1')),
+  ...Array.from({ length: 12 }, (_, i) => conv(`m${i}`, `Own mission ${i}`, 10 + i, 'p1')),
 ]
 vi.mock('../../features/missions/context/AgentChatContext', () => ({
   useAgentChat: () => ({ conversations, liveByConversation: new Map(), selectConversation: vi.fn(async () => {}), open: vi.fn() }),
@@ -85,12 +85,19 @@ describe('CommandPalette: re-audit 7', () => {
     await openPalette(user)
     await screen.findByText('Add live job status', { exact: false })
 
+    // "Jump back in" takes the six most recent (another project's missions included, with their
+    // project's name), with the open project's newest in front so Enter on open stays here…
+    const jump = within(screen.getByTestId('palette-group-jump-back-in')).getAllByRole('option')
+    expect(jump.map((row) => row.getAttribute('data-testid'))).toEqual([
+      'palette-jump-mission-m0', 'palette-jump-mission-x1', 'palette-jump-mission-x2',
+      'palette-jump-mission-m1', 'palette-jump-mission-m2', 'palette-jump-mission-m3',
+    ])
+    expect(jump[1]).toHaveTextContent('Beta')
+    expect(jump[0]).not.toHaveTextContent('Alpha')
+    // …and the Missions group lists the next five, never repeating a row (open project first).
     const missions = within(screen.getByTestId('palette-group-missions')).getAllByTestId(/^palette-mission-/)
     expect(missions).toHaveLength(5)
-    // Enter on the first row must stay in this project: its own missions lead, the other project's trail.
-    expect(missions.map((m) => m.textContent)).toEqual(expect.arrayContaining([expect.stringContaining('Own mission 0')]))
-    expect(screen.queryByText('Other project newest')).toBeNull()
-    expect(screen.getByText('Own mission 4')).toBeInTheDocument()
+    expect(missions.map((m) => m.getAttribute('data-testid'))).toEqual(['m4', 'm5', 'm6', 'm7', 'm8'].map((id) => `palette-mission-${id}`))
 
     const jobGroup = screen.getByText('Jobs').closest('[cmdk-group]') as HTMLElement
     expect(within(jobGroup).getAllByRole('option')).toHaveLength(5)

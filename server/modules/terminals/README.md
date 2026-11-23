@@ -11,7 +11,47 @@ one. `domain/app-urls.ts` extracts the `local` and `network` (private LAN/VPN)
 addresses a process prints; `runtime/app-urls.ts` attaches them as `appUrls` to
 running processes on read (REST, mission MCP tools, WS events). The operator
 prompt asks the user before launching a dev server exposed on the local network
-(the framework's own host flag); nothing here binds or proxies ports.
+(the framework's own host flag); nothing here binds or proxies ports. When a
+process announces a new address, the port scan below is invalidated so the next
+Resources read sees it.
+
+## Run worktree ports
+
+Rails launched together each start their own dev or e2e server; without a port of
+their own they all reach for `:3000` and the loser's checks failed with
+`EADDRINUSE`, read as "tests failed".
+
+- **Assignment.** `domain/run-ports.ts` (pure) defines the reserved area (default
+  30100–32099, 200 blocks of 10; `SPECRAILS_RUN_PORT_BASE`, `_BLOCK_SIZE`, `_BLOCKS`),
+  the hashed home block per worktree and the env: `PORT` (only when unset: a
+  pinned port is kept), `SPECRAILS_RUN_PORT`, `SPECRAILS_RUN_PORT_RANGE_START/END`.
+  `runtime/run-port-leases.ts` holds one machine-wide lease table (one server hosts
+  every project), persisted to `<home>/.specrails/run-ports.json` (0600) so resumes
+  keep their ports, and garbage-collected when a worktree directory is gone. Only
+  paths under `<home>/.specrails/projects/<slug>/worktrees/` lease. `ensure()` runs
+  before a run's first spawn (loop executors: definitions, AI steps, shell steps) and
+  skips blocks where something already listens; synchronous env builders then read
+  the lease in O(1). Consumers: `loops/runtime/loop-executors.ts` (AI/programmatic/shell
+  steps and frozen-host resumes), `delivery/runtime/definition-fork.ts`, the queue's
+  provider spawn env and `transient-children.ts` (background processes; POSIX).
+- **Attribution.** `runtime/listening-ports.ts` reads listeners off the event loop and
+  only on demand: macOS one `lsof -b -w -nP -iTCP -sTCP:LISTEN -F pcn` plus one
+  `lsof -a -d cwd -p <pids>`; Linux `/proc/net/tcp{,6}` LISTEN rows, inode → pid via
+  `/proc/<pid>/fd`, then `cwd` and `comm`; Windows unsupported. Scans are shared (3 s
+  TTL, one in flight) and invalidated by an announced URL. `attributeListeners` maps
+  each listener to a leased worktree: `cwd` when the process works inside it,
+  `command` when it or an ancestor (process table) names it, else `none`; a foreign
+  listener inside a leased block is `squatting`. `GET /api/resources/ports`
+  (`server/app-resources-router.ts`) labels them with the rail ledger row.
+- **Diagnosis.** `detectPortConflict` recognises `EADDRINUSE`, "address already in
+  use" and "Port N is in use". The loop's log sink records the latest one with its
+  step (agent conversation events are ignored: the agent's own exploration is not the
+  run's checks), and recovery classifies a run that failed in that step as
+  `port_in_use`.
+
+Tests: `domain/run-ports.test.ts`, `runtime/run-port-leases.test.ts` (real listener
+skips a busy block), `runtime/listening-ports.integration.test.ts` (a real server in
+a temp cwd attributed by `cwd`), `server/app-resources-router.ports.test.ts`.
 
 ## Intent apps
 
@@ -77,6 +117,64 @@ moving a mission to another project preserves its earlier history. The recorder
 rechecks existence after measuring so an in-flight sample cannot recreate deleted
 history. If an existence lookup fails, the sweep leaves all samples untouched.
 
+## App resources
+
+`GET /api/resources` (composed in `server/app-resources-router.ts`) is the app-wide
+counterpart behind the status-bar Resources control. `domain/app-resources.ts`
+attributes one process-table snapshot with a claimed set, so each process is counted
+once, under the first owner that reaches it: agent sessions (desktop missions and
+project chats, labelled with the conversation title and project), rails
+(`LoopRunManager.listProcessRoots`: each run's step spawn, Core definition runtime
+process or resident interactive step; `QueueManager.listProcessRoots`: active,
+interactive and force-failed job children), live background
+processes, terminal shells (`TerminalManager.listProcessRoots`), then the server's
+remaining children classified by command line (agent CLIs, MCP bridge/local runner/MCP
+servers, git, other), and finally the server process itself. The `ps`/CIM query is
+excluded. `runtime/app-resources.ts` reads the table through
+`cacheProcessTableReader` (500 ms, shared in-flight read) and keeps up to 100 totals
+points in memory only while a client polls; the history restarts after 30 s without
+requests. Nothing is persisted or sampled in the background.
+
+## Leftover processes in run worktrees
+
+Provider CLIs and the tools they drive start test and preview servers in their own
+process group (Playwright `webServer` spawns `detached`; Bash-tool commands outlive the
+CLI). When the CLI exits, or is tree-killed, those processes are re-parented to
+init/launchd: no ppid walk from the run's root reaches them, so they used to keep ports
+and memory long after the run settled, invisible to Resources.
+
+`domain/worktree-leftovers.ts` selects a settled run's leftovers from one process-table
+snapshot: every top-most process whose command line references the worktree path (the
+`findWorktreeRoots` boundary rules: `ticket-4` never matches `ticket-40`; Windows
+separators and case are normalized), with its descendants. It never selects, nor descends
+into, the trees of live owned roots (`listAppResourceRoots`: agent sessions, loop runs,
+queue jobs, registered background processes, terminal shells), the server, its ancestors
+or its own `git`/`ps` children. `isReapableWorktreePath` refuses relative or shallow
+paths and any path equal to or above the home directory, the Specrails home, the server
+cwd or a registered project checkout. The working directory is not read (`lsof` is too
+expensive): a process that never names the path is not matched.
+
+`runtime/worktree-process-reaper.ts` sends SIGTERM to each selected pid (Windows:
+`taskkill /T` to the top-most ones), logs one `[worktree-reaper]` line per process (pid,
+worktree, reason, run, command head), then after 3 s sends SIGKILL (`taskkill /T /F`)
+only to pids still present with the same command line. The call resolves after the
+first signal; escalation runs on an unreferenced timer. `server/worktree-process-reaper.ts`
+installs the app-wide reaper at startup; `reapWorktreeLeftovers` is a no-op without one
+and never throws. It runs:
+
+- when an isolated rail run's engine settles (`rail-isolated-run-settlement.ts`, fresh
+  and reattached runs, before the settlement's own git work), and when a PR CI run settles;
+- before a rail, PR CI or Intent worktree is removed (`releaseRailWorktrees`, Intent
+  `release`), once the first verification passed and before Specrails's overlay kit is
+  cleared, so no leftover process can write into a kit file that is about to be deleted (a
+  release that then stops for review keeps every file; only the processes are gone);
+- at startup, once per project, for the newest 200 rail worktrees whose loop run has
+  `finished_at` set and no unfinished run shares the path (restart-paused runs are kept).
+
+Runs in the project checkout (non-isolated loops, board jobs) are not reaped: the user's
+own processes there carry the same path. No activity event is emitted; the log lines
+are the audit trail.
+
 ## Reviewed public entry points
 
 - [runtime/app-urls.ts](runtime/app-urls.ts)
@@ -87,6 +185,7 @@ history. If an existence lookup fails, the sweep leaves all samples untouched.
 - [runtime/terminal-manager.ts](runtime/terminal-manager.ts)
 - [runtime/terminal-marks-store.ts](runtime/terminal-marks-store.ts)
 - [runtime/terminal-settings.ts](runtime/terminal-settings.ts)
+- [runtime/worktree-process-reaper.ts](runtime/worktree-process-reaper.ts)
 
 The [boundary manifest](../boundaries.json) records dependencies for every
 production file and subpaths consumed outside this capability. The architecture

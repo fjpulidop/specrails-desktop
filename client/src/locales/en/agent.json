@@ -247,7 +247,7 @@
   "chip": {
     "kindAgent": "Agent mission"
   },
-  "newAgent": "New Mission",
+  "newAgent": "New mission",
   "switchToAgent": "Switch to Mission Control",
   "switchToKanban": "Switch to Board",
   "search": "Search",
@@ -317,7 +317,8 @@
       "reopen": "Reopening…",
       "merge-local": "Integrating locally…",
       "recover-and-retry": "Committing and retrying the preserved result…",
-      "acknowledge-no-changes": "Marking done…"
+      "acknowledge-no-changes": "Marking done…",
+      "refresh-on-base": "Updating it on the new base…"
     },
     "rail": "Rail {{index}}",
     "specCount_one": "{{count}} spec",
@@ -329,7 +330,7 @@
       "building": "Implementing in an isolated worktree…",
       "buildingInPlace": "Implementing in the project folder…",
       "buildingExistingPr": "Applying changes to an existing PR…",
-      "paused": "Needs a human decision",
+      "paused": "Paused",
       "on_review": "Implementation ready for review",
       "pr_draft": "Draft PR created",
       "pr_draft_degraded": "PR delivery incomplete",
@@ -427,9 +428,7 @@
     "retryPushNote": "Implementation succeeded and the changes are safe locally. Retry only the push.",
     "cleanupIncomplete_one": "Cleanup is incomplete ({{count}} warning)",
     "cleanupIncomplete_other": "Cleanup is incomplete ({{count}} warnings)",
-    "safetyArchiveTitle": "Safety archive ({{count}})",
-    "safetyArchiveHint": "Temporary workspace files were preserved outside the PR as a precaution. You can inspect or remove them manually.",
-    "implementationFailedNote": "The implementation run failed before there was anything deliverable. Open the run log to inspect the failure, then discard this card before relaunching.",
+    "implementationFailedNote": "The run stopped before it had anything to deliver. Open its log to see why.",
     "degraded": {
       "pushed": "The branch was pushed but the PR could not be created. Retry to finish.",
       "localOnly": "The changes were assembled locally but not pushed. Retry to publish the PR."
@@ -472,7 +471,7 @@
       "recheckRecoveryTitle": "Check this computer again?",
       "recheckRecoveryBody": "We’ll check whether anything from this delivery can still be recovered. Nothing is deleted.",
       "freshDiscardTitle": "Discard this delivery?",
-      "freshDiscardBody": "The PR will be closed without deleting its remote branch. Only SpecRails-owned local branches and worktrees that are still at their recorded commit will be removed; anything changed will be preserved with a warning. The specs will return to the backlog. Removed local resources cannot be recovered.",
+      "freshDiscardBody": "The PR will be closed without deleting its remote branch. Only Specrails-owned local branches and worktrees that are still at their recorded commit will be removed; anything changed will be preserved with a warning. The specs will return to the backlog. Removed local resources cannot be recovered.",
       "implementationFailedDiscardTitle": "Discard this failed delivery?",
       "implementationFailedDiscardBody": "The card will be cleared and its specs will return to the backlog. Local work and branches will be kept for inspection. Only resources proven safe to clean up may be removed.",
       "dismissTitle": "Dismiss this follow-up?",
@@ -544,7 +543,11 @@
       "failing_pr": "{{pr}}: failing checks: {{checks}}"
     },
     "ciBuildingHint": "It waits for the checks, fixes code failures and pushes to the same PR. Failures that are not the code's fault are reported, not retried.",
-    "runStoppedNote": "You stopped this run before it delivered. Relaunch it when you want to continue."
+    "runStoppedNote": "You stopped this run before it delivered. Continue picks it up where it stopped, in the same worktree.",
+    "runStoppedNoteNoContinue": "You stopped this run before it delivered. Its work stays in its worktree.",
+    "continue": "Continue",
+    "startOver": "Start over",
+    "startOverHint": "A fresh run from the base; this attempt's work stays in the old worktree."
   },
   "specDraft": {
     "heading": "Spec draft",
@@ -815,7 +818,8 @@
       "feature_unavailable": "Intent is not available",
       "daily_budget_exceeded": "Daily limit reached. Nothing was launched.",
       "review_wip_limit_reached": "Review limit reached. Nothing was launched.",
-      "repository_has_no_commits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project."
+      "repository_has_no_commits": "This repository has no commits yet. Make an initial commit so Specrails can create an isolated copy of the project.",
+      "launch_preflight_blocked": "Fix the failed check before launching."
     },
     "stub": {
       "launched": "Launched → Rail {{rail}}",
@@ -934,7 +938,26 @@
     "add": "Add conversation in split view",
     "close": "Close split view",
     "loadFailed": "Could not load this conversation.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "openRight": "Open to the right",
+    "openBelow": "Open below",
+    "layoutMenu": "Split and arrange panes",
+    "splitRight": "Split right",
+    "splitDown": "Split down",
+    "moveLeft": "Move left",
+    "moveRight": "Move right",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "swap": "Swap with",
+    "maximize": "Maximize pane",
+    "restore": "Restore layout",
+    "equalize": "Equalize panes",
+    "closePane": "Close pane",
+    "noMissions": "No other missions to open",
+    "noRoom": "Not enough room for this layout",
+    "stacks": "Stacks",
+    "resize": "Resize {{first}} and {{second}}",
+    "panes": "Open missions"
   },
   "runtimeSelector": {
     "label": "Model and effort",
@@ -1389,7 +1412,7 @@
     "paused": "Paused. Waiting for you",
     "pausedReason": "Paused: {{reason}}",
     "decision": {
-      "approval": "Waiting for your approval",
+      "approval": "Needs attention",
       "changes": "The reviewer requested changes",
       "on_review": "Ready for your review",
       "pr_draft": "Draft PR ready to publish",
@@ -1434,7 +1457,7 @@
     "announce": {
       "settled": "{{run}} finished",
       "shown": "Showing {{run}}: {{state}}",
-      "needsYou": "{{run}} needs you"
+      "needsYou": "{{run}} needs your attention"
     },
     "event": {
       "launched": "Launched on {{run}}",
@@ -1452,7 +1475,7 @@
       "discarded": "{{run}} was discarded",
       "changes": "{{run}}: the reviewer requested changes"
     },
-    "needsYou": "needs you",
+    "needsYou": "needs your attention",
     "opensCard": "Opens the run's card so you can confirm there",
     "open": {
       "decision": "Open the decision",
@@ -1537,11 +1560,7 @@
     "greeting": "What should ship next in {{project}}?",
     "greetingNoProject": "What should ship next?",
     "statusTodo_one": "{{count}} to do",
-    "statusTodo_other": "{{count}} to do",
-    "statusReview_one": "{{count}} waiting for review",
-    "statusReview_other": "{{count}} waiting for review",
-    "statusRunning_one": "{{count}} running",
-    "statusRunning_other": "{{count}} running"
+    "statusTodo_other": "{{count}} to do"
   },
   "prCi": {
     "title": "Watch and fix the CI of PR {{pr}}",
@@ -1568,7 +1587,7 @@
     "startFailed": "The CI loop could not start.",
     "dismissFailed": "Could not save your choice. Try again.",
     "startedToast": "CI watch started on rail {{index}}",
-    "fixCi": "Fix CI / Conflicts",
+    "fixCi": "Fix CI / conflicts",
     "fixCiTooltip": "Wait for the checks, fix failures and conflicts, and push to this PR until it is green",
     "step": {
       "checks": "Waiting for CI",
@@ -1586,7 +1605,7 @@
     "noCiMany": "PRs {{pr}} have no CI checks",
     "needsAttentionMany": "PRs {{pr}} are pushed; their CI is not green yet",
     "dismissedMany": "CI watch for PRs {{pr}} not started.",
-    "retry": "Fix CI / Conflicts again",
+    "retry": "Fix CI / conflicts again",
     "openLog": "Open the log"
   },
   "missionResources": {
@@ -1620,5 +1639,68 @@
     "history": "History",
     "peakValue": "Peak {{value}}",
     "historyHint": "One point every 3 s while the mission worked. Hover a line to see the time and value."
+  },
+  "contextUsage": {
+    "open": "Context used: {{percent}}%",
+    "title": "Context",
+    "description": "How full this mission's provider session context is, as reported by the provider.",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}}%",
+    "model": "Model",
+    "sourceResponse": "Measured from the last response",
+    "sourceSessionFile": "Read from the {{provider}} session",
+    "compacted": "The provider compacted the context during the last turn.",
+    "highNote": "The provider compacts the context automatically when it fills up. Starting a new session with a summary can also help.",
+    "openUnknown": "Context: share of the window unknown",
+    "tokensUsedOnly": "{{used}} tokens used",
+    "windowUnknown": "The provider did not report the context window, so the share used is unknown.",
+    "usageUnknown": "The context usage is unknown right after the provider compacted it."
+  },
+  "sessionRenew": {
+    "action": "Start fresh with a summary",
+    "hint": "Writes a summary of this mission; your next message starts a new session that knows only that summary.",
+    "confirmBody": "Specrails will write a summary of this mission (goal, decisions, current state, next steps). Your next message then starts a new provider session that knows only that summary. The conversation stays in the history.",
+    "confirm": "Start fresh",
+    "cancel": "Cancel",
+    "running": "Writing the summary…",
+    "retry": "Try again",
+    "blockedBusy": "Available when the current turn finishes.",
+    "blockedMode": "Not available in this mode: it runs in its own session.",
+    "marker": "Session renewed · summary",
+    "markerDetail": "What the new session knows",
+    "showSummary": "Show the summary",
+    "hideSummary": "Hide the summary",
+    "basedOn": "Based on the whole conversation",
+    "basedOnPartial": "Based on the latest {{included}} of {{total}} messages",
+    "errors": {
+      "MISSION_BUSY": "Wait for the current turn to finish, then try again.",
+      "MISSION_IN_INTENT": "This mission is in Intent, which runs in its own session. Leave Intent to start a new session.",
+      "MISSION_ARCHIVED": "Restore this archived mission before starting a new session.",
+      "NOTHING_TO_SUMMARIZE": "There is no conversation to summarize yet.",
+      "RENEWAL_CANCELLED": "The new session was cancelled.",
+      "generic": "The summary could not be written.",
+      "SHUTTING_DOWN": "Specrails restarted while writing the summary. Nothing changed; try again."
+    }
+  },
+  "ask": {
+    "menu": "Ask about this",
+    "title": "Ask about this",
+    "description": "A side conversation about the selected text, using this mission's earlier context. The mission itself is not changed.",
+    "selection": "Selected text",
+    "showAll": "Show all",
+    "showLess": "Show less",
+    "thread": "Side conversation",
+    "running": "Thinking…",
+    "failed": "Could not get an answer. Try again.",
+    "retry": "Retry",
+    "inputLabel": "Question about the selected text",
+    "placeholder": "Ask something, or press Enter to explain it · not saved",
+    "placeholderFollowUp": "Ask a follow-up · not saved",
+    "send": "Ask",
+    "footer": "Answered with {{model}} · closing discards this conversation",
+    "footerPending": "Runs on {{model}} · closing discards this conversation",
+    "answer": "Answer",
+    "defaultQuestion": "Explain what this means in this context.",
+    "providerDefault": "{{provider}} default model"
   }
 }

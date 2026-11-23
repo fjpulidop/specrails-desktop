@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "左サイドバーを折りたたむ (ピン留めは維持)",
       "pinnedCollapsed": "左サイドバーのピン留めを解除",
-      "unpinned": "左サイドバーを開いた状態でピン留め"
+      "unpinned": "左サイドバーを開いた状態でピン留め",
+      "showOverlay": "サイドバーを表示",
+      "hideOverlay": "サイドバーを隠す"
     },
     "right": {
       "pinnedOpen": "右サイドバーを折りたたむ (ピン留めは維持)",
@@ -47,7 +49,7 @@
     "docs": "ドキュメント",
     "analytics": "全プロジェクトの分析",
     "companion": "Companion",
-    "settings": "アプリ設定",
+    "settings": "設定",
     "plugins": "プラグイン",
     "review": "レビュー",
     "landmark": "プロジェクトとミッション",
@@ -58,7 +60,8 @@
       "label": "実行中のミッションのみ表示",
       "tooltip": "実行中のミッションのみ表示",
       "empty": "実行中のミッションはありません"
-    }
+    },
+    "liveBoard": "ライブボード"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops は Mission のウィンドウで開いています。",
@@ -86,10 +89,9 @@
     "activeCli": "使用中の CLI: {{label}}"
   },
   "statusBar": {
-    "connected": "接続済み",
-    "syncing": "同期中...",
-    "reconnecting": "再接続中...",
-    "disconnected": "切断",
+    "syncing": "同期中…",
+    "reconnecting": "再接続中…",
+    "disconnected": "オフライン",
     "connectionRestored": "接続が回復しました"
   },
   "titleBar": {
@@ -154,11 +156,11 @@
   },
   "keepAwake": {
     "label": "コンピューターをスリープさせない",
-    "on": "オン",
-    "off": "オフ",
     "active": "自動スリープを防止します。画面は消灯できます。",
     "inactive": "通常のスリープを許可します。",
-    "failed": "スリープ設定を変更できませんでした。"
+    "failed": "スリープ設定を変更できませんでした。",
+    "turnOff": "スリープを再び許可",
+    "activeHint": "コンピューターをスリープさせていません。クリックするとスリープを許可します。"
   },
   "skipToContent": "メインコンテンツへスキップ",
   "places": {

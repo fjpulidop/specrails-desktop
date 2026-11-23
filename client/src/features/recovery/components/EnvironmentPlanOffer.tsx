@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Wrench } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
 import { getApiBase } from '../../../lib/api'
+import { requestJson } from '../../../lib/api-response'
 
 interface PlanEntry { repositoryId: string; name: string; version: string; reason: string; applied: boolean }
 
@@ -19,9 +20,8 @@ export function EnvironmentPlanOffer() {
     let live = true
     let base: string
     try { base = getApiBase() } catch { return }
-    fetch(`${base}/agent-runtime/environment-plan`)
-      .then(async (response) => (response.ok ? (await response.json()) as { plans?: PlanEntry[] } : { plans: [] }))
-      .then((body) => { if (live) setPlans((body.plans ?? []).filter((plan) => !plan.applied)) })
+    requestJson<{ plans?: PlanEntry[] } | null>(`${base}/agent-runtime/environment-plan`)
+      .then((body) => { if (live) setPlans((body?.plans ?? []).filter((plan) => !plan.applied)) })
       .catch(() => { /* offline detection only; nothing to offer */ })
     return () => { live = false }
   }, [])
@@ -29,10 +29,10 @@ export function EnvironmentPlanOffer() {
   const apply = async (plan: PlanEntry) => {
     setState((current) => ({ ...current, [plan.repositoryId]: 'saving' }))
     try {
-      const response = await fetch(`${getApiBase()}/agent-runtime/environment-plan/apply`, {
+      await requestJson(`${getApiBase()}/agent-runtime/environment-plan/apply`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repositoryId: plan.repositoryId }),
       })
-      setState((current) => ({ ...current, [plan.repositoryId]: response.ok ? 'saved' : 'failed' }))
+      setState((current) => ({ ...current, [plan.repositoryId]: 'saved' }))
     } catch { setState((current) => ({ ...current, [plan.repositoryId]: 'failed' })) }
   }
   return (

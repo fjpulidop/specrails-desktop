@@ -19,15 +19,33 @@ You stay in control of *what* an external AI may do through a set of permission 
 
 All four tiers are granted out of the box, so a connected assistant can drive the whole app right away. Untick any tier you'd rather keep to yourself; if your assistant then tries something that tier covers, Specrails refuses with a clear message telling you which tier to switch back on.
 
+## Connect Claude Code or Codex in one step
+
+Open **Settings ▸ MCP** and click **Connect** next to Claude Code or Codex — or run one command in a terminal:
+
+```bash
+specrails-desktop mcp connect --client claude   # or codex
+```
+
+Specrails adds itself to the client's own configuration, keeps a backup of the file, writes no access token anywhere, and checks the connection right away (you see how many tools it found). Running it again is harmless. Start a new Claude Code or Codex session afterwards. **Copy command** shows the client's own command if you prefer to run it yourself; for other assistants, use **Copy client config**.
+
+If something doesn't work, run `specrails-desktop mcp doctor`. It checks everything in one go (the app, the access token file, the bridge and the Node that runs it, each client's entry, and a real connection) and gives the fix for each problem. It only looks; it changes nothing. After a Node upgrade (for example with Homebrew), run **Connect** again if your assistant stopped finding Specrails.
+
+**Ask before spending** (same panel, $0.50 by default) is the amount above which a connected assistant must ask you before it starts paid work. Merges, PRs and deletions always ask. Your assistant gets a simple set of 15 tools with ready-made next steps, waiting without polling, answers in your language and slash prompts such as *start-my-day*, *review-waiting*, *ship-milestone* and *why-stuck*. If an older script of yours needs the previous tools, switch off **Simplified MCP tools** in the same panel; Specrails' own missions are not affected.
+
+Every decision reaches you as a short menu: the options, each with what happens if you pick it, the recommended one first and a last "Something else — write it". Answer with the number (or the option) from the keyboard, or in your own words. When your client can show its own form, Specrails asks you there directly; an option that merges, opens a PR or spends money still asks for your yes.
+
 ## For agents only: connect your client
 
-When a person asks an agent to connect, read the [dedicated MCP connection runbook](../../../agents/mcp.md). It covers Claude Code and Codex CLI and desktop: locate the bundled bridge, preserve existing configuration, verify the real connection and diagnose failures. The web version is plain Markdown and needs no JavaScript.
+When a person asks an agent to connect, read the [dedicated MCP connection runbook](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md). It covers the one-command connect, manual registration for Claude Code and Codex, verification and troubleshooting. Registration alone is not proof of connection: complete `initialize`, `tools/list` and a read-only call.
 
-Keep Specrails running and open **Settings ▸ MCP ▸ Copy client config**. Some versions return only `specrails-mcp`, which may not be on PATH; the runbook explains how to locate the actual executable and script. The bridge reads the token locally, so no token belongs in client configuration. Registration alone is not proof of connection: complete `initialize`, `tools/list`, and a read-only `specrails_projects` call with `{"action":"list"}`.
+For a quick look at everything, the assistant calls `specrails_overview`: what is running, what needs you, recent failures, today's spend and the machine's CPU and memory, in one call. `specrails_inbox` reads and answers the **Needs attention** inbox, `specrails_missions` lists and messages your missions, `specrails_specs` and `specrails_rails` show a project's backlog and rails, `specrails_insights` your spend and limits, and `specrails_wait` waits for a run to finish instead of asking over and over. A failed run comes with its diagnosis and the end of its log.
 
-Before acting, the assistant can use `specrails_context` for a current briefing on the project, specs, runs and Git state. Unavailable sections are reported explicitly; they do not mean the project is empty. `specrails_code(search)` finds source text, and `read_file` reads specific line ranges with continuation information when more content remains.
+Every answer starts with a short plain-language summary and the possible next steps, with the recommended one marked, and errors say what went wrong and whether retrying helps. Before anything irreversible, or paid work above your limit, the assistant shows you a preview and asks you first. Your yes only works for that exact action and expires if things change in the meantime.
 
-Each external MCP session keeps its own selected project. In Mission mode, the default follows the conversation's project pin, which you change in the mission interface; an MCP selection cannot override it. An explicit `projectId` targets an intentional operation in another project.
+Before acting, the assistant can ask `specrails_overview` for a current briefing on one project: specs, runs and Git state. Unavailable sections are reported explicitly; they do not mean the project is empty. It can also search and read your source code, line by line, without changing it.
+
+Each external MCP session keeps its own selected project. In Mission mode, the default follows the conversation's project pin, which you change in the mission interface; an MCP selection cannot override it. Naming another project in a call targets that project on purpose.
 
 ## What you can do with it
 

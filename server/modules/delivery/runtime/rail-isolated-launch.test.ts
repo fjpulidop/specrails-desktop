@@ -9,6 +9,7 @@ import * as os from 'os'
 import * as path from 'path'
 import { resolveHome } from '../../../artifact-registry'
 import { buildSpecSnapshot, launchIsolatedRail, reattachIsolatedSettlement, reconcileRailWorktrees, type IsolatedLaunchIO } from './rail-isolated-launch'
+import { RUN_STOPPED_DETAIL } from './rail-isolated-launch-contracts'
 import { RepositoryHasNoCommitsError } from './isolated-worktree'
 import { initDb, createJob } from '../../../db'
 import { initDesktopDb } from '../../../desktop-db'
@@ -2584,6 +2585,8 @@ describe('launchIsolatedRail — per-run worktree overlay', () => {
       sourceRoot: '/repo', // legacy: the repo's own on-disk untracked entries
       providerDir: '.claude',
       instructionsFilename: 'CLAUDE.md',
+      // Claude worktrees carry the in-turn agent policy hook (managed local settings).
+      policyHookCommand: expect.stringContaining('specrails-policy-hook'),
     })
   })
 
@@ -4027,6 +4030,39 @@ describe('launchIsolatedRail — review-packet evidence (spec snapshot + settle 
     await launchIsolatedRail({ ...input([1], ctx), loopId }, okIo())
     await vi.waitFor(() => expect(getPrDelivery(db, getActivePrDeliveryByRail(db, 0)?.id ?? '')?.decision ?? '').toBe('implementation_failed'))
     expect(getActivePrDeliveryByRail(db, 0)!.status_code).toBe(statusCode)
+  })
+  it('a stopped run whose checkout fails the OpenSpec hygiene check keeps the stop text; the hygiene message stays on its unit', async () => {
+    // A person stops a run mid-change: its active OpenSpec change is still in
+    // the worktree, so the partial commit's hygiene guard refuses delivery.
+    // That message used to become the delivery's status_detail, so the stopped
+    // card and the inbox named an OpenSpec problem instead of the stop.
+    const worktree = fs.mkdtempSync(path.join(os.tmpdir(), 'sr-stop-hygiene-'))
+    try {
+      fs.mkdirSync(path.join(worktree, 'openspec', 'changes', 'add-square'), { recursive: true })
+      let seededDb: ReturnType<typeof fakeCtx>['db'] | null = null
+      const { ctx, db } = fakeCtx((req) => {
+        createLoopRun(seededDb!, { id: req.runId, projectId: 'proj', loopId: 'factory:implement', iterationLimit: 3, startedAt: new Date().toISOString() })
+        seededDb!.prepare("UPDATE loop_runs SET status = 'completed', final_outcome = 'stopped' WHERE id = ?").run(req.runId)
+        return settlingRun('stopped')(req)
+      })
+      seededDb = db
+      const git = { run: async (args: string[]) => args[0] === 'status' && args.includes('--porcelain=v1')
+        ? { code: 0, stdout: ' M src/square.js\0', stderr: '' }
+        : successfulGitResult(args) }
+      await launchIsolatedRail(input([1], ctx), okIo({
+        git,
+        create: vi.fn(async () => ({ branch: 'sr/p/ticket-1', worktreePath: worktree })),
+      }))
+      await vi.waitFor(() => expect(getPrDelivery(db, getActivePrDeliveryByRail(db, 0)?.id ?? '')?.decision ?? '').toBe('implementation_failed'))
+      const row = getActivePrDeliveryByRail(db, 0)!
+      expect(row.status_code).toBe('run_stopped')
+      expect(row.status_detail).toBe(RUN_STOPPED_DETAIL)
+      const [unit] = toPrDeliverySnapshot(row).units
+      expect(unit.failureCode).toBe('commit_failed')
+      expect(unit.failureDetail).toContain('OpenSpec delivery blocked by new active changes')
+    } finally {
+      fs.rmSync(worktree, { recursive: true, force: true })
+    }
   })
   it('an Intent session → Spec run that stopped with a rejected review settles as review_changes_requested, not an opaque failure', async () => {
     const { ctx, db } = fakeCtx(settlingRun('failed'))

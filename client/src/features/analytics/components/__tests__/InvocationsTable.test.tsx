@@ -222,4 +222,33 @@ describe('InvocationsTable — keyboard row toggle', () => {
     const cost = screen.getByText('$0.50', { exact: false })
     expect(cost.textContent).toMatch(/^~\$0\.50\s*estimated$/)
   })
+
+  it('shows the Why column: surface label plus its category', () => {
+    render(
+      <InvocationsTable rows={[row({ id: 'a', surface: 'loop' })]} loading={false} truncated={false} totalAvailable={1}
+        tableFilters={{}} onTableFiltersChange={() => {}} />
+    )
+    expect(screen.getByRole('columnheader', { name: 'Why' })).toBeInTheDocument()
+    expect(screen.getByText('Loops')).toBeInTheDocument()
+    expect(screen.getByTestId('invocation-category')).toHaveTextContent('Implementation')
+  })
+
+  it('shows the conversation title for an agent-ledger mission row', () => {
+    render(
+      <InvocationsTable
+        rows={[
+          row({ id: 'm', surface: 'mission', ledger: 'agent', conversation_id: 'conv-12345678', ticket_title: 'Plan the release' }),
+          row({ id: 'i', surface: 'intent', ledger: 'agent', conversation_id: 'abcdef1234', ticket_title: null }),
+        ]}
+        loading={false} truncated={false} totalAvailable={2}
+        tableFilters={{}} onTableFiltersChange={() => {}}
+      />
+    )
+    const conversations = screen.getAllByTestId('invocation-mission-conversation')
+    expect(conversations[0]).toHaveTextContent('Plan the release')
+    expect(conversations[0]).toHaveTextContent('(Mission conversation conv-12345678)')
+    expect(conversations[0]).toHaveAttribute('title', 'Mission conversation conv-12345678')
+    expect(conversations[1]).toHaveTextContent('abcdef12')
+    expect(screen.getAllByTestId('invocation-category').map((c) => c.textContent)).toEqual(['Missions', 'Missions'])
+  })
 })

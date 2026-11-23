@@ -58,6 +58,15 @@ describe('definition resume admission', () => {
     expect((await api().post(url).send({})).status).toBe(202)
     expect(readDefinitionExecutionClaim(db, 'run')).toBeUndefined()
   })
+  it("treats the empty-handed Resume of a restart-paused run as recovery of the step the restart cut off", async () => {
+    expect((await api().post(url).send({})).status).toBe(202)
+    expect(begin).toHaveBeenCalledWith('run', expect.objectContaining({ recover: ['attempt'] }))
+  })
+  it('waits for the lease of the Core child the restart killed instead of answering runtime_run_active', async () => {
+    runtime.probe.mockResolvedValueOnce({ status: 'running', lease: { owner: 'dead', epoch: 1, expiresAt: Date.now() + 300, active: true }, pendingInterrupts: [], recoverableSteps: [] })
+    expect((await api().post(url).send({})).status).toBe(202)
+    expect(runtime.probe).toHaveBeenCalledTimes(2)
+  })
   it('does not release a replacement claim acquired while probing', async () => {
     claimDefinitionExecution(db, 'run', { owner: 'old', repositoryMounts: ['/repo'] })
     runtime.probe.mockImplementation(async () => {
@@ -119,6 +128,24 @@ describe('definition fork admission', () => {
     expect(result.status).toBe(201)
     expect(result.body).toMatchObject({ loopRunId: 'child', forkOf: 'run', scopeId: 'right' })
     expect(runtime.fork).toHaveBeenCalledWith(expect.anything(), 'run', body)
+  })
+  it('resumes the linked child on its own, re-running its interrupted steps', async () => {
+    createLoopRun(db, { id: 'child', projectId: 'p', loopId: 'loop', loopName: 'Test', railIndex: null, ticketId: null, provider: 'claude', model: 'sonnet', iterationLimit: 1, startedAt: new Date().toISOString() })
+    db.prepare("UPDATE loop_runs SET engine_version = 2, status = 'paused', restart_reason = 'fork' WHERE id = 'child'").run()
+    runtime.probe.mockResolvedValue({ status: 'paused', resumable: true, lease: null, pendingInterrupts: [], recoverableSteps: [{ attemptId: 'attempt', nodePath: 'node', scopeId: 'scope' }] })
+    runtime.fork.mockResolvedValue({ loopRunId: 'child', forkOf: 'run', fromNodePath: 'reviews/read', scopeId: 'right', visit: 2 })
+    const result = await api().post(endpoint).send(body)
+    expect(result.status).toBe(201)
+    expect(result.body).toMatchObject({ loopRunId: 'child', resumed: true })
+    expect(begin).toHaveBeenCalledWith('child', { recover: ['attempt'] })
+  })
+  it('still returns the created child when it cannot resume on its own', async () => {
+    runtime.probe.mockResolvedValue({ status: 'failed', resumable: false, lease: null, pendingInterrupts: [], recoverableSteps: [] })
+    runtime.fork.mockResolvedValue({ loopRunId: 'child', forkOf: 'run', fromNodePath: 'reviews/read', scopeId: 'right', visit: 2 })
+    const result = await api().post(endpoint).send(body)
+    expect(result.status).toBe(201)
+    expect(result.body).toMatchObject({ loopRunId: 'child', resumed: false, resumeError: 'run_not_resumable' })
+    expect(begin).not.toHaveBeenCalled()
   })
   it('rejects foreign project runs and malformed controls before creating a fork', async () => {
     expect((await api('other').post(endpoint).send(body)).status).toBe(404)

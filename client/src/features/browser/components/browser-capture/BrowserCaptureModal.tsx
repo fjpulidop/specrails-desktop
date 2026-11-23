@@ -492,6 +492,7 @@ export function BrowserCaptureModal({ open, onClose, projectId, pendingSpecId, o
       </div>
 
       <div className="px-3 py-1 text-xs text-muted-foreground truncate shrink-0 flex items-center gap-2">
+        {/* Page health (loading / ready / error), not a run state: its own lamp semantics. */}
         <LiveDot tone={status === 'ready' ? 'success' : status === 'error' ? 'destructive' : 'warning'} pulsing={status !== 'ready' && status !== 'error'} aria-hidden />
         <span className="truncate">
           {status === 'connecting' ? t('modal.status.connecting') : status === 'error' ? (errorMsg ?? t('modal.status.unavailable')) : popup?.active ? t('popup.loginWindow', { origin: popupOriginLabel(popup.url) }) : (title || '')}

@@ -1,3 +1,4 @@
+import { buildOperatorSystemPrompt } from './agent-operator-prompt'
 // These fixtures exercise the CLI/MCP fallback; native protocols have dedicated integration suites.
 vi.mock('../../../providers/live-session', () => ({ nativeLiveSessionRunner: () => undefined }))
 
@@ -44,7 +45,12 @@ import { spawn as mockSpawn } from 'child_process'
 import treeKill from 'tree-kill'
 import { attachmentManager } from '../../../attachment-manager'
 import { AgentChatManager, sanitizeAgentTitle } from './agent-chat-manager'
+import { MissionCoreSessions } from './mission-core-sessions'
+import { bindQuotaStore } from '../../provider-quota/runtime/quota-reports'
+import { createQuotaStore, realTimers } from '../../provider-quota/runtime/quota-store'
+import type { SessionHostRegistry } from '../../agent-sessions/runtime/session-host-registry'
 import { initDesktopDb } from '../../../desktop-db'
+import { getAdapter } from '../../../providers'
 import {
   archiveAgentConversation,
   unarchiveAgentConversation,
@@ -164,6 +170,36 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     primeTurn([assistantLine('Continued'), resultLine({ session_id: 'fork-native-session' })])
     await mgr.sendMessage(fork.id, 'Next question')
     expect(attachmentManager.getClaudeArgsAgent).not.toHaveBeenCalled()
+  })
+
+  it('[provider-quota] a usage-limit refusal leaves a usage-limit row with the reset, observes the quota, and the person can schedule one continue', async () => {
+    const conv = createAgentConversation(db)
+    const store = createQuotaStore({ timers: realTimers })
+    bindQuotaStore(store)
+    try {
+      const reset = Math.floor(Date.now() / 1000) + 7_200
+      primeTurn([
+        JSON.stringify({ type: 'rate_limit_event', rate_limit_info: { status: 'rejected', resetsAt: reset, rateLimitType: 'five_hour', unifiedWindows: { five_hour: { utilization: 1, resetsAt: reset } } } }),
+        resultLine({ subtype: 'success', is_error: true, result: "You've hit your session limit · resets 3am (Europe/Madrid)", session_id: 's' }),
+      ], 1)
+      await mgr.sendMessage(conv.id, 'Go on')
+      const resumeAt = new Date(reset * 1000).toISOString()
+      const row = listAgentMessages(db, conv.id).filter((m) => m.role === 'system').map((m) => JSON.parse(m.content)).find((c) => c.kind === 'usage-limit')
+      // The typed report (streamed in the turn) names the exact reset; the prose is only a fallback.
+      expect(row).toMatchObject({ kind: 'usage-limit', provider: 'claude', resumeAt })
+      expect(broadcastsOfType(broadcast, 'agent_system_row').some((m) => m.kind === 'usage-limit')).toBe(true)
+      expect(broadcastsOfType(broadcast, 'agent_error').at(-1)).toMatchObject({ code: 'provider_limit', provider: 'claude' })
+      expect(store.view('claude')).toMatchObject({ level: 'rejected', rejectedUntil: resumeAt })
+      // Offered, never automatic: nothing is scheduled until the person asks.
+      expect(mgr.limitContinueAt(conv.id)).toBeNull()
+      expect(mgr.scheduleLimitContinue(conv.id, resumeAt)).toEqual({ at: resumeAt })
+      expect(mgr.limitContinueAt(conv.id)).toBe(resumeAt)
+      expect(mgr.scheduleLimitContinue(conv.id, null)).toEqual({ at: null })
+      expect(mgr.limitContinueAt(conv.id)).toBeNull()
+    } finally {
+      bindQuotaStore(null)
+      store.dispose()
+    }
   })
 
   it('refuses archived admission before creating input or message rows and allows it after restore', async () => {
@@ -500,6 +536,34 @@ describe('AgentChatManager read-only mission policy (mission-read-only-policy)',
     expect(prepared.readOnly).toBe(true)
   })
 
+  it('follows "Allow sub-agents" turn by turn on the legacy transport: Agent off, then on, same provider session', async () => {
+    let allowed: 'enabled' | 'disabled' = 'disabled'
+    // Core sessions unavailable: the turn runs on the legacy transport, with the same setting resolver.
+    mgr.setCoreSessions(new MissionCoreSessions({
+      db, registry: {} as SessionHostRegistry, port: 4200, broadcast: vi.fn(), adapterFor: getAdapter,
+      availability: async () => ({ enabled: false, flag: 'off', reason: 'test' }), projectKey: () => null, revokeCapability: vi.fn(),
+      subagentPolicy: () => allowed,
+    }))
+    agentMcpMocks.prepare.mockImplementation(() => ({ extraArgs: [...MCP_ARGS], env: {} }))
+    const conv = createAgentConversation(db, { provider: 'claude' })
+    updateAgentConversation(db, conv.id, { title: 'Existing title' })
+    primeTurn([assistantLine('ok'), resultLine({ session_id: 'claude-session-1' })])
+    await mgr.sendMessage(conv.id, 'first')
+    await waitFor(() => !mgr.isBusy(conv.id))
+    const first = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+    expect(flagValue(first, '--tools')).toBe('Read,Grep,Glob,WebFetch,WebSearch')
+
+    allowed = 'enabled'
+    primeTurn([assistantLine('ok'), resultLine({ session_id: 'claude-session-1' })])
+    await mgr.sendMessage(conv.id, 'second')
+    await waitFor(() => vi.mocked(mockSpawn).mock.calls.length >= 2)
+    const second = vi.mocked(mockSpawn).mock.calls[1][1] as string[]
+    expect(flagValue(second, '--tools')).toBe('Read,Grep,Glob,Agent,WebFetch,WebSearch')
+    // The conversation continues: the new process resumes the provider session.
+    expect(flagValue(second, '--resume')).toBe('claude-session-1')
+    agentMcpMocks.prepare.mockReset()
+  })
+
   it('spawns Codex in its read-only sandbox with the MCP overrides intact', async () => {
     const { args, prepared } = await turnArgs('codex', [JSON.stringify({ type: 'thread.started', thread_id: 't' })])
     expect(flagValue(args, '--sandbox')).toBe('read-only')
@@ -512,6 +576,16 @@ describe('AgentChatManager read-only mission policy (mission-read-only-policy)',
     expect(flagValue(args, '--approval-mode')).toBe('plan')
     expect(args).not.toContain('--yolo')
     expect(prepared.readOnly).toBe(true)
+  })
+
+  it('does not repeat the operator core in Codex, Gemini or Kimi turns (they read it from their cwd file)', async () => {
+    const core = buildOperatorSystemPrompt()
+    const marker = core.split('\n').find((line) => line.trim().length > 40)!
+    for (const provider of ['codex', 'gemini', 'kimi'] as const) {
+      const frames = { codex: { type: 'thread.started', thread_id: 't' }, gemini: { type: 'init', session_id: 'g' }, kimi: { role: 'assistant', content: 'ok' } }[provider]
+      const { args } = await turnArgs(provider, [JSON.stringify(frames)])
+      expect(args.join('\n')).not.toContain(marker)
+    }
   })
 
   it('keeps Kimi on its default tools because prompt mode has no native read-only boundary', async () => {

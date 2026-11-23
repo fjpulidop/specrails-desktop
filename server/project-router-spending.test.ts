@@ -47,7 +47,7 @@ interface Harness {
   tmpDir: string
 }
 
-function setup(): Harness {
+function setup(desktopDb?: DbInstance): Harness {
   const db = initDb(':memory:')
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spending-test-'))
   const ticketStorePath = path.join(tmpDir, 'local-tickets.json')
@@ -60,7 +60,7 @@ function setup(): Harness {
   const router = express.Router()
   const deps = {
     router,
-    registry: {} as never,
+    registry: (desktopDb ? { desktopDb } : {}) as never,
     ctx,
     ticketPath: (_req: Request) => ticketStorePath,
   } as ProjectRoutesDeps
@@ -427,5 +427,54 @@ describe('localDayBoundsUtc', () => {
     const { startIso, endIso } = localDayBoundsUtc(-300, now)
     expect(startIso).toBe('2026-07-01T05:00:00.000Z')
     expect(endIso).toBe('2026-07-02T05:00:00.000Z')
+  })
+})
+
+// ─── Mission / Intent spend (agent ledger) and the category filter ──────────
+describe('GET /spending + /invocations — agent ledger and category filter', () => {
+  let h: Harness
+  let ddb: DbInstance
+  beforeEach(async () => {
+    seq = 0
+    const { initDesktopDb, recordAgentInvocation } = await import('./desktop-db')
+    ddb = initDesktopDb(':memory:')
+    h = setup(ddb)
+    insert(h.db, { surface: 'job', cost: 2 })
+    insert(h.db, { surface: 'quick-spec', cost: 1 })
+    const startedAt = new Date(Date.now() - 3_600_000).toISOString()
+    recordAgentInvocation(ddb, { id: 'm-1', conversation_id: 'conv-1', project_id: PROJECT_ID, provider: 'claude', status: 'success', started_at: startedAt, total_cost_usd: 0.5 })
+    recordAgentInvocation(ddb, { id: 'i-1', conversation_id: 'conv-1', project_id: PROJECT_ID, provider: 'claude', surface: 'flow', status: 'success', started_at: startedAt, total_cost_usd: 0.25 })
+  })
+  afterEach(() => {
+    h.db.close()
+    ddb.close()
+    fs.rmSync(h.tmpDir, { recursive: true, force: true })
+  })
+
+  it('counts pinned mission turns in the total and returns byCategory + agentMissions', async () => {
+    const res = await request(h.app).get(`/api/projects/${PROJECT_ID}/spending?period=7d`).expect(200)
+    expect(res.body.summary.totalCostUsd).toBeCloseTo(3.75)
+    expect(res.body.summary.totalRuns).toBe(4)
+    const missions = res.body.byCategory.find((c: { category: string }) => c.category === 'missions')
+    expect(missions.costUsd).toBeCloseTo(0.75)
+    expect(missions.count).toBe(2)
+    expect(res.body.agentMissions.summary.turns).toBe(2)
+  })
+
+  it('filters /spending and /invocations by category', async () => {
+    const spending = await request(h.app).get(`/api/projects/${PROJECT_ID}/spending?period=7d&category=missions`).expect(200)
+    expect(spending.body.summary.totalCostUsd).toBeCloseTo(0.75)
+    const specs = await request(h.app).get(`/api/projects/${PROJECT_ID}/spending?period=7d&category=specs`).expect(200)
+    expect(specs.body.summary.totalCostUsd).toBeCloseTo(1)
+    const invocations = await request(h.app).get(`/api/projects/${PROJECT_ID}/invocations?period=7d&category=missions`).expect(200)
+    expect(invocations.body.totalAvailable).toBe(2)
+    expect(invocations.body.rows.map((r: { surface: string }) => r.surface).sort()).toEqual(['intent', 'mission'])
+    expect(invocations.body.rows.every((r: { ledger?: string; conversation_id: string }) => r.ledger === 'agent' && r.conversation_id === 'conv-1')).toBe(true)
+  })
+
+  it('adds a "By category" section to the summary CSV export', async () => {
+    const res = await request(h.app).get(`/api/projects/${PROJECT_ID}/analytics/export?format=csv&mode=summary&period=7d`).expect(200)
+    expect(res.text).toContain('# By category')
+    expect(res.text).toMatch(/\nmissions,2,0\.75,0,0\n/)
   })
 })

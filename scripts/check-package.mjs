@@ -78,10 +78,11 @@ export function checkPackage(root, output) {
     // fallback cannot conceal omitted MCP or shell-integration resources.
     const probe = `const assert=require('node:assert/strict'); const path=require('node:path');
       const root=process.argv[1];
-      const {resolveCoreNodeRuntime}=require(path.join(root,'server/dist/core-node-runtime.js'));
+      const {resolveCoreNodeRuntime,findNodeOnPath}=require(path.join(root,'server/dist/core-node-runtime.js'));
       assert.equal(resolveCoreNodeRuntime(),process.execPath);
       process.pkg={entrypoint:'/snapshot/server/index.js'};
-      assert.equal(resolveCoreNodeRuntime(),'node');
+      // Under pkg a bare node would be rewritten to the server binary: Core gets the absolute PATH Node.
+      assert.equal(resolveCoreNodeRuntime(),findNodeOnPath()??'node');
       delete process.pkg;
       const {validateWindowsArchiveTypes}=require(path.join(root,'server/dist/chromium-archive.cjs'));
       assert.throws(()=>validateWindowsArchiveTypes('lrwxrwxrwx 0 root root 0 Jan 1 1970 escape -> /outside'));

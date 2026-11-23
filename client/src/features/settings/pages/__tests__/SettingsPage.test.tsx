@@ -72,7 +72,7 @@ describe('SettingsPage', () => {
     })
     render(<SettingsPage />)
     await waitFor(() => {
-      expect(screen.getByText('Project Settings')).toBeInTheDocument()
+      expect(screen.getByText('Project settings')).toBeInTheDocument()
     })
   })
 
@@ -109,14 +109,14 @@ describe('SettingsPage', () => {
     })
   })
 
-  it('shows Rail Pre-prompt section after load', async () => {
+  it('shows Rail pre-prompt section after load', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => mockConfig,
     })
     render(<SettingsPage />)
     await waitFor(() => {
-      expect(screen.getByText('Rail Pre-prompt')).toBeInTheDocument()
+      expect(screen.getByText('Rail pre-prompt')).toBeInTheDocument()
       expect(screen.getByLabelText('Pre-prompt')).toBeInTheDocument()
     })
   })
@@ -146,6 +146,24 @@ describe('SettingsPage', () => {
       expect(el).toHaveAttribute('data-setting-flash', 'true')
       expect(el.contains(document.activeElement)).toBe(true)
     })
+  })
+
+  it('lands on the section named by ?section= (a run\'s "Configure", forwarded from a Job detail window)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => mockConfig })
+    const scrollIntoView = vi.fn()
+    const original = HTMLElement.prototype.scrollIntoView
+    HTMLElement.prototype.scrollIntoView = scrollIntoView
+    try {
+      render(<SettingsPage />, { route: '/settings?section=agentRuntime' })
+      const nav = await screen.findByRole('navigation', { name: 'Project settings sections' })
+      await waitFor(() => {
+        const current = nav.querySelector('[aria-current="true"]')
+        expect(current?.textContent).toBe('Verification commands')
+      })
+      expect(scrollIntoView.mock.contexts.some((el) => (el as HTMLElement).id === 'settings-section-agentRuntime')).toBe(true)
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original
+    }
   })
 
   it('offers a section index that scrolls to the section and marks it current', async () => {

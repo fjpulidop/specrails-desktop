@@ -388,6 +388,8 @@ describe('ArcSidebar agent-mode conversation rows', () => {
     const overlay = document.querySelector('.title-shimmer')
     expect(icon.className.baseVal).toContain('conversation-unread-glow')
     expect(icon.className.baseVal).not.toContain('animate-pulse')
+    // Running is the working lamp at the row's end, never a pulsing icon.
+    expect(screen.getByTestId('conversation-live-dot')).toHaveAttribute('data-run-state', 'working')
     expect(overlay).toBeInTheDocument()
     expect(overlay?.textContent).toBe('Fix the build')
     expect(overlay?.className).toContain('opacity-100')
@@ -613,12 +615,24 @@ describe('ArcSidebar active-missions filter', () => {
   })
 })
 
+const SCOPE_LABEL = { active: 'Active', archived: 'Archived', all: 'All' } as const
+/** The app's own select (Radix): open it, then pick the option. */
+function pickScope(scope: keyof typeof SCOPE_LABEL) {
+  fireEvent.pointerDown(screen.getByRole('combobox', { name: 'Mission archive scope' }), { button: 0, ctrlKey: false, pointerType: 'mouse' })
+  fireEvent.click(screen.getByRole('option', { name: SCOPE_LABEL[scope] }))
+}
+const scopeTrigger = () => screen.getByRole('combobox', { name: 'Mission archive scope' })
+
 describe('sidebar archive scopes', () => {
   it('[spec:mission-archive/sidebar-archive-selector] offers accessible Active, Archived and All beside Projects in expanded Mission mode', () => {
     renderExpanded()
-    const selector = screen.getByRole('combobox', { name: 'Mission archive scope' })
-    expect(selector).toHaveValue('active')
-    expect([...selector.querySelectorAll('option')].map((option) => option.textContent)).toEqual(['Active', 'Archived', 'All'])
+    const selector = scopeTrigger()
+    expect(selector).toHaveTextContent('Active')
+    // The app's popover, never the OS menu of a native <select>.
+    expect(selector.tagName).toBe('BUTTON')
+    fireEvent.pointerDown(selector, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Active', 'Archived', 'All'])
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' })
     expect(selector.parentElement?.parentElement).toHaveTextContent('Projects')
   })
 
@@ -631,16 +645,17 @@ describe('sidebar archive scopes', () => {
     expect(screen.queryByText('Fix the build')).not.toBeInTheDocument()
     expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
     expect(screen.getByText('Beta mission')).toBeInTheDocument()
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'archived' } })
+    pickScope('archived')
     view.rerender(<ArcSidebar {...defaultProps} />)
     expect(mockSetArchiveScope).toHaveBeenCalledWith('archived')
     expect(screen.getByText('Fix the build')).toBeInTheDocument()
     expect(screen.getByText('Untitled')).toBeInTheDocument()
     expect(screen.queryByText('Beta mission')).not.toBeInTheDocument()
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'all' } })
+    pickScope('all')
     view.rerender(<ArcSidebar {...defaultProps} />)
     expect(screen.getByText('Beta mission')).toBeInTheDocument()
-    expect(screen.getAllByText('Archived')).toHaveLength(3)
+    // The two archived rows' badges (the closed scope menu renders no option text).
+    expect(screen.getAllByText('Archived')).toHaveLength(2)
   })
 
   it.each(['active', 'archived', 'all'] as const)('shows the empty %s state', (scope) => {
@@ -664,15 +679,15 @@ describe('sidebar archive scopes', () => {
     agentChatState.streamingIds = new Set(['c-1'])
     localStorage.setItem('specrails-desktop:agentTreeExpanded', JSON.stringify(['__home__']))
     const view = renderExpanded()
-    const scope = () => { fireEvent.change(screen.getByRole('combobox'), { target: { value: 'archived' } }); view.rerender(<ArcSidebar {...defaultProps} />) }
+    const scope = () => { pickScope('archived'); view.rerender(<ArcSidebar {...defaultProps} />) }
     const live = () => fireEvent.click(screen.getByRole('button', { name: 'Show only active missions' }))
     if (order === 'scope-first') { scope(); live() } else { live(); scope() }
-    expect(screen.getByRole('combobox')).toHaveValue('archived')
+    expect(scopeTrigger()).toHaveTextContent('Archived')
     expect(screen.getByRole('button', { name: 'Show only active missions' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getAllByText('Fix the build')).toHaveLength(2)
     expect(screen.queryByText('Untitled')).not.toBeInTheDocument()
     live()
-    expect(screen.getByRole('combobox')).toHaveValue('archived')
+    expect(scopeTrigger()).toHaveTextContent('Archived')
     expect(screen.getByText('Untitled')).toBeInTheDocument()
   })
 
@@ -703,13 +718,13 @@ import { AgentChatProvider } from '../../features/missions/context/AgentChatCont
 it('restores sidebar scope across real-provider remounts', async () => {
   useRealChat = true
   const first = render(<AgentChatProvider><ArcSidebar {...defaultProps} /></AgentChatProvider>)
-  expect(screen.getByRole('combobox', { name: 'Mission archive scope' })).toHaveValue('active')
-  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'archived' } })
+  expect(scopeTrigger()).toHaveTextContent('Active')
+  pickScope('archived')
   await waitFor(() => expect(screen.getByText('No archived missions')).toBeInTheDocument())
   expect(localStorage.getItem('specrails-desktop:missionArchiveScope')).toBe('archived')
   first.unmount()
   render(<AgentChatProvider><ArcSidebar {...defaultProps} /></AgentChatProvider>)
-  expect(screen.getByRole('combobox')).toHaveValue('archived')
+  expect(scopeTrigger()).toHaveTextContent('Archived')
   await waitFor(() => expect(screen.getByText('No archived missions')).toBeInTheDocument())
 })
 
@@ -741,7 +756,7 @@ describe('sidebar archive actions', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Restore "Fix the build"' })) })
     expect(mockUnarchiveConversation).toHaveBeenCalledWith('c-1')
     expect(screen.queryByText('Fix the build')).not.toBeInTheDocument()
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'active' } })
+    pickScope('active')
     view.rerender(<ArcSidebar {...defaultProps} />)
     expect(screen.getByText('Fix the build')).toBeInTheDocument()
     expect(agentChatState.favoriteIds.has('c-1')).toBe(true)

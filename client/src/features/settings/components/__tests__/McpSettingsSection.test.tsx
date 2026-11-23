@@ -205,4 +205,18 @@ describe('McpSettingsSection', () => {
     fireEvent.click(turnOn)
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
   })
+
+  it('shows Connect and Ask before spending while the server is on', async () => {
+    mockApi([
+      { match: (u) => u.endsWith('/mcp-admin/status'), body: { ...STATUS_ON, confirmAboveUsd: 1.5, v2: { enabled: true, forcedByEnv: false } } },
+      { match: (u) => u.endsWith('/mcp-admin/config'), body: CONFIG },
+      { match: (u) => u.endsWith('/mcp-admin/connect'), body: { available: true, clients: [{ client: 'codex', installed: true, configPath: '/h/.codex/config.toml', state: 'connected', command: 'codex mcp add specrails -- node b.js' }] } },
+    ])
+    render(<McpSettingsSection />)
+    expect(await screen.findByText('Connect Claude Code or Codex')).toBeInTheDocument()
+    expect(await screen.findByText('Connected')).toBeInTheDocument()
+    expect((screen.getByLabelText(/Ask before spending/) as HTMLInputElement).value).toBe('1.5')
+    expect(screen.getByRole('switch', { name: 'Simplified MCP tools' })).toHaveAttribute('aria-checked', 'true')
+  })
 })
+

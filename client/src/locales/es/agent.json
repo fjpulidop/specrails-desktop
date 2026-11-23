@@ -317,7 +317,8 @@
       "reopen": "Reabriendo…",
       "merge-local": "Integrando en local…",
       "recover-and-retry": "Creando el commit y reintentando el push del resultado conservado…",
-      "acknowledge-no-changes": "Marcando como hecho…"
+      "acknowledge-no-changes": "Marcando como hecho…",
+      "refresh-on-base": "Actualizándola sobre la nueva base…"
     },
     "rail": "Rail {{index}}",
     "specCount_one": "{{count}} spec",
@@ -329,7 +330,7 @@
       "building": "Implementando en un worktree aislado…",
       "buildingInPlace": "Implementando en la carpeta del proyecto…",
       "buildingExistingPr": "Aplicando cambios sobre una PR existente…",
-      "paused": "Necesita decisión humana",
+      "paused": "En pausa",
       "on_review": "Implementación lista para revisar",
       "pr_draft": "PR en borrador creada",
       "pr_draft_degraded": "Entrega de la PR incompleta",
@@ -427,9 +428,7 @@
     "retryPushNote": "La implementación terminó correctamente y los cambios están seguros en local. Reintenta solo el push.",
     "cleanupIncomplete_one": "La limpieza está incompleta ({{count}} aviso)",
     "cleanupIncomplete_other": "La limpieza está incompleta ({{count}} avisos)",
-    "safetyArchiveTitle": "Archivo de seguridad ({{count}})",
-    "safetyArchiveHint": "Se han conservado archivos temporales del espacio de trabajo fuera de la PR como medida de precaución. Puedes revisarlos o eliminarlos manualmente.",
-    "implementationFailedNote": "La ejecución de implementación falló antes de generar algo entregable. Abre el log de la ejecución para revisar el fallo y descarta esta card antes de relanzar.",
+    "implementationFailedNote": "La ejecución se detuvo antes de tener nada que entregar. Abre su log para ver por qué.",
     "degraded": {
       "pushed": "La rama se subió pero no se pudo crear la PR. Reintenta para terminar.",
       "localOnly": "Los cambios se ensamblaron en local pero no se subieron. Reintenta para publicar la PR."
@@ -472,7 +471,7 @@
       "recheckRecoveryTitle": "¿Volver a comprobar este equipo?",
       "recheckRecoveryBody": "Comprobaremos si aún se puede recuperar algo de esta entrega. No se borra nada.",
       "freshDiscardTitle": "¿Descartar esta entrega?",
-      "freshDiscardBody": "La PR se cerrará sin eliminar su rama remota. Solo se eliminarán las ramas y los worktrees locales que pertenezcan a SpecRails y sigan en su commit registrado; cualquier recurso modificado se conservará y se mostrará un aviso. Las specs volverán al backlog. Los recursos locales eliminados no se pueden recuperar.",
+      "freshDiscardBody": "La PR se cerrará sin eliminar su rama remota. Solo se eliminarán las ramas y los worktrees locales que pertenezcan a Specrails y sigan en su commit registrado; cualquier recurso modificado se conservará y se mostrará un aviso. Las specs volverán al backlog. Los recursos locales eliminados no se pueden recuperar.",
       "implementationFailedDiscardTitle": "¿Descartar esta entrega fallida?",
       "implementationFailedDiscardBody": "Se cerrará la tarjeta y sus specs volverán al backlog. El trabajo local y las ramas se conservarán para su inspección. Solo se podrán eliminar los recursos cuya limpieza sea segura.",
       "dismissTitle": "¿Cerrar este seguimiento?",
@@ -544,7 +543,11 @@
       "failing_pr": "{{pr}}: checks en rojo: {{checks}}"
     },
     "ciBuildingHint": "Espera a los checks, arregla los fallos del código y sube los cambios a la misma PR. Los fallos que no son del código se informan, no se reintentan.",
-    "runStoppedNote": "Detuviste esta ejecución antes de que entregara nada. Relánzala cuando quieras continuar."
+    "runStoppedNote": "Detuviste esta ejecución antes de entregar. Continuar la retoma donde se detuvo, en el mismo worktree.",
+    "runStoppedNoteNoContinue": "Detuviste esta ejecución antes de entregar. Su trabajo se queda en su worktree.",
+    "continue": "Continuar",
+    "startOver": "Empezar de nuevo",
+    "startOverHint": "Una ejecución nueva desde la base; el trabajo de este intento se queda en el worktree anterior."
   },
   "specDraft": {
     "heading": "Borrador de spec",
@@ -815,7 +818,8 @@
       "feature_unavailable": "Intent no está disponible",
       "daily_budget_exceeded": "Límite diario alcanzado: no se lanzó nada.",
       "review_wip_limit_reached": "Límite de revisión alcanzado: no se ha lanzado nada.",
-      "repository_has_no_commits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear una copia aislada del proyecto."
+      "repository_has_no_commits": "Este repositorio aún no tiene commits. Haz un primer commit para que Specrails pueda crear una copia aislada del proyecto.",
+      "launch_preflight_blocked": "Corrige la comprobación que falló antes de lanzar."
     },
     "stub": {
       "launched": "Lanzado → Rail {{rail}}",
@@ -934,7 +938,26 @@
     "add": "Añadir conversación en vista dividida",
     "close": "Cerrar vista dividida",
     "loadFailed": "No se pudo cargar esta conversación.",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "openRight": "Abrir a la derecha",
+    "openBelow": "Abrir debajo",
+    "layoutMenu": "Dividir y organizar paneles",
+    "splitRight": "Dividir a la derecha",
+    "splitDown": "Dividir hacia abajo",
+    "moveLeft": "Mover a la izquierda",
+    "moveRight": "Mover a la derecha",
+    "moveUp": "Mover arriba",
+    "moveDown": "Mover abajo",
+    "swap": "Intercambiar con",
+    "maximize": "Maximizar panel",
+    "restore": "Restaurar disposición",
+    "equalize": "Igualar paneles",
+    "closePane": "Cerrar panel",
+    "noMissions": "No hay otras misiones que abrir",
+    "noRoom": "No hay espacio para esta disposición",
+    "stacks": "Apila",
+    "resize": "Redimensionar {{first}} y {{second}}",
+    "panes": "Misiones abiertas"
   },
   "runtimeSelector": {
     "label": "Modelo y esfuerzo",
@@ -1389,7 +1412,7 @@
     "paused": "En pausa. Te está esperando",
     "pausedReason": "En pausa: {{reason}}",
     "decision": {
-      "approval": "Esperando tu aprobación",
+      "approval": "Requiere atención",
       "changes": "El revisor pidió cambios",
       "on_review": "Listo para tu revisión",
       "pr_draft": "PR en borrador listo para publicar",
@@ -1434,7 +1457,7 @@
     "announce": {
       "settled": "{{run}} terminó",
       "shown": "Mostrando {{run}}: {{state}}",
-      "needsYou": "{{run}} te necesita"
+      "needsYou": "{{run}} requiere tu atención"
     },
     "event": {
       "launched": "Lanzado en {{run}}",
@@ -1452,7 +1475,7 @@
       "discarded": "{{run}} se descartó",
       "changes": "{{run}}: el revisor pidió cambios"
     },
-    "needsYou": "te necesita",
+    "needsYou": "requiere tu atención",
     "opensCard": "Abre la tarjeta de la ejecución para que confirmes allí",
     "open": {
       "decision": "Abrir la decisión",
@@ -1537,11 +1560,7 @@
     "greeting": "¿Qué debería salir a continuación en {{project}}?",
     "greetingNoProject": "¿Qué debería salir a continuación?",
     "statusTodo_one": "{{count}} por hacer",
-    "statusTodo_other": "{{count}} por hacer",
-    "statusReview_one": "{{count}} esperando revisión",
-    "statusReview_other": "{{count}} esperando revisión",
-    "statusRunning_one": "{{count}} en curso",
-    "statusRunning_other": "{{count}} en curso"
+    "statusTodo_other": "{{count}} por hacer"
   },
   "prCi": {
     "title": "Vigilar y arreglar el CI de la PR {{pr}}",
@@ -1568,7 +1587,7 @@
     "startFailed": "No se pudo iniciar el loop de CI.",
     "dismissFailed": "No se pudo guardar tu elección. Inténtalo de nuevo.",
     "startedToast": "Vigilancia del CI iniciada en el carril {{index}}",
-    "fixCi": "Arreglar CI / Conflictos",
+    "fixCi": "Arreglar CI / conflictos",
     "fixCiTooltip": "Esperar a los checks, arreglar fallos y conflictos y subir a esta PR hasta dejarla en verde",
     "step": {
       "checks": "Esperando al CI",
@@ -1586,7 +1605,7 @@
     "noCiMany": "Las PRs {{pr}} no tienen checks de CI",
     "needsAttentionMany": "Las PRs {{pr}} están subidas; su CI aún no está en verde",
     "dismissedMany": "No se inició la vigilancia del CI de las PRs {{pr}}.",
-    "retry": "Arreglar CI / Conflictos de nuevo",
+    "retry": "Arreglar CI / conflictos de nuevo",
     "openLog": "Ver el log"
   },
   "missionResources": {
@@ -1620,5 +1639,68 @@
     "history": "Historial",
     "peakValue": "Pico {{value}}",
     "historyHint": "Un punto cada 3 s mientras la misión trabajó. Pasa el ratón por una línea para ver la hora y el valor."
+  },
+  "contextUsage": {
+    "open": "Contexto usado: {{percent}}%",
+    "title": "Contexto",
+    "description": "Cuánto está lleno el contexto de la sesión del proveedor de esta misión, según lo informa el proveedor.",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}}%",
+    "model": "Modelo",
+    "sourceResponse": "Medido a partir de la última respuesta",
+    "sourceSessionFile": "Leído de la sesión de {{provider}}",
+    "compacted": "El proveedor compactó el contexto durante el último turno.",
+    "highNote": "El proveedor compacta el contexto automáticamente cuando se llena. Empezar una sesión nueva con un resumen también puede ayudar.",
+    "openUnknown": "Contexto: proporción de la ventana desconocida",
+    "tokensUsedOnly": "{{used}} tokens usados",
+    "windowUnknown": "El proveedor no informó de la ventana de contexto, así que no se sabe qué proporción se usa.",
+    "usageUnknown": "El uso del contexto es desconocido justo después de que el proveedor lo compactara."
+  },
+  "sessionRenew": {
+    "action": "Empezar de cero con un resumen",
+    "hint": "Escribe un resumen de esta misión; tu siguiente mensaje empieza una sesión nueva que solo conoce ese resumen.",
+    "confirmBody": "Specrails escribirá un resumen de esta misión (objetivo, decisiones, estado actual, próximos pasos). Tu siguiente mensaje empezará una sesión nueva del proveedor que solo conoce ese resumen. La conversación se queda en el historial.",
+    "confirm": "Empezar de cero",
+    "cancel": "Cancelar",
+    "running": "Escribiendo el resumen…",
+    "retry": "Reintentar",
+    "blockedBusy": "Disponible cuando termine el turno actual.",
+    "blockedMode": "No disponible en este modo: usa su propia sesión.",
+    "marker": "Sesión renovada · resumen",
+    "markerDetail": "Lo que sabe la nueva sesión",
+    "showSummary": "Mostrar el resumen",
+    "hideSummary": "Ocultar el resumen",
+    "basedOn": "Basado en toda la conversación",
+    "basedOnPartial": "Basado en los últimos {{included}} de {{total}} mensajes",
+    "errors": {
+      "MISSION_BUSY": "Espera a que termine el turno actual y vuelve a intentarlo.",
+      "MISSION_IN_INTENT": "Esta misión está en Intent, que usa su propia sesión. Sal de Intent para empezar una sesión nueva.",
+      "MISSION_ARCHIVED": "Restaura esta misión archivada antes de empezar una sesión nueva.",
+      "NOTHING_TO_SUMMARIZE": "Todavía no hay conversación que resumir.",
+      "RENEWAL_CANCELLED": "Se canceló la sesión nueva.",
+      "generic": "No se pudo escribir el resumen.",
+      "SHUTTING_DOWN": "Specrails se reinició mientras escribía el resumen. No ha cambiado nada; vuelve a intentarlo."
+    }
+  },
+  "ask": {
+    "menu": "Preguntar sobre esto",
+    "title": "Preguntar sobre esto",
+    "description": "Una conversación aparte sobre el texto seleccionado, con el contexto previo de esta misión. La misión no cambia.",
+    "selection": "Texto seleccionado",
+    "showAll": "Ver todo",
+    "showLess": "Ver menos",
+    "thread": "Conversación aparte",
+    "running": "Pensando…",
+    "failed": "No se pudo obtener una respuesta. Vuelve a intentarlo.",
+    "retry": "Reintentar",
+    "inputLabel": "Pregunta sobre el texto seleccionado",
+    "placeholder": "Pregunta algo o pulsa Intro para que lo explique · no se guarda",
+    "placeholderFollowUp": "Haz otra pregunta · no se guarda",
+    "send": "Preguntar",
+    "footer": "Respondido con {{model}} · al cerrar se descarta esta conversación",
+    "footerPending": "Usa {{model}} · al cerrar se descarta esta conversación",
+    "answer": "Respuesta",
+    "defaultQuestion": "Explica qué significa esto en este contexto.",
+    "providerDefault": "modelo por defecto de {{provider}}"
   }
 }

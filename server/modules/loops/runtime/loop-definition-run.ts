@@ -1,5 +1,6 @@
 import type { ChildProcess } from 'node:child_process'
 import type { AiStepResult, LoopRunRequest } from './loop-run-manager'
+import type { DefinitionRouteOverride } from '../../agent-runtime/runtime/agent-runtime-route-overrides'
 
 /** Core `HostBlocker`: structured precondition the host must act on (environment repair refused, setup failed, fixer-declared). */
 export interface DefinitionHostBlocker {
@@ -18,6 +19,9 @@ export interface DefinitionCompletion {
   /** Present when the run ended through an `end` node with `blockerFrom`; absent on older Core and on ordinary ends. */
   blocker?: DefinitionHostBlocker
 }
+import { runQuestionFrom } from '../../../shared/run-question'
+import { installQuestionOf } from '../../machine-installs'
+
 export interface DefinitionInterrupt {
   id: string
   nodePath: string
@@ -64,7 +68,15 @@ export interface DefinitionPrepared {
   context: Record<string, unknown>
   runtimeIdentity?: Record<string, unknown>
 }
-export interface DefinitionResumeControls { answer?: string; approve?: string[]; interruptId?: string; recover?: string[]; hostResult?: DefinitionHostTaskResult }
+/** `optionId` answers a structured question by choice; `reject` + `reason` rejects one approval (both need Core `questionOptions`). */
+/** `routeOverrides` (Core `routeOverrides`) moves roles to another provider for the rest of the run, on a plain resume. */
+/** Do resume controls answer a person's question or approval (answer, approve or reject)? Pure. */
+export function carriesHumanDecision(controls: unknown): boolean {
+  if (!controls || typeof controls !== 'object') return false
+  const c = controls as { answer?: unknown; approve?: unknown; reject?: unknown }
+  return typeof c.answer === 'string' || (Array.isArray(c.approve) && c.approve.length > 0) || typeof c.reject === 'string'
+}
+export interface DefinitionResumeControls { answer?: string; optionId?: string; approve?: string[]; reject?: string; reason?: string; interruptId?: string; recover?: string[]; hostResult?: DefinitionHostTaskResult; routeOverrides?: DefinitionRouteOverride }
 export interface DefinitionLoopInvocation {
   contextPath?: string
   recover?: string[]
@@ -73,10 +85,15 @@ export interface DefinitionLoopInvocation {
   runId: string
   resume?: boolean
   answer?: string
+  optionId?: string
   approve?: string[]
+  reject?: string
+  reason?: string
   interruptId?: string
   /** Resolution of one pending `host-task` interrupt (`--host-result`, with `interruptId`). */
   hostResult?: DefinitionHostTaskResult
+  /** Core `routeOverrides`: roles continue on another provider (`--route-overrides`). */
+  routeOverrides?: DefinitionRouteOverride
   onLine(line: string, source?: 'stdout' | 'stderr', metadata?: { attemptId?: string }): void
   onRuntimeEvent(event: Record<string, unknown>): void
   onSpawn(child: ChildProcess): void
@@ -99,24 +116,52 @@ export interface DefinitionLoopExecutionPorts {
    * Absent ⇒ the host cannot serve host tasks and the run is stopped.
    */
   resolveHostTask?(interrupt: DefinitionInterrupt & { value: DefinitionHostTaskRequest }): Promise<{ action: 'stop' } | { action: 'resume'; result: DefinitionHostTaskResult }>
-  awaitHumanDecision(reason: string, pending: DefinitionInterrupt[]): Promise<{ action: 'stop' } | { action: 'resume'; text: string; interruptId?: string; approve?: boolean }>
+  awaitHumanDecision(reason: string, pending: DefinitionInterrupt[]): Promise<{ action: 'stop' } | { action: 'resume'; text: string; interruptId?: string; approve?: boolean; optionId?: string; reject?: boolean }>
+  /**
+   * Machine-wide installs a run asks for (Core `machineInstalls`): an ordinary question the host
+   * may answer by itself (`autoAnswer`: a remembered approval runs the install; a command the host
+   * never runs is refused) and the person's choice it turns into Core's answer (`answer`: Install
+   * runs the approved command first). Both return the text unchanged / null for any other question.
+   */
+  machineInstalls?: {
+    autoAnswer(interrupt: DefinitionInterrupt): Promise<string | null>
+    answer(interrupt: DefinitionInterrupt, text: string): Promise<string>
+    /** The pending interrupt a continuation answers when this process did not see it pause (a restart). */
+    lookup(interruptId: string): Promise<DefinitionInterrupt | null>
+  }
   /** Host gate before re-invoking Core with a human decision (daily budget).
    *  'stop' settles the run as cancelled exactly like a Stop while paused. */
   beforeContinuation?(): Promise<'continue' | 'stop'>
   /** Host-requested pause (`state.pause`, no interrupt), e.g. the daily budget.
    *  'continue' resumes the retained run as is; 'stop' settles it cancelled. */
   awaitHostPause?(pause: DefinitionHostPause): Promise<'continue' | 'stop'>
+  /** provider-quota: Core failed on a provider usage limit. 'continue' resumes the
+   *  retained run (Core re-runs the refused step), `{ routeOverrides }` resumes it
+   *  with roles moved to another provider, 'stop' settles it cancelled, 'settle'
+   *  keeps the failure. */
+  awaitProviderLimit?(result: DefinitionRuntimeResult): Promise<'continue' | 'stop' | 'settle' | { routeOverrides: DefinitionRouteOverride }>
 }
 
 /** One retained Core process at a time; all graph scheduling remains in Core. */
 export async function runDefinitionLoop(request: LoopRunRequest, runId: string, ports: DefinitionLoopExecutionPorts): Promise<DefinitionRuntimeResult> {
-  let continuation: Pick<DefinitionLoopInvocation, 'resume' | 'answer' | 'approve' | 'interruptId' | 'recover' | 'hostResult'> = ports.continuation ?? {}
+  let continuation: Pick<DefinitionLoopInvocation, 'resume' | 'answer' | 'optionId' | 'approve' | 'reject' | 'reason' | 'interruptId' | 'recover' | 'hostResult' | 'routeOverrides'> = ports.continuation ?? {}
+  // An answer that arrived while no process held the pause (after a restart): an Install choice still runs first.
+  if (ports.machineInstalls && continuation.answer !== undefined && continuation.interruptId) {
+    const interrupt = await ports.machineInstalls.lookup(continuation.interruptId).catch(() => null)
+    if (interrupt?.kind === 'question') continuation = installContinuation(continuation, interrupt, await ports.machineInstalls.answer(interrupt, continuation.optionId ?? continuation.answer))
+  }
   for (;;) {
     if (ports.isCancelled()) return { text: '', runtimeStatus: 'cancelled', failed: true }
     const result = await ports.invoke({ request, runId, contextPath: ports.contextPath?.(), ...continuation,
       onPrepared: ports.onPrepared, onLine: ports.onLine, onRuntimeEvent: ports.onRuntimeEvent, onSpawn: ports.onSpawn, timeoutMs: ports.remainingMs() })
     ports.onInvocationEnd(result)
     if (ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
+    if (result.runtimeStatus === 'failed' && ports.awaitProviderLimit) {
+      const limit = await ports.awaitProviderLimit(result)
+      if (limit === 'stop' || ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
+      if (limit === 'continue') { continuation = { resume: true }; continue }
+      if (typeof limit === 'object') { continuation = { resume: true, routeOverrides: limit.routeOverrides }; continue }
+    }
     if (result.runtimeStatus !== 'paused') return result
     const pending = result.pendingInterrupts ?? []
     if (!pending.length && result.pause && ports.awaitHostPause) {
@@ -136,21 +181,45 @@ export async function runDefinitionLoop(request: LoopRunRequest, runId: string, 
       }
       continue
     }
-    const reason = result.pendingQuestion?.question ?? result.pendingApproval?.reason ?? pending.map(item => {
-      const value = item.value as { prompt?: unknown } | undefined
-      return `${item.nodePath}: ${typeof value?.prompt === 'string' ? value.prompt : item.kind}`
-    }).join('\n')
+    // A question the host answers by itself (a remembered install approval) never waits for the person.
+    let automatic: { id: string; answer: string } | null = null
+    for (const item of ports.machineInstalls ? pending.filter(entry => entry.kind === 'question') : []) {
+      const answer = await ports.machineInstalls!.autoAnswer(item)
+      if (answer !== null) { automatic = { id: item.id, answer }; break }
+    }
+    if (automatic) {
+      if (ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
+      continuation = { resume: true, answer: automatic.answer, interruptId: automatic.id }
+      if (ports.beforeContinuation && (await ports.beforeContinuation()) === 'stop' || ports.isCancelled()) {
+        return { ...result, runtimeStatus: 'cancelled', failed: true }
+      }
+      continue
+    }
+    // The person reads the question itself, never a node path.
+    const reason = runQuestionFrom(pending)?.text || result.pendingQuestion?.question || result.pendingApproval?.reason || 'The run needs a decision.'
     if (!pending.length) throw new Error('Core paused without an addressable interrupt')
     const decision = await ports.awaitHumanDecision(reason, pending)
     if (decision.action === 'stop' || ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
     const selected = decision.interruptId ? pending.find(item => item.id === decision.interruptId) : pending.length === 1 ? pending[0] : undefined
     if (!selected) throw new Error('Select the pending question or approval to resume')
-    if (selected.kind !== 'question' && decision.approve !== true) throw new Error('Explicit approval is required to resume this interrupt')
+    if (selected.kind !== 'question' && decision.approve !== true && decision.reject !== true) throw new Error('Explicit approval is required to resume this interrupt')
+    // An install question takes the chosen option's id (install / self); the host turns it into Core's answer.
+    const answer = selected.kind === 'question' && ports.machineInstalls ? await ports.machineInstalls.answer(selected, decision.optionId ?? decision.text) : decision.text
+    if (ports.isCancelled()) return { ...result, runtimeStatus: 'cancelled', failed: true }
     continuation = selected.kind === 'question'
-      ? { resume: true, answer: decision.text, interruptId: selected.id }
-      : { resume: true, approve: [selected.id], interruptId: selected.id }
+      ? installContinuation({ resume: true, answer: decision.text, interruptId: selected.id, ...(decision.optionId ? { optionId: decision.optionId } : {}) }, selected, answer)
+      : decision.reject === true
+        ? { resume: true, reject: selected.id, reason: decision.text, interruptId: selected.id }
+        : { resume: true, approve: [selected.id], interruptId: selected.id }
     if (ports.beforeContinuation && (await ports.beforeContinuation()) === 'stop' || ports.isCancelled()) {
       return { ...result, runtimeStatus: 'cancelled', failed: true }
     }
   }
+}
+
+/** A question answered by the person: an install question's answer is the host's (installed / declined), never a chosen option. */
+function installContinuation<T extends { answer?: string; optionId?: string }>(continuation: T, interrupt: DefinitionInterrupt, hostAnswer: string): T {
+  if (!installQuestionOf(interrupt)) return continuation
+  const { optionId: _chosen, ...rest } = continuation
+  return { ...rest, answer: hostAnswer } as T
 }

@@ -12,7 +12,7 @@ owns the classification. Every write surface is gated on Core `rulesInventory: 1
 | Locating/reading the file (workspace first, then the repository) and running `specrails-core rules inventory --root <repo> [--artifact-root <dir>]` | [runtime/rules-store.ts](runtime/rules-store.ts) |
 | One run per project at a time, the last run's outcome, the once-per-project run after setup (gated, idempotent, skipped when already classified) | [runtime/rules-inventory-runs.ts](runtime/rules-inventory-runs.ts) |
 | `GET /:projectId/rules`, `POST /:projectId/rules/inventory`, `POST /:projectId/rules/specs` | [adapters/http.ts](adapters/http.ts) |
-| Production wiring (capability probe, ticket creation, broadcast) | [project-router-rules.ts](../../project-router-rules.ts); the after-setup trigger is SetupManager's `onSetupSucceeded` in [project-registry.ts](../../project-registry.ts) |
+| Production wiring (capability probe, ticket creation, broadcast) | [project-router-rules.ts](../../project-router-rules.ts); the after-setup trigger is SetupManager's `onSetupSucceeded` in [project-context-managers.ts](../../project-context-managers.ts) |
 
 Consumers: the review packet freezes human-only rules at settle
 ([delivery phase-3 harvest](../delivery/runtime/phase3-harvest.ts)), and the

@@ -38,6 +38,27 @@ export async function resumeInboxRun(item: InboxItem, choice?: RunCapChoice): Pr
   }
 }
 
+/**
+ * Resume a milestone chain that stopped (paused, or at a checkpoint): the chain
+ * row's own Resume (`POST blueprint/chains/:id/resume`, the plan's recommended
+ * step), addressed to the item's project.
+ */
+export async function resumeInboxChain(item: InboxItem): Promise<InboxActionOutcome> {
+  try {
+    const res = await fetch(`${projectBase(item.projectId)}/blueprint/chains/${encodeURIComponent(item.subjectId)}/resume`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: 'recommended' }),
+    })
+    if (res.ok) return { kind: 'ok' }
+    const body: unknown = await res.json().catch(() => null)
+    const budget = readDailyBudgetRejection(body)
+    if (budget) return { kind: 'over-budget', budget }
+    const error = body as { error?: string; detail?: string } | null
+    return { kind: 'failed', detail: error?.detail ?? error?.error ?? `HTTP ${res.status}` }
+  } catch (err) {
+    return { kind: 'failed', detail: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 /** Re-queue a dead-lettered Jira op: the Jira outbox panel's Retry. */
 export async function retryInboxJira(item: InboxItem): Promise<InboxActionOutcome> {
   try {

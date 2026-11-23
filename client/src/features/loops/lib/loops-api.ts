@@ -1,4 +1,5 @@
 import type { AgentRuntimeConfig } from '../../settings/lib/agent-runtime'
+import { sharedFetch } from '../../../lib/shared-fetch'
 
 export type LoopAgentConfig = Omit<AgentRuntimeConfig, 'providers' | 'verification' | 'enabled'>
 
@@ -160,7 +161,8 @@ export const loopsApi = {
   async migration(): Promise<LoopMigrationReport> { return send('GET', '/loops/migration') },
   async catalog(): Promise<WorkflowCatalog> { return send('GET', '/loops/catalog') },
   async list(): Promise<LoopDefinition[]> {
-    return (await send<{ loops: LoopDefinition[] }>('GET', '/loops')).loops
+    // Rail loop selectors mount once per rail: concurrent lists share one request.
+    return (await parse<{ loops: LoopDefinition[] }>(await sharedFetch(`${BASE}/loops`))).loops
   },
   async get(id: string): Promise<LoopDefinition> {
     return (await send<{ loop: LoopDefinition }>('GET', `/loops/${id}`)).loop

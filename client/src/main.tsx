@@ -10,10 +10,10 @@ import { applyA11yPrefs } from './lib/a11y-prefs'
 async function bootstrap() {
   // Density / reduce-motion attributes on <html> before first paint.
   applyA11yPrefs()
-  await initAuth()
+  // Token and UI language are independent: load them together. The language
+  // (persisted or OS-detected) still applies before the first paint.
+  await Promise.all([initAuth(), initI18n()])
   installFetchInterceptor()
-  // Apply persisted (or OS-detected) UI language before first paint.
-  await initI18n()
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

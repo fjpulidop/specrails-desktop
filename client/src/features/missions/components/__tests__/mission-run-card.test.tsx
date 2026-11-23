@@ -159,6 +159,7 @@ describe('run-only card (shared-cwd launch)', () => {
     runtime.state.runs = [{ runId: 'r1', status: 'running', nextStep: 'developer', recoverableSteps: [], active: true, canResume: false, canCancel: true }]
     render(<AgentPrDecisionCard envelope={env({ runtime: failed })} />)
     expect(screen.getByTestId('mission-run-status').getAttribute('data-status')).toBe('running')
+    expect(screen.getByTestId('mission-run-status')).toHaveAttribute('data-run-state', 'working')
     expect(screen.getByTestId('mission-run-phase').textContent).toContain('developer')
     expect(screen.queryByTestId('mission-run-resume')).toBeNull()
     expect(screen.queryByTestId('mission-run-relaunch')).toBeNull()
@@ -246,14 +247,15 @@ describe('failure diagnosis on a failed run', () => {
     expect(screen.getByText('Technical details')).toBeInTheDocument()
   })
 
-  it('runs the card\'s real actions: resume and open the failing run\'s log', async () => {
+  it('runs the card\'s real action: Continue keeps the failing run\'s work', async () => {
     global.fetch = answer(diagnosis)
     runtime.state.runs = [{ runId: 'r1', status: 'failed', nextStep: 'fixer', recoverableSteps: [], active: false, canResume: true, canCancel: false }]
     render(<AgentPrDecisionCard envelope={env({ runtime: { ...failed, recoverableSteps: [] }, decision: 'implementation_failed' })} conversationId="c1" />)
     const card = await screen.findByTestId('failure-diagnosis-card')
-    fireEvent.click(card.querySelector('[data-testid="failure-remedy-resume"]')!)
+    fireEvent.click(card.querySelector('[data-testid="failure-remedy-continue"]')!)
     await act(async () => {})
-    expect(runtime.state.act).toHaveBeenCalledWith(expect.objectContaining({ runId: 'r1' }), 'resume')
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/projects\/p1\/loop-runs\/r1\/remedy$/), expect.objectContaining({ method: 'POST', body: JSON.stringify({ remedy: 'continue' }) }))
+    expect(runtime.state.act).not.toHaveBeenCalledWith(expect.anything(), 'resume')
   })
 
   it('keeps the existing failure block when the run has no diagnosis', async () => {

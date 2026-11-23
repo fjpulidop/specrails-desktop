@@ -38,7 +38,7 @@ const PATTERNS: Array<{ kind: ProviderLimitKind; re: RegExp }> = [
 ]
 
 // "resets 3am (Europe/Madrid)", "resets at 14:00", "resets in 2 hours".
-const RESETS_RE = /\bresets?\s+(?:at\s+|in\s+)?([^\n·(]*?\d[^\n·(]*?)(\s*\([^)]*\))?(?=\s*(?:\(error|[.,;]\s|\n|$))/i
+const RESETS_RE = /\b(?:resets?|try again)\s+(?:at\s+)?((?:in\s+)?[^\n·(]*?\d[^\n·(]*?)(\s*\([^)]*\))?(?=\s*(?:\(error|[.,;]\s|\n|$))/i
 
 export function extractLimitReset(text: string): string | null {
   const m = RESETS_RE.exec(text)

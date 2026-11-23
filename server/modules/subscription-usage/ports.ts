@@ -16,4 +16,6 @@ export interface UsageDependencies {
   eligible?(provider: UsageProvider): Promise<boolean>
   readers: Record<UsageProvider, UsageReader>
   now?: () => number
+  /** Rows changed outside a collection (a run-observed window); the host pushes the snapshot. */
+  onChange?: () => void
 }

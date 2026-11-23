@@ -22,6 +22,7 @@
 
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronUp, Compass, CircleHelp, CornerDownLeft, FileText, MessageSquare } from 'lucide-react'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../lib/utils'
 import type { IntentDraft } from '../../specs/lib/spec-intent'
@@ -381,7 +382,9 @@ export function AgentIntentDraftPending() {
   const { t } = useTranslation('agent')
   return (
     <span data-testid="agent-intent-draft-pending" className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-intent/25 bg-accent-intent/10 px-2.5 py-1 text-label text-accent-intent">
-      <Compass className="h-3 w-3 motion-safe:animate-pulse" aria-hidden="true" />
+      {/* Still streaming in: the working lamp; the Compass stays the object. */}
+      <RunStateDot state="working" />
+      <Compass className="h-3 w-3" aria-hidden="true" />
       {t('intentDraft.writing')}
     </span>
   )

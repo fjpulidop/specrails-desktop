@@ -2,25 +2,30 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '../../../../test-utils'
 import { RailModelSelector } from '../RailModelSelector'
 
+const openSelect = (trigger: HTMLElement) =>
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+
 describe('RailModelSelector', () => {
   it('renders the three model options and defaults to sonnet', () => {
     render(<RailModelSelector value={null} onChange={vi.fn()} />)
-    const select = screen.getByTestId('rail-model-selector') as HTMLSelectElement
-    expect(select.value).toBe('sonnet')
-    expect(screen.getByText('Claude Haiku 5.5')).toBeInTheDocument()
-    expect(screen.getByText('Claude Sonnet 5.5')).toBeInTheDocument()
-    expect(screen.getByText('Claude Opus 5.5')).toBeInTheDocument()
+    const trigger = screen.getByTestId('rail-model-selector')
+    expect(trigger).toHaveTextContent('Claude Sonnet 5.5')
+    openSelect(trigger)
+    expect(screen.getByRole('option', { name: 'Claude Haiku 5.5' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Claude Sonnet 5.5' })).toHaveAttribute('data-state', 'checked')
+    expect(screen.getByRole('option', { name: 'Claude Opus 5.5' })).toBeInTheDocument()
   })
 
   it('reflects the selected value', () => {
     render(<RailModelSelector value="opus" onChange={vi.fn()} />)
-    expect((screen.getByTestId('rail-model-selector') as HTMLSelectElement).value).toBe('opus')
+    expect(screen.getByTestId('rail-model-selector')).toHaveTextContent('Claude Opus 5.5')
   })
 
   it('calls onChange with the chosen model', () => {
     const onChange = vi.fn()
     render(<RailModelSelector value="sonnet" onChange={onChange} />)
-    fireEvent.change(screen.getByTestId('rail-model-selector'), { target: { value: 'haiku' } })
+    openSelect(screen.getByTestId('rail-model-selector'))
+    fireEvent.click(screen.getByRole('option', { name: 'Claude Haiku 5.5' }))
     expect(onChange).toHaveBeenCalledWith('haiku')
   })
 

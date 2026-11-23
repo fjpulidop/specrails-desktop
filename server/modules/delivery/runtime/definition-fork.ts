@@ -4,11 +4,13 @@ import { dirname, join } from 'node:path'
 import { createJob, getJob } from '../../../db'
 import type { ProjectContext } from '../../../project-registry'
 import { runAgentRuntimeControl, readFrozenRuntimeHost, assertRetainedForkSupport, type AgentRuntimeForkResult, type AgentRuntimeControlInvocation } from '../../agent-runtime/runtime/agent-runtime-bridge'
+import { withRunPortEnv } from '../../terminals/runtime/run-port-leases'
 import { claimDefinitionExecution, createLoopRun, definitionRepositoryMounts, linkDefinitionFork, readDefinitionExecutionClaim, readDefinitionRun, readDefinitionSuccessor, saveDefinitionRun } from '../../loops/runtime/loop-runs-store'
 import { probeDefinitionRun } from '../../loops/runtime/loop-definition-recovery'
 import { claimPrDeliveryOperation, getPrDelivery, releasePrDeliveryOperation, transitionClaimedDecision, type DeliverBranchRecord } from './rail-pr-store'
 import { readIsolatedSettlementRecords, saveIsolatedSettlementSnapshot } from './isolated-settlement-store'
 import { getRailWorktree } from './rail-worktrees-store'
+import type { DefinitionRouteOverride } from '../../agent-runtime/runtime/agent-runtime-route-overrides'
 
 export interface DefinitionForkRequest {
   requestId: string
@@ -16,17 +18,21 @@ export interface DefinitionForkRequest {
   scopeId?: string
   visit?: number
   state?: Record<string, unknown>
+  /** Core `forkRouteOverrides`: the next attempt starts with these roles on another provider (a continuation after a usage limit). */
+  routeOverrides?: DefinitionRouteOverride
 }
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 const canonical = (value: unknown): unknown => Array.isArray(value) ? value.map(canonical) : object(value)
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value
 export function validateDefinitionForkRequest(value: unknown): DefinitionForkRequest {
-  if (!object(value) || Object.keys(value).some(key => !['requestId', 'fromNodePath', 'scopeId', 'visit', 'state'].includes(key)) ||
+  if (!object(value) || Object.keys(value).some(key => !['requestId', 'fromNodePath', 'scopeId', 'visit', 'state', 'routeOverrides'].includes(key)) ||
     typeof value.requestId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value.requestId) ||
     typeof value.fromNodePath !== 'string' || !value.fromNodePath.trim() || value.fromNodePath.length > 2048 ||
     value.scopeId !== undefined && (typeof value.scopeId !== 'string' || !value.scopeId || value.scopeId.length > 2048) ||
     value.visit !== undefined && (!Number.isSafeInteger(value.visit) || Number(value.visit) < 1) ||
-    value.state !== undefined && (!object(value.state) || Object.keys(value.state).some(key => !['$vars', '$outputs'].includes(key)) || Object.values(value.state).some(channel => !object(channel)))) throw new Error('invalid_fork_request')
+    value.state !== undefined && (!object(value.state) || Object.keys(value.state).some(key => !['$vars', '$outputs'].includes(key)) || Object.values(value.state).some(channel => !object(channel))) ||
+    // Shape only: Core validates the routes against the frozen configuration before it publishes the fork.
+    value.routeOverrides !== undefined && (!object(value.routeOverrides) || value.routeOverrides.schemaVersion !== 1 || typeof value.routeOverrides.requestId !== 'string' || !object(value.routeOverrides.routes))) throw new Error('invalid_fork_request')
   if (JSON.stringify(value).length > 2 * 1024 * 1024) throw new Error('invalid_fork_request: State exceeds 2 MiB')
   return value as unknown as DefinitionForkRequest
 }
@@ -70,7 +76,9 @@ export async function forkDefinitionRun(ctx: ProjectContext, runId: string, inpu
     if (frozen.request.deferTerminalOutcome && !deliveries.length) throw new Error('Original isolated settlement snapshot is unavailable')
     if (frozen.row.status === 'completed' && deliveries.some(row => !readIsolatedSettlementRecords(db, projectId, row.id).find(record => record.snapshot.run.runId === runId)?.result)) throw new Error('runtime_settlement_pending: Finish original settlement before forking')
     if (all.some(row => !row || ['discarded', 'superseded', 'merged', 'completed'].includes(row.decision))) throw new Error('Delivery ownership has already changed')
-    const host = readFrozenRuntimeHost(frozen.metadata.contextPath, process.env, runId)
+    const frozenHost = readFrozenRuntimeHost(frozen.metadata.contextPath, process.env, runId)
+    // The fork continues in the same worktree: it keeps that worktree's port block.
+    const host = { ...frozenHost, env: withRunPortEnv(frozenHost.env, frozenHost.env.SPECRAILS_REPO_DIR ?? frozenHost.cwd) }
     const forkOptions = { ...request, kind: 'fork' as const, runId, childRunId, contextPath: frozen.metadata.contextPath, cwd: host.cwd, env: host.env }
     if (!io.fork) await assertRetainedForkSupport(forkOptions)
     db.transaction(() => {

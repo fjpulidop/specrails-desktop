@@ -1,0 +1,110 @@
+{
+  "title": "ライブボード",
+  "description": "すべてのプロジェクトのすべての実行をリアルタイムで",
+  "shortcutHint": "{{shortcut}} で開閉します",
+  "stale": "このボードは最新でない可能性があります。",
+  "loading": "プロジェクトを読み込んでいます…",
+  "openInWindow": "ウィンドウで開く",
+  "summary": {
+    "needsYou_one": "未対応 {{count}} 件",
+    "needsYou_other": "未対応 {{count}} 件",
+    "inProgress_one": "{{count}} 件が進行中",
+    "inProgress_other": "{{count}} 件が進行中",
+    "today": "今日 {{cost}}",
+    "todayEstimated": "今日 ~{{cost}}（見積もりを含む）",
+    "paused_one": "{{count}} 件一時停止",
+    "paused_other": "{{count}} 件一時停止"
+  },
+  "layout": {
+    "label": "表示",
+    "status": "状態別",
+    "mission": "ミッション別"
+  },
+  "columns": {
+    "needs": "要対応",
+    "working": "進行中",
+    "done": "今日完了",
+    "doneHint": "深夜0時にクリア",
+    "openInbox": "対応待ちを開く"
+  },
+  "columnEmpty": {
+    "needs": "対応待ちはありません。",
+    "working": "実行中のものはありません。",
+    "done": "今日はまだ何も完了していません。"
+  },
+  "filters": {
+    "label": "フィルター",
+    "project": "プロジェクト",
+    "kind": "種類",
+    "engine": "エンジン",
+    "allProjects": "すべてのプロジェクト"
+  },
+  "kinds": {
+    "rail": "レール",
+    "loop": "ループ",
+    "intent": "Intent",
+    "job": "ジョブ"
+  },
+  "kind": {
+    "rail": "レール {{n}}",
+    "railUnknown": "レール",
+    "loop": "ループ",
+    "intent": "Intent",
+    "job": "ジョブ"
+  },
+  "lane": {
+    "noMission": "ミッション外",
+    "noMissionHint": "ボード、ループ、ジョブから開始",
+    "untitled": "無題のミッション",
+    "mission": "ミッション",
+    "projects_one": "{{count}} プロジェクト",
+    "projects_other": "{{count}} プロジェクト",
+    "runs_one": "{{count}} 件の実行",
+    "runs_other": "{{count}} 件の実行",
+    "today": "今日 {{cost}}"
+  },
+  "card": {
+    "now": "たった今",
+    "waiting": "{{age}} 待機中",
+    "queuedFor": "{{age}} キュー待ち",
+    "queued": "開始待ち",
+    "steps": "{{total}} ステップ中 {{done}} 完了",
+    "open": "開く",
+    "openReview": "レビューを開く",
+    "untitled": "無題の実行",
+    "untitledIntent": "Intent セッション",
+    "question": "質問",
+    "actionLabel": "{{action}}: {{title}}",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "料金表による見積もりで、請求額ではありません",
+    "costIncludesEstimate": "料金表による見積もり {{cost}} を含みます（請求額ではありません）",
+    "mergeConflicts_one": "{{count}} ファイルでベースとコンフリクト",
+    "mergeConflicts_other": "{{count}} ファイルでベースとコンフリクト",
+    "mergeSiblings_one": "ほかの {{count}} 件の run と衝突",
+    "mergeSiblings_other": "ほかの {{count}} 件の run と衝突",
+    "baseMoved_one": "ベースが {{count}} コミット進みました",
+    "baseMoved_other": "ベースが {{count}} コミット進みました",
+    "mergeChip": {
+      "conflicts_one": "{{count}} 件のコンフリクト",
+      "conflicts_other": "{{count}} 件のコンフリクト",
+      "siblings_one": "{{count}} 件の run と重複",
+      "siblings_other": "{{count}} 件の run と重複",
+      "baseMoved": "ベースが前進"
+    },
+    "attempt": "試行 {{number}}",
+    "attemptCost": "この試行: {{cost}}。カードの費用は {{of}} 回すべての試行の合計です。"
+  },
+  "empty": {
+    "title": "実行中のものはありません",
+    "description": "すべてのプロジェクトの実行が開始と同時にここに表示されます：レール、ループ、Intent セッション、ジョブ。"
+  },
+  "emptyFiltered": {
+    "title": "フィルターに一致するものはありません",
+    "clear": "フィルターをクリア"
+  },
+  "error": {
+    "title": "ライブボードを読み込めませんでした",
+    "description": "プロジェクトを読み込めませんでした。しばらくしてからもう一度お試しください。",
+    "retry": "再試行"
+  }
+}

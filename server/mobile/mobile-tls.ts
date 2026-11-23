@@ -1,7 +1,6 @@
 import fs from 'fs'
 import path from 'path'
 import { X509Certificate, createHash } from 'crypto'
-import { generate as selfsignedGenerate } from 'selfsigned'
 import { resolveSpecrailsHome } from '../util/specrails-home'
 
 // Self-signed TLS for the gateway. Identity = sha256 of the cert DER, pinned by
@@ -46,6 +45,8 @@ async function generatePair(): Promise<{ certPem: string; keyPem: string }> {
   const attrs = [{ name: 'commonName', value: 'specrails-desktop-mobile' }]
   const notAfter = new Date()
   notAfter.setFullYear(notAfter.getFullYear() + 10)
+  // Loaded only when a certificate is generated (keeps it off the startup path).
+  const { generate: selfsignedGenerate } = await import('selfsigned')
   const pems = await selfsignedGenerate(attrs, {
     keyType: 'ec',
     curve: 'P-256',

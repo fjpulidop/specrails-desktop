@@ -1,0 +1,18 @@
+{
+  "summary.list": "{{count}} 个 rail：{{free}} 个空闲，{{busy}} 个忙碌，{{waiting}} 个等待决定。",
+  "summary.created": "已创建 {{label}}。",
+  "summary.removed": "已移除 {{label}}。",
+  "summary.renamed": "已重命名 {{label}}。",
+  "summary.configured": "已更新 {{label}}：{{changed}}。",
+  "summary.prepared": "正在为接下来的启动准备 {{count}} 个 worktree。",
+  "summary.released": "已释放 {{count}} 个准备好的 worktree。",
+  "summary.overlaps": "{{count}} 个其他 rail 可能会修改相同的文件。",
+  "summary.forecast": "{{label}}：{{forecast}}。",
+  "summary.forecast_none": "历史数据不足，暂无法预测",
+  "summary.forecast_range": "通常 {{low}}–{{high}} 分钟，{{cost}}",
+  "summary.forecast_cost": "{{low}}–{{high}} USD",
+  "summary.forecast_cost_none": "费用未知",
+  "preview.remove": "移除 {{label}}，并将其规格释放回看板。",
+  "error.launch_option": "{{keys}} 是启动选项，不是 rail 设置：请将它们传给 specrails_runs(launch)。",
+  "error.config": "config 接受 specIds、mode、engine、profile、name；model、effort 和 targetPr 是启动选项。"
+}

@@ -56,6 +56,8 @@ export const DIALOG_SCRIM_CLASS = 'modal-scrim fixed inset-0 bg-scrim backdrop-b
 interface DialogChrome {
   layer: DialogLayer
   showCloseButton: boolean
+  /** The dialog is the content of a native surface window (fills it, header drags it). */
+  framed?: boolean
   /** A `DialogHeader` claims the close button so it renders in the header row. */
   claimHeader: () => () => void
 }
@@ -68,6 +70,53 @@ export function useDialogLayer(): DialogLayer | null {
 }
 
 const noopClaim = () => () => {}
+
+/*
+ * Native surface windows (docs/internals/native-window-surfaces.md): inside a
+ * surface window the FIRST dialog that mounts is the window's content. It keeps
+ * the Radix contract (focus trap, Escape, aria) but fills the window: no scrim,
+ * no size token, no resize grips, and its header is the window's drag region.
+ * Dialogs opened inside it (confirms) stay ordinary in-window modals.
+ */
+const SurfaceWindowFrameContext = React.createContext<{ owner: { current: string | null } } | null>(null)
+
+/** Panel chrome for a dialog that is a native window's content. */
+export const SURFACE_WINDOW_PANEL_CLASS = 'fixed inset-0 flex flex-col overflow-hidden bg-popover text-popover-foreground outline-none'
+
+/** Marks a subtree as the content of a native surface window. */
+export function SurfaceWindowFrame({ children }: { children: React.ReactNode }) {
+  const value = React.useMemo(() => ({ owner: { current: null as string | null } }), [])
+  return <SurfaceWindowFrameContext.Provider value={value}>{children}</SurfaceWindowFrameContext.Provider>
+}
+
+/**
+ * True when this dialog is the native window's content: inside a
+ * `SurfaceWindowFrame`, not nested in another dialog, and the first to claim it.
+ */
+export function useSurfaceWindowFrame(): boolean {
+  const frame = React.useContext(SurfaceWindowFrameContext)
+  const parent = React.useContext(DialogChromeContext)
+  const id = React.useId()
+  if (!frame || parent) return false
+  frame.owner.current ??= id
+  return frame.owner.current === id
+}
+
+/**
+ * macOS draws the traffic lights over the header (overlay title bar) at their
+ * standard place (a ~28pt strip at the top, x ≈ 13–68pt). The header leaves
+ * that strip to them and starts its title row right below, at its normal left
+ * padding. Other platforms show the OS title bar above the header, so the
+ * header keeps its normal padding.
+ */
+function surfaceHeaderInset(): string | undefined {
+  return typeof navigator !== 'undefined' && /mac/i.test(navigator.platform) ? 'pt-[34px]!' : undefined
+}
+
+/** Header props that make a framed dialog's header the window's title bar. */
+export function surfaceWindowHeaderProps(framed: boolean): { 'data-tauri-drag-region'?: ''; className?: string } {
+  return framed ? { 'data-tauri-drag-region': '', className: surfaceHeaderInset() } : {}
+}
 
 /**
  * Publishes a layer to nested dialogs for surfaces built on the raw Radix
@@ -168,8 +217,9 @@ const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.C
     ref,
   ) => {
     const parent = React.useContext(DialogChromeContext)
+    const framed = useSurfaceWindowFrame()
     const layer = layerProp ?? nestedDialogLayer(parent?.layer ?? null)
-    const resizable = movableResizable && size === 'workspace'
+    const resizable = movableResizable && size === 'workspace' && !framed
     // Dialog-style modals are RESIZE-ONLY: a whole-panel move makes body
     // clicks accidentally reposition the modal. The modal stays centered.
     const { panelRef, panelStyle, resizeHandles, guardBackdrop } = useMovableResizableModal({
@@ -217,9 +267,11 @@ const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.C
       setHeaderCount((n) => n + 1)
       return () => setHeaderCount((n) => n - 1)
     }, [])
+    // A native window closes with the OS controls: no in-page close button.
+    const closeButton = showCloseButton && !framed
     const chrome = React.useMemo<DialogChrome>(
-      () => ({ layer, showCloseButton, claimHeader }),
-      [layer, showCloseButton, claimHeader],
+      () => ({ layer, showCloseButton: closeButton, claimHeader, framed }),
+      [layer, closeButton, claimHeader, framed],
     )
 
     const maxDvh = size === 'fullscreen' ? 92 : size === 'workspace' ? 88 : 85
@@ -227,21 +279,24 @@ const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.C
 
     return (
       <DialogPortal>
-        <DialogOverlay layer={layer} className={overlayClassName} />
+        {!framed && <DialogOverlay layer={layer} className={overlayClassName} />}
         <DialogChromeContext.Provider value={chrome}>
           <DialogPrimitive.Content
             ref={mergedRef}
             data-dialog-size={size}
             data-dialog-layer={layer}
-            style={{ ...style, ...modalDialogStyle(maxDvh), ...panelStyle }}
-            className={cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS[layer], DIALOG_SIZE_CLASS[size], className)}
+            data-surface-window={framed ? '' : undefined}
+            style={framed ? style : { ...style, ...modalDialogStyle(maxDvh), ...panelStyle }}
+            className={framed
+              ? cn(SURFACE_WINDOW_PANEL_CLASS, DIALOG_LAYER_CLASS[layer], className)
+              : cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS[layer], DIALOG_SIZE_CLASS[size], className)}
             onCloseAutoFocus={handleCloseAutoFocus}
             // Ignore the outside-press that ends a resize drag.
             onPointerDownOutside={resizable ? guardBackdrop((e: Parameters<NonNullable<typeof onPointerDownOutside>>[0]) => onPointerDownOutside?.(e)) : onPointerDownOutside}
             {...rest}
           >
             {children}
-            {showCloseButton && headerCount === 0 && (
+            {closeButton && headerCount === 0 && (
               <DialogCloseButton className="absolute right-3 top-3 z-20" />
             )}
             {resizable && <ResizeGrips handles={resizeHandles} placement="inset" />}
@@ -265,14 +320,16 @@ const DialogHeader = ({ className, icon, actions, children, ...props }: DialogHe
   const chrome = React.useContext(DialogChromeContext)
   const claimHeader = chrome?.claimHeader
   React.useLayoutEffect(() => claimHeader?.(), [claimHeader])
+  const frame = surfaceWindowHeaderProps(!!chrome?.framed)
   return (
     <div
       data-dialog-header=""
-      className={cn('flex shrink-0 items-start gap-3 border-b border-border/40 px-5 py-4 text-left', className)}
+      data-tauri-drag-region={frame['data-tauri-drag-region']}
+      className={cn('flex shrink-0 items-start gap-3 border-b border-border/40 px-5 py-4 text-left', frame.className, className)}
       {...props}
     >
       {icon ? <span className="mt-0.5 shrink-0 text-accent-primary [&>svg]:h-4 [&>svg]:w-4" aria-hidden>{icon}</span> : null}
-      <div className="flex min-w-0 flex-1 flex-col gap-1">{children}</div>
+      <div data-tauri-drag-region={frame['data-tauri-drag-region']} className="flex min-w-0 flex-1 flex-col gap-1">{children}</div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       {chrome?.showCloseButton ? <DialogCloseButton className="-mr-1.5 -mt-1" /> : null}
     </div>
@@ -298,7 +355,7 @@ const DialogFooter = ({ className, start, children, ...props }: DialogFooterProp
   <div
     data-dialog-footer=""
     className={cn(
-      'flex shrink-0 flex-col-reverse gap-2 border-t border-border/40 px-5 py-3 sm:flex-row sm:items-center sm:justify-end',
+      'flex shrink-0 flex-col-reverse gap-2 border-t border-border/40 px-5 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end',
       className,
     )}
     {...props}

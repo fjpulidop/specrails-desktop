@@ -1,11 +1,11 @@
 {
   "title": "À traiter",
-  "subtitle_one": "{{count}} élément vous attend",
-  "subtitle_other": "{{count}} éléments vous attendent",
-  "subtitleEmpty": "Rien ne vous attend",
+  "subtitle_one": "{{count}} élément en attente",
+  "subtitle_other": "{{count}} éléments en attente",
+  "subtitleEmpty": "Vous êtes à jour",
   "loading": "Vérification de vos projets…",
   "empty": {
-    "title": "Rien n'a besoin de vous",
+    "title": "Rien en attente",
     "description": "Les revues, questions et échecs de tous les projets apparaissent ici dès qu'ils surviennent."
   },
   "error": {
@@ -15,13 +15,15 @@
   },
   "kinds": {
     "review": "Revue prête",
-    "question": "En attente de votre réponse",
+    "question": "Attend votre réponse",
     "failed": "Échec",
     "blocked": "Bloqué",
     "budget": "En pause (budget)",
     "jira": "Échec de la synchronisation Jira",
     "failedNoCause": "Arrêté avant la livraison",
-    "capReached": "Plafond de budget atteint"
+    "capReached": "Travail en pause",
+    "chain": "Jalon en pause",
+    "chainCheckpoint": "Jalon en attente de votre feu vert"
   },
   "actions": {
     "open": "Ouvrir",
@@ -29,20 +31,19 @@
     "answer": "Répondre",
     "resume": "Reprendre",
     "retry": "Réessayer",
-    "raiseCap": "Relever le plafond"
+    "raiseCap": "Relever le plafond",
+    "resumeChain": "Reprendre",
+    "continueChain": "Continuer",
+    "openMission": "Ouvrir la mission"
   },
   "working": "En cours…",
   "rowLabel": "{{action}} : {{title}}",
   "snooze": {
-    "label": "Reporter",
-    "hour": "1 heure",
-    "tomorrow": "Jusqu'à demain",
-    "cancel": "Annuler"
+    "hour": "Reporter d'1 heure",
+    "tomorrow": "Reporter à demain"
   },
-  "snoozeItem": "Reporter {{title}}",
-  "snoozeFor": "Reporter {{title}} de",
   "done": "Terminé",
-  "doneItem": "Marquer {{title}} comme terminé",
+  "more": "Autres actions pour {{title}}",
   "age": {
     "now": "à l'instant",
     "ago": "il y a {{age}}"
@@ -63,7 +64,12 @@
     "snoozed": "Reporté jusqu'à {{when}}",
     "undo": "Annuler",
     "stillOverBudget_week": "Toujours au-dessus du budget hebdomadaire",
-    "stillOverBudget_month": "Toujours au-dessus du budget mensuel"
+    "stillOverBudget_month": "Toujours au-dessus du budget mensuel",
+    "muted": "Notifications de {{project}} coupées",
+    "unmuted": "Notifications de {{project}} réactivées",
+    "muteFailed": "Impossible de modifier les notifications du projet",
+    "chainResumed": "Jalon repris",
+    "chainResumeFailed": "Impossible de reprendre le jalon"
   },
   "cap": {
     "title": {
@@ -80,5 +86,38 @@
     },
     "detail": "{{spent}} dépensés sur {{budget}}"
   },
-  "stale": "Actualisation impossible ; la dernière liste est affichée."
+  "stale": "Actualisation impossible ; la dernière liste est affichée.",
+  "unseen": "Nouveau",
+  "markRead": "Marquer comme lu",
+  "markUnread": "Marquer comme non lu",
+  "mute": {
+    "mute": "Couper les notifications de {{project}}",
+    "unmute": "Réactiver les notifications de {{project}}"
+  },
+  "attempt": "tentative {{number}}",
+  "chain": {
+    "title": "Jalon {{n}}",
+    "progress": "Rail {{done}} sur {{total}} terminé",
+    "reason": {
+      "chunk_failed": "Un rail a échoué",
+      "chunk_stalled": "Un rail est bloqué",
+      "chunk_stopped": "Un rail a été arrêté",
+      "provider_limit": "La limite d'utilisation du fournisseur est atteinte",
+      "head_missing": "La branche de base est introuvable",
+      "head_discarded": "La branche de base a été abandonnée",
+      "run_lost": "L'exécution d'un rail a été perdue",
+      "rail_limit_reached": "Aucun rail libre",
+      "launch_rejected": "Un rail n'a pas pu démarrer",
+      "integration_failed": "L'intégration du dernier rail a besoin de vous",
+      "paused": "En pause"
+    }
+  },
+  "missionCard": {
+    "railLaunch": "Proposition de lancement",
+    "flowOffer": "Intent ou implémenter ?",
+    "prCiOffer": "Corriger la CI en échec ?"
+  },
+  "card": {
+    "pr": "PR n° {{number}}"
+  }
 }

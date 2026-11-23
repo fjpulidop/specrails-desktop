@@ -2,6 +2,12 @@
 
 Pressione **⌘K** (**Ctrl+K** no Windows e no Linux) para buscar quase tudo no Specrails em um só lugar: missões, specs, logs de jobs, arquivos, configurações e este guia. Digite uma consulta comum para buscar missões, projetos, specs e jobs recentes como sempre, ou comece com um **prefixo** para buscar em uma única fonte.
 
+## Retomar
+
+Com a caixa vazia, o primeiro grupo é **Retomar**: suas missões e jobs com atividade mais recente, do mais novo ao mais antigo, com o mais recente do projeto aberto na frente para que **Enter** deixe você onde está. Cada linha mostra a luz do seu estado e o nome do projeto quando não é o que está aberto. Quando algo precisa de você, uma linha no topo diz quantas coisas (**3 pendências**) e abre a caixa de entrada, a única lista do que espera por você; os itens da caixa em si não são listados aqui.
+
+Pressione de **⌘1** a **⌘6** (de **Ctrl+1** a **Ctrl+6** no Windows e no Linux) para abrir diretamente uma linha de missão ou de job (a linha da caixa não tem número), ou escolha uma linha com as setas e **Enter**. Uma linha abre exatamente como em outros lugares: uma missão abre a missão e um job abre o job. Enquanto a paleta está aberta essas teclas são dela: os atalhos de página (⌘1–5) e a troca de projeto (⌥⌘1–9) esperam até ela fechar. A ordem fica fixa enquanto a paleta estiver aberta, para que nenhuma linha mude de lugar sob seus dedos; os estados continuam sendo atualizados, e a lista é reordenada na próxima vez que você abrir. As linhas deste grupo não se repetem em Missões nem em Jobs.
+
 ## Prefixos
 
 | Digite | Busca | Enter abre |

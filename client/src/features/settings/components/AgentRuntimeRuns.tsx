@@ -6,8 +6,13 @@ import { RuntimeSteering } from './RuntimeSteering'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Button } from '../../../components/ui/button'
+import { RunQuestionCard } from '../../../components/run-question/RunQuestionCard'
+import { plainRunQuestion, readRunQuestion } from '../../../components/run-question/run-question'
 import { AgentRuntimeMetrics } from './AgentRuntimeMetrics'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
+import { HELD_RUN_STATE } from '../../jobs/lib/job-run-state'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
+import type { JobHoldKind } from '../../../types'
 
 /**
  * Settings "Saved executions" list (and the legacy contextual rail card). The
@@ -15,9 +20,13 @@ import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
  * `JobRunHeader`, which consumes the SAME `useRuntimeRuns` hook.
  * Explicit continuation keeps frozen scope; it never starts a fresh delivery.
  */
-export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, contextual = false }: { projectId: string; onViewLog?: () => void; jobId?: string; railIndex?: number; contextual?: boolean }) {
+export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, contextual = false, hold = null }: {
+  projectId: string; onViewLog?: () => void; jobId?: string; railIndex?: number; contextual?: boolean
+  /** The rail's run is held (a provider limit, the budget, your pause): it waits, so its card names the hold, never "Failed". */
+  hold?: JobHoldKind | null
+}) {
   const { t } = useTranslation('agentRuntime')
-  const { runs, error, busy, answers, setAnswer, act, refresh } = useRuntimeRuns(projectId, { jobId, railIndex })
+  const { runs, error, busy, act, refresh } = useRuntimeRuns(projectId, { jobId, railIndex })
 
   if (contextual && !runs.length && !error) return null
   return <section className="space-y-3 border-t border-border p-3" aria-label={t(contextual ? 'runs.implementation' : 'runs.title')} onClick={event => event.stopPropagation()} onPointerDown={event => event.stopPropagation()}>
@@ -27,29 +36,29 @@ export function AgentRuntimeRuns({ projectId, onViewLog, jobId, railIndex, conte
     {error && <LoadError message={error} onRetry={refresh} />}
     {!runs.length && !error && <p className="text-xs text-muted-foreground">{t('runs.empty')}</p>}
     {runs.map((run) => <div key={run.runId} className="space-y-2 rounded-lg border border-border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">{!contextual && <code className="break-all text-xs">{run.runId}</code>}<span className="text-label">{t(`runs.status.${run.active ? 'running' : run.status}`, { defaultValue: run.status })}</span></div>
+      <div className="flex flex-wrap items-center justify-between gap-2">{!contextual && <code className="break-all text-xs">{run.runId}</code>}{hold
+        ? <span className="inline-flex items-center gap-1.5 text-label" data-testid="runtime-run-hold"><RunStateDot state={HELD_RUN_STATE[hold] ?? 'paused'} />{t(`jobs:held.label.${hold}`)}</span>
+        : <span className="text-label">{t(`runs.status.${run.active ? 'running' : run.status}`, { defaultValue: run.status })}</span>}</div>
       {run.historical && <p className="text-xs text-muted-foreground">{t('evidence.historical')}</p>}
       {run.forkSuccessor && <p className="text-xs">{t('jobs:loopExplorer.openFork')}: <code>{run.forkSuccessor}</code></p>}
       {run.nextStep && <p className="text-xs">{t('runs.phase', { phase: t(`roles.${run.nextStep}`, { defaultValue: run.nextStep }) })}</p>}
       {run.canResume && <p className="text-xs text-muted-foreground">{t('runs.preserveProgress')}</p>}
       {run.status === 'succeeded' && <p className="text-xs text-muted-foreground">{t('runs.reviewDelivery')}</p>}
-      {run.error && <p className="text-xs text-destructive">{run.error}</p>}
+      {/* A held run did not fail: what stopped it is information, not an error. */}
+      {run.error && <p className={hold ? 'text-xs text-muted-foreground' : 'text-xs text-destructive'}>{run.error}</p>}
       {run.metrics && <AgentRuntimeMetrics metrics={run.metrics} />}
       {run.status === 'expired' && <p className="text-xs text-muted-foreground">{t('retention.expired')}</p>}
       {run.status !== 'expired' && <RuntimeExecutionEvidence projectId={projectId} runId={run.runId} summary={run.efficiencySummary} historical={run.historical} />}
       <RuntimeSteering projectId={projectId} run={run} onAccepted={refresh} />
       {run.pendingApproval?.reason && <p className="text-xs text-muted-foreground">{run.pendingApproval.reason}</p>}
-      {run.pendingQuestion && <div className="space-y-2">
-        <p className="text-label">{t('runs.question')}</p>
-        <p className="whitespace-pre-wrap text-xs">{run.pendingQuestion.question}</p>
-        {run.canResume && !run.recoverableSteps.length && <label className="block space-y-1 text-xs">{t('runs.answerLabel')}
-          <textarea className="min-h-20 w-full rounded-md border border-input bg-background px-2 py-1 text-sm" maxLength={20000} placeholder={t('runs.answerPlaceholder')} value={answers[run.runId] ?? ''} onChange={(event) => setAnswer(run.runId, event.target.value)} />
-        </label>}
-      </div>}
+      {run.pendingQuestion && (run.canResume && !run.recoverableSteps.length
+        // The same question card as every other surface, answered here.
+        ? <RunQuestionCard question={readRunQuestion(run.question) ?? plainRunQuestion(run.pendingQuestion.question, run.engineVersion === 2 ? run.pendingQuestion.stepId : '')} projectId={projectId} runId={run.runId} engine={run.engineVersion === 2 ? 2 : 1} density="compact" onAnswered={refresh} />
+        : <div className="space-y-1"><p className="text-label">{t('runs.question')}</p><p className="whitespace-pre-wrap text-xs">{run.pendingQuestion.question}</p></div>)}
       <div className="flex flex-wrap gap-2">
         {!jobId && <Link className="inline-flex items-center rounded-md border border-border px-3 py-1 text-xs hover:bg-muted" to={`/jobs/${encodeURIComponent(run.runId)}`} onClick={onViewLog}>{t('runs.viewLog')}</Link>}
         {run.canResume && run.engineVersion === 2 && run.recoverableSteps.length > 0 ? <RuntimeRecovery key={`${projectId}:${run.runId}`} run={run} busy={busy !== null} onRecover={attempts => void act(run, 'recover', attempts)} /> : run.canResume && (run.pendingQuestion && !run.recoverableSteps.length
-          ? <Button size="sm" disabled={busy !== null || !answers[run.runId]?.trim()} onClick={() => void act(run, 'answer')}>{t('runs.answer')}</Button>
+          ? null
           : <Button size="sm" disabled={busy !== null} onClick={() => void act(run, run.recoverableSteps.length ? 'recover' : run.pendingApproval ? 'approve' : 'resume')}>{run.recoverableSteps.length ? t('runs.recover') : run.pendingApproval ? t('runs.approve') : t('runs.resume')}</Button>)}
         {run.canSettle && <Button size="sm" disabled={busy !== null} onClick={() => void act(run, 'settle')}>{t('runs.prepareDelivery')}</Button>}
         {run.canCancel && <Button size="sm" variant="secondary" disabled={busy !== null} onClick={() => void act(run, 'cancel')}>{t('runs.cancel')}</Button>}

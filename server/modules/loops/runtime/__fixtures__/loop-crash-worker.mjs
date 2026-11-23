@@ -9,15 +9,20 @@ import { createLoopExecutors } from '../loop-executors.ts'
 import { probeDefinitionRun, toDefinitionStates } from '../loop-definition-recovery.ts'
 import { readDefinitionRun, readDefinitionExecutionClaim, reconcileOrphanLoopRuns, getLoopRun } from '../loop-runs-store.ts'
 import { createDefinitionEventProjection } from '../loop-definition-events.ts'
+import { configureCoreChildRegistry, reapOrphanedCoreChildren } from '../../../../util/core-child-process.ts'
 
 const [root, action] = process.argv.slice(2)
 const request = JSON.parse(readFileSync(path.join(root, 'request.json'), 'utf8'))
 const db = initDb(path.join(root, 'project.sqlite'))
+// As the real server boots: Core children run in their own process group, so killing this host
+// leaves its Core child running; the next boot reaps the orphan before recovering the run.
+configureCoreChildRegistry(path.join(root, 'core-children'))
+if (action !== 'start') reapOrphanedCoreChildren({ log: line => process.stderr.write(line + '\n') })
 const executors = createLoopExecutors({ env: process.env })
 const invoke = executors.runDefinition
 executors.runDefinition = async input => { process.stderr.write('Preparing retained runtime\n'); const result = await invoke({ ...input,
   onPrepared(metadata) { process.stderr.write('Retained runtime prepared\n'); input.onPrepared?.(metadata) },
-  onSpawn(child) { process.stderr.write('Core process spawned\n'); input.onSpawn?.(child) },
+  onSpawn(child) { process.stderr.write('Core process spawned\n'); if (child.pid) writeFileSync(path.join(root, 'core-pid'), String(child.pid)); input.onSpawn?.(child) },
   onLine(line, source) { process.stderr.write(line + '\n'); input.onLine?.(line, source) }, onRuntimeEvent(event) {
   appendFileSync(path.join(root, 'events.jsonl'), JSON.stringify(event) + '\n')
   input.onRuntimeEvent(event)

@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { initDb, type DbInstance } from '../../../db'
 import { MilestoneChainManager, chunkTickets, chainRailName, orderChainTickets, isBuilderRailName, MAX_TICKETS_PER_CHAIN_CHUNK, type MilestoneChainIO } from './milestone-chain'
 import { getChain, listActiveChains, listChains, updateChain, parseLaunched } from './milestone-chain-store'
+import { saveUsualMilestoneEngine, recordMilestoneGenerationEngine } from './milestone-engine-preference'
 import type { PrDeliverySnapshot } from '../../delivery/runtime/rail-pr-store'
 import type { Blueprint } from './blueprint-types'
 import type { WsMessage } from '../../../types'
@@ -70,8 +71,10 @@ function fake(over: Partial<Fake> = {}): Fake {
       f.launches.push({ railIndex, body })
       const runId = `run-${nextRun++}`
       f.runs.set(runId, { settled: false, outcome: null })
-      const id = `d-${railIndex}`
-      f.deliveries.set(id, snap({ id, railIndex, runIds: [runId] }))
+      // Delivery ids are unique per launch (a reused rail gets a new row).
+      const id = f.deliveries.has(`d-${railIndex}`) ? `d-${railIndex}-${nextRun}` : `d-${railIndex}`
+      const ticketIds = f.assignments.filter((a) => a.railIndex === railIndex).at(-1)?.ticketIds ?? []
+      f.deliveries.set(id, snap({ id, railIndex, runIds: [runId], ticketIds }))
       f.deliveryByRail.set(railIndex, id)
       // The launched tickets leave todo (the real route flips them in_progress).
       return { ok: true, loopRunIds: [runId] }
@@ -147,7 +150,7 @@ describe('chunking + naming + ordering', () => {
 })
 
 describe('MilestoneChainManager — sequential', () => {
-  it.each(['high', null])('[spec:milestone-launch-chain/frozen-milestone-execution-choice] freezes the selected engine (%s) across failure, a new manager, retry and the next rail', async (reasoningEffort) => {
+  it.each(['high', null])('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] keeps the selected engine (%s) across failure, a new manager, retry and the next rail', async (reasoningEffort) => {
     const f = fake()
     const engine = { provider: 'codex', model: 'gpt-6.1-sol', reasoningEffort }
     const manager = new MilestoneChainManager(db, 'p1', f.io)
@@ -168,7 +171,7 @@ describe('MilestoneChainManager — sequential', () => {
     expect(f.launches[2].body).toMatchObject(expected)
   })
 
-  it.each(['{broken', '{}', '{"provider":"codex","model":"gpt-6.1-sol","reasoningEffort":42}'])('[spec:milestone-launch-chain/frozen-milestone-execution-choice] rejects malformed persisted engine %s without launching', async (engineConfig) => {
+  it.each(['{broken', '{}', '{"provider":"codex","model":"gpt-6.1-sol","reasoningEffort":42}'])('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] rejects malformed persisted engine %s without launching', async (engineConfig) => {
     const f = fake()
     const manager = new MilestoneChainManager(db, 'p1', f.io)
     const result = await manager.start(1)
@@ -183,6 +186,79 @@ describe('MilestoneChainManager — sequential', () => {
     expect(resumed).toMatchObject({ ok: true, chain: { status: 'paused', pauseReason: 'launch_rejected:milestone_engine_unavailable' } })
     expect(f.launches).toHaveLength(launches)
     expect(f.assignments).toHaveLength(assignments)
+  })
+
+  const CLAUDE = { provider: 'claude', model: 'sonnet', reasoningEffort: null }
+  const CODEX = { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: null }
+  const strict = (e: { provider: string; model: string; reasoningEffort: string | null }) => ({ aiEngine: e.provider, model: e.model, reasoning_effort: e.reasoningEffort, requireEngineSelection: true })
+
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] a usual configuration saved while the chain is live runs the next rail (and survives a restart)', async () => {
+    const f = fake()
+    const manager = new MilestoneChainManager(db, 'p1', f.io)
+    const result = await manager.start(1, { engine: CLAUDE })
+    if (!result.ok) throw new Error('start failed')
+    expect(f.launches[0].body).toMatchObject(strict(CLAUDE))
+    expect(parseLaunched(getChain(db, result.chainId!)!)[0].engine).toEqual(CLAUDE)
+    expect(manager.get(result.chainId!)!.nextEngine).toMatchObject({ ...CLAUDE, source: 'launch' })
+    // The person switches the usual configuration to Codex after the chain started.
+    saveUsualMilestoneEngine(db, CODEX, 1_700_000_000_000 + 60_000)
+    expect(manager.get(result.chainId!)!.nextEngine).toMatchObject({ ...CODEX, source: 'usual' })
+    settle(f, manager, 3, 'merged', 'feat/1')
+    await flush()
+    expect(f.launches[1].body).toMatchObject(strict(CODEX))
+    // A restart keeps it: the preference and the launched entries are durable.
+    const restarted = new MilestoneChainManager(db, 'p1', f.io)
+    const launched = parseLaunched(getChain(db, result.chainId!)!)
+    expect(launched.map((l) => l.engine)).toEqual([CLAUDE, CODEX])
+    settle(f, restarted, f.launches[1].railIndex, 'merged', 'feat/2')
+    await flush()
+    expect(f.launches[2].body).toMatchObject(strict(CODEX))
+  })
+
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] the reported case: chain launched on claude/sonnet, legacy unstamped usual codex/gpt-6.2-sol → the next rail runs on Codex', async () => {
+    // Saved before stamps existed (no savedAt), before the chain started.
+    db.prepare("INSERT INTO queue_state (key, value) VALUES ('blueprint.milestone_generation', ?)").run(JSON.stringify(CODEX))
+    const f = fake()
+    const manager = new MilestoneChainManager(db, 'p1', f.io)
+    const result = await manager.start(1, { engine: CLAUDE })
+    if (!result.ok) throw new Error('start failed')
+    // The Launch itself runs on what the launch controls chose.
+    expect(f.launches[0].body).toMatchObject(strict(CLAUDE))
+    expect(manager.get(result.chainId!)!.nextEngine).toMatchObject({ ...CODEX, source: 'usual' })
+    settle(f, manager, 3, 'merged', 'feat/1')
+    await flush()
+    expect(f.launches[1].body).toMatchObject(strict(CODEX))
+    expect(parseLaunched(getChain(db, result.chainId!)!).map((l) => l.engine)).toEqual([CLAUDE, CODEX])
+  })
+
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] the milestone\'s own configuration wins over the usual one', async () => {
+    const f = fake()
+    const manager = new MilestoneChainManager(db, 'p1', f.io)
+    const result = await manager.start(1, { engine: CLAUDE })
+    if (!result.ok) throw new Error('start failed')
+    saveUsualMilestoneEngine(db, CODEX, 1_700_000_000_000 + 60_000)
+    const own = { provider: 'claude', model: 'opus', reasoningEffort: 'high' }
+    recordMilestoneGenerationEngine(db, 'M1', own, 1_700_000_000_000 + 120_000)
+    expect(manager.get(result.chainId!)!.nextEngine).toMatchObject({ ...own, source: 'milestone' })
+    settle(f, manager, 3, 'merged', 'feat/1')
+    await flush()
+    expect(f.launches[1].body).toMatchObject(strict(own))
+    // Generating with the usual configuration clears the milestone's own one.
+    recordMilestoneGenerationEngine(db, 'm1', CODEX)
+    expect(manager.get(result.chainId!)!.nextEngine).toMatchObject({ ...CODEX, source: 'usual' })
+  })
+
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] a legacy chain without a Launch choice follows the usual configuration', async () => {
+    const f = fake()
+    const manager = new MilestoneChainManager(db, 'p1', f.io)
+    const result = await manager.start(1)
+    if (!result.ok) throw new Error('start failed')
+    expect(f.launches[0].body).not.toHaveProperty('aiEngine')
+    expect(manager.get(result.chainId!)!.nextEngine).toBeNull()
+    saveUsualMilestoneEngine(db, CODEX, 1_700_000_000_000 + 60_000)
+    settle(f, manager, 3, 'merged', 'feat/1')
+    await flush()
+    expect(f.launches[1].body).toMatchObject(strict(CODEX))
   })
 
   it('stacks grouped chunks from durable delivery history after restart without guessing a primary branch', async () => {
@@ -374,6 +450,73 @@ describe('MilestoneChainManager — sequential', () => {
     settle(f, mgr, 3, 'on_review', 'feat/1')
     await flush()
     expect(getChain(db, res.ok ? res.chainId! : '')!).toMatchObject({ status: 'paused', pause_reason: 'launch_rejected:tickets_in_flight', head_branch: 'feat/1' })
+  })
+
+  it('Resume from the failed step continues the failed run in place and then advances', async () => {
+    const f = fake()
+    const resumedRuns: string[] = []
+    f.io.resumeFailedRun = async (runId) => { resumedRuns.push(runId); return { ok: true } }
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    mgr.onRunSettled('run-1', 'failed')
+    settle(f, mgr, 3, 'failed', null)
+    await flush()
+    expect(getChain(db, chainId)).toMatchObject({ status: 'paused', pause_reason: 'chunk_failed', retry_chunk: 0 })
+    expect(mgr.get(chainId)!.retryChunk).toBe(0)
+
+    const resumed = await mgr.resume(chainId, { from: 'failed_step' })
+    expect(resumed.ok).toBe(true)
+    // Same run, same rail, same delivery: no new launch, no new rail.
+    expect(resumedRuns).toEqual(['run-1'])
+    expect(f.launches).toHaveLength(1)
+    const row = getChain(db, chainId)!
+    expect(row).toMatchObject({ status: 'running', pause_reason: null, retry_chunk: null, last_run_outcome: null, current_rail_index: 3, current_delivery_id: 'd-3' })
+    expect(JSON.parse(row.current_run_ids)).toEqual(['run-1'])
+    expect(mgr.get(chainId)!.retryChunk).toBeNull()
+
+    // The resumed run delivers: the chain advances to the next spec as usual.
+    settle(f, mgr, 3, 'on_review', 'feat/1-resumed')
+    await flush()
+    expect(f.launches[1]).toMatchObject({ railIndex: 4, body: { baseBranch: 'feat/1-resumed' } })
+  })
+
+  it('a rejected failed-step resume restores the pause so Resume from the start stays available', async () => {
+    const f = fake()
+    f.io.resumeFailedRun = async () => ({ ok: false, status: 409, error: 'run_not_resumable', detail: 'nope' })
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    mgr.onRunSettled('run-1', 'stopped')
+    settle(f, mgr, 3, 'failed', null)
+    await flush()
+    const before = getChain(db, chainId)!
+    const r = await mgr.resume(chainId, { from: 'failed_step' })
+    expect(r).toMatchObject({ ok: false, status: 409, error: 'run_not_resumable', detail: 'nope' })
+    expect(getChain(db, chainId)).toMatchObject({ status: 'paused', pause_reason: before.pause_reason, retry_chunk: 0, last_run_outcome: 'stopped', current_delivery_id: before.current_delivery_id })
+    expect(f.launches).toHaveLength(1)
+    const fresh = await mgr.resume(chainId, { from: 'start' })
+    expect(fresh.ok).toBe(true)
+    expect(f.launches).toHaveLength(2)
+  })
+
+  it('Resume from the failed step needs a chain paused on a failed spec with a resumable run', async () => {
+    const f = fake()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1, { autoAdvance: false })
+    const chainId = res.ok ? res.chainId! : ''
+    settle(f, mgr, 3, 'on_review', 'feat/1')
+    await flush()
+    // A checkpoint is not a failure.
+    expect(await mgr.resume(chainId, { from: 'failed_step' })).toMatchObject({ ok: false, error: 'no_failed_step' })
+    const g = fake()
+    const other = new MilestoneChainManager(initDb(':memory:'), 'p1', g.io)
+    const started = await other.start(1)
+    const otherId = started.ok ? started.chainId! : ''
+    settle(g, other, 3, 'failed', null)
+    await flush()
+    // No IO to resume runs ⇒ only Resume from the start.
+    expect(await other.resume(otherId, { from: 'failed_step' })).toMatchObject({ ok: false, error: 'failed_step_unavailable' })
   })
 
   it('a missing head branch pauses head_missing (advance + resume)', async () => {
@@ -739,6 +882,109 @@ describe('incremental integration before the next spec', () => {
     expect(integrate).toHaveBeenCalledTimes(2)
     expect(f.assignments.map(item => item.ticketIds)).toEqual([[1], [2]])
   })
+  it('refreshes a conflicted delivery on the updated base first, follows its re-verification and integrates it again', async () => {
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    const conflict = { ok: false as const, status: 502, error: 'merge_failed', detail: "merging 'abc': CONFLICT with the base in cart.js: integrate the other delivery first" }
+    const integrate = vi.fn<NonNullable<MilestoneChainIO['integrateDelivery']>>()
+      .mockResolvedValueOnce(conflict)
+      .mockImplementationOnce(async delivery => { f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' }); return { ok: true } })
+    const refresh = vi.fn<NonNullable<MilestoneChainIO['refreshDelivery']>>(async delivery => {
+      f.deliveries.set(delivery.id, { ...delivery, decision: 'building' })
+      return { ok: true, runId: 'fork-1' }
+    })
+    f.io.integrateDelivery = integrate
+    f.io.refreshDelivery = refresh
+    await mgr.start(1)
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush()
+    expect(refresh).toHaveBeenCalledTimes(1)
+    const following = listActiveChains(db)[0]
+    expect(following).toMatchObject({ status: 'running', current_delivery_id: 'd-3', pause_reason: 'integration_reverifying' })
+    expect(JSON.parse(following.current_run_ids)).toEqual(['fork-1'])
+    // The re-verified delivery is back on review: the chain integrates it and moves on.
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush(); await flush()
+    expect(integrate).toHaveBeenCalledTimes(2)
+    expect(f.assignments.map(item => item.ticketIds)).toEqual([[1], [2]])
+  })
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] the base-refresh re-verification stays on the rail\'s launch engine; only the next rail takes the new usual one', async () => {
+    const CLAUDE = { provider: 'claude', model: 'sonnet', reasoningEffort: 'high' }
+    const CODEX = { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: null }
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    const conflict = { ok: false as const, status: 502, error: 'merge_failed', detail: 'CONFLICT with the base in cart.js' }
+    f.io.integrateDelivery = vi.fn<NonNullable<MilestoneChainIO['integrateDelivery']>>()
+      .mockResolvedValueOnce(conflict)
+      .mockImplementationOnce(async delivery => { f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' }); return { ok: true } })
+    f.io.refreshDelivery = vi.fn(async delivery => { f.deliveries.set(delivery.id, { ...delivery, decision: 'building' }); return { ok: true as const, runId: 'fork-1' } })
+    const res = await mgr.start(1, { engine: CLAUDE })
+    const chainId = res.ok ? res.chainId! : ''
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush()
+    // The re-verification run joins the rail's launch record, engine and all.
+    const [first] = parseLaunched(getChain(db, chainId)!)
+    expect(first.runIds).toContain('fork-1')
+    expect(first.engine).toEqual(CLAUDE)
+    // Following (adopting) that run again never drops the engine it was launched on.
+    saveUsualMilestoneEngine(db, CODEX, 1_700_000_000_000 + 60_000)
+    const adopt = (mgr as unknown as { adopt(row: unknown, chunks: number[][], action: unknown): { ok: boolean } }).adopt.bind(mgr)
+    expect(adopt(getChain(db, chainId)!, [[1], [2]], { kind: 'adopt_run', ticketId: 1, runId: 'fork-1', deliveryId: 'd-3', railIndex: 3 }).ok).toBe(true)
+    expect(parseLaunched(getChain(db, chainId)!)[0]).toMatchObject({ runIds: ['fork-1'], engine: CLAUDE })
+    // Re-verified and integrated: the NEXT rail resolves the usual configuration as usual.
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush(); await flush()
+    expect(f.launches[1].body).toMatchObject({ aiEngine: 'codex', model: 'gpt-6.2-sol' })
+    expect(parseLaunched(getChain(db, chainId)!).map((l) => l.engine)).toEqual([CLAUDE, CODEX])
+  })
+  it('records where the base refresh stands: refreshing, then an agent resolving the conflicts, then re-verifying', async () => {
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    const conflict = { ok: false as const, status: 502, error: 'merge_failed', detail: 'CONFLICT with the base in cart.js' }
+    f.io.integrateDelivery = vi.fn(async () => conflict)
+    const seen: Array<string | null> = []
+    let release: () => void = () => {}
+    f.io.refreshDelivery = vi.fn(async (delivery) => {
+      seen.push(listActiveChains(db)[0].pause_reason)
+      // The refresh reports that an agent resolves the conflicted files (WS `delivery.base_refresh`).
+      mgr.observe({ type: 'delivery.base_refresh', projectId: 'p', deliveryId: delivery.id, phase: 'resolving', conflicts: ['cart.js'] } as never)
+      seen.push(listActiveChains(db)[0].pause_reason)
+      // Another delivery's phase never touches this chain.
+      mgr.observe({ type: 'delivery.base_refresh', projectId: 'p', deliveryId: 'other', phase: 'resolving' } as never)
+      await new Promise<void>((resolve) => { release = resolve })
+      f.deliveries.set(delivery.id, { ...delivery, decision: 'building' })
+      return { ok: true as const, runId: 'fork-9' }
+    })
+    await mgr.start(1)
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush()
+    expect(seen).toEqual(['integration_refreshing', 'integration_resolving'])
+    expect(listActiveChains(db)[0]).toMatchObject({ status: 'waiting', pause_reason: 'integration_resolving' })
+    release(); await flush(); await flush()
+    expect(listActiveChains(db)[0]).toMatchObject({ status: 'running', pause_reason: 'integration_reverifying' })
+  })
+  it('pauses with the conflict options when the automatic refresh cannot resolve it', async () => {
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    const conflict = { ok: false as const, status: 502, error: 'merge_failed', detail: 'CONFLICT with the base in cart.js' }
+    f.io.integrateDelivery = vi.fn(async () => conflict)
+    f.io.refreshDelivery = vi.fn(async () => ({ ok: false as const, status: 409, error: 'refresh_conflict_unresolved', detail: 'conflict markers remain in cart.js' }))
+    await mgr.start(1)
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush()
+    const row = listActiveChains(db)[0]
+    expect(row).toMatchObject({ status: 'paused', pause_reason: 'integration_failed:conflict_unresolved', current_delivery_id: 'd-3' })
+    expect(mgr.snapshot(row).plan?.offers.map(offer => offer.kind).slice(0, 2)).toEqual(['rebuild', 'integrate'])
+  })
+  it('pauses as a failed spec when the re-verification after the base refresh fails', async () => {
+    const conflict = { ok: false as const, status: 502, error: 'merge_failed', detail: 'CONFLICT with the base in cart.js' }
+    const g = fake(), other = new MilestoneChainManager(db, 'p', g.io)
+    g.io.integrateDelivery = vi.fn(async () => conflict)
+    g.io.refreshDelivery = vi.fn(async () => ({ ok: true as const, runId: 'fork-2' }))
+    await other.start(1)
+    settle(g, other, 3, 'on_review', 'spec-one'); await flush()
+    settle(g, other, 3, 'implementation_failed', null); await flush()
+    expect(listActiveChains(db)[0]).toMatchObject({ status: 'paused', pause_reason: 'chunk_failed' })
+  })
+  it('never refreshes for an integration refused for another reason', async () => {
+    const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
+    f.io.integrateDelivery = vi.fn(async () => ({ ok: false as const, status: 409, error: 'merge_local_blocked', detail: 'dirty' }))
+    f.io.refreshDelivery = vi.fn()
+    await mgr.start(1)
+    settle(f, mgr, 3, 'on_review', 'spec-one'); await flush()
+    expect(f.io.refreshDelivery).not.toHaveBeenCalled()
+    expect(listActiveChains(db)[0]).toMatchObject({ pause_reason: 'integration_failed:merge_local_blocked' })
+  })
   it('recovers an integration pending at restart and honors checkpoints after integration', async () => {
     const f = fake(), mgr = new MilestoneChainManager(db, 'p', f.io)
     f.io.integrateDelivery = async delivery => { f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' }); return { ok: true } }
@@ -797,4 +1043,220 @@ it('builds three specs cumulatively in real Git worktrees by integrating each be
     expect(readFileSync(path.join(repository, 'project.txt'), 'utf8')).toBe('baseline\nspec-1\nspec-2\nspec-3\n')
     expect(listChains(db)[0].status).toBe('completed')
   } finally { rmSync(repository, { recursive: true, force: true }) }
+})
+
+describe('reconciled chain: the person\'s own runs and deliveries count', () => {
+  type Run = import('./milestone-chain-reconcile').ReconcileRun
+  function integrated(over: Partial<Fake> = {}) {
+    const f = fake(over)
+    const runs: Run[] = []
+    const integrate = vi.fn(async (delivery: PrDeliverySnapshot) => { f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' }); return { ok: true as const } })
+    f.io.integrateDelivery = integrate
+    f.io.listDeliveriesForTickets = () => [...f.deliveries.values()]
+    f.io.listRunsForTickets = () => runs
+    return { f, runs, integrate }
+  }
+  const manual = (f: Fake, id: string, ticketId: number, decision: PrDeliverySnapshot['decision'], over: Partial<PrDeliverySnapshot> = {}) => {
+    f.deliveries.set(id, snap({ id, railIndex: 9, ticketIds: [ticketId], decision, branch: `manual/${ticketId}`, implementationOutcome: 'succeeded', createdAt: '2026-11-21T12:00:00.000Z', ...over }))
+  }
+  const run = (id: string, ticketId: number, status: string, over: Partial<Run> = {}): Run =>
+    ({ id, ticketIds: [ticketId], railIndex: 9, status, outcome: null, pauseReason: null, forkOf: null, engineVersion: 2, startedAt: '2026-11-21T12:00:00.000Z', ...over })
+
+  it('generala: a spec merged by hand after the chain\'s own rail was discarded → Resume continues with the next spec', async () => {
+    const { f, integrate } = integrated()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    // #1 is delivered and integrated by the chain; #2 launches.
+    settle(f, mgr, 3, 'on_review', 'feat/1'); await flush(); await flush()
+    expect(f.launches).toHaveLength(2)
+    // The chain's #2 run fails; the person resumes it from the run page and merges it by hand…
+    mgr.onRunSettled('run-2', 'failed')
+    settle(f, mgr, f.launches[1].railIndex, 'implementation_failed', null); await flush()
+    expect(getChain(db, chainId)).toMatchObject({ status: 'paused', pause_reason: 'chunk_failed', retry_chunk: 1 })
+    manual(f, 'manual-2', 2, 'merged')
+    f.tickets.find((t) => t.id === 2)!.status = 'done'
+    // …and a stale head branch that no longer exists is no reason to stop.
+    updateChain(db, chainId, 'paused', { pauseReason: 'head_discarded', headBranch: 'feat/1-gone' })
+    const snapshot = mgr.get(chainId)!
+    expect(snapshot.plan?.offers[0]).toMatchObject({ kind: 'next', ticketId: 3 })
+    const resumed = await mgr.resume(chainId)
+    expect(resumed.ok).toBe(true)
+    expect(f.launches).toHaveLength(3)
+    expect(f.assignments.at(-1)!.ticketIds).toEqual([3])
+    expect(f.launches[2].body.baseBranch).toBe('main')
+    expect(integrate).toHaveBeenCalledTimes(1)
+  })
+
+  it('the person cancels the chain\'s rail, then runs the spec by hand: Resume integrates that delivery instead of re-running it', async () => {
+    const { f, integrate } = integrated()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    mgr.onRunSettled('run-1', 'stopped')
+    settle(f, mgr, 3, 'discarded', null); await flush()
+    expect(getChain(db, chainId)).toMatchObject({ status: 'paused', pause_reason: 'chunk_stopped' })
+    manual(f, 'manual-1', 1, 'on_review')
+    expect(mgr.get(chainId)!.plan?.offers[0]).toMatchObject({ kind: 'integrate', ticketId: 1, nextTicketId: 2 })
+    await mgr.resume(chainId); await flush(); await flush()
+    expect(integrate).toHaveBeenCalledWith(expect.objectContaining({ id: 'manual-1' }))
+    expect(f.launches).toHaveLength(2)
+    expect(f.assignments.at(-1)!.ticketIds).toEqual([2])
+    const row = getChain(db, chainId)!
+    expect(parseLaunched(row).map((l) => [l.chunk, l.ticketIds[0], l.deliveryId])).toEqual([[1, 1, 'manual-1'], [2, 2, f.deliveryByRail.get(f.launches[1].railIndex)]])
+  })
+
+  it('a later spec already running by hand is adopted when the chain reaches it — never a duplicate run', async () => {
+    const { f, runs, integrate } = integrated()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    manual(f, 'manual-2', 2, 'building', { runIds: ['m2'] })
+    runs.push(run('m2', 2, 'running'))
+    settle(f, mgr, 3, 'on_review', 'feat/1'); await flush(); await flush()
+    expect(f.launches).toHaveLength(1)
+    expect(getChain(db, chainId)).toMatchObject({ status: 'running', current_delivery_id: 'manual-2', current_rail_index: 9 })
+    // The manual run delivers: the chain integrates it and moves on to #3.
+    runs[0] = { ...runs[0], status: 'completed', outcome: 'success' }
+    f.deliveries.set('manual-2', { ...f.deliveries.get('manual-2')!, decision: 'on_review' })
+    mgr.observe({ type: 'rail.pr_state', prDeliveryId: 'manual-2' } as unknown as WsMessage)
+    await flush(); await flush()
+    expect(integrate).toHaveBeenCalledWith(expect.objectContaining({ id: 'manual-2' }))
+    expect(f.launches).toHaveLength(2)
+    expect(f.assignments.at(-1)!.ticketIds).toEqual([3])
+  })
+
+  it('a later spec delivered by hand while the chain was busy is integrated right after the current one (live regression)', async () => {
+    const { f, integrate } = integrated()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    // #2 is already on review (run by hand) when #1 settles and integrates.
+    manual(f, 'manual-2', 2, 'on_review')
+    settle(f, mgr, 3, 'on_review', 'feat/1'); await flush(); await flush(); await flush()
+    expect(integrate.mock.calls.map(([d]) => d.id)).toEqual(['d-3', 'manual-2'])
+    expect(f.assignments.map((a) => a.ticketIds[0])).toEqual([1, 3])
+    expect(getChain(db, chainId)).toMatchObject({ status: 'running', current_rail_index: f.launches[1].railIndex })
+  })
+
+  it('a manual delivery that conflicts on integration pauses honestly; Resume from the start rebuilds it on the updated base', async () => {
+    const { f, integrate } = integrated()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    manual(f, 'manual-2', 2, 'on_review')
+    integrate.mockImplementation(async (delivery: PrDeliverySnapshot) => {
+      if (delivery.id === 'manual-2') return { ok: false as const, status: 409, error: 'merge_failed' }
+      f.deliveries.set(delivery.id, { ...delivery, decision: 'merged' }); return { ok: true as const }
+    })
+    settle(f, mgr, 3, 'on_review', 'feat/1'); await flush(); await flush(); await flush()
+    expect(getChain(db, chainId)).toMatchObject({ status: 'paused', pause_reason: 'integration_failed:merge_failed', current_delivery_id: 'manual-2' })
+    expect(mgr.get(chainId)!.plan?.offers.map((o) => o.kind)).toEqual(['rebuild', 'integrate'])
+    await mgr.resume(chainId, { from: 'start' })
+    expect(f.assignments.at(-1)!.ticketIds).toEqual([2])
+    expect(f.launches).toHaveLength(2)
+    expect(getChain(db, chainId)).toMatchObject({ status: 'running', pause_reason: null })
+  })
+
+  it('a spec finished by hand out of order is skipped when reached; the chain completes', async () => {
+    const { f } = integrated()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    f.tickets.find((t) => t.id === 3)!.status = 'done'
+    settle(f, mgr, 3, 'on_review', 'feat/1'); await flush(); await flush()
+    settle(f, mgr, f.launches[1].railIndex, 'on_review', 'feat/2'); await flush(); await flush()
+    expect(f.assignments.map((a) => a.ticketIds[0])).toEqual([1, 2])
+    expect(getChain(db, chainId)!.status).toBe('completed')
+  })
+
+  it('a manual delivery later discarded makes the spec pending again', async () => {
+    const { f } = integrated()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1, { autoAdvance: false })
+    const chainId = res.ok ? res.chainId! : ''
+    manual(f, 'manual-2', 2, 'discarded')
+    settle(f, mgr, 3, 'on_review', 'feat/1'); await flush(); await flush()
+    expect(getChain(db, chainId)!.status).toBe('awaiting_approval')
+    expect(mgr.get(chainId)!.plan?.action).toEqual({ kind: 'launch', ticketId: 2, retry: false })
+    await mgr.resume(chainId)
+    expect(f.assignments.at(-1)!.ticketIds).toEqual([2])
+  })
+
+  it('a run the person paused on the next spec is resumed in place, never relaunched', async () => {
+    const { f, runs } = integrated()
+    const resumeRun = vi.fn(async () => ({ ok: true as const }))
+    f.io.resumeRun = resumeRun
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    mgr.onRunSettled('run-1', 'stopped')
+    settle(f, mgr, 3, 'discarded', null); await flush()
+    runs.push(run('mine', 1, 'paused', { pauseReason: 'user_paused' }))
+    expect(mgr.get(chainId)!.plan?.offers.map((o) => o.kind)).toEqual(['resume_run'])
+    const r = await mgr.resume(chainId)
+    expect(r.ok).toBe(true)
+    expect(resumeRun).toHaveBeenCalledWith('mine')
+    expect(f.launches).toHaveLength(1)
+    expect(getChain(db, chainId)).toMatchObject({ status: 'running', current_run_ids: '["mine"]' })
+  })
+
+  it('[spec:milestone-launch-chain/milestone-execution-choice-resolved-per-rail] resuming a paused run in place keeps its engine: no new rail, whatever the usual configuration says', async () => {
+    const { f, runs } = integrated()
+    const resumeRun = vi.fn(async () => ({ ok: true as const }))
+    f.io.resumeRun = resumeRun
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1, { engine: { provider: 'claude', model: 'sonnet', reasoningEffort: null } })
+    const chainId = res.ok ? res.chainId! : ''
+    mgr.onRunSettled('run-1', 'stopped')
+    settle(f, mgr, 3, 'discarded', null); await flush()
+    runs.push(run('mine', 1, 'paused', { pauseReason: 'user_paused' }))
+    saveUsualMilestoneEngine(db, { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: null }, 1_700_000_000_000 + 60_000)
+    expect((await mgr.resume(chainId)).ok).toBe(true)
+    expect(resumeRun).toHaveBeenCalledWith('mine')
+    expect(f.launches).toHaveLength(1)
+    expect(f.launches[0].body).toMatchObject({ aiEngine: 'claude' })
+  })
+
+  it('a genuinely failed spec: Resume from the failed step continues its newest run; from the start runs it fresh', async () => {
+    const { f, runs } = integrated()
+    const resumed: string[] = []
+    f.io.resumeFailedRun = async (id) => { resumed.push(id); return { ok: true } }
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    mgr.onRunSettled('run-1', 'failed')
+    f.deliveries.set('d-3', { ...f.deliveries.get('d-3')!, implementationOutcome: 'failed', runIds: ['run-1', 'fork-1'] })
+    runs.push(run('run-1', 1, 'completed', { outcome: 'failed', railIndex: 3 }), run('fork-1', 1, 'completed', { outcome: 'failed', forkOf: 'run-1', railIndex: 3 }))
+    settle(f, mgr, 3, 'implementation_failed', null); await flush()
+    expect(mgr.get(chainId)!.plan?.offers.map((o) => [o.kind, o.runId])).toEqual([['resume_failed_step', 'fork-1'], ['retry_from_start', null]])
+    expect((await mgr.resume(chainId, { from: 'failed_step' })).ok).toBe(true)
+    expect(resumed).toEqual(['fork-1'])
+    expect(f.launches).toHaveLength(1)
+    expect(getChain(db, chainId)).toMatchObject({ status: 'running', current_delivery_id: 'd-3' })
+  })
+
+  it('a paused chain re-emits its plan when a delivery moves it, and fills in a plan a projection left out', async () => {
+    const { f } = integrated()
+    const mgr = new MilestoneChainManager(db, 'p1', f.io)
+    const res = await mgr.start(1)
+    const chainId = res.ok ? res.chainId! : ''
+    mgr.onRunSettled('run-1', 'stopped')
+    settle(f, mgr, 3, 'discarded', null); await flush()
+    sent = []
+    manual(f, 'manual-1', 1, 'on_review')
+    mgr.observe({ type: 'rail.pr_state', prDeliveryId: 'manual-1' } as unknown as WsMessage)
+    const emitted = sent.filter((m) => m.type === 'milestone.chain_changed') as unknown as Array<{ chain: { plan: { offers: Array<{ kind: string }> } } }>
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0].chain.plan.offers[0].kind).toBe('integrate')
+    // Unchanged plan ⇒ no re-emit.
+    mgr.observe({ type: 'rail.pr_state', prDeliveryId: 'manual-1' } as unknown as WsMessage)
+    expect(sent.filter((m) => m.type === 'milestone.chain_changed')).toHaveLength(1)
+    // A projection without a plan (the discard hook) is completed by the manager.
+    mgr.observe({ type: 'milestone.chain_changed', projectId: 'p1', chain: { id: chainId } } as unknown as WsMessage)
+    await flush()
+    expect(sent.filter((m) => m.type === 'milestone.chain_changed')).toHaveLength(2)
+    // The progress projection carries the plan too.
+    expect(mgr.listForProgress()[0].plan?.offers[0].kind).toBe('integrate')
+  })
 })

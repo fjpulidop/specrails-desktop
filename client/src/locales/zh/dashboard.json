@@ -50,7 +50,8 @@
       "reopen": "正在重新打开…",
       "merge-local": "正在本地集成…",
       "recover-and-retry": "正在提交并重新推送已保留的结果…",
-      "acknowledge-no-changes": "正在标记完成…"
+      "acknowledge-no-changes": "正在标记完成…",
+      "refresh-on-base": "正在基于新基线更新…"
     },
     "markDone": "标记为完成",
     "refine": "细化",
@@ -83,9 +84,6 @@
     "cleanupIncomplete_other": "清理未完成（{{count}} 条警告）",
     "cleanupIncompleteHint": "本地恢复数据已保留。手动删除任何内容前，请先检查以下详情。",
     "copyCleanupDetails": "复制恢复详情",
-    "safetyArchiveTitle": "安全存档（{{count}}）",
-    "safetyArchiveHint": "为安全起见，临时工作区文件已保存在 PR 之外。你可以检查或手动删除它们。",
-    "copySafetyArchive": "复制路径",
     "unit": {
       "failed": "实现失败",
       "blocked": "交付受阻",
@@ -101,9 +99,9 @@
     "iteratingPr": "正在更新 PR",
     "prReady": "PR 已就绪",
     "implementationFailed": "实现失败",
-    "implementationFailedHint": "实现运行失败。请打开运行日志，然后在重新启动前丢弃此卡片。",
+    "implementationFailedHint": "运行在产出可交付内容之前就停止了。打开其日志查看原因。",
     "runStopped": "已停止",
-    "runStoppedHint": "你在交付之前停止了此运行。想继续时可以重新启动，或丢弃此卡片。",
+    "runStoppedHint": "你在交付前停止了此次运行。继续会从停止处接着运行，或丢弃此卡片。",
     "prFailed": "PR 失败",
     "prFailedDetail": "PR 失败",
     "createDegraded": "无法发布 PR — {{detail}}。解决后请重试。",
@@ -156,9 +154,10 @@
     "actionFailed": "无法应用 PR 决定",
     "mergedToast": "PR 已合并 — 规格已移至完成",
     "discardedToast": "PR 已丢弃 — 规格已退回 Specs",
-    "decisionPending": "该 Rail 有待处理的 PR 决定 — 请先创建、发布或丢弃，再重新启动",
+    "decisionPendingOnRail": "轨道 {{rail}} 有一个等待你审阅的交付",
+    "decisionPendingAction": "请先审阅它（创建 PR、批准或丢弃），或在另一条轨道上启动这些规格。",
     "discardConfirmTitle": "丢弃本次交付？",
-    "discardConfirmBody": "PR 将关闭，但不会删除其远程分支。只会删除归 SpecRails 所有且仍停留在已记录提交上的本地分支和 worktree；任何已更改的内容都会保留并显示警告。规格将返回 Specs 待办列表。已删除的本地资源无法恢复。",
+    "discardConfirmBody": "PR 将关闭，但不会删除其远程分支。只会删除归 Specrails 所有且仍停留在已记录提交上的本地分支和 worktree；任何已更改的内容都会保留并显示警告。规格将返回 Specs 待办列表。已删除的本地资源无法恢复。",
     "implementationFailedDiscardTitle": "丢弃此失败的交付？",
     "implementationFailedDiscardBody": "卡片将被关闭，规格会返回 Specs。本地工作和分支将保留以供检查。只有确认可安全清理的资源才可能被移除。",
     "mergeLocal": "本地集成",
@@ -187,7 +186,10 @@
     "fixCi": "修复 CI / 冲突",
     "fixCiTooltip": "等待检查，修复失败和冲突，并推送到此 PR，直到全部通过",
     "fixCiStarted": "已开始监控 CI",
-    "fixCiFailed": "无法启动 CI 循环"
+    "fixCiFailed": "无法启动 CI 循环",
+    "continue": "继续",
+    "continueHint": "保留全部内容，在同一个 worktree 中从运行失败或停止处继续。",
+    "implementationFailedDiscardTooltip": "关闭此卡片并将其 spec 退回 Specs。运行日志仍可查看。"
   },
   "railsBoard": {
     "title": "Rails",
@@ -199,6 +201,14 @@
     "summary": {
       "running_one": "{{count}} 运行中",
       "running_other": "{{count}} 运行中",
+      "needsInput_one": "{{count}} 个等你回复",
+      "needsInput_other": "{{count}} 个等你回复",
+      "blocked_one": "{{count}} 个受阻",
+      "blocked_other": "{{count}} 个受阻",
+      "paused_one": "{{count}} 个已暂停",
+      "paused_other": "{{count}} 个已暂停",
+      "waiting_one": "{{count}} 个等待开始",
+      "waiting_other": "{{count}} 个等待开始",
       "ready_one": "{{count}} 就绪",
       "ready_other": "{{count}} 就绪",
       "failed_one": "{{count}} 失败",
@@ -266,6 +276,7 @@
     "worktreesNeedsReview": "{{count}} 需复查",
     "execSteps": "{{count}} 步",
     "execLines": "{{count}} 行",
+    "execHeld": "等待中",
     "recommended": "推荐",
     "recommendedOption": "{{label}} · 推荐",
     "loopDescriptions": {
@@ -282,7 +293,8 @@
     "status": {
       "idle": "空闲",
       "running": "运行中",
-      "failed": "失败"
+      "failed": "失败",
+      "paused": "已暂停"
     },
     "deleteMenuItem": "删除轨道",
     "deleteConfirm": {
@@ -334,5 +346,45 @@
   "board": {
     "pageTitle": "{{project}}：看板",
     "pageTitleBare": "看板"
+  },
+  "mergePreview": {
+    "conflictsWithBase_one": "与 {{base}} 在 {{files}} 中冲突",
+    "conflictsWithBase_other": "与 {{base}} 在 {{count}} 个文件中冲突：{{files}}",
+    "collidesWithRail": "与 Rail {{rail}} 在 {{files}} 中冲突",
+    "alreadyMerged": "已在 {{base}} 中",
+    "clean": "可无冲突地合并到当前的 {{base}}",
+    "unknown": "无法预览合并（需要 Git 2.38 或更高版本，或某个引用已不存在）",
+    "baseMoved_one": "自创建此分支以来，{{base}} 已前进 {{count}} 个提交",
+    "baseMoved_other": "自创建此分支以来，{{base}} 已前进 {{count}} 个提交",
+    "moreFiles": "另有 {{count}} 个",
+    "title": "合并预览"
+  },
+  "safetyArchive": {
+    "title_one": "已保留 {{count}} 个未进入 PR 的文件",
+    "title_other": "已保留 {{count}} 个未进入 PR 的文件",
+    "hint": "Specrails 无法确认这些文件是它自己的,所以把它们放到一旁,而没有删除。",
+    "toastHint": "可在“详情”中查看或删除。",
+    "delete": "删除",
+    "dismiss": "忽略",
+    "details": "详情",
+    "close": "关闭",
+    "copyPath": "复制路径",
+    "copied": "已复制",
+    "revealFinder": "在 Finder 中显示",
+    "revealFolder": "在文件夹中显示",
+    "filesLabel": "已保留的文件",
+    "link": "链接",
+    "moreFiles_one": "另有 {{count}} 个文件",
+    "moreFiles_other": "另有 {{count}} 个文件",
+    "confirmTitle_one": "删除 {{count}} 个已保留的文件?",
+    "confirmTitle_other": "删除 {{count}} 个已保留的文件?",
+    "confirmDescription_one": "将删除文件夹 {{folder}}(共 {{count}} 个文件,{{size}})。此操作无法撤销。",
+    "confirmDescription_other": "将删除文件夹 {{folder}}(共 {{count}} 个文件,{{size}})。此操作无法撤销。",
+    "confirmDescriptionMany_one": "将删除 {{folders}} 个文件夹(共 {{count}} 个文件,{{size}})。此操作无法撤销。",
+    "confirmDescriptionMany_other": "将删除 {{folders}} 个文件夹(共 {{count}} 个文件,{{size}})。此操作无法撤销。",
+    "deleteFailed_one": "有 {{count}} 个文件夹无法删除。",
+    "deleteFailed_other": "有 {{count}} 个文件夹无法删除。",
+    "goneTitle": "没有需要查看的内容",
+    "gone": "这些文件已被删除,或提示已被忽略。"
   }
 }

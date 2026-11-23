@@ -7,13 +7,21 @@ These are the explicit entry points consumed by application composition or other
 features. Keep imports focused on a subpath so importing a model does not eagerly
 load every UI component. Changes to this surface require updating the boundary manifest.
 
+- [components/FailureAnalysisPanel.tsx](components/FailureAnalysisPanel.tsx)
 - [components/FailureDiagnosisCard.tsx](components/FailureDiagnosisCard.tsx)
+- [components/ResolutionOptions.tsx](components/ResolutionOptions.tsx)
+- [components/RunLineage.tsx](components/RunLineage.tsx)
+- [components/StoppedRunCard.tsx](components/StoppedRunCard.tsx)
+- [hooks/useAttemptChain.ts](hooks/useAttemptChain.ts)
+- [hooks/useContinueRemedies.ts](hooks/useContinueRemedies.ts)
+- [hooks/useFailureAnalysis.ts](hooks/useFailureAnalysis.ts)
 - [hooks/useRunDiagnosis.ts](hooks/useRunDiagnosis.ts)
 - [lib/failure-diagnosis.ts](lib/failure-diagnosis.ts)
+- [lib/resolution.ts](lib/resolution.ts)
 
 ## Feature dependencies
 
-No direct feature dependencies.
+- [provider-quota](../provider-quota/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is
 independent or that this is a hexagonal frontend. Pure models should not gain
@@ -26,24 +34,60 @@ Failure recovery cockpit: the **diagnosis card** at the top of a failed or block
 
 A run that failed, stalled or was blocked is explained by ONE typed record, the
 *diagnosis*, produced by the server ([recovery module](../../../../server/modules/recovery/README.md)):
-`kind` (`tests_failed`, `provider_limit`, `environment`, `blocked`, `timeout`, `tool_inactivity`,
-`crash`, `unknown`), `confidence`, the failing `phase`, correction `rounds`, the provider's own
-`resetAt`, a one-sentence `detail`, the `resumablePhase`, an optional host `blocker`, and the
-server-ranked `remedies`.
+`kind` (`tests_failed`, `provider_limit`, `environment`, `port_in_use`, `blocked`, `timeout`, `tool_inactivity`,
+`crash`, `incomplete_tasks` with its `incompleteTasks` list, `spec_invalid`, `workflow_protocol` with the `role`, `model` and an optional `strongerModel` to suggest, `unknown`), `confidence`, the failing `phase`, correction `rounds`, the provider's own
+`resetAt`, a one-sentence `detail`, the `resumablePhase`, an optional host `blocker`, the contested
+`port` (`port_in_use`, when the output named it; amber like the other causes the host can unblock),
+and the server-ranked `remedies`.
 
 - **Where it appears.** Job Detail (page and modal, through the shared `JobRunHeader`), the mission
   run card (`AgentPrDecisionCard`, which the run strip opens as its panel) and, as a plain
   sentence, the inbox row. The card is presentational: each surface hands it the handlers it can
   really run.
-- **Remedies map to existing actions only.** *Resume from X* (the runtime resume of the run),
-  *Try again* (the surface's own run-again / relaunch), *Edit spec and relaunch* (opens the spec,
-  whose addenda iterate on it), *Fix the environment* (shows the blocker's required action and a
-  copyable command; it runs nothing) and *Open logs at the failure* (scrolls to the last failed
-  step, else the log). A remedy without a handler is not offered; at most three show, in the
-  server's ranking. There is no per-run engine switch in the app, so none is offered.
+- **Remedies map to existing actions only.** *Continue* (the one primary: `useContinueRemedies`,
+  `POST /loop-runs/:id/remedy`, keeps the work and goes on from the step that failed or stopped with
+  the cause's guidance; a surface without a definition run passes its in-place resume),
+  *Continue to review* (unfinished tasks that only a person can check), *Edit spec and relaunch*
+  (opens the spec, whose addenda iterate on it), *Fix the environment* (shows the blocker's required
+  action and a copyable command; it runs nothing), *Copy this project's .env into runs* (`copy-env-files`,
+  ranked first by the server for a missing `.env` / `APP_KEY` while the project setting is off: it turns the
+  setting on and continues through the same route) and *Open logs at the failure*. Each button has its
+  one-line consequence under it (`consequenceKey`). *Start over* (the surface's run-again / relaunch)
+  is never a button: it waits in the card's menu with its warning (this attempt's work is not carried
+  over and stays in the old worktree). A remedy without a handler is not offered; at most three show,
+  in the server's ranking. Older wire ids (`resume`, `retry-with-browser`) read as `continue`.
+- **A stopped run.** `StoppedRunCard` (Job Detail's *Continue* tab) says the person stopped it and
+  offers the same Continue, never a relaunch from the base.
+- **Attempt chains.** `useAttemptChain` (`GET /loop-runs/:id/attempts`) gives the chain and whether
+  Continue applies; `RunLineage` is the run window's line ("Attempt 3 of 4 · continued from the
+  Developer step of attempt 2") and its popover of every attempt, its own cost and what changed.
 - **No invented diagnosis.** A low-confidence or unrecognised record is read as `unknown`
   (`readFailureDiagnosis`): the card says "Unknown cause", shows the raw tail of the log and offers
   only logs and a retry.
+- **The runtime's own record first.** An `unknown` record whose log tail holds the runtime's
+  `step_failed: <step> — <reason>` line names that step in the headline and shows the reason
+  (`recordedStepError`); the words are the runtime's, not a guess.
+- **AI analysis.** `FailureAnalysisPanel` (under the card for a failed job) shows the AI reading
+  of the log: headline, cause, category (quota limits are flagged), the cited log lines, next
+  steps and the provider/model that wrote it. `useFailureAnalysis` reads the saved one and, when
+  none exists, asks for it once; it is not automatic for `provider_limit`, whose call would hit
+  the same limit. See the [API reference](../../../../docs/internals/api-reference.md#failure-analysis).
+- **Pick a resolution.** When the AI analysis has `options` (prompt v4), the panel replaces the
+  numbered plan with [ResolutionOptions](components/ResolutionOptions.tsx): each option as a run
+  question choice (`RunQuestionOption`, shared with `RunQuestionCard`): label, what it does, *What may
+  happen*, risk and the recommended badge, plus *Other instruction…*. One click continues the run
+  (`useResolutionActions`: `{ optionId }` or `{ instruction }` to `POST /loop-runs/:id/remedy`, toast
+  *Continuing with: <label>*); `edit-spec`, `change-model` and `start-over` run the surface's own
+  action. A run that settled on a provider's usage limit (`useAttemptChain().providerSwitch`) also
+  shows *Continue with another provider* on its card, beside Continue (provider-quota's
+  `ProviderSwitchSection`, `useProviderSwitchContinue`: `{ remedy: 'continue', switch }`); there
+  `change-model` continues with the card's choice and the option's guidance instead of opening the
+  agent settings. [lib/resolution.ts](lib/resolution.ts) keeps one button per action: without a repeat the
+  card's Continue is "keep going" and a plain-continue option is left out; when the chain keeps stopping
+  for the same cause (`useAttemptChain().resolution.repeated`) Continue never leads, steps aside once
+  options exist, *Keep trying as is* goes last (with the spend per attempt) and the card says how many
+  times and what the attempts cost. Older analyses keep their plan; one saved before options existed is
+  asked again once. Flaky tests (`diagnosis.flakyTests`) are listed on the card.
 - **Runs without a card.** Delivery cards read the diagnosis of their last run
   (`useRunDiagnosis` → `GET /loop-runs/:id`); the old failure block stays under *Technical details*.
 - **Accessibility and design.** The card is a labelled `region` whose headline is a `status`;
@@ -58,3 +102,16 @@ server for an environment plan (`GET /agent-runtime/environment-plan`): a reposi
 pins a Python version gets a venv built from it for setup and checks. **Use a Python X.Y
 venv for checks** saves it to the project settings (`POST …/apply`, read-modify-write with
 the ordinary validation); nothing is offered once the settings carry it.
+
+## Unfinished tasks and unknown causes
+
+- `incomplete_tasks` lists the unticked tasks and leads with **Continue** (the developer finishes
+  them with the browser and install guidance); **Continue to review** follows when they are a
+  person's checks. [useContinueRemedies](hooks/useContinueRemedies.ts) runs both; Job Detail, the
+  mission run card and the rail strip wire it.
+- An AI next step that names a remedy this surface has becomes its button (`FailureAnalysisPanel`
+  `actions`); anything else stays advice.
+- When the app's own records name no cause, the card takes the surface's AI reading (`ai` prop,
+  one [useFailureAnalysis](hooks/useFailureAnalysis.ts) shared with the panel below it): a ready
+  reading leads the card, labelled *From AI analysis*; while it runs the card says so; with none,
+  the card explains how to find the cause and **Analyze with AI** is its primary action.

@@ -10,7 +10,8 @@ vi.mock('../../../../hooks/useSharedWebSocket', () => ({
   }),
 }))
 
-import { RailMetricsProvider, useRailMetrics, type RailExecMetric } from '../RailMetricsContext'
+import { RailMetricsProvider, pausedHoldKind, useRailMetrics, type RailExecMetric } from '../RailMetricsContext'
+import { railElapsedMs } from '../../components/RailExecutionInfo'
 
 let latest: Record<number, RailExecMetric> = {}
 function Probe() { latest = useRailMetrics(); return null }
@@ -65,6 +66,69 @@ describe('RailMetricsProvider', () => {
     renderProvider()
     await waitFor(() => expect(latest[2]).toMatchObject({ steps: 4, lines: 20 }))
     expect(latest[2].startedAt).toBe(new Date('2026-06-24T10:00:00.000Z').getTime())
+  })
+
+  it('seeds a held run (bench5: a question) with its held time and stops the clock at the hold', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ activeLoopRuns: { '0': { loopRunId: 'r7', startedAt: '2026-11-20T13:27:05.000Z', steps: 1, lines: 2, heldMs: 4547, hold: { kind: 'question', since: '2026-11-20T13:30:05.000Z' } } } }),
+    }) as unknown as typeof fetch
+    renderProvider()
+    await waitFor(() => expect(latest[0]).toMatchObject({ heldMs: 4547, heldSince: new Date('2026-11-20T13:30:05.000Z').getTime() }))
+    expect(railElapsedMs(latest[0], Date.parse('2026-11-20T13:45:00.000Z'))).toBe(180_000 - 4547)
+  })
+
+  it('stops the clock on loop.run_paused and leaves the held time out after loop.run_resumed', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(1_000_000)
+      renderProvider()
+      send({ type: 'loop.run_started', projectId: 'proj', loopRunId: 'r1', railIndex: 0 })
+      vi.setSystemTime(1_060_000)
+      send({ type: 'loop.run_paused', projectId: 'proj', loopRunId: 'r1', railIndex: 0 })
+      expect(latest[0]).toMatchObject({ heldSince: 1_060_000, heldMs: 0 })
+      expect(railElapsedMs(latest[0], 9_999_999)).toBe(60_000)
+      vi.setSystemTime(1_660_000)
+      send({ type: 'loop.run_resumed', projectId: 'proj', loopRunId: 'r1', railIndex: 0 })
+      expect(latest[0]).toMatchObject({ heldSince: null, heldMs: 600_000 })
+      expect(railElapsedMs(latest[0], 1_690_000)).toBe(90_000)
+    } finally { vi.useRealTimers() }
+  })
+
+  it('carries the hold kind: seeded from GET /rails, named by loop.run_paused, cleared on resume', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ activeLoopRuns: { '0': { loopRunId: 'r7', startedAt: '2026-11-20T13:27:05.000Z', hold: { kind: 'provider_limit', since: '2026-11-20T13:30:05.000Z' } } } }),
+    }) as unknown as typeof fetch
+    renderProvider()
+    await waitFor(() => expect(latest[0]).toMatchObject({ holdKind: 'provider_limit' }))
+    send({ type: 'loop.run_started', projectId: 'proj', loopRunId: 'r2', railIndex: 1 })
+    expect(latest[1]).toMatchObject({ holdKind: null, heldSince: null })
+    send({ type: 'loop.run_paused', projectId: 'proj', loopRunId: 'r2', railIndex: 1, pauseKind: 'budget_paused', holdKind: 'budget' })
+    expect(latest[1]).toMatchObject({ holdKind: 'budget' })
+    send({ type: 'loop.run_resumed', projectId: 'proj', loopRunId: 'r2', railIndex: 1 })
+    expect(latest[1]).toMatchObject({ holdKind: null, heldSince: null })
+    send({ type: 'loop.run_queued', projectId: 'proj', loopRunId: 'r2', railIndex: 1, waitingFor: 'run_slots', position: 1 })
+    expect(latest[1]).toMatchObject({ holdKind: 'queued' })
+  })
+
+  it('infers the hold of an older loop.run_paused without holdKind from its pauseKind or question', () => {
+    expect(pausedHoldKind({ pauseKind: 'limit_paused' })).toBe('provider_limit')
+    expect(pausedHoldKind({ pauseKind: 'budget_paused' })).toBe('budget')
+    expect(pausedHoldKind({ pauseKind: 'user_paused' })).toBe('paused')
+    expect(pausedHoldKind({ question: { kind: 'approval' } })).toBe('approval')
+    expect(pausedHoldKind({})).toBe('question')
+    expect(pausedHoldKind({ holdKind: 'nonsense', pauseKind: 'limit_paused' })).toBe('provider_limit')
+  })
+
+  it('a rail with several held runs names the hold that needs the person most', () => {
+    renderProvider()
+    send({ type: 'loop.run_started', projectId: 'proj', loopRunId: 'a', railIndex: 3 })
+    send({ type: 'loop.run_started', projectId: 'proj', loopRunId: 'b', railIndex: 3 })
+    send({ type: 'loop.run_paused', projectId: 'proj', loopRunId: 'a', railIndex: 3, holdKind: 'budget' })
+    expect(latest[3]).toMatchObject({ heldSince: null, holdKind: null })
+    send({ type: 'loop.run_paused', projectId: 'proj', loopRunId: 'b', railIndex: 3, holdKind: 'provider_limit' })
+    expect(latest[3].holdKind).toBe('provider_limit')
   })
 
   it('tracks a LEGACY rail job (rail.job_started — e.g. an MCP launch) like a loop run', () => {

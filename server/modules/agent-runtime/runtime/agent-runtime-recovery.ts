@@ -33,7 +33,7 @@ export class RecoveryUnsupportedEngineError extends Error {
 }
 
 export async function invokeRuntimeRecovery(input: { contextPath: string; cwd: string; env: NodeJS.ProcessEnv; request: RecoveryRequest; onSpawn?: (child: ChildProcess) => void }): Promise<unknown> {
-  const cli = resolveRetainedAgentRuntime(input.contextPath)
+  const cli = await resolveRetainedAgentRuntime(input.contextPath)
   const invoke = (args: string[], stdin?: string): Promise<string> => new Promise((resolve, reject) => {
     const child = execFile(resolveCoreNodeRuntime(), [cli, ...args], {
       cwd: input.cwd, env: windowsSpawnEnv(input.env), windowsHide: true,

@@ -10,7 +10,7 @@ import { createRailWorktree } from './rail-worktrees-store'
 import { createLoopRun, saveDefinitionRun, finishLoopRunAndJob } from '../../loops/runtime/loop-runs-store'
 import type { LoopRunRequest } from '../../loops/runtime/loop-run-manager'
 import type { DefinitionRunProbe } from '../../loops/runtime/loop-definition-recovery'
-import { saveIsolatedSettlementSnapshot, readIsolatedSettlementRecords, saveIsolatedSettlementResult } from './isolated-settlement-store'
+import { saveIsolatedSettlementSnapshot, readIsolatedSettlementRecords, saveIsolatedSettlementResult, recordIsolatedProvenanceOnce } from './isolated-settlement-store'
 import { isStoppedByPerson, reattachIsolatedSettlement, RUN_STOPPED_DETAIL, type AllocatedRun } from './rail-isolated-launch'
 import { harvestDeliveryEvidence } from './delivery-evidence'
 
@@ -219,5 +219,60 @@ describe('isStoppedByPerson', () => {
   it('never applies to a CI loop or a delivery with a PR', () => {
     expect(isStoppedByPerson({ ...base, loopId: 'factory:pr-ci' })).toBe(false)
     expect(isStoppedByPerson({ ...base, prUrl: 'https://github.com/o/r/pull/1' })).toBe(false)
+  })
+})
+
+describe('recordIsolatedProvenanceOnce (async capture, atomic rows + receipt)', () => {
+  // A minimal settlement table: the helper only reads/writes the receipt column.
+  const settlementDb = (): DbInstance => {
+    const db = initDb(':memory:')
+    db.pragma('foreign_keys = OFF')
+    db.prepare('INSERT INTO definition_delivery_settlements(delivery_id,run_id,project_id,snapshot_json) VALUES (?,?,?,?)').run('d1', 'r1', 'p', '{}')
+    db.exec('CREATE TABLE provenance_probe (id INTEGER PRIMARY KEY, run_id TEXT)')
+    return db
+  }
+  const receipt = (db: DbInstance) =>
+    (db.prepare("SELECT provenance_recorded FROM definition_delivery_settlements WHERE delivery_id='d1' AND run_id='r1'").get() as { provenance_recorded: number }).provenance_recorded
+  const probeRows = (db: DbInstance) => (db.prepare('SELECT COUNT(*) AS n FROM provenance_probe').get() as { n: number }).n
+
+  it('captures outside the transaction, then writes rows and the receipt together, once', async () => {
+    const db = settlementDb()
+    const record = vi.fn(async (commit: (write: () => void) => void) => {
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      commit(() => { db.prepare("INSERT INTO provenance_probe(run_id) VALUES ('r1')").run() })
+    })
+    await Promise.all([
+      recordIsolatedProvenanceOnce(db, 'd1', 'r1', record),
+      recordIsolatedProvenanceOnce(db, 'd1', 'r1', record),
+    ])
+    // Both callers captured (neither had a receipt yet) but the re-check inside
+    // the transaction lets only one batch land.
+    expect(probeRows(db)).toBe(1)
+    expect(receipt(db)).toBe(1)
+    await recordIsolatedProvenanceOnce(db, 'd1', 'r1', record)
+    expect(record).toHaveBeenCalledTimes(2)
+  })
+
+  it('sets the receipt when the record wrote nothing (flag off / no changes)', async () => {
+    const db = settlementDb()
+    await recordIsolatedProvenanceOnce(db, 'd1', 'r1', async () => 0)
+    expect(receipt(db)).toBe(1)
+  })
+
+  it('rolls back the receipt with the rows when the write fails', async () => {
+    const db = settlementDb()
+    await expect(recordIsolatedProvenanceOnce(db, 'd1', 'r1', (commit) => {
+      commit(() => {
+        db.prepare("INSERT INTO provenance_probe(run_id) VALUES ('r1')").run()
+        throw new Error('disk full')
+      })
+    })).rejects.toThrow('disk full')
+    expect(probeRows(db)).toBe(0)
+    expect(receipt(db)).toBe(0)
+  })
+
+  it('rejects for a missing frozen settlement', async () => {
+    const db = settlementDb()
+    await expect(recordIsolatedProvenanceOnce(db, 'd1', 'missing', async () => 0)).rejects.toThrow(/Frozen isolated settlement is missing/)
   })
 })

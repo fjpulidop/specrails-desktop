@@ -5,11 +5,11 @@ import { LegacyWorkflowUsage } from '../LegacyWorkflowUsage'
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, values?: { count?: number }) => key + (values?.count === undefined ? '' : ` ${values.count}`) }) }))
 vi.mock('../../../../lib/api', () => ({ getApiBase: () => '/api/projects/current' }))
 const summary = (total: number) => ({ total, byKind: { legacy_loop_traversal: total, queue_manager_slash: 0, merge_back: 0 }, lastAt: total ? '2026-09-26T12:00:00.000Z' : null, retirementEvidence: 'not-evaluated' })
-const response = (value: unknown, ok = true) => ({ ok, json: async () => value } as Response)
+const response = (value: unknown, ok = true) => new Response(JSON.stringify(value), { status: ok ? 200 : 500 })
 afterEach(() => vi.unstubAllGlobals())
 
 it('renders nothing while the recorded count is zero', async () => {
-  const fetch = vi.fn().mockResolvedValue(response(summary(0))); vi.stubGlobal('fetch', fetch)
+  const fetch = vi.fn().mockImplementation(async () => response(summary(0))); vi.stubGlobal('fetch', fetch)
   const { container } = render(<LegacyWorkflowUsage projectId="a" />)
   await waitFor(() => expect(fetch).toHaveBeenCalled())
   await act(async () => { await Promise.resolve() })
@@ -17,12 +17,12 @@ it('renders nothing while the recorded count is zero', async () => {
 })
 
 it('shows observed counts without internal retirement copy', async () => {
-  const fetch = vi.fn().mockResolvedValue(response(summary(4))); vi.stubGlobal('fetch', fetch)
+  const fetch = vi.fn().mockImplementation(async () => response(summary(4))); vi.stubGlobal('fetch', fetch)
   render(<LegacyWorkflowUsage projectId="a" />)
   expect(await screen.findByText('legacyUsage.total 4')).toBeInTheDocument()
   expect(screen.queryByText('legacyUsage.evidence')).not.toBeInTheDocument()
   expect(fetch).toHaveBeenCalledWith('/api/projects/current/analytics/legacy-launches', expect.objectContaining({ signal: expect.any(AbortSignal) }))
-  fetch.mockResolvedValue(response(summary(7)))
+  fetch.mockImplementation(async () => response(summary(7)))
   fireEvent.click(screen.getByRole('button'))
   expect(await screen.findByText('legacyUsage.total 7')).toBeInTheDocument()
   expect(document.querySelector('time')).toHaveAttribute('dateTime', '2026-09-26T12:00:00.000Z')

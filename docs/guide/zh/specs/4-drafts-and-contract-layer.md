@@ -78,4 +78,4 @@ Contract Layer 有三种应用方式：
 
 - [添加 Spec — Explore 模式](add-spec-explore-mode.md)——草稿的来源。
 - [添加 Spec — Quick 模式](add-spec-quick-mode.md)——Quick 模式里的 Contract Layer 开关。
-- [运行流水线](running-pipelines.md)——spec 准备好后就去实现它。
+- [运行流水线](../pipeline/rails-and-jobs)——spec 准备好后就去实现它。

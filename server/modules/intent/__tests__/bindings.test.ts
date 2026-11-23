@@ -18,7 +18,8 @@ import { buildSpecAddendum, readSpecAddenda, ticketStorePathForProject, type Spe
 import { IntentConflictError, IntentLaunchRejectedError, IntentUnavailableError, IntentValidationError, type IntentSession } from '..'
 import { createFlowService } from '../application'
 import { registerIntentHttp } from '../adapters/http'
-import { FLOW_FAILURE_RETURN_TURN_TEXT, FLOW_RETURN_TURN_TEXT, changeNameFromArchive, railOfTicket, createFlowHandOffAuthority, deliveryFailureOf, isCrashedFlowDelivery, createFlowPorts, createFlowPublication, createFlowTickets, createFlowTurnContext, createFlowWorktrees, flowConversationSummary, readDerivedChange } from '../adapters/bindings'
+import { FLOW_FAILURE_RETURN_TURN_TEXT, FLOW_RETURN_TURN_TEXT, changeNameFromArchive, railOfTicket, createFlowHandOffAuthority, deliveryFailureOf, isCrashedFlowDelivery, createFlowPorts, createFlowPublication, createFlowTickets, createFlowTurnContext, createFlowWorktrees, flowAcceptedScope, flowConversationSummary, readDerivedChange } from '../adapters/bindings'
+import { ACCEPTED_SCOPE_HEADING } from '../domain'
 import { addAgentMessage } from '../../agents/runtime/agent-store'
 import { defaultGitRunner } from '../../../worktree-manager'
 import { createSqliteFlowEffectsStore, createSqliteFlowRepository } from '../adapters/sqlite'
@@ -638,14 +639,45 @@ describe('settlement publication bindings', () => {
     }
     const summary = flowConversationSummary(ctx.desktopDb, { conversationId: conversation.id, idea: 'Add more visual effects', from: '2026-10-22T12:49:06.950Z', to: null })
     expect(summary).toContain('transcriptTurns: 2')
-    expect(summary).toContain('1. vale, estamos experimentando')
+    expect(summary).toContain('1. [2026-10-22 12:49 UTC] vale, estamos experimentando')
     expect(summary).toContain('   ↳ Agent: Voy a mirar qué efectos hay ya en el código.')
-    expect(summary).toContain('2. puedes incluir todas')
+    expect(summary).toContain('2. [2026-10-22 12:55 UTC] puedes incluir todas')
     expect(summary).toContain('   ↳ Agent: Sí. Añado un catálogo de 27 efectos.')
-    expect(summary).toContain('- every effect is toggleable from Options')
+    expect(summary).toContain('- [2026-10-22 13:21 UTC] every effect is toggleable from Options')
     expect(summary).not.toContain('me gustaría añadir')
     expect(summary).not.toContain('run-failure briefing')
     expect(summary).not.toContain('(none)')
+  })
+
+  it('freezes the accepted scope at hand-off: the person\'s requests and decisions with their time, after the intent constraints', () => {
+    const ctx = context()
+    const conversation = createAgentConversation(ctx.desktopDb, { title: 'generala' } as never)
+    // Shaped like the generala-dorada Intent: a layout intent that forbids rule
+    // changes, then the person asks for the Switch rules and the agent records them.
+    const rows: Array<[string, string, string, unknown[]?]> = [
+      ['user', 'quiero la pantalla más horizontal', '2026-11-21 20:37:13'],
+      ['user', 'quiero las mismas reglas que la generala de 51 Worldwide Games (con el libre, una sola generala, el combo)', '2026-11-22 09:10:21'],
+      ['assistant', 'Busco las reglas.\nDecision: cada jugador tendrá doce casillas; «Libre» suma los cinco dados y el bono añade 35 al alcanzar 63.', '2026-11-22 09:23:02'],
+      ['user', '[Specrails run-failure briefing — automatic, not typed by the user]', '2026-11-22 14:28:34', [{ kind: 'system-briefing', id: 'run', label: 'Run failure briefing', token: '' }]],
+    ]
+    for (const [role, content, at, refs] of rows) {
+      const message = addAgentMessage(ctx.desktopDb, { conversationId: conversation.id, role: role as 'user', content, ...(refs ? { contextRefs: refs as never } : {}) })
+      ctx.desktopDb.prepare('UPDATE agent_messages SET created_at = ? WHERE id = ?').run(at, message.id)
+    }
+    const scope = flowAcceptedScope(ctx.desktopDb, { conversationId: conversation.id, from: '2026-11-21T20:37:13.000Z', to: null, constraints: ['No cambiar reglas ni lógica de juego'] })
+    expect(scope).toContain(ACCEPTED_SCOPE_HEADING)
+    expect(scope).toContain('- No cambiar reglas ni lógica de juego')
+    expect(scope).toContain('2. 2026-11-22 09:10 UTC — Person asked: "quiero las mismas reglas que la generala de 51 Worldwide Games')
+    expect(scope).toContain('3. 2026-11-22 09:23 UTC — Decision recorded: "cada jugador tendrá doce casillas')
+    expect(scope).not.toContain('run-failure briefing')
+    expect(scope.indexOf('No cambiar reglas')).toBeLessThan(scope.indexOf('51 Worldwide Games'))
+
+    const repository = createSqliteFlowRepository(ctx.db)
+    repository.insert({ id: 'flow-1', conversationId: conversation.id, ticketId: 7, state: 'paused', branch: 'b', worktreePath: '/wt', baseSha: null, headSha: 'a'.repeat(40), coreSessionId: null, railIndex: 1, deliveryId: null, step: 'handoff:launch', createdAt: 't', updatedAt: 't' })
+    const authority = createFlowHandOffAuthority(repository, { now: () => 't' }, undefined, () => ({ summary: 'S', acceptedScope: scope }))
+    expect(authority.resolve('flow-1')).toMatchObject({ summary: 'S', acceptedScope: scope })
+    const empty = createFlowHandOffAuthority(repository, { now: () => 't' }, undefined, () => ({ summary: 'S', acceptedScope: '' }))
+    expect(empty.resolve('flow-1')).not.toHaveProperty('acceptedScope')
   })
 
   it('summarizes the Intent conversation for the hand-off (user messages and decisions)', () => {
@@ -655,7 +687,7 @@ describe('settlement publication bindings', () => {
     addAgentMessage(ctx.desktopDb, { conversationId: conversation.id, role: 'assistant', content: 'ok\nDecision: three columns' })
     const summary = flowConversationSummary(ctx.desktopDb, { conversationId: conversation.id, idea: 'Kanban', from: '1970-01-01', to: null })
     expect(summary).toContain('transcriptTurns: 1')
-    expect(summary).toContain('- three columns')
+    expect(summary).toMatch(/^- (\[[^\]]+\] )?three columns$/m)
     const repository = createSqliteFlowRepository(ctx.db)
     repository.insert({ id: 'flow-1', conversationId: conversation.id, ticketId: 7, state: 'paused', branch: 'b', worktreePath: '/wt', baseSha: null, headSha: 'a'.repeat(40), coreSessionId: null, railIndex: 1, deliveryId: null, step: 'handoff:launch', createdAt: 't', updatedAt: 't' })
     const authority = createFlowHandOffAuthority(repository, { now: () => 't' }, undefined, () => summary)
@@ -789,6 +821,13 @@ describe('automatic return of a failed Intent → Spec run (real SQLite)', () =>
     // A repeated observation (the return's own broadcast) changes nothing.
     await expect(service.observeDelivery('delivery-1')).resolves.toBeNull()
     expect(host.startAutomaticTurn).toHaveBeenCalledTimes(1)
+  })
+
+  it('the Back to Intent turn keeps what the person asked for and offers the choice for anything nobody asked for', () => {
+    expect(FLOW_RETURN_TURN_TEXT).toContain('Keep everything I asked for or we decided in this Intent, even when a finding asks to revert it')
+    expect(FLOW_RETURN_TURN_TEXT).toContain('a change you cannot trace to my requests or our decisions, or you are unsure, offer the choice as an `options` block before editing')
+    expect(FLOW_RETURN_TURN_TEXT).toContain('keep it and record it as a requirement, or revert it')
+    expect(FLOW_RETURN_TURN_TEXT).not.toMatch(/\bremove behaviour\b|removing behaviour/)
   })
 })
 

@@ -1,12 +1,22 @@
 # A vista de detalhe do job
 
-Clique em qualquer cartão de job na página **Jobs** e chega aqui: o cockpit de uma única execução de rail. Foi construída em torno de uma promessa — **os números ao vivo que vê são reais, nunca estimativas.** Esta página percorre as fases, as métricas ao vivo, os cartões de ticket — e o compositor que lhe permite **falar com o job em execução**.
+Clique em qualquer cartão de job na página **Jobs** e chega aqui: o cockpit de uma única execução de rail. Foi construída em torno de uma promessa — **os números ao vivo que vê são reais, nunca estimativas.** Esta página percorre as fases, as métricas ao vivo, os cartões de spec — e o compositor que lhe permite **falar com o job em execução**.
 
 ## O layout
 
-O cabeçalho compacto mantém estado, duração, fase, ações e chips do pipeline. **Motivos da falha** abre selecionado nas execuções falhadas ou canceladas com diagnóstico; as restantes abrem **Registo**. Uma pergunta pendente que possa ser respondida também disponibiliza esse separador: o botão da pergunta abre Detalhes para responder, mesmo sem diagnóstico.
+O cabeçalho compacto mantém estado, duração, fase, ações e chips do pipeline. Logo abaixo, **uma única linha de navegação** reúne tudo o que pode consultar:
 
-Motivos da falha reúne causa, soluções e **Detalhes** num painel limitado com deslocamento interno. Caso contrário, Detalhes permanece em Registo. Os loops oferecem **Grafo de execução** e **Detalhe do registo**; os restantes jobs apenas o detalhe. A secção e a expansão de Detalhes são guardadas separadamente para página e modal de missão; o separador principal reinicia em cada visita. O compositor permanece abaixo.
+- **Motivos da falha** — presente numa execução falhada ou cancelada com diagnóstico, e selecionado primeiro. Uma pergunta pendente que admita resposta também o disponibiliza: clique no botão de pergunta do cabeçalho para ir até lá e responder, mesmo sem diagnóstico.
+- **Grafo de execução** e **Detalhe do registo** — nas execuções de loop, o grafo do workflow e o registo passo a passo.
+- **Registo** — nos jobs simples, o log em streaming.
+
+Ao lado dos separadores aparecem apenas os chips que a execução mereceu: **Verificação** (com o número de verificações, na cor do seu estado) quando a execução registou evidência de verificação — clique para ver as verificações e a sua saída — e um botão **Detalhes** (ícone de gráfico de barras) quando há valores reais a mostrar. Ambos abrem como popover, por isso o registo mantém sempre toda a altura. A última secção do registo escolhida é lembrada separadamente para a página e para a janela da missão; o separador selecionado é reposto em cada visita.
+
+### Instruções de execução
+
+Enquanto a execução ainda as puder ler, um compositor de uma linha fica ancorado no fundo do registo: escreva o que o agente deve ter em conta e prima o botão de enviar ou **⌘↵** (**Ctrl+Enter**). **Enter** acrescenta uma linha. O **ⓘ** explica a regra: as instruções são aplicadas no próximo turno compatível do agente; não respondem a perguntas nem concedem aprovações. O que enviou aparece como um chip junto ao compositor — *1 na fila*, *2 aplicadas* — que lista cada mensagem e o seu estado. Quando a execução termina, o compositor desaparece; uma execução passada que recebeu instruções mantém o chip, só de leitura, ao lado dos separadores.
+
+Na app de desktop, um job aberto a partir de uma missão aparece **na sua própria janela**, uma janela por job. Carregue em **Escape** ou feche a janela para voltar; a versão de browser mostra o mesmo conteúdo num modal.
 
 ## Fases do pipeline
 
@@ -29,7 +39,7 @@ Que agente trata de cada fase é decidido pelo **perfil de agentes** do projeto.
 
 ## Métricas ao vivo — honestas por princípio
 
-O cabeçalho compacto mostra estado, duração, atividade, passos e ações. Os valores reais e os controlos de continuação estão em **Detalhes**, num painel limitado:
+O cabeçalho compacto mostra estado, duração, atividade, passos e ações. Os valores reais e as notas de continuação abrem-se a partir do botão **Detalhes** ao lado dos separadores:
 
 | Métrica | Quando vê o valor real |
 |--------|------------------------------|
@@ -42,18 +52,18 @@ O princípio de design: **nada de números aproximados ou estimados a meio da ex
 
 A etiqueta e o ícone do cabeçalho correspondem ao estado do job, e o painel é renderizado para jobs `running`, `completed` e `failed` por igual — por isso a vista de detalhe de um job terminado mostra as mesmas métricas congeladas nos seus valores finais.
 
-## Os cartões de ticket
+## Os cartões de spec
 
-O **cabeçalho de tickets** fica entre o cabeçalho de estado e o log. É um cartão de identidade premium que mostra um chip por cada spec que o job tocou — correspondidos a partir do comando lançado, por isso reflete exatamente quais os tickets de que esta execução tratou.
+O **cabeçalho de specs** fica entre o cabeçalho de estado e o log. É um cartão de identidade premium que mostra um chip por cada spec que o job tocou — correspondidas a partir do comando lançado, por isso reflete exatamente quais as specs de que esta execução tratou.
 
-- **2–3 tickets** — mostrados como uma lista de chips.
+- **2–3 specs** — mostradas como uma lista de chips.
 - **4 ou mais** — colapsam num modo compacto `+ N more` com um chevron para expandir, para o cabeçalho ficar arrumado.
 
-Clicar num chip abre o detalhe dessa spec **por cima da página do job** — não perde o seu lugar nem muda de rota. É uma forma rápida de reler o que um job deve entregar enquanto o vê trabalhar. (Em ecrãs com largura de tablet pode até arrastar uma modal de ticket para o lado e comparar duas specs lado a lado.)
+Clicar num chip abre o detalhe dessa spec **por cima da página do job** — não perde o seu lugar nem muda de rota. É uma forma rápida de reler o que um job deve entregar enquanto o vê trabalhar. (Em ecrãs com largura de tablet pode até arrastar uma modal de spec para o lado e comparar duas specs lado a lado.)
 
 ## O log em streaming
 
-Abra **Registo → Detalhe do registo** para o log em direto, ou Story se a narração estiver ativa. A saída chega em tempo real por WebSocket:
+Abra **Registo** (jobs simples) ou **Detalhe do registo** (execuções de loop) para o log em streaming, ou escolha Story quando a narração estiver ativa. A saída chega em tempo real por WebSocket:
 
 - **Auto-scroll** mantém o output mais recente à vista (faça scroll para cima e pausa, para poder ler).
 - **Pesquisa** para saltar para uma frase.
@@ -61,16 +71,23 @@ Abra **Registo → Detalhe do registo** para o log em direto, ou Story se a narr
 
 Esta é a verdade crua do que a IA está a fazer — cada chamada de ferramenta, cada edição de ficheiro, cada execução de teste.
 
-## Execuções de loop: o explorador de passos
+## Execuções de loop: o grafo e o registo de passos
 
-Numa **execução de loop** (ver [O Loop Builder](the-loop-builder)), **Registo → Grafo de execução** mostra o **explorador de passos**. Detalhe do registo oferece separadamente o log e, se ativa, a narração:
+Numa **execução de loop** (ver [O Loop Builder](the-loop-builder)), dois separadores mostram as evidências.
 
-- **A faixa de visão geral** no topo é o mapa ao vivo do loop — um chip por nó (Passo de IA, Shell, Decisor do Loop…), na ordem em que o grafo flui. Os chips vão acendendo à medida que a execução avança: esmaecidos enquanto esperam, pulsando enquanto correm, e depois um visto ou uma cruz. O chip de um Decisor mostra ainda o veredicto pelo qual encaminhou — voltar ao início ou seguir em frente — e um contador de iterações (`Iteração 3/10`) mantém a conta à direita. Clique em qualquer chip para saltar direto ao passo mais recente daquele nó.
+**Grafo de execução** é o workflow tal como correu. Está sempre expandido e acompanha o passo em execução, ou o que falhou:
+
+- **O caminho percorrido é sólido.** Os passos por onde a execução passou são desenhados a cheio; os que nunca alcançou ficam tracejados e esbatidos. Ative **Só o caminho percorrido** para ocultar o resto. A legenda fica em linha.
+- **Inspecionar um passo.** Selecione um nó para listar as suas tentativas com o estado e a duração. Clique numa tentativa para abrir o seu log em Detalhe do registo. **Repetir a partir daqui** fica na linha de cada tentativa terminada, para que uma execução ligada comece exatamente na tentativa que escolheu. Os ids técnicos estão em **Rastreio**.
+
+**Detalhe do registo** reúne o rasto de passos e o log, e abre no passo que falhou:
+
+- **A faixa de passos** no topo lista apenas os passos que a execução alcançou, por ordem, com um contador de iterações (`Iteração 3/10`) à direita. Os chips ficam esmaecidos enquanto esperam, pulsam enquanto correm, e depois mostram um visto ou uma cruz; o chip de um Decisor mostra ainda o veredicto pelo qual encaminhou. Clique num chip para saltar para esse passo.
 - **Uma caixa recolhível por passo.** Cada passagem por um nó vira a sua própria secção, com o número do passo, o nome, um selo de iteração, a duração ao terminar — e o seu próprio botão de copiar, para levar exatamente a saída de um passo. (O copiar da barra de ferramentas continua a levar o log inteiro.) Tudo o que foi impresso antes do primeiro passo — o banner de arranque, o aviso de worktree — fica arrumado numa secção de **Preparação**.
 - **O modo de acompanhamento** vem ligado por defeito: o passo em execução permanece aberto e com auto-scroll enquanto os anteriores se recolhem. No momento em que sobe o scroll ou abre um passo antigo, o acompanhamento pausa para poder ler — uma pílula flutuante **Retomar acompanhamento** devolve-o ao direto. **Expandir tudo / Recolher tudo** vivem na barra de ferramentas, e escrever na pesquisa procura em todos os passos ao mesmo tempo.
 - **Os passos interrompidos também são honestos.** Um passo que nunca chegou a reportar o seu desfecho — a execução foi cancelada ou a app fechou a meio do passo — é marcado como **Interrompido** com uma borda tracejada, em vez de fingir que terminou.
 
-A exploração do grafo e a posição pausada do log são preservadas ao mudar de secção. Os jobs sem loop mostram o detalhe sem controlo de grafo.
+A Story, quando a narração está ativa, é oferecida dentro de Detalhe do registo. A exploração do grafo e a posição pausada do log são preservadas ao mudar de separador.
 
 ## Fale com o job em execução
 
@@ -85,7 +102,7 @@ Algumas coisas que vale a pena saber:
 
 ## Exportação de diagnóstico
 
-Se a [telemetria](../settings/customizing) estava ativada para o job, aparece um botão **Exportar diagnóstico** no cabeçalho. Descarrega um ZIP que contém:
+Se a [telemetria](../settings/pipeline-telemetry-and-diagnostics) estava ativada para o job, aparece um botão **Exportar diagnóstico** no cabeçalho. Descarrega um ZIP que contém:
 
 - `job-metadata.json` — comando, estado, perfil, plugins.
 - `telemetry.ndjson` — sinais OTLP/JSON não comprimidos.
@@ -97,20 +114,43 @@ Se a [telemetria](../settings/customizing) estava ativada para o job, aparece um
 
 ## Quando uma execução falha
 
-Nos jobs falhados ou cancelados com diagnóstico, **Motivos da falha** abre o **cartão de diagnóstico** com a causa e os motivos conhecidos. Não existe um resumo da causa acima dos separadores:
+Nos jobs falhados ou cancelados com diagnóstico, **Motivos da falha** abre com o **cartão de diagnóstico**, que explica a causa e porque aconteceu, quando se sabe. Quando o runtime registou que passo falhou, o cartão indica-o: o passo, a tentativa, a iteração e a hora. As causas:
 
 - **Testes falharam**: as verificações continuam falhando após as rodadas de correção.
-- **Limite do provedor**: o limite de uso do provedor de IA foi atingido. O cartão cita quando ele é redefinido, com as palavras do próprio provedor.
+- **Limite do fornecedor** — foi atingido o limite de utilização do fornecedor de IA. O cartão diz quando é reposto, na tua hora local quando o fornecedor indicou a hora exata, senão nas palavras do fornecedor. Uma execução ainda em pausa no limite mostra o seu próprio cartão: quando retoma sozinha, **Retomar agora** e **Continuar agora com** outro fornecedor. Vê [Limites de utilização](1-rails-and-jobs.md#usage-limits).
 - **Ambiente**: a máquina não consegue executar as verificações (credenciais, uma ferramenta ausente, um comando de preparação que falha). *Corrigir o ambiente* mostra exatamente o que executar ou mudar.
+- **Porta em uso**: a verificação ou o servidor da própria execução não pôde iniciar porque outro processo já ocupava sua porta (`EADDRINUSE`). Não conta como testes falhos. Cada worktree de execução recebe portas próprias por `PORT` e `SPECRAILS_RUN_PORT_RANGE_START`/`_END`; um projeto que lê `PORT` nunca colide. Pare o outro processo, ou faça o projeto ler `PORT`, e depois **Executar novamente**.
 - **Bloqueada**, **sem tempo**, **em silêncio** e **parou inesperadamente** nomeiam o limite ou o processo que interrompeu a execução.
-- **Causa desconhecida**: o app não adivinha. Mostra o fim do registro para você mesmo ler.
+- **Tarefas por terminar**: a execução fez o trabalho mas deixou tarefas aprovadas por marcar, por exemplo uma verificação visual. O cartão lista-as. **Continuar** mantém o trabalho e reinicia o programador com a ferramenta de navegador e a regra de instalar o que falta, para exatamente essas tarefas; quando só restam verificações que uma pessoa tem de fazer, **Continuar para revisão** envia-a para revisão com elas como *verificações manuais* no pacote de revisão.
+- **Especificação rejeitada**: o OpenSpec rejeitou o plano ou a especificação e o planeamento não conseguiu corrigi-lo. **Editar a spec e relançar**.
+- **Causa desconhecida**: os registos da execução não indicam a causa e a app não adivinha. Em vez disso, o cartão mostra primeiro a análise de IA, identificada como tal, ou oferece **Analisar com IA** como primeira ação; o fim do log fica a um clique.
 
-Sob o diagnóstico há até três remédios ordenados, e só os que podem funcionar aqui: **Retomar a partir de** a fase que parou, **Executar novamente**, **Editar a spec e relançar** (os adendos da spec levam sua mudança para a próxima execução), **Corrigir o ambiente** e **Abrir o registro na falha**. A mesma causa aparece como um rótulo de uma linha na [lista de pendências](../getting-started/the-dashboard-tour), e o cartão de execução da missão mostra o mesmo cartão.
+Sob o diagnóstico há até três remédios ordenados, e só os que podem funcionar aqui, cada um com uma linha por baixo a dizer o que faz ao seu trabalho: **Continuar**, **Continuar para revisão**, **Editar a spec e relançar** (os adendos da spec levam a sua alteração para a execução seguinte), **Corrigir o ambiente** e **Abrir os logs na falha**. **Começar de novo** espera no menu **⋯**: inicia uma execução nova a partir da base e o trabalho desta tentativa não é aproveitado (fica no worktree antigo). A mesma causa aparece como uma linha na [caixa de entrada](../getting-started/the-dashboard-tour), e o cartão de execução da missão mostra o mesmo cartão.
+
+As execuções de Implement verificam sozinhas a interface e o comportamento visual: cada execução tem uma ferramenta de navegador headless (`$SPECRAILS_BROWSE`) que abre a app na porta própria da execução, ou uma página do repositório, em tamanho de computador e de telemóvel, e devolve capturas que o agente lê. Uma verificação que só uma pessoa pode fazer (gosto, um dispositivo real, credenciais reais) é planeada como *verificação manual*: a execução nunca falha por ela, e chega-lhe no pacote de revisão.
+
+### Continuar uma execução {#continue}
+
+**Continuar** é a única forma de seguir com uma execução falhada ou parada. Mantém tudo o que a execução fez e continua no mesmo worktree: uma execução em pausa retoma no sítio; uma falhada ou parada continua como a sua *tentativa* seguinte, a partir do passo que falhou ou de onde a parou. Também diz ao agente o que correu mal: para tarefas por terminar, as tarefas exatas com a ferramenta de navegador e a regra de instalar o que falta; para um problema da máquina, o que faltava e como instalá-lo; após um erro momentâneo do fornecedor, nada (o mesmo passo simplesmente volta a correr).
+
+Uma execução que parou di-lo (**Parou esta execução**) e oferece o mesmo **Continuar**, nunca um relançamento do zero.
+
+As tentativas do mesmo trabalho são uma unidade. A janela da execução mostra onde esta está, por exemplo *Tentativa 3 de 4 · continuada a partir do passo Programador da tentativa 2*; clique para ver cada tentativa, abrir qualquer uma e o que mudou entre elas (quem continuou, a partir de que passo, as orientações enviadas). A caixa de entrada, o quadro ao vivo, a lista de jobs e **⌘K** mostram só a tentativa mais recente, com o seu número: uma tentativa falhada anterior que outra assumiu já não conta como algo que precisa de si.
+
+Quando a causa é conhecida e mais trabalho a pode corrigir (tarefas por terminar, uma ferramenta em falta, um erro momentâneo do fornecedor, uma tentativa bloqueada), o Specrails continua **uma vez** por si e escreve *O Specrails continuou automaticamente* no histórico da execução. Nunca por credenciais ou segredos, recusas de política, limites de gasto, limites de utilização, uma paragem que escolheu ou a mesma falha duas vezes. Desative-o em **Definições → Agentes Specrails → Continuar execuções falhadas**.
+
+Quando a análise de IA abaixo sugere um passo que é um destes remédios, aparece como um botão ao lado do passo.
+
+### Análise de IA {#ai-failure-analysis}
+
+Por baixo do cartão, uma **Análise de IA** lê o log e explica porque a execução parou: a causa, **O que fazer**, e as linhas **Do log** em que se baseou, citadas palavra por palavra. Corre com o mesmo fornecedor e modelo que executaram o job, por isso a sua conta consegue sempre executá-la. Arranca sozinha, exceto quando a causa foi o limite do fornecedor; nesse caso carregue em **Analisar com IA**. A análise fica guardada com o job. Se o log mudar depois, ela indica-o e oferece **Analisar novamente**.
+
+A análise está identificada como uma leitura de IA e nunca substitui o cartão: o diagnóstico, a sua causa e os seus remédios continuam a ser o que a app registou. Confira as linhas que cita antes de agir com base nela. O seu custo conta na categoria **Suporte** em [Analytics](../insights/analytics-and-cost-tracking).
 
 ## Para onde ir a seguir
 
 - [Rails e jobs](rails-and-jobs) — lançar e enfileirar.
-- [Acompanhar o custo](../analytics/tracking-cost) — transformar os custos por job em analytics do projeto.
+- [Acompanhar o custo](../insights/analytics-and-cost-tracking) — transformar os custos por job em analytics do projeto.
 
 ## Após reiniciar um workflow
 

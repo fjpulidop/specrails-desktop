@@ -5,10 +5,11 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { compileLoopToDefinition } from './loop-definition'
 import { canonicalFactoryLoopId, factoryLoopMode, factoryLoopsForCapabilities, FLOW_SPEC_LOOP_ID, getFactoryLoop, supportsFlowSpec } from './loop-factory'
-import { FLOW_CHANGES_REQUESTED_END, FLOW_CHANGE_ID_MAX, FLOW_CORRECTION_ROUNDS, FLOW_SUMMARY_FILE, FLOW_SUMMARY_LIMIT_BYTES, flowChangeId, flowChangeIdStem, flowSpecGraph } from './loop-flow-spec-recipe'
+import { FLOW_CHANGES_REQUESTED_END, FLOW_CHANGE_ID_MAX, FLOW_CORRECTION_ROUNDS, FLOW_SCOPE_DECISION_END, FLOW_SCOPE_DECISION_REASON, FLOW_SUMMARY_FILE, FLOW_UNREQUESTED_PREFIX, FLOW_SUMMARY_LIMIT_BYTES, flowChangeId, flowChangeIdStem, flowSpecGraph } from './loop-flow-spec-recipe'
 import { CORE_NODE_KINDS, validateLoopGraph } from './loop-graph'
 import { builtinLoopDefaults, EDITABLE_BUILTIN_LOOP_IDS } from './builtin-loops'
 import { flowChangeHolder, flowDerivationChangeId, writeFlowSummary } from './loop-executors'
+import { UNREQUESTED_CHANGE_PREFIX } from '../../intent/domain'
 
 const V2 = { engineV2: 1, workflowDefinitions: 1 }
 const fixture = JSON.parse(readFileSync(join(__dirname, '__fixtures__', 'core-flow-spec.json'), 'utf8')) as {
@@ -60,7 +61,7 @@ describe('flow-spec definition', () => {
 
   it('keeps the closed params of the Core pieces', () => {
     for (const id of ['derive', 'check', 'archive', 'verify', 'repair-guard', 'repair-count', 'init', 'review-policy',
-      'check-findings', 'review-findings', 'correction-budget', 'begin-correction', 'fix-progress', 'changes-requested', 'done', 'failed']) {
+      'check-findings', 'review-findings', 'scope-gate', 'correction-budget', 'begin-correction', 'fix-progress', 'changes-requested', 'scope-decision', 'done', 'failed']) {
       // Desktop adds the AI-step time budget (0 = no total limit) on top of the reference params.
       const { timeoutMs: _budget, ...params } = definition.nodes[id]!.params as Record<string, unknown>
       expect(params, id).toEqual(fixture.nodes[id]!.params)
@@ -86,6 +87,40 @@ describe('flow-spec definition', () => {
     expect(definition.nodes.init!.params).toMatchObject({ set: { correctionLimit: FLOW_CORRECTION_ROUNDS } })
     // The fixer writes: the run must deliver only a verified candidate.
     expect(definition.delivery).toEqual({ requiresVerified: true })
+  })
+})
+
+describe('flow-spec scope contract (Intent decisions are requested scope)', () => {
+  const definition = compileLoopToDefinition(flowSpecGraph(), { id: FLOW_SPEC_LOOP_ID, title: 'Intent → Spec', constants: {}, provider: 'claude', roles: { reviewer: { access: 'read' } } })
+  const review = String(definition.nodes.review!.params.prompt)
+  const fix = String(definition.nodes.fix!.params.prompt)
+
+  it('tells the reviewer that what the person asked for supersedes the intent constraints and is never reverted', () => {
+    expect(review).toContain('IS requested, even where it departs from the intent\'s original constraints: a later request supersedes an earlier constraint it contradicts')
+    expect(review).toContain('Never ask to revert, remove or restore that behaviour; judge its correctness, tests, accessibility')
+    expect(review).toContain(`list it in unrequested AND as an issue starting with "${FLOW_UNREQUESTED_PREFIX}"`)
+    expect(review).toContain('The person decides whether to keep it as a requirement or revert it.')
+    const schema = definition.nodes.review!.params.structuredOutput as { required: string[]; properties: Record<string, unknown> }
+    expect(schema.required).toContain('unrequested')
+    expect(schema.properties.unrequested).toMatchObject({ type: 'array' })
+  })
+
+  it('never lets the fixer revert behaviour', () => {
+    expect(fix).toContain('Never revert, remove or restore behaviour')
+    expect(fix).not.toContain('Revert code only when')
+  })
+
+  it('routes an unrequested change to the person (no correction round) and never archives while one is listed', () => {
+    expect(definition.nodes['review-policy']!.params.expr).toBe('$outputs.review.structured.approved == true && !exists($outputs.review.structured.unrequested.0)')
+    expect(definition.nodes['review-findings']!.ends.next).toBe('scope-gate')
+    expect(definition.nodes['scope-gate']!.ends).toEqual({ true: FLOW_SCOPE_DECISION_END, false: 'correction-budget' })
+    expect(definition.nodes[FLOW_SCOPE_DECISION_END]!.params).toEqual({ outcome: 'failure', reason: FLOW_SCOPE_DECISION_REASON })
+    // A failing host check still goes to the fixer.
+    expect(definition.nodes['check-findings']!.ends.next).toBe('correction-budget')
+  })
+
+  it('shares the unrequested-change prefix with the Back to Intent briefing', () => {
+    expect(FLOW_UNREQUESTED_PREFIX).toBe(UNREQUESTED_CHANGE_PREFIX)
   })
 })
 

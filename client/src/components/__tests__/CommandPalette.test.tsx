@@ -185,9 +185,9 @@ describe('CommandPalette', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Dashboard')).toBeInTheDocument()
-      expect(screen.getByText('Project Analytics')).toBeInTheDocument()
-      expect(screen.getByText('Activity Feed')).toBeInTheDocument()
-      expect(screen.getByText('Desktop Settings')).toBeInTheDocument()
+      expect(screen.getByText('Project analytics')).toBeInTheDocument()
+      expect(screen.getByText('Activity feed')).toBeInTheDocument()
+      expect(screen.getByText('Settings', { selector: '[cmdk-item] *' })).toBeInTheDocument()
       expect(screen.getByText('Docs')).toBeInTheDocument()
     })
   })
@@ -264,10 +264,10 @@ describe('CommandPalette', () => {
 
     await user.keyboard('{Meta>}k{/Meta}')
     await waitFor(() => {
-      expect(screen.getByText('Activity Feed')).toBeInTheDocument()
+      expect(screen.getByText('Activity feed')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('Activity Feed'))
+    await user.click(screen.getByText('Activity feed'))
 
     expect(mockNavigate).toHaveBeenCalledWith('/activity')
   })
@@ -318,10 +318,10 @@ describe('CommandPalette', () => {
 
     await user.keyboard('{Meta>}k{/Meta}')
     await waitFor(() => {
-      expect(screen.getByText('Desktop Settings')).toBeInTheDocument()
+      expect(screen.getByText('Settings', { selector: '[cmdk-item] *' })).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('Desktop Settings'))
+    await user.click(screen.getByText('Settings', { selector: '[cmdk-item] *' }))
 
     expect(onOpenSettings).toHaveBeenCalled()
     expect(mockNavigate).not.toHaveBeenCalledWith('/settings')
@@ -334,10 +334,10 @@ describe('CommandPalette', () => {
 
     await user.keyboard('{Meta>}k{/Meta}')
     await waitFor(() => {
-      expect(screen.getByText('Desktop Analytics')).toBeInTheDocument()
+      expect(screen.getByText('Desktop analytics')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('Desktop Analytics'))
+    await user.click(screen.getByText('Desktop analytics'))
     expect(onOpenAnalytics).toHaveBeenCalled()
   })
 
@@ -432,10 +432,10 @@ describe('CommandPalette', () => {
 
     await user.keyboard('{Meta>}k{/Meta}')
     await waitFor(() => {
-      expect(screen.getByText('Desktop Settings')).toBeInTheDocument()
+      expect(screen.getByText('Settings', { selector: '[cmdk-item] *' })).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('Desktop Settings'))
+    await user.click(screen.getByText('Settings', { selector: '[cmdk-item] *' }))
     expect(mockNavigate).toHaveBeenCalledWith('/settings')
   })
 

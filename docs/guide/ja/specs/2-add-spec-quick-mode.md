@@ -42,4 +42,4 @@
 
 - [スペックを追加 — Explore モード](add-spec-explore-mode.md) — 形を整える必要があるスペック向け。
 - [下書きと Contract Layer](drafts-and-contract-layer.md) — Contract Layer による強化の解説。
-- [パイプラインを実行する](running-pipelines.md) — できたばかりのスペックをレールにドラッグして実装する。
+- [パイプラインを実行する](../pipeline/rails-and-jobs) — できたばかりのスペックをレールにドラッグして実装する。

@@ -105,6 +105,8 @@
       "stopped": "The runtime stopped: {{target}}",
       "corrections": "Continuing the remaining tasks (developer)",
       "resumed": "Resuming the saved run",
+      "pausedByYou": "Paused by you",
+      "resumedByYou": "Resumed by you",
       "blocked": "The host environment blocked the run: {{target}}"
     },
     "check": {
@@ -118,5 +120,7 @@
   "repeats": "×{{count}}",
   "round": "Fix round {{round}} of {{total}}",
   "checks_one": "+1 check",
-  "checks_other": "+{{count}} checks"
+  "checks_other": "+{{count}} checks",
+  "modeSteps": "Steps",
+  "modeLabel": "View"
 }

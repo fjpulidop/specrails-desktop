@@ -70,4 +70,18 @@ describe('usePrerequisites', () => {
     expect(result.current.error).not.toBeNull()
     expect(result.current.status).toBeNull()
   })
+
+  it('re-probes on window focus only while a prerequisites surface is mounted', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => goodStatus })
+    global.fetch = fetchMock as unknown as typeof fetch
+    const { result, unmount } = renderHook(() => usePrerequisites())
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await act(async () => { window.dispatchEvent(new Event('focus')) })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    unmount()
+    // Each probe holds the server's event loop for seconds: never probe for a closed dialog.
+    await act(async () => { window.dispatchEvent(new Event('focus')) })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
 })

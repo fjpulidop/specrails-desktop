@@ -267,6 +267,7 @@
       "planned": "Planned",
       "committed": "Ready to launch",
       "running": "In progress",
+      "paused": "Paused",
       "delivered": "Delivered — awaiting review",
       "done": "Done"
     },
@@ -286,7 +287,35 @@
       "running": "Running · {{elapsed}}",
       "review": "Review",
       "open": "Open the rail",
-      "noDelivery": "No delivery yet"
+      "noDelivery": "No delivery yet",
+      "held": {
+        "pausedByYou": "Paused by you",
+        "paused": "Paused",
+        "question": "Waiting for your answer",
+        "approval": "Waiting for your approval",
+        "budget": "Paused at the spending limit",
+        "provider_limit": "Paused by the usage limit",
+        "restart": "Paused by a restart",
+        "interrupted": "Interrupted",
+        "queued": "Waiting for capacity"
+      },
+      "heldHint": {
+        "pausedByYou": "You paused this run; nothing runs until you resume it",
+        "paused": "The run is paused; resume it from its run",
+        "question": "The run asks you a question; answer it from the run",
+        "approval": "The run waits for your approval; decide from the run",
+        "budget": "The run reached its spending limit; raise it or resume it from the run",
+        "provider_limit": "The provider refused on its usage limit; it resumes when the limit resets",
+        "restart": "The app restarted during the run; it continues from where it stopped",
+        "interrupted": "A step was interrupted; resume it from the run",
+        "queued": "Launched; it starts by itself when a run slot is free"
+      },
+      "ranFor": "Ran {{elapsed}} before it stopped",
+      "resume": "Resume",
+      "answer": "Answer",
+      "resumed": "Run resumed",
+      "resumeFailed": "Could not resume the run",
+      "engine": "Runs on {{engine}}"
     },
     "chain": {
       "title": "Sequential chain",
@@ -294,10 +323,14 @@
       "progress": "rail {{k}} of {{n}}",
       "waiting": "waiting for rail {{k}} to settle",
       "stackedOn": "next rail builds on {{branch}}",
-      "paused": "Paused — {{reason}}",
+      "paused": "Paused: {{reason}}",
       "completed": "All rails launched",
       "cancelled": "Chain cancelled",
       "resume": "Resume",
+      "resumeFromFailedStep": "From the step that failed",
+      "resumeFromFailedStepHint": "Continue the same run; only the interrupted steps run again",
+      "resumeFromStart": "From the start",
+      "resumeFromStartHint": "Run the whole spec again in a new run",
       "cancel": "Cancel chain",
       "resumed": "Chain resumed",
       "resumeFailed": "Could not resume the chain",
@@ -312,8 +345,8 @@
         "run_lost": "the running rail could not be found after a restart",
         "unknown": "paused",
         "provider_limit": "the provider's usage limit was reached",
-        "rail_limit_reached": "every rail holds a PR awaiting your decision — merge or discard pending PRs to free a rail, then resume",
-        "integration_failed": "spec integration failed ({{detail}}); resume retries integration"
+        "rail_limit_reached": "every rail holds a PR awaiting your decision; merge or discard pending PRs to free a rail, then resume",
+        "integration_failed": "spec integration failed ({{detail}})"
       },
       "checkpoint": "Rail {{k}} of {{n}} delivered — launch rail {{next}}?",
       "launchNext": "Launch next rail",
@@ -325,8 +358,80 @@
       "autoOn": "Auto-continue on — the next rails launch on their own",
       "autoOff": "Auto-continue off — you'll be asked before each next rail",
       "autoFailed": "Could not update the chain",
-      "integrating": "integrating this spec before launching the next",
-      "cancelFailed": "Couldn't cancel the chain"
+      "cancelFailed": "Couldn't cancel the chain",
+      "offer": {
+        "complete": "Finish the chain",
+        "next": "Continue with the next spec ({{specTitle}})",
+        "launch": "Launch {{specTitle}}",
+        "retry": "Retry {{spec}}",
+        "resume_failed_step": "Resume {{spec}} from the failed step",
+        "retry_from_start": "Retry {{spec}} from the start",
+        "resume_run": "Resume the run of {{spec}}",
+        "follow_run": "Follow the run of {{spec}}",
+        "answer_run": "Follow the run of {{spec}} (it needs your answer)",
+        "integrate": "Integrate {{spec}} and continue",
+        "rebuild": "Run {{spec}} again on the updated base"
+      },
+      "offerHint": {
+        "complete": "Every spec is delivered or done",
+        "next": "{{paused}} is already delivered; nothing runs twice",
+        "launch": "Starts a new run of {{spec}}",
+        "retry": "Its last attempt failed; runs it again in a new run",
+        "resume_failed_step": "Continue the same run; only the interrupted steps run again",
+        "retry_from_start": "Run the whole spec again in a new run",
+        "resume_run": "The same attempt continues from its next step",
+        "follow_run": "A run is already working on {{spec}}; the chain waits for it instead of starting another",
+        "answer_run": "The run is waiting for an answer or an approval; reply from the run",
+        "integrate": "Merges the delivery of {{spec}} into the integration branch like the chain’s own rails, then continues",
+        "rebuild": "Its delivery conflicts with what was integrated since; a new run starts from the updated base"
+      },
+      "offerShort": {
+        "complete": "Finish",
+        "next": "Continue with {{spec}}",
+        "launch": "Launch {{spec}}",
+        "retry": "Retry {{spec}}",
+        "resume_failed_step": "Resume {{spec}}",
+        "retry_from_start": "Retry {{spec}}",
+        "resume_run": "Resume the run of {{spec}}",
+        "follow_run": "Follow {{spec}}",
+        "answer_run": "Follow {{spec}}",
+        "integrate": "Integrate {{spec}}",
+        "rebuild": "Rebuild {{spec}}"
+      },
+      "moreOptions": "More options",
+      "pausedSpecDelivered": "{{paused}} is already delivered",
+      "nextStep": "Next: {{step}}",
+      "integrationDetails": {
+        "conflict": "it conflicts with the updated base",
+        "conflict_unresolved": "it conflicts with the updated base and the automatic update could not resolve it",
+        "conflict_refresh_limit": "it still conflicts with the base after two automatic updates",
+        "merge_failed": "Git could not merge it"
+      },
+      "held": {
+        "pausedByYou": "You paused Rail {{k}}",
+        "paused": "Rail {{k}} paused",
+        "question": "Rail {{k}} waits for your answer",
+        "approval": "Rail {{k}} waits for your approval",
+        "budget": "Rail {{k}} paused at the spending limit",
+        "provider_limit": "Rail {{k}} paused by the usage limit",
+        "restart": "Rail {{k}} paused by a restart",
+        "interrupted": "Rail {{k}} interrupted",
+        "queued": "Rail {{k}} waits for capacity"
+      },
+      "answerRun": "Answer in rail {{k}}’s run",
+      "nextEngine": "Next rail: {{engine}}",
+      "nextEngineChanged": "The next rail uses the new configuration: {{engine}}",
+      "engineSource": {
+        "milestone": "This milestone’s own configuration",
+        "usual": "Your usual configuration",
+        "launch": "The configuration chosen at launch"
+      },
+      "integrationPhase": {
+        "integrating": "Integrating this spec before launching the next",
+        "refreshing": "It conflicts with what was integrated since. Updating it on the new base",
+        "resolving": "An agent is resolving its conflicts with the new base",
+        "reverifying": "Updated on the new base. Verifying it again before integrating"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

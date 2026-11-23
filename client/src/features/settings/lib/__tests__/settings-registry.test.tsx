@@ -80,7 +80,7 @@ describe('settings registry', () => {
       nav.click()
       await waitFor(() => expect(findSettingAnchor(entry.id), `${entry.id} not visible in ${entry.section}`).toBeTruthy())
     }
-  })
+  }, 20_000) // Mounts the whole settings page and walks every section: slow on a loaded CI runner.
 
   it('lands on the project setting: switches nothing else, flashes the block and focuses its control', async () => {
     render(<SettingsPage />, { route: '/settings?setting=projectBudget' })
@@ -162,8 +162,8 @@ describe('focusSettingAnchor', () => {
 })
 
 const NAV_LABELS: Record<string, string> = {
-  appearance: 'Appearance', effects: 'Effects', code: 'Code', terminal: 'Terminal', specrailsAgents: 'AI providers', mobile: 'Mobile',
-  projects: 'Projects', advanced: 'Advanced', webhooks: 'Webhooks', updates: 'Updates', about: 'About',
+  appearance: 'Appearance', effects: 'Effects', code: 'Code', terminal: 'Terminal', notifications: 'Notifications', specrailsAgents: 'AI providers', mobile: 'Mobile',
+  projects: 'Projects', storage: 'Storage', advanced: 'Advanced', webhooks: 'Webhooks', updates: 'Updates', about: 'About',
 }
 function navLabel(section: string): string {
   return NAV_LABELS[section] ?? section

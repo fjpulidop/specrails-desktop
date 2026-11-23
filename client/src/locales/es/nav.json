@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "Contraer barra lateral izquierda (mantener anclada)",
       "pinnedCollapsed": "Desanclar barra lateral izquierda",
-      "unpinned": "Anclar barra lateral izquierda abierta"
+      "unpinned": "Anclar barra lateral izquierda abierta",
+      "showOverlay": "Mostrar la barra lateral",
+      "hideOverlay": "Ocultar la barra lateral"
     },
     "right": {
       "pinnedOpen": "Contraer barra lateral derecha (mantener anclada)",
@@ -47,7 +49,7 @@
     "docs": "Docs",
     "analytics": "Analíticas de todos los proyectos",
     "companion": "Companion",
-    "settings": "Ajustes de la app",
+    "settings": "Ajustes",
     "plugins": "Plugins",
     "review": "Revisión",
     "landmark": "Proyectos y misiones",
@@ -58,7 +60,8 @@
       "label": "Mostrar solo misiones activas",
       "tooltip": "Mostrar solo misiones activas",
       "empty": "No hay misiones activas"
-    }
+    },
+    "liveBoard": "Tablero en vivo"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops está abierto en una ventana de la misión.",
@@ -86,10 +89,9 @@
     "activeCli": "CLI activo: {{label}}"
   },
   "statusBar": {
-    "connected": "conectado",
-    "syncing": "sincronizando...",
-    "reconnecting": "reconectando...",
-    "disconnected": "desconectado",
+    "syncing": "Sincronizando…",
+    "reconnecting": "Reconectando…",
+    "disconnected": "Sin conexión",
     "connectionRestored": "Conexión restablecida"
   },
   "titleBar": {
@@ -154,11 +156,11 @@
   },
   "keepAwake": {
     "label": "Mantener el ordenador despierto",
-    "on": "Activado",
-    "off": "Desactivado",
     "active": "Evita el reposo automático. La pantalla puede apagarse.",
     "inactive": "Reposo normal permitido.",
-    "failed": "No se pudo cambiar el estado de reposo."
+    "failed": "No se pudo cambiar el estado de reposo.",
+    "turnOff": "Permitir el reposo de nuevo",
+    "activeHint": "El ordenador se mantiene despierto. Haz clic para permitir el reposo."
   },
   "skipToContent": "Saltar al contenido principal",
   "places": {

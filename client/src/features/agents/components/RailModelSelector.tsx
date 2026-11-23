@@ -4,6 +4,7 @@ import { defaultModelForProvider, modelsForProvider } from '../../loops/lib/loop
 import { providerSupportsCustomModelAliases } from '../../providers/lib/provider-capabilities'
 import { isSafeCustomModelAlias } from '../../providers/lib/model-alias'
 import { CustomModelAliasInput } from '../../providers/components/CustomModelAliasInput'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 
 /** A provider model id (or a safe custom alias) chosen for a rail's loop runs. */
 export type RailModel = string
@@ -57,19 +58,23 @@ export function RailModelSelector({
           onCommit={onChange}
         />
       ) : (
-        <select
-          value={current}
-          aria-label={label}
-          data-testid={testId}
-          onChange={(e) => onChange(e.target.value as RailModel)}
-          className="h-6 text-caption rounded border border-border/50 bg-transparent text-muted-foreground hover:text-foreground pr-4 pl-1 focus:outline-none focus:ring-1 focus:ring-primary/40"
-        >
-          {models.map((model) => (
-            <option key={model.value} value={model.value}>
-              {model.label}
-            </option>
-          ))}
-        </select>
+        <Select value={current} onValueChange={(next) => onChange(next as RailModel)}>
+          <SelectTrigger
+            size="sm"
+            aria-label={label}
+            data-testid={testId}
+            className="border-border/50 bg-transparent text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 max-w-40"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {models.map((model) => (
+              <SelectItem key={model.value} value={model.value}>
+                {model.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
     </div>
   )

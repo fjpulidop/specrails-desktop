@@ -267,6 +267,7 @@
       "planned": "Planeado",
       "committed": "Pronto a lançar",
       "running": "Em curso",
+      "paused": "Em pausa",
       "delivered": "Entregue — a aguardar revisão",
       "done": "Concluído"
     },
@@ -286,7 +287,35 @@
       "running": "A correr · {{elapsed}}",
       "review": "Rever",
       "open": "Abrir o rail",
-      "noDelivery": "Ainda sem entrega"
+      "noDelivery": "Ainda sem entrega",
+      "held": {
+        "pausedByYou": "Pausada por você",
+        "paused": "Em pausa",
+        "question": "Aguarda sua resposta",
+        "approval": "Aguarda sua aprovação",
+        "budget": "Em pausa pelo limite de gasto",
+        "provider_limit": "Em pausa pelo limite de uso",
+        "restart": "Em pausa por um reinício",
+        "interrupted": "Interrompida",
+        "queued": "Aguardando capacidade"
+      },
+      "heldHint": {
+        "pausedByYou": "Você pausou esta execução; nada roda até você retomá-la",
+        "paused": "A execução está em pausa; retome-a pela execução",
+        "question": "A execução faz uma pergunta; responda pela execução",
+        "approval": "A execução aguarda sua aprovação; decida pela execução",
+        "budget": "A execução atingiu o limite de gasto; aumente-o ou retome-a pela execução",
+        "provider_limit": "O provedor recusou pelo limite de uso; ela retoma quando o limite reiniciar",
+        "restart": "O app reiniciou durante a execução; ela continua de onde parou",
+        "interrupted": "Uma etapa foi interrompida; retome-a pela execução",
+        "queued": "Lançada; começa sozinha quando houver uma vaga livre"
+      },
+      "ranFor": "Rodou {{elapsed}} antes de parar",
+      "resume": "Retomar",
+      "answer": "Responder",
+      "resumed": "Execução retomada",
+      "resumeFailed": "Não foi possível retomar a execução",
+      "engine": "Executa com {{engine}}"
     },
     "chain": {
       "title": "Cadeia sequencial",
@@ -294,10 +323,14 @@
       "progress": "rail {{k}} de {{n}}",
       "waiting": "à espera que o rail {{k}} termine",
       "stackedOn": "o próximo rail parte de {{branch}}",
-      "paused": "Em pausa — {{reason}}",
+      "paused": "Em pausa: {{reason}}",
       "completed": "Todos os rails lançados",
       "cancelled": "Cadeia cancelada",
       "resume": "Retomar",
+      "resumeFromFailedStep": "A partir do passo que falhou",
+      "resumeFromFailedStepHint": "Continua a mesma execução; só os passos interrompidos são repetidos",
+      "resumeFromStart": "Desde o início",
+      "resumeFromStartHint": "Executa de novo a spec inteira numa nova execução",
       "cancel": "Cancelar cadeia",
       "resumed": "Cadeia retomada",
       "resumeFailed": "Não foi possível retomar a cadeia",
@@ -312,8 +345,8 @@
         "run_lost": "o rail em execução não foi encontrado após um reinício",
         "unknown": "em pausa",
         "provider_limit": "o limite de utilização do fornecedor foi atingido",
-        "rail_limit_reached": "todos os rails têm um PR à espera da tua decisão — faz merge ou descarta PRs pendentes para libertar um rail e depois retoma",
-        "integration_failed": "a integração da spec falhou ({{detail}}); retomar volta a tentar a integração"
+        "rail_limit_reached": "todos os rails têm um PR à espera da tua decisão; faz merge ou descarta PRs pendentes para libertar um rail e depois retoma",
+        "integration_failed": "a integração da spec falhou ({{detail}})"
       },
       "checkpoint": "Rail {{k}} de {{n}} entregue — lançar o rail {{next}}?",
       "launchNext": "Lançar o próximo rail",
@@ -325,8 +358,80 @@
       "autoOn": "Continuação automática ligada — os próximos rails são lançados sozinhos",
       "autoOff": "Continuação automática desligada — será perguntado antes de cada rail",
       "autoFailed": "Não foi possível atualizar a cadeia",
-      "integrating": "a integrar esta spec antes de lançar a seguinte",
-      "cancelFailed": "Não foi possível cancelar a cadeia"
+      "cancelFailed": "Não foi possível cancelar a cadeia",
+      "offer": {
+        "complete": "Concluir a cadeia",
+        "next": "Continuar com a próxima spec ({{specTitle}})",
+        "launch": "Lançar {{specTitle}}",
+        "retry": "Tentar {{spec}} de novo",
+        "resume_failed_step": "Retomar {{spec}} a partir do passo que falhou",
+        "retry_from_start": "Tentar {{spec}} de novo desde o início",
+        "resume_run": "Retomar a execução de {{spec}}",
+        "follow_run": "Acompanhar a execução de {{spec}}",
+        "answer_run": "Acompanhar a execução de {{spec}} (aguarda a sua resposta)",
+        "integrate": "Integrar {{spec}} e continuar",
+        "rebuild": "Executar {{spec}} de novo sobre a base atualizada"
+      },
+      "offerHint": {
+        "complete": "Todas as specs estão entregues ou concluídas",
+        "next": "{{paused}} já foi entregue; nada é executado duas vezes",
+        "launch": "Inicia uma nova execução de {{spec}}",
+        "retry": "A última tentativa falhou; volta a executá-la numa nova execução",
+        "resume_failed_step": "Continua a mesma execução; só os passos interrompidos são repetidos",
+        "retry_from_start": "Volta a executar a spec inteira numa nova execução",
+        "resume_run": "A mesma tentativa continua a partir do próximo passo",
+        "follow_run": "Já há uma execução a trabalhar em {{spec}}; a cadeia espera por ela em vez de lançar outra",
+        "answer_run": "A execução aguarda uma resposta ou aprovação; responda a partir da execução",
+        "integrate": "Integra a entrega de {{spec}} no ramo de integração como os rails da cadeia e continua",
+        "rebuild": "A entrega entra em conflito com o que foi integrado depois; uma nova execução parte da base atualizada"
+      },
+      "offerShort": {
+        "complete": "Concluir",
+        "next": "Continuar com {{spec}}",
+        "launch": "Lançar {{spec}}",
+        "retry": "Tentar {{spec}} de novo",
+        "resume_failed_step": "Retomar {{spec}}",
+        "retry_from_start": "Tentar {{spec}} de novo",
+        "resume_run": "Retomar a execução de {{spec}}",
+        "follow_run": "Acompanhar {{spec}}",
+        "answer_run": "Acompanhar {{spec}}",
+        "integrate": "Integrar {{spec}}",
+        "rebuild": "Refazer {{spec}}"
+      },
+      "moreOptions": "Mais opções",
+      "pausedSpecDelivered": "{{paused}} já foi entregue",
+      "nextStep": "Próximo passo: {{step}}",
+      "integrationDetails": {
+        "conflict": "entra em conflito com a base atualizada",
+        "conflict_unresolved": "entra em conflito com a base atualizada e a atualização automática não conseguiu resolvê-lo",
+        "conflict_refresh_limit": "continua em conflito com a base após duas atualizações automáticas",
+        "merge_failed": "o Git não conseguiu mesclá-la"
+      },
+      "held": {
+        "pausedByYou": "Você pausou o Rail {{k}}",
+        "paused": "Rail {{k}} em pausa",
+        "question": "O rail {{k}} aguarda sua resposta",
+        "approval": "O rail {{k}} aguarda sua aprovação",
+        "budget": "Rail {{k}} em pausa pelo limite de gasto",
+        "provider_limit": "Rail {{k}} em pausa pelo limite de uso",
+        "restart": "Rail {{k}} em pausa por um reinício",
+        "interrupted": "Rail {{k}} interrompido",
+        "queued": "O rail {{k}} aguarda capacidade"
+      },
+      "answerRun": "Responder na execução do rail {{k}}",
+      "nextEngine": "Próximo rail: {{engine}}",
+      "nextEngineChanged": "O próximo rail usará a nova configuração: {{engine}}",
+      "engineSource": {
+        "milestone": "A configuração própria deste marco",
+        "usual": "Sua configuração habitual",
+        "launch": "A configuração escolhida ao lançar"
+      },
+      "integrationPhase": {
+        "integrating": "A integrar esta spec antes de lançar a seguinte",
+        "refreshing": "Entra em conflito com o que foi integrado entretanto. A atualizar sobre a nova base",
+        "resolving": "Um agente está a resolver os conflitos com a nova base",
+        "reverifying": "Atualizada sobre a nova base. A verificá-la de novo antes de a integrar"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

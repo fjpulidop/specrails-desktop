@@ -78,10 +78,13 @@
     }
   },
   "proof": {
-    "filesChanged": "{{files}} files changed (+{{added}} / −{{removed}} lines)",
-    "testFilesChanged": "{{count}} test files were changed",
+    "filesChanged_one": "{{files}} file changed (+{{added}} / −{{removed}} lines)",
+    "filesChanged_other": "{{files}} files changed (+{{added}} / −{{removed}} lines)",
+    "testFilesChanged_one": "{{count}} test file was changed",
+    "testFilesChanged_other": "{{count}} test files were changed",
     "noTestFilesChanged": "No test files were changed.",
-    "commitsRecorded": "Work was recorded on {{branches}} branch(es)",
+    "commitsRecorded_one": "Work was recorded on {{branches}} branch",
+    "commitsRecorded_other": "Work was recorded on {{branches}} branches",
     "verificationPassed": "The AI reported its checks passed ({{count}})",
     "verificationFailed": "The AI reported its checks FAILED ({{count}})",
     "noVerificationReported": "The AI did not report any verification.",
@@ -91,11 +94,15 @@
     "reviewerScoreUnavailable": "No reviewer score was produced.",
     "evidenceUnavailable": "evidence unavailable",
     "hostCommandPassed": "The runtime ran {{label}} itself: exit code {{exitCode}} ({{seconds}}s)",
+    "hostStaticCheckPassed": "The runtime ran {{label}} itself, but it only reads file contents and does not run the code: exit code {{exitCode}} ({{seconds}}s)",
     "hostCommandFailed": "The runtime ran {{label}} itself and it FAILED: exit code {{exitCode}} ({{seconds}}s)",
     "acceptanceCheckPassed": "Reviewer check passed: {{name}}",
     "acceptanceCheckFailed": "Reviewer check FAILED: {{name}}",
     "reviewerSummary": "The AI reviewer's summary:",
-    "reviewerFinding": "The AI reviewer noted:"
+    "reviewerFinding": "The AI reviewer noted:",
+    "earlierAttempts_one": "{{count}} earlier run of this check",
+    "earlierAttempts_other": "{{count}} earlier runs of this check",
+    "earlierAttempt": "Failed with exit code {{exitCode}} ({{seconds}} s), before the fix that made it pass"
   },
   "watch": {
     "humanReviewRecommended": "The AI reviewer scored this {{overall}}/100 and recommends a person look at it.",
@@ -128,6 +135,11 @@
   "planned": {
     "title": "Planned approach (from the spec)",
     "caveat": "What the request proposed — not a report of what the AI did. The facts above are what actually changed."
+  },
+  "delivered": {
+    "title": "What changed",
+    "caveat": "From the delivered OpenSpec proposal: written by the agent and checked by the reviewer.",
+    "why": "Why"
   },
   "outcome": {
     "succeeded": "Implemented",
@@ -216,7 +228,8 @@
       "invariantsTouched": "Invariants touched",
       "untested": "Untested paths",
       "humanChecks": "Human checks",
-      "divergences": "Spec divergences"
+      "divergences": "Spec divergences",
+      "reviewNotes": "Reviewer notes, not acted on"
     },
     "userVisible": "Visible to users",
     "invariantStatus": {
@@ -229,7 +242,17 @@
     "dropped_other": "{{count}} brief entries did not match the expected format and were skipped.",
     "topRisk": "Top risk",
     "moreRisks_one": "+{{count}} more",
-    "moreRisks_other": "+{{count}} more"
+    "moreRisks_other": "+{{count}} more",
+    "reviewNotesCaveat": "Findings the reviewer marked as not for this run. No correction round acted on them.",
+    "noteKind": {
+      "advice": "Advice",
+      "out-of-scope": "Out of scope",
+      "host-only-check": "Check by hand",
+      "regenerated-lockfile": "Regenerated lockfile",
+      "frozen-artifact": "Frozen artifact",
+      "withdrawn-criterion": "Withdrawn by you",
+      "other": "Note"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} action",

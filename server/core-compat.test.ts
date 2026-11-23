@@ -1,14 +1,24 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const testOriginalPath = process.env.PATH
-beforeEach(() => { process.env.PATH = '' })
+beforeEach(() => {
+  process.env.PATH = ''
+  _resetGlobalNpmRootForTests()
+  __resetBinaryProbeCacheForTest()
+})
 afterEach(() => { process.env.PATH = testOriginalPath })
 import path from 'path'
 import os from 'os'
 import fs from 'fs'
 
 // Mock child_process before importing the module under test
-vi.mock('child_process', () => ({ execSync: vi.fn() }))
+vi.mock('child_process', () => ({ execSync: vi.fn(), execFile: vi.fn() }))
+// The async probes (binary-probe → util/bounded-exec) route through the same
+// execSync stub, keyed by the shell command, so one mock drives both paths.
+vi.mock('./util/bounded-exec', () => ({
+  // Plain function, resolved at call time against the mocked execSync below.
+  execBounded: async (cmd: string) => String((execSync as unknown as (c: string) => unknown)(cmd) ?? ''),
+}))
 
 import {
   checkCoreCompat,
@@ -16,10 +26,13 @@ import {
   findCoreContract,
   detectCLI,
   detectCLISync,
+  detectAvailableCLIsAsync,
   getCLIStatus,
   EXPECTED_CORE_CONTRACT_SCHEMA_VERSION,
+  _resetGlobalNpmRootForTests,
 } from './core-compat'
-import { execSync } from 'child_process'
+import { __resetBinaryProbeCacheForTest } from './binary-probe'
+import { execFile, execSync } from 'child_process'
 
 // Minimal valid contract matching app constants
 const COMPATIBLE_CONTRACT = {
@@ -171,7 +184,7 @@ describe('checkCoreCompat', () => {
   })
 
   it('keeps schema 5.1 engine metadata informational and preserves the Desktop command surface', async () => {
-    expect(EXPECTED_CORE_CONTRACT_SCHEMA_VERSION).toBe('5.11')
+    expect(EXPECTED_CORE_CONTRACT_SCHEMA_VERSION).toBe('5.17')
     setupContractInTmpDir({ ...COMPATIBLE_CONTRACT, schemaVersion: '5.1', coreVersion: '6.0.1',
       agentRuntime: { engine: { version: 2, nodeKindsVersion: 0 }, nodeKinds: [], builtins: [{ id: 'specrails-implementation', version: '7', deprecated: false }] },
     }, tmpDir)
@@ -365,43 +378,43 @@ describe('getCLIStatus', () => {
     vi.restoreAllMocks()
   })
 
-  it('returns provider and parsed semver version when claude is found', () => {
+  it('returns provider and parsed semver version when claude is found', async () => {
     vi.mocked(execSync).mockImplementation((cmd: any) => {
       const c = String(cmd)
       if (c.includes('which claude') || c.includes('where claude')) return '' as any
       if (c.includes('claude --version')) return 'Claude Code 1.2.3\n' as any
       throw new Error('not found')
     })
-    const result = getCLIStatus()
+    const result = await getCLIStatus()
     expect(result.provider).toBe('claude')
     expect(result.version).toBe('1.2.3')
   })
 
-  it('returns provider and version null when version command fails', () => {
+  it('returns provider and version null when version command fails', async () => {
     vi.mocked(execSync).mockImplementation((cmd: any) => {
       if (String(cmd).includes('which claude') || String(cmd).includes('where claude')) return '' as any
       throw new Error('version cmd failed')
     })
-    const result = getCLIStatus()
+    const result = await getCLIStatus()
     expect(result.provider).toBe('claude')
     expect(result.version).toBeNull()
   })
 
-  it('returns null provider and null version when no CLI found', () => {
+  it('returns null provider and null version when no CLI found', async () => {
     vi.mocked(execSync).mockImplementation(() => { throw new Error('not found') })
-    const result = getCLIStatus()
+    const result = await getCLIStatus()
     expect(result.provider).toBeNull()
     expect(result.version).toBeNull()
   })
 
-  it('returns codex provider when only codex is found', () => {
+  it('returns codex provider when only codex is found', async () => {
     vi.mocked(execSync).mockImplementation((cmd: any) => {
       const c = String(cmd)
       if (c.includes('which codex') || c.includes('where codex')) return '' as any
       if (c.includes('codex --version')) return '0.1.5\n' as any
       throw new Error('not found')
     })
-    const result = getCLIStatus()
+    const result = await getCLIStatus()
     expect(result.provider).toBe('codex')
     expect(result.version).toBe('0.1.5')
   })
@@ -453,5 +466,21 @@ describe('findCoreContract', () => {
       if (previous === undefined) delete process.env.SPECRAILS_BUNDLED_CORE_PATH
       else process.env.SPECRAILS_BUNDLED_CORE_PATH = previous
     }
+  })
+})
+
+describe('detectAvailableCLIsAsync', () => {
+  it('probes every registered binary with a non-blocking `which` and maps the result per provider', async () => {
+    vi.mocked(execSync).mockClear()
+    vi.mocked(execFile).mockImplementation(((_cmd: string, args: string[], _opts: unknown, callback: (error: Error | null) => void) => {
+      setImmediate(() => callback(args[0] === 'claude' ? null : new Error('not found')))
+      return {} as never
+    }) as never)
+    const result = await detectAvailableCLIsAsync()
+    expect(result.claude).toBe(true)
+    expect(result.codex).toBe(false)
+    expect(Object.keys(result)).toEqual(expect.arrayContaining(['claude', 'codex', 'gemini', 'kimi']))
+    expect(vi.mocked(execFile).mock.calls.every(([cmd]) => cmd === (process.platform === 'win32' ? 'where' : 'which'))).toBe(true)
+    expect(execSync).not.toHaveBeenCalled()
   })
 })

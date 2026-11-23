@@ -14,8 +14,8 @@ paths:
 
 ## Express patterns
 
-- All project-scoped routes live in `server/project-router.ts` under `router.<method>('/...')`
-- All app-scoped routes live in `server/desktop-router.ts` under `router.<method>('/...')`
+- Project-scoped routes are composed by `server/project-router.ts` from sub-routers (`server/project-router-*.ts`, module `adapters/http.ts` / `*-router.ts`)
+- App-scoped routes are composed by `server/desktop-router.ts` from `server/desktop-router-*.ts` and module routers
 - Route handlers should be thin — delegate business logic to manager classes
 - Always validate `projectId` existence via `ProjectRegistry` before accessing `ProjectContext`
 
@@ -24,7 +24,7 @@ paths:
 - **Always use parameterized queries** — never string-interpolate user input into SQL
   - Wrong: `` db.prepare(`SELECT * FROM jobs WHERE id = ${id}`) ``
   - Right: `db.prepare('SELECT * FROM jobs WHERE id = ?').get(id)`
-- All DB initialization happens via the `MIGRATIONS` array in `server/db.ts` — add new migrations at the end, never modify existing ones
+- All DB initialization happens via the `MIGRATIONS` array in `server/db/migrations.ts` — add new migrations at the end, never modify existing ones
 - Use `:memory:` in all tests — never use real file paths in tests
 - The `ProjectContext` holds the DB instance — never create `new Database(...)` inside route handlers
 
@@ -43,7 +43,7 @@ paths:
 ## Super mode
 
 - Server runs in Super mode by default — one Express process, multiple projects
-- `ProjectRegistry` loads all `ProjectContext` instances at startup
+- `ProjectRegistry` loads every `ProjectContext` in a background warm-up after `listen` (most recently used first); `getContext(id)` loads a not-yet-warmed project on demand. Code that needs every project at startup waits for `registry.whenWarm()`
 - `~/.specrails/desktop.sqlite` — app-level SQLite (project registry)
 - `~/.specrails/projects/<slug>/jobs.sqlite` — per-project SQLite
 

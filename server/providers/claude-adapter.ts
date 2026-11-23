@@ -6,7 +6,8 @@
 //
 // Spec: openspec/specs/multi-provider-architecture/spec.md
 
-import { execSync } from 'child_process'
+import { safeProviderSessionId } from './session-id'
+import { probeCliBinary } from '../binary-probe'
 import path from 'path'
 import { getOpenSpecRuntimePluginArgs } from '../openspec-runtime-plugin'
 import type {
@@ -18,13 +19,11 @@ import type {
   SpawnOptions,
 } from './types'
 
-const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
-
 const CLAUDE_MODELS = [
   { value: 'sonnet', label: 'Claude Sonnet 5.5', default: true as const },
   { value: 'fable', label: 'Claude Fable 5.2' },
   { value: 'opus', label: 'Claude Opus 5.5' },
-  { value: 'haiku', label: 'Claude Haiku 5.5' },
+  { value: 'haiku', label: 'Claude Haiku 5.5', small: true as const },
 ] as const
 
 /** Mirror of ChatManager.normalizeClaudeCodeModel — pinned model strings the
@@ -107,6 +106,8 @@ const PURE_READ_ONLY_TOOLS = ['Read', 'Grep', 'Glob'] as const
  * web tools keep research available. MCP tools are not built-ins and stay.
  */
 export const MISSION_READ_ONLY_TOOLS = ['Read', 'Grep', 'Glob', 'Agent', 'WebFetch', 'WebSearch'] as const
+/** Claude Code's sub-agent tool (`Task` is its legacy name), the same pair Core's Claude driver removes. */
+const CLAUDE_SUBAGENT_TOOLS = ['Agent', 'Task'] as const
 
 function commonFlagsFor(opts: SpawnOptions): string[] {
   const toolPolicy = opts.toolPolicy ?? 'default'
@@ -117,14 +118,22 @@ function commonFlagsFor(opts: SpawnOptions): string[] {
   // built-in tool that writes files or runs commands exists in the session,
   // and native sub-agents inherit the same restricted set.
   const operatorReadOnly = toolPolicy === 'read-only' && opts.retainMcpTools === true
+  // Sub-agents off: the tool is not offered at all (its definition alone is
+  // ~5.4k characters per request), matching Core's Claude driver. Tools are
+  // fixed per process, and each legacy mission turn is its own process.
+  const noSubagents = opts.nativeSubagents === 'disabled'
+  const operatorTools = noSubagents
+    ? MISSION_READ_ONLY_TOOLS.filter((tool) => !(CLAUDE_SUBAGENT_TOOLS as readonly string[]).includes(tool))
+    : MISSION_READ_ONLY_TOOLS
   const toolArgs = toolPolicy === 'none'
     // Claude silently drops an empty tool list on some versions and falls back
     // to the default toolkit. A non-existent sentinel is the established,
     // tested way this repo disables every tool (see context-scope.ts).
     ? ['--tools', '__none__']
     : toolPolicy === 'read-only'
-      ? ['--tools', (operatorReadOnly ? MISSION_READ_ONLY_TOOLS : PURE_READ_ONLY_TOOLS).join(',')]
-      : ['--tools', 'default']
+      ? ['--tools', (operatorReadOnly ? operatorTools : PURE_READ_ONLY_TOOLS).join(',')]
+      // The full toolkit includes the sub-agent tool: deny it by name instead.
+      : ['--tools', 'default', ...(noSubagents ? ['--disallowedTools', CLAUDE_SUBAGENT_TOOLS.join(',')] : [])]
   return [
     // No approval bypass is necessary when no tool can be invoked. Keeping it
     // off also makes the pure-output boundary fail closed if Claude ever
@@ -174,7 +183,7 @@ function buildClaudeArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       args.push('--model', model)
       args.push(...commonFlags)
       if (opts.systemPrompt) args.push('--system-prompt', opts.systemPrompt)
-      args.push('--resume', opts.sessionId)
+      args.push('--resume', safeProviderSessionId(opts.sessionId, 'claude'))
       args.push('-p', opts.prompt)
       if (opts.maxTurns != null) args.push('--max-turns', String(opts.maxTurns))
       if (opts.extraArgs) args.push(...opts.extraArgs)
@@ -193,7 +202,7 @@ function buildClaudeArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       // When the conversation already has a session (a re-spawn after idle-kill
       // or crash), resume it so the persistent child restores prior context
       // instead of starting a fresh thread. Absent on the very first turn.
-      if (opts.sessionId) args.push('--resume', opts.sessionId)
+      if (opts.sessionId) args.push('--resume', safeProviderSessionId(opts.sessionId, 'claude'))
       args.push('-p')
       args.push('--input-format', 'stream-json')
       if (opts.extraArgs) args.push(...opts.extraArgs)
@@ -223,7 +232,7 @@ function buildClaudeArgs(action: SpawnAction, opts: SpawnOptions): string[] {
     }
     case 'agent-refine': {
       args.push(...commonFlags)
-      if (opts.sessionId) args.push('--resume', opts.sessionId)
+      if (opts.sessionId) args.push('--resume', safeProviderSessionId(opts.sessionId, 'claude'))
       args.push('-p', opts.prompt)
       if (opts.extraArgs) args.push(...opts.extraArgs)
       return args
@@ -238,7 +247,7 @@ function buildClaudeArgs(action: SpawnAction, opts: SpawnOptions): string[] {
       if (!opts.sessionId) {
         throw new Error('setup-enrich-resume requires sessionId')
       }
-      args.push('--resume', opts.sessionId)
+      args.push('--resume', safeProviderSessionId(opts.sessionId, 'claude'))
       args.push(...commonFlags)
       args.push('-p', opts.prompt)
       if (opts.extraArgs) args.push(...opts.extraArgs)
@@ -275,6 +284,14 @@ export type ClaudeUsageEvent = AdapterEvent & {
   usage?: AssistantEventUsage
   messageId?: string
   model?: string
+  /** Set on frames of a sub-agent (Task) conversation; absent on root frames. */
+  parentToolUseId?: string
+}
+
+/** `system` frames with a session id: the init `model`, and the subtype when it is not `init` (e.g. `compact_boundary`). */
+export type ClaudeSystemEvent = Extract<AdapterEvent, { kind: 'session-started' }> & {
+  model?: string
+  systemSubtype?: string
 }
 
 function readNumber(value: unknown): number {
@@ -329,7 +346,14 @@ function parseClaudeStreamLine(line: string): AdapterEvent | null {
     const sid =
       (parsed.session_id as string | undefined) ??
       ((parsed.session as { id?: string } | undefined)?.id ?? undefined)
-    if (sid) return { kind: 'session-started', sessionId: sid }
+    if (sid) {
+      // Context measurement (mission-context-usage.ts) needs the init model and
+      // the compaction marker; both ride on the event only when present.
+      const ev: ClaudeSystemEvent = { kind: 'session-started', sessionId: sid }
+      if (typeof parsed.model === 'string' && parsed.model) ev.model = parsed.model
+      if (typeof parsed.subtype === 'string' && parsed.subtype !== 'init') ev.systemSubtype = parsed.subtype
+      return ev
+    }
     return { kind: 'other', type, raw: parsed }
   }
 
@@ -356,7 +380,13 @@ function parseClaudeStreamLine(line: string): AdapterEvent | null {
       .filter((b) => b.type === 'text')
       .map((b) => b.text ?? '')
       .join('')
-    if (text) return withAssistantUsage({ kind: 'text-delta', text }, msg)
+    // Sub-agent (Task) frames carry the parent tool use id; root frames carry null.
+    const parentToolUseId = typeof parsed.parent_tool_use_id === 'string' && parsed.parent_tool_use_id ? parsed.parent_tool_use_id : undefined
+    const withParent = (ev: AdapterEvent): AdapterEvent => {
+      if (parentToolUseId) (ev as ClaudeUsageEvent).parentToolUseId = parentToolUseId
+      return ev
+    }
+    if (text) return withParent(withAssistantUsage({ kind: 'text-delta', text }, msg))
     // Surface a single tool-use (the historical pattern only emitted one per
     // assistant frame anyway).
     const tool = blocks.find((b) => b.type === 'tool_use')
@@ -364,7 +394,7 @@ function parseClaudeStreamLine(line: string): AdapterEvent | null {
       const input = JSON.stringify(
         (parsed.message as { content?: Array<{ input?: unknown }> })?.content?.[0]?.input ?? {},
       )
-      return withAssistantUsage(
+      return withParent(withAssistantUsage(
         {
           kind: 'tool-use',
           name: tool.name,
@@ -374,7 +404,7 @@ function parseClaudeStreamLine(line: string): AdapterEvent | null {
             : {}),
         },
         msg,
-      )
+      ))
     }
     return withAssistantUsage({ kind: 'other', type, raw: parsed }, msg)
   }
@@ -490,30 +520,16 @@ function extractClaudeResult(events: readonly AdapterEvent[]): NormalisedResult 
 }
 
 async function detectClaudeInstalled(): Promise<DetectionResult> {
-  let installed = false
-  try {
-    execSync(`${WHICH_CMD} claude`, { stdio: 'ignore' })
-    installed = true
-  } catch {
-    return { installed: false, executable: false }
-  }
-
-  // Probe version for executability + reporting.
-  try {
-    const raw = execSync('claude --version', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'],
-      timeout: 3000,
-    }).trim()
-    const match = raw.match(/\d+\.\d+\.\d+[\w.-]*/)
-    return {
-      installed,
-      executable: true,
-      version: match ? match[0] : raw,
-      meetsMinimum: true, // claude has no pinned minimum in this adapter
-    }
-  } catch {
-    return { installed, executable: false }
+  // Shared non-blocking PATH + `--version` probe (binary-probe.ts).
+  const probe = await probeCliBinary('claude', { versionTimeoutMs: 3000 })
+  if (!probe.executable) return probe
+  const raw = probe.versionOutput
+  const match = raw.match(/\d+\.\d+\.\d+[\w.-]*/)
+  return {
+    installed: true,
+    executable: true,
+    version: match ? match[0] : raw,
+    meetsMinimum: true, // claude has no pinned minimum in this adapter
   }
 }
 

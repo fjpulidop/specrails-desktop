@@ -20,6 +20,17 @@ latest attempt within each scope; a successful sibling cannot hide a failed one.
 Trace/span identifiers appear only when present in the recorded event. Core v2
 uses the same stable event-span identity in JSONL and optional OTLP export, so a
 selected attempt's recorded `step_started` span can be located in a collector.
+
+A held run (its job's `hold`: a usage limit, your pause, the budget, a restart, a
+question) stopped on its latest step: that node, its latest attempt and its log
+section read as the hold, in the run window's own words and lamp (`jobStepHold`),
+never as a red failure; earlier failures stay failed. Edge labels name only the
+ways out of a branching step; Core's known outcome ids (`next`, `failed`, `true`,
+`pass`, ...) are translated (`jobs:loopExplorer.graphOutcome.*`), anything else
+reads as words. Each label sits in the gap under its source's rank (a smooth-step
+edge bent there), staggered into lanes when two would share a spot, so a label
+never lands on a node. Below a 48rem container the selected step's panel floats
+over the graph instead of taking its height.
 These are point events, not provider-duration spans. Identifiers do not prove
 that a collector was configured or accepted the export. Malformed
 topology is ignored without interrupting the normal log view. Legacy snapshots
@@ -38,7 +49,7 @@ does not qualify. Parallel scoped verdicts stay separate and do not acquire an
 invented aggregate confidence score. AI review never replaces host verification,
 and a file-based confidence score retains precedence over the runtime projection.
 
-Emitted by `server/modules/loops/runtime/loop-run-manager.ts` (payload interfaces are exported there — `LoopStepEventPayload`, `LoopStepEndEventPayload`, `LoopGraphEventPayload`). All three ride the run's job row as ordinary persisted `events` rows plus `event` WS broadcasts (`event_type` below, `payload` = JSON of the interface). Purely additive to the existing stream — no DB migration.
+Emitted by `server/modules/loops/runtime/loop-run-events.ts` on behalf of `LoopRunManager` (payload interfaces live in `loop-run-contract.ts` and are re-exported by `loop-run-manager.ts` — `LoopStepEventPayload`, `LoopStepEndEventPayload`, `LoopGraphEventPayload`). All three ride the run's job row as ordinary persisted `events` rows plus `event` WS broadcasts (`event_type` below, `payload` = JSON of the interface). Purely additive to the existing stream — no DB migration.
 
 ### `loop_graph` — once, at run start
 
@@ -97,7 +108,7 @@ A step torn down by manager shutdown / project removal (disposed, never settles)
 
 ### Seq guarantees
 
-The run owns a single monotonic seq allocator (`takeSeq` in `runLoop`), **shared with an interactive step session** that persists its own provider events/logs on the same job id:
+The run owns a single monotonic seq allocator (`takeSeq` from `createLoopRunEvents`), **shared with an interactive step session** that persists its own provider events/logs on the same job id:
 
 - `loop_graph` precedes the first `loop_step`.
 - Each `loop_step_end` is appended **after its step's last persisted output line** — every emit site sits past the step's settle `await`, and the interactive session takes its seqs from the same allocator synchronously as it streams, so the end event's seq is always greater.
@@ -128,6 +139,23 @@ The engine also still emits the flat-log divider line per step (`━━━━━
 **Interrupted rule.** The contract says an end event may only be missing when the step was torn down mid-flight (dispose/shutdown/project removal), so *missing end + settled run* renders the dashed amber **Interrupted** treatment on both the step box and its overview chip.
 
 **Legacy caveat (accepted v1).** Completed runs recorded **before** the enrichment have no `loop_step_end` rows at all, so their *final* step renders as Interrupted even though the run finished normally (mid-run steps are `unknown` → shown as done). Accepted for v1 — enriching historical rows was judged not worth a backfill.
+
+## Two views: graph and detail
+
+The **Log** tab of a loop job has two sections, chosen beside the tabs in the single navigation row
+(status · *Failure reasons* / *Log* · *Execution graph* / *Log detail* · actions):
+
+- **Execution graph** (`LoopStepExplorer view="graph"`): the outcome on one line and the run's graph,
+  always expanded and filling the window (no disclosure). The view follows the step that matters
+  (running, else failed, else the last that ran) until the person pans or zooms; *Follow run* and
+  *Fit all* return to either view; the legend sits inside the canvas. Picking an attempt opens its
+  log in Log detail (`RunDetailNavigation.showStep`). Runs without Core topology show the overview
+  strip instead.
+- **Log detail** (`LoopRunDetail`): *Steps* (the filter bar, the overview strip and the step-grouped
+  log, `view="detail"`), *Story* and the raw *Log*. *Open logs at the failure* lands here.
+
+Details under the header only show what a run recorded: no empty metric tiles, no evidence panel
+without an efficiency summary, no instructions panel for a finished run that never had any.
 
 ## Overview strip (`LoopOverviewStrip.tsx`)
 
@@ -196,7 +224,8 @@ All explorer strings live under the `jobs` namespace, `loopExplorer.*` (16 keys 
 
 | File | Role |
 |---|---|
-| `server/modules/loops/runtime/loop-run-manager.ts` | Event emission (`emitStep` / `emitStepEnd` / `loop_graph`), exported payload types, seq allocator |
+| `server/modules/loops/runtime/loop-run-events.ts` | Event emission (`emitStep` / `emitStepEnd` / `emitRunEvent`) and the run's seq allocator; `loop_graph` is written by `loop-run-launch.ts` |
+| `server/modules/loops/runtime/loop-run-contract.ts` | Payload types, re-exported by `loop-run-manager.ts` |
 | `client/src/features/loops/components/loop-log/loop-log-model.ts` | Pure grouping/status/chip model |
 | `client/src/features/loops/components/loop-log/LoopStepExplorer.tsx` | Container: follow mode, filter, copy, toolbar |
 | `client/src/features/loops/components/loop-log/LoopOverviewStrip.tsx` | Live chip strip + iteration counter |
@@ -209,7 +238,15 @@ All explorer strings live under the `jobs` namespace, `loopExplorer.*` (16 keys 
 Recorded v2 attempts expose **Repeat from here**, including internal component
 nodes. The request carries the node path, scope and visit; Core rejects ambiguous
 cuts. A stable request ID survives lost responses through the recovery endpoint.
-The linked child opens in the same project and starts paused for an explicit
-resume. Its original frozen inputs, worktree and delivery settlement are retained.
+The linked child opens in the same project and the fork route resumes it at once
+(`resumeDefinitionRunFromStop`: probe, then resume authorizing every recoverable
+attempt), so nobody has to open it and press Resume. The response reports
+`resumed`; when the automatic resume is refused (`resumeError`, `resumeDetail`)
+the child stays paused and the explorer says so. Its original frozen inputs,
+worktree and delivery settlement are retained. Before settling a fork the host
+retires the source's superseded OpenSpec change (`retireSupersededForkChanges`):
+never the settled run's own change (truncated fork names collide after two
+forks), and always by moving it into `<git dir>/specrails/retired-openspec-changes/`,
+never by deleting it.
 The source remains historical; its resume/cancel/settlement effects are fenced once
 ownership moves. The engine does not roll back working-tree files automatically.

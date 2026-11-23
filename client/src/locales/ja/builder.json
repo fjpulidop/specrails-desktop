@@ -267,6 +267,7 @@
       "planned": "計画済み",
       "committed": "起動可能",
       "running": "進行中",
+      "paused": "一時停止",
       "delivered": "納品済み — レビュー待ち",
       "done": "完了"
     },
@@ -286,7 +287,35 @@
       "running": "実行中 · {{elapsed}}",
       "review": "レビュー",
       "open": "レールを開く",
-      "noDelivery": "まだ納品なし"
+      "noDelivery": "まだ納品なし",
+      "held": {
+        "pausedByYou": "あなたが一時停止",
+        "paused": "一時停止中",
+        "question": "あなたの回答待ち",
+        "approval": "あなたの承認待ち",
+        "budget": "支出上限で一時停止",
+        "provider_limit": "利用上限で一時停止",
+        "restart": "再起動で一時停止",
+        "interrupted": "中断",
+        "queued": "空き待ち"
+      },
+      "heldHint": {
+        "pausedByYou": "この実行はあなたが一時停止しました。再開するまで何も実行されません",
+        "paused": "実行は一時停止中です。実行画面から再開してください",
+        "question": "実行が質問しています。実行画面から回答してください",
+        "approval": "実行があなたの承認を待っています。実行画面で判断してください",
+        "budget": "実行が支出上限に達しました。上限を上げるか実行画面から再開してください",
+        "provider_limit": "プロバイダーが利用上限で拒否しました。上限がリセットされると再開します",
+        "restart": "実行中にアプリが再起動しました。止まった所から続行します",
+        "interrupted": "ステップが中断されました。実行画面から再開してください",
+        "queued": "起動済み。空きが出ると自動で開始します"
+      },
+      "ranFor": "停止までに {{elapsed}} 実行",
+      "resume": "再開",
+      "answer": "回答",
+      "resumed": "実行を再開しました",
+      "resumeFailed": "実行を再開できませんでした",
+      "engine": "{{engine}} で実行"
     },
     "chain": {
       "title": "順次チェーン",
@@ -294,10 +323,14 @@
       "progress": "レール {{k}}/{{n}}",
       "waiting": "レール {{k}} の完了を待機中",
       "stackedOn": "次のレールは {{branch}} を基に構築",
-      "paused": "一時停止 — {{reason}}",
+      "paused": "一時停止：{{reason}}",
       "completed": "すべてのレールを起動済み",
       "cancelled": "チェーンはキャンセルされました",
       "resume": "再開",
+      "resumeFromFailedStep": "失敗したステップから",
+      "resumeFromFailedStepHint": "同じ実行を続けます。中断したステップだけを再実行します",
+      "resumeFromStart": "最初から",
+      "resumeFromStartHint": "新しい実行で spec 全体をやり直します",
       "cancel": "チェーンをキャンセル",
       "resumed": "チェーンを再開しました",
       "resumeFailed": "チェーンを再開できませんでした",
@@ -312,8 +345,8 @@
         "run_lost": "再起動後に実行中のレールが見つかりません",
         "unknown": "一時停止",
         "provider_limit": "プロバイダーの利用上限に達しました",
-        "rail_limit_reached": "すべてのレールに判断待ちの PR があります — 保留中の PR をマージまたは破棄してレールを空けてから再開してください",
-        "integration_failed": "スペックの統合に失敗しました（{{detail}}）。再開すると統合を再試行します"
+        "rail_limit_reached": "すべてのレールに判断待ちの PR があります。保留中の PR をマージまたは破棄してレールを空けてから再開してください",
+        "integration_failed": "スペックの統合に失敗しました（{{detail}}）"
       },
       "checkpoint": "レール {{k}}/{{n}} を納品 — レール {{next}} を起動しますか？",
       "launchNext": "次のレールを起動",
@@ -325,8 +358,80 @@
       "autoOn": "自動続行オン — 次のレールは自動で起動します",
       "autoOff": "自動続行オフ — 各レールの前に確認します",
       "autoFailed": "チェーンを更新できませんでした",
-      "integrating": "次を起動する前にこのスペックを統合中",
-      "cancelFailed": "チェーンをキャンセルできませんでした"
+      "cancelFailed": "チェーンをキャンセルできませんでした",
+      "offer": {
+        "complete": "チェーンを完了する",
+        "next": "次のスペックに進む（{{specTitle}}）",
+        "launch": "{{specTitle}} を開始",
+        "retry": "{{spec}} を再試行",
+        "resume_failed_step": "{{spec}} を失敗したステップから再開",
+        "retry_from_start": "{{spec}} を最初から再試行",
+        "resume_run": "{{spec}} の実行を再開",
+        "follow_run": "{{spec}} の実行を追う",
+        "answer_run": "{{spec}} の実行を追う（あなたの回答待ち）",
+        "integrate": "{{spec}} を統合して続行",
+        "rebuild": "更新されたベースで {{spec}} を再実行"
+      },
+      "offerHint": {
+        "complete": "すべてのスペックが納品済みまたは完了です",
+        "next": "{{paused}} はすでに納品済みです。二重に実行されることはありません",
+        "launch": "{{spec}} の新しい実行を開始します",
+        "retry": "前回の試行は失敗しました。新しい実行でもう一度実行します",
+        "resume_failed_step": "同じ実行を続行し、中断されたステップだけを再実行します",
+        "retry_from_start": "スペック全体を新しい実行で再実行します",
+        "resume_run": "同じ試行が次のステップから続行します",
+        "follow_run": "{{spec}} ではすでに実行が進行中です。チェーンは別の実行を始めずにそれを待ちます",
+        "answer_run": "実行が回答または承認を待っています。実行画面から応答してください",
+        "integrate": "{{spec}} の納品をチェーン自身のレールと同様に統合ブランチへマージしてから続行します",
+        "rebuild": "納品がその後に統合された内容と競合しています。新しい実行は更新されたベースから始まります"
+      },
+      "offerShort": {
+        "complete": "完了",
+        "next": "{{spec}} に進む",
+        "launch": "{{spec}} を開始",
+        "retry": "{{spec}} を再試行",
+        "resume_failed_step": "{{spec}} を再開",
+        "retry_from_start": "{{spec}} を再試行",
+        "resume_run": "{{spec}} の実行を再開",
+        "follow_run": "{{spec}} を追う",
+        "answer_run": "{{spec}} を追う",
+        "integrate": "{{spec}} を統合",
+        "rebuild": "{{spec}} を作り直す"
+      },
+      "moreOptions": "その他のオプション",
+      "pausedSpecDelivered": "{{paused}} はすでに納品済みです",
+      "nextStep": "次: {{step}}",
+      "integrationDetails": {
+        "conflict": "更新されたベースと競合しています",
+        "conflict_unresolved": "更新されたベースと競合し、自動更新では解決できませんでした",
+        "conflict_refresh_limit": "2回の自動更新後もベースと競合しています",
+        "merge_failed": "Git がマージできませんでした"
+      },
+      "held": {
+        "pausedByYou": "Rail {{k}} をあなたが一時停止しました",
+        "paused": "Rail {{k}} 一時停止中",
+        "question": "Rail {{k}} はあなたの回答待ち",
+        "approval": "Rail {{k}} はあなたの承認待ち",
+        "budget": "Rail {{k}} 支出上限で一時停止",
+        "provider_limit": "Rail {{k}} 利用上限で一時停止",
+        "restart": "Rail {{k}} 再起動で一時停止",
+        "interrupted": "Rail {{k}} 中断",
+        "queued": "Rail {{k}} は空き待ち"
+      },
+      "answerRun": "Rail {{k}} の実行で回答",
+      "nextEngine": "次の Rail：{{engine}}",
+      "nextEngineChanged": "次の Rail は新しい設定を使います：{{engine}}",
+      "engineSource": {
+        "milestone": "このマイルストーン専用の設定",
+        "usual": "通常の設定",
+        "launch": "起動時に選んだ設定"
+      },
+      "integrationPhase": {
+        "integrating": "次を起動する前にこのスペックを統合しています",
+        "refreshing": "その後に統合された内容と競合しています。新しいベースで更新しています",
+        "resolving": "エージェントが新しいベースとの競合を解決しています",
+        "reverifying": "新しいベースで更新しました。統合する前にもう一度検証しています"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

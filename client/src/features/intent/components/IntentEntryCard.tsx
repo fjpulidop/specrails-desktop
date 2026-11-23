@@ -10,8 +10,9 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
-import { AlertTriangle, FileText, GitBranch, Loader2, Play, ShieldCheck, Waves } from 'lucide-react'
+import { FileText, GitBranch, Loader2, Play, ShieldCheck, Waves } from 'lucide-react'
 import { Skeleton } from '../../../components/ui/skeleton'
+import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
 import { cn } from '../../../lib/utils'
 import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { useFlowAvailability, useFlowContext } from '../context/IntentContext'
@@ -244,7 +245,7 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
         )}
         {blockReason && (
           <div role="note" data-testid="flow-entry-blocked" className="rounded-lg border border-accent-warning/35 bg-accent-warning/10 px-2.5 py-2 text-body text-accent-warning">
-            <p id={blockReasonId} className="flex items-center gap-1.5 font-medium"><AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />{blockReason}</p>
+            <p id={blockReasonId} className="flex items-center gap-1.5 font-medium"><RunStateGlyph state="blocked" size="sm" />{blockReason}</p>
             {blockedByOpenFlow && openFlowId && (
               <button type="button" data-agent-interactive data-testid="flow-entry-open-flow" onClick={() => focusFlowBar(openFlowId)}
                 className="mt-1 inline-flex items-center gap-1 rounded pl-5 text-label text-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-intent/50">

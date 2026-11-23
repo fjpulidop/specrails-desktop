@@ -15,7 +15,7 @@ else reuses the ordinary project, spec and rail machinery.
 | The bundled sample repository and its three specs in 8 locales (embedded source text, no Tauri resource) | [catalog.ts](catalog.ts) |
 | Disk / `git init` + commit / ticket store / settings adapters | [adapters/runtime.ts](adapters/runtime.ts) |
 | Providers as the preset chooser sees them (detection snapshot + rate card) | [adapters/providers.ts](adapters/providers.ts) |
-| Routes; composition of the project registry port | [adapters/http.ts](adapters/http.ts), [desktop-router.ts](../../desktop-router.ts) |
+| Routes; composition of the project registry port | [adapters/http.ts](adapters/http.ts), [desktop-router-projects.ts](../../desktop-router-projects.ts) |
 
 ## API
 

@@ -26,6 +26,18 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/ticket-watcher.ts](runtime/ticket-watcher.ts)
 - [runtime/triage.ts](runtime/triage.ts)
 
+## Ticket HTTP routes
+
+Ticket routes are registered on the project router by
+[`project-router-tickets.ts`](../../project-router-tickets.ts), which only fixes
+registration order (repository-scope middleware first, trash before
+`/tickets/:id`). Each sub-resource lives in a sibling `project-router-tickets-*.ts`
+file: `crud` (list/board, read, create, PATCH, soft delete), `trash`, `authoring`
+(generate-spec, from-prompt), `drafts` (save-as-draft, from-draft), `ai-actions`
+(triage, contract refine, SMASH and undo, delete children), `addenda` (plus the
+timeline/hand-off routes), `ai-edit`, `attachments`, and `shared` (scope
+validation, ticket-id guards, ticket-bound provider resolution, Jira promotion).
+
 ## Spec generation
 
 [`runtime/spec-generation.ts`](runtime/spec-generation.ts) is the use case behind

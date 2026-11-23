@@ -2,10 +2,14 @@ import { Trans, useTranslation } from 'react-i18next'
 import type { ByProviderEntry, SpendingResponse } from '../types/spending'
 import { formatUsd } from '../lib/format'
 import { Skeleton } from '../../../components/ui/skeleton'
+import { InfoHint } from './InfoHint'
 
 interface Props {
   data: SpendingResponse | null
   loading: boolean
+  /** Providers configured (and not known unavailable) for the project. When
+   *  given, a provider outside it only shows if it has activity in the window. */
+  configuredProviders?: readonly string[]
 }
 
 const PROVIDER_LABEL: Record<string, string> = {
@@ -34,25 +38,29 @@ function providerAccent(id: string): string {
   return PROVIDER_ACCENT[id] ?? 'bg-accent-secondary'
 }
 
-export function ProviderBreakdownCard({ data, loading }: Props) {
+export function ProviderBreakdownCard({ data, loading, configuredProviders }: Props) {
   const { t } = useTranslation('analytics')
   if (loading && !data) {
     return <Skeleton className="h-32" />
   }
-  if (!data || data.byProvider.length === 0) {
+  // Never an empty row for a provider the project no longer has configured;
+  // one with activity in the window still shows so the totals reconcile.
+  const providers = (data?.byProvider ?? []).filter((p) =>
+    !configuredProviders || configuredProviders.includes(p.provider) || p.count > 0)
+  if (!data || providers.length === 0) {
     // Single-provider projects (or empty datasets) skip this widget — the
     // Hero already shows the totals, and adding "1 provider: claude" is
     // visual noise.
     return null
   }
   // Don't render the card on projects that only ever invoke one provider.
-  if (data.byProvider.length === 1) return null
+  if (providers.length === 1) return null
 
-  const total = data.byProvider.reduce(
+  const total = providers.reduce(
     (acc, p) => acc + p.costUsd + p.estimatedCostUsd,
     0,
   )
-  const hasUnpriced = data.byProvider.some((p) => {
+  const hasUnpriced = providers.some((p) => {
     if (typeof p.unpricedCount === 'number') return p.unpricedCount > 0
     // Legacy-server fallback: before exact coverage counters existed, a
     // provider with runs and no authoritative/estimated value was the only
@@ -63,29 +71,27 @@ export function ProviderBreakdownCard({ data, loading }: Props) {
   return (
     <div className="rounded-xl border border-border/50 bg-card/40 p-4">
       <div className="flex items-baseline justify-between mb-3">
-        <div>
-          <div className="text-caption text-muted-foreground">
-            {t('providerCard.title')}
-          </div>
-          <div className="text-xs text-muted-foreground mt-0.5">
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-title">{t('providerCard.title')}</h2>
+          <InfoHint>
             <Trans
               ns="analytics"
               i18nKey="providerCard.description"
               components={{ tilde: <span className="font-medium" /> }}
             />
-          </div>
+          </InfoHint>
         </div>
       </div>
 
       {total === 0 && (
-        <div className="text-xs text-muted-foreground">
-          {hasUnpriced ? t('providerCard.costUnavailableTooltip') : t('providerCard.noCost')}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          {hasUnpriced ? <>{t('providerCard.costUnavailable')}<InfoHint>{t('providerCard.costUnavailableTooltip')}</InfoHint></> : t('providerCard.noCost')}
         </div>
       )}
       {total > 0 && (
         <>
           <div className="h-2 w-full rounded-full overflow-hidden bg-background-deep flex mb-3">
-            {data.byProvider.map((p) => {
+            {providers.map((p) => {
               const sum = p.costUsd + p.estimatedCostUsd
               const pct = total > 0 ? (sum / total) * 100 : 0
               if (pct === 0) return null
@@ -106,7 +112,7 @@ export function ProviderBreakdownCard({ data, loading }: Props) {
         </>
       )}
       <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 ${total > 0 ? '' : 'mt-3'}`}>
-        {data.byProvider.map((p) => (
+        {providers.map((p) => (
           <ProviderRow key={p.provider} entry={p} />
         ))}
       </div>

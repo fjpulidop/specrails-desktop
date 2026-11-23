@@ -50,7 +50,8 @@
       "reopen": "Réouverture…",
       "merge-local": "Intégration locale…",
       "recover-and-retry": "Création du commit et nouvelle tentative d’envoi du résultat préservé…",
-      "acknowledge-no-changes": "Marquage comme terminé…"
+      "acknowledge-no-changes": "Marquage comme terminé…",
+      "refresh-on-base": "Mise à jour sur la nouvelle base…"
     },
     "markDone": "Marquer comme terminées",
     "refine": "Affiner",
@@ -83,9 +84,6 @@
     "cleanupIncomplete_other": "Nettoyage incomplet ({{count}} avertissements)",
     "cleanupIncompleteHint": "Les données de récupération locales ont été conservées. Examinez ces détails avant toute suppression manuelle.",
     "copyCleanupDetails": "Copier les détails de récupération",
-    "safetyArchiveTitle": "Archive de sécurité ({{count}})",
-    "safetyArchiveHint": "Des fichiers temporaires de l’espace de travail ont été conservés hors de la PR par précaution. Vous pouvez les examiner ou les supprimer manuellement.",
-    "copySafetyArchive": "Copier les chemins",
     "unit": {
       "failed": "échec de l’implémentation",
       "blocked": "livraison bloquée",
@@ -101,9 +99,9 @@
     "iteratingPr": "Mise à jour de la PR",
     "prReady": "PR prête",
     "implementationFailed": "Échec de l’implémentation",
-    "implementationFailedHint": "Le run d’implémentation a échoué. Ouvrez le journal du run, puis abandonnez cette carte avant de relancer.",
+    "implementationFailedHint": "Le run s’est arrêté avant d’avoir quoi que ce soit à livrer. Ouvrez son journal pour voir pourquoi.",
     "runStopped": "Arrêtée",
-    "runStoppedHint": "Vous avez arrêté cette exécution avant toute livraison. Relancez-la quand vous voulez continuer, ou abandonnez cette carte.",
+    "runStoppedHint": "Vous avez arrêté cette exécution avant sa livraison. Continuer la reprend là où elle s'est arrêtée, ou supprimez cette carte.",
     "prFailed": "PR en échec",
     "prFailedDetail": "PR en échec",
     "createDegraded": "Impossible de publier la PR — {{detail}}. Réessayez une fois le problème résolu.",
@@ -156,9 +154,10 @@
     "actionFailed": "Impossible d'appliquer la décision de la PR",
     "mergedToast": "PR fusionnée — specs passées en Terminé",
     "discardedToast": "PR abandonnée — specs renvoyées vers Specs",
-    "decisionPending": "Ce rail a une décision de PR en attente — créez, publiez ou abandonnez-la avant de relancer",
+    "decisionPendingOnRail": "Le rail {{rail}} a une livraison qui attend ta revue",
+    "decisionPendingAction": "Examine-la d'abord (crée sa PR, approuve-la ou rejette-la), ou lance ces specs sur un autre rail.",
     "discardConfirmTitle": "Abandonner cette livraison ?",
-    "discardConfirmBody": "La PR sera fermée sans supprimer sa branche distante. Seuls les branches locales et les worktrees appartenant à SpecRails et toujours positionnés sur leur commit enregistré seront supprimés ; tout élément modifié sera conservé avec un avertissement. Les specs retourneront dans le backlog Specs. Les ressources locales supprimées ne peuvent pas être récupérées.",
+    "discardConfirmBody": "La PR sera fermée sans supprimer sa branche distante. Seuls les branches locales et les worktrees appartenant à Specrails et toujours positionnés sur leur commit enregistré seront supprimés ; tout élément modifié sera conservé avec un avertissement. Les specs retourneront dans le backlog Specs. Les ressources locales supprimées ne peuvent pas être récupérées.",
     "implementationFailedDiscardTitle": "Abandonner cette livraison en échec ?",
     "implementationFailedDiscardBody": "La carte sera fermée et ses specs retourneront vers Specs. Le travail local et les branches seront conservés pour inspection. Seules les ressources dont le nettoyage est prouvé sûr pourront être supprimées.",
     "mergeLocal": "Intégrer en local",
@@ -184,10 +183,13 @@
     "relaunchSent": "Relance du rail",
     "relaunchFailed": "Impossible de relancer le rail",
     "recheckRecoveryConfirmTechnical": "Specrails réanalysera dans ce clone le worktree, la branche, les refs, les reflogs et les objets Git orphelins appartenant à la livraison de {{branch}}. S’il prouve un résultat unique, il pourra committer les changements isolés et retenter le push exact. Le dossier principal du projet ne sera pas touché.",
-    "fixCi": "Corriger CI / Conflits",
+    "fixCi": "Corriger CI / conflits",
     "fixCiTooltip": "Attendre les checks, corriger les échecs et les conflits et pousser dans cette PR jusqu’à ce qu’elle soit verte",
     "fixCiStarted": "Surveillance de la CI démarrée",
-    "fixCiFailed": "La boucle de CI n’a pas pu démarrer"
+    "fixCiFailed": "La boucle de CI n’a pas pu démarrer",
+    "continue": "Continuer",
+    "continueHint": "Garde tout et reprend là où l'exécution a échoué ou s'est arrêtée, dans le même worktree.",
+    "implementationFailedDiscardTooltip": "Ferme cette carte et renvoie ses specs vers Specs. Le journal du run reste disponible."
   },
   "railsBoard": {
     "title": "Rails",
@@ -199,6 +201,14 @@
     "summary": {
       "running_one": "{{count}} en cours",
       "running_other": "{{count}} en cours",
+      "needsInput_one": "{{count}} vous attend",
+      "needsInput_other": "{{count}} vous attendent",
+      "blocked_one": "{{count}} bloqué",
+      "blocked_other": "{{count}} bloqués",
+      "paused_one": "{{count}} en pause",
+      "paused_other": "{{count}} en pause",
+      "waiting_one": "{{count}} en attente de démarrage",
+      "waiting_other": "{{count}} en attente de démarrage",
       "ready_one": "{{count}} prêt",
       "ready_other": "{{count}} prêts",
       "failed_one": "{{count}} en échec",
@@ -266,6 +276,7 @@
     "worktreesNeedsReview": "{{count}} à vérifier",
     "execSteps": "{{count}} étapes",
     "execLines": "{{count}} lignes",
+    "execHeld": "en attente",
     "recommended": "Recommandé",
     "recommendedOption": "{{label}} · recommandé",
     "loopDescriptions": {
@@ -282,7 +293,8 @@
     "status": {
       "idle": "Inactif",
       "running": "En cours",
-      "failed": "Échec"
+      "failed": "Échec",
+      "paused": "En pause"
     },
     "deleteMenuItem": "Supprimer le rail",
     "deleteConfirm": {
@@ -334,5 +346,45 @@
   "board": {
     "pageTitle": "{{project}} : tableau",
     "pageTitleBare": "Tableau"
+  },
+  "mergePreview": {
+    "conflictsWithBase_one": "Conflit avec {{base}} dans {{files}}",
+    "conflictsWithBase_other": "Conflit avec {{base}} dans {{count}} fichiers : {{files}}",
+    "collidesWithRail": "Entre en collision avec le Rail {{rail}} dans {{files}}",
+    "alreadyMerged": "Déjà dans {{base}}",
+    "clean": "Se fusionne proprement dans {{base}} tel qu’il est maintenant",
+    "unknown": "Aperçu de fusion indisponible (Git 2.38 ou plus récent requis, ou une référence n’existe plus)",
+    "baseMoved_one": "{{base}} a avancé de {{count}} commit depuis la création de cette branche",
+    "baseMoved_other": "{{base}} a avancé de {{count}} commits depuis la création de cette branche",
+    "moreFiles": "+{{count}} de plus",
+    "title": "Aperçu de fusion"
+  },
+  "safetyArchive": {
+    "title_one": "{{count}} fichier a été conservé hors de la PR",
+    "title_other": "{{count}} fichiers ont été conservés hors de la PR",
+    "hint": "Specrails n'a pas pu confirmer qu'ils venaient de lui : il les a mis de côté au lieu de les supprimer.",
+    "toastHint": "Vérifiez-les ou supprimez-les depuis Détails.",
+    "delete": "Supprimer",
+    "dismiss": "Ignorer",
+    "details": "Détails",
+    "close": "Fermer",
+    "copyPath": "Copier le chemin",
+    "copied": "Copié",
+    "revealFinder": "Afficher dans le Finder",
+    "revealFolder": "Afficher dans le dossier",
+    "filesLabel": "Fichiers conservés",
+    "link": "lien",
+    "moreFiles_one": "et {{count}} autre fichier",
+    "moreFiles_other": "et {{count}} autres fichiers",
+    "confirmTitle_one": "Supprimer {{count}} fichier conservé ?",
+    "confirmTitle_other": "Supprimer {{count}} fichiers conservés ?",
+    "confirmDescription_one": "Le dossier {{folder}} ({{count}} fichier, {{size}}) sera supprimé. Action irréversible.",
+    "confirmDescription_other": "Le dossier {{folder}} ({{count}} fichiers, {{size}}) sera supprimé. Action irréversible.",
+    "confirmDescriptionMany_one": "{{folders}} dossiers contenant {{count}} fichier ({{size}}) seront supprimés. Action irréversible.",
+    "confirmDescriptionMany_other": "{{folders}} dossiers contenant {{count}} fichiers ({{size}}) seront supprimés. Action irréversible.",
+    "deleteFailed_one": "{{count}} dossier n'a pas pu être supprimé.",
+    "deleteFailed_other": "{{count}} dossiers n'ont pas pu être supprimés.",
+    "goneTitle": "Plus rien à vérifier",
+    "gone": "Ces fichiers ont déjà été supprimés ou ignorés."
   }
 }

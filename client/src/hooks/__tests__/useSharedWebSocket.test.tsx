@@ -55,9 +55,9 @@ class MockWebSocket {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeWrapper(url = 'ws://localhost:4200') {
+function makeWrapper(url = 'ws://localhost:4200', random?: () => number) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return React.createElement(SharedWebSocketProvider, { url }, children)
+    return React.createElement(SharedWebSocketProvider, { url, random }, children)
   }
 }
 
@@ -251,5 +251,38 @@ describe('useSharedWebSocket', () => {
     act(() => { MockWebSocket.lastInstance?.triggerMessage({ type: 'test' }) })
 
     expect(handler).not.toHaveBeenCalled()
+  })
+  it('reconnect schedule is jittered by the injected random source (up to 20 % shorter)', async () => {
+    // A fixed 0.5 draw: 10 % shorter steps — 900, 1800, 3600, 7200, 14400, then the capped 27000.
+    renderHook(() => useSharedWebSocket(), { wrapper: makeWrapper('ws://localhost:4200', () => 0.5) })
+    for (const delay of [900, 1800, 3600, 7200, 14400, 27000, 27000]) {
+      act(() => { MockWebSocket.lastInstance!.triggerClose() })
+      const before = MockWebSocket.instances.length
+      await act(async () => { await vi.advanceTimersByTimeAsync(delay - 1) })
+      expect(MockWebSocket.instances).toHaveLength(before)
+      await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+      expect(MockWebSocket.instances).toHaveLength(before + 1)
+    }
+  })
+
+  it('two windows with different jitter draws do not reconnect in lockstep', async () => {
+    renderHook(() => useSharedWebSocket(), { wrapper: makeWrapper('ws://a', () => 0) })
+    renderHook(() => useSharedWebSocket(), { wrapper: makeWrapper('ws://b', () => 0.999) })
+    const [a, b] = MockWebSocket.instances
+    act(() => { a.triggerClose(); b.triggerClose() })
+    await act(async () => { await vi.advanceTimersByTimeAsync(801) })
+    expect(MockWebSocket.instances.map(ws => ws.url)).toEqual(['ws://a', 'ws://b', 'ws://b'])
+    await act(async () => { await vi.advanceTimersByTimeAsync(199) })
+    expect(MockWebSocket.instances.map(ws => ws.url)).toEqual(['ws://a', 'ws://b', 'ws://b', 'ws://a'])
+  })
+
+  it('still reconnects when the token refresh fails transiently', async () => {
+    vi.mocked(refreshDesktopToken).mockRejectedValueOnce(new Error('temporarily unavailable'))
+    const { result } = renderHook(() => useSharedWebSocket(), { wrapper: makeWrapper('ws://localhost:4200', () => 0) })
+    act(() => { MockWebSocket.lastInstance!.triggerClose() })
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+    expect(MockWebSocket.instances).toHaveLength(2)
+    act(() => { MockWebSocket.lastInstance!.triggerOpen() })
+    expect(result.current.connectionStatus).toBe('connected')
   })
 })

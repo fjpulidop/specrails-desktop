@@ -11,8 +11,9 @@ vi.mock('./core-compat', async (importActual) => {
   return {
     ...actual,
     checkCoreCompat: vi.fn().mockResolvedValue({ compatible: true, contractFound: false }),
-    getCLIStatus: vi.fn().mockReturnValue({ provider: 'claude', version: '1.2.3' }),
+    getCLIStatus: vi.fn().mockResolvedValue({ provider: 'claude', version: '1.2.3' }),
     detectAvailableCLIs: vi.fn().mockReturnValue({ claude: true, codex: false, gemini: false }),
+    detectAvailableCLIsAsync: vi.fn().mockResolvedValue({ claude: true, codex: false, gemini: false }),
   }
 })
 
@@ -43,8 +44,10 @@ vi.mock('./specrails-tech-client', () => ({
   createSpecrailsTechClient: vi.fn(() => mockSpecrailsTechClient),
 }))
 
-import { createDesktopRouter } from './desktop-router'
-import { checkCoreCompat, detectAvailableCLIs } from './core-compat'
+import { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
+import { createDesktopRouter, _resetAvailableProvidersCacheForTests, AVAILABLE_PROVIDERS_TTL_MS } from './desktop-router'
+import { displayPath } from './desktop-router-settings'
+import { checkCoreCompat, detectAvailableCLIsAsync } from './core-compat'
 import { kimiAdapter } from './providers'
 import { initDesktopDb, addProject, removeProject as removeProjectFromDesktopDb, getProject, getDesktopSetting, setDesktopSetting, addAgent, getAgent, addWebhook, addProjectRepository, updateProjectRepository, removeProjectRepository } from './desktop-db'
 import { initDb } from './db'
@@ -57,6 +60,7 @@ function createMockRegistry(desktopDb: DbInstance) {
 
   const registry = {
     desktopDb,
+    desktopPort: 4395,
     notifySettingsChanged: vi.fn(),
     getContext: vi.fn((id: string) => contexts.get(id)),
     getContextByPath: vi.fn((projectPath: string) => {
@@ -152,8 +156,27 @@ describe('desktop-router', () => {
         const response = await request(app).post('/api/repositories/clone').send({ url: 'owner/repo', destination: '/projects/cloned' })
         expect(response.status).toBe(201)
         expect(response.body).toEqual({ path: '/projects/cloned' })
-        expect(clone).toHaveBeenCalledWith({ url: 'owner/repo', destination: '/projects/cloned' }, expect.any(Function), expect.any(AbortSignal))
+        expect(clone).toHaveBeenCalledWith({ url: 'owner/repo', destination: '/projects/cloned' }, expect.any(Function), expect.any(AbortSignal), undefined, undefined)
         expect(registry.addProject).not.toHaveBeenCalled()
+      } finally { clone.mockRestore() }
+    })
+    it('with a cloneId, broadcasts throttled progress frames (phase and percent only)', async () => {
+      const clone = vi.spyOn(githubClone, 'cloneGithubRepository').mockImplementationOnce(async (_input, _safe, _signal, _run, onProgress) => {
+        for (const percent of [1, 4, 12, 15, 23, 100]) onProgress?.({ phase: 'receiving', percent })
+        onProgress?.({ phase: 'resolving', percent: 50 })
+        onProgress?.({ phase: 'resolving', percent: 50 })
+        return '/projects/cloned'
+      })
+      try {
+        const { app, broadcast } = createApp()
+        const response = await request(app).post('/api/repositories/clone').send({ url: 'owner/repo', destination: '/projects/cloned', cloneId: 'c0ffee00-1111' })
+        expect(response.status).toBe(201)
+        const frames = (broadcast as unknown as { mock: { calls: unknown[][] } }).mock.calls.map(([msg]) => msg as Record<string, unknown>).filter((msg) => msg.type === 'repository.clone_progress')
+        expect(frames.map((f) => [f.cloneId, f.phase, f.percent])).toEqual([['c0ffee00-1111', 'receiving', 1], ['c0ffee00-1111', 'receiving', 12], ['c0ffee00-1111', 'receiving', 23], ['c0ffee00-1111', 'receiving', 100], ['c0ffee00-1111', 'resolving', 50]])
+        // A malformed cloneId gets no frames.
+        clone.mockResolvedValueOnce('/projects/other')
+        await request(app).post('/api/repositories/clone').send({ url: 'owner/repo', destination: '/projects/other', cloneId: 'x y' })
+        expect(clone).toHaveBeenLastCalledWith(expect.anything(), expect.any(Function), expect.any(AbortSignal), undefined, undefined)
       } finally { clone.mockRestore() }
     })
     it('rejects unsupported sources before starting a clone', async () => {
@@ -229,6 +252,25 @@ describe('desktop-router', () => {
   // ─── POST /projects ────────────────────────────────────────────────────────
 
   describe('POST /api/projects', () => {
+    it('leaves out an auto-detected Kimi whose readiness probe fails instead of rejecting the registration', async () => {
+      const detection = await import('./provider-detection')
+      vi.mocked(detection.getDetectedIdsSync).mockReturnValueOnce(['claude', 'codex', 'kimi'])
+      vi.mocked(kimiAdapter.detectInstalled).mockResolvedValue({ installed: true, executable: false })
+      vi.mocked(checkCoreCompat).mockResolvedValue({ compatible: true, contractFound: true, supportedProviders: ['kimi'] } as any)
+      const { app } = createApp()
+      const res = await request(app).post('/api/projects').send({ path: '/projects/implicit-kimi' })
+      expect(res.status).toBe(201)
+      expect(res.body.project.providers).toEqual(['claude', 'codex'])
+    })
+
+    it('still refuses an EXPLICIT Kimi selection whose readiness probe fails', async () => {
+      vi.mocked(kimiAdapter.detectInstalled).mockResolvedValue({ installed: true, executable: false })
+      const { app } = createApp()
+      const res = await request(app).post('/api/projects').send({ path: '/projects/explicit-kimi', providers: ['kimi'] })
+      expect(res.status).toBe(409)
+      expect(res.body.code).toBe('provider_cli_unusable')
+    })
+
     it('returns 400 when path is missing', async () => {
       const { app } = createApp()
       const res = await request(app).post('/api/projects').send({})
@@ -573,6 +615,23 @@ describe('desktop-router', () => {
       expect(res.status).toBe(200)
       expect(res.body.port).toBe(8080)
     })
+
+    it('reports the running version and where this instance keeps its database (About)', async () => {
+      const { app } = createApp()
+      const res = await request(app).get('/api/settings')
+      expect(res.body.version).toMatch(/^\d+\.\d+\.\d+/)
+      expect(res.body.databasePath).toBe(desktopDb.name)
+      expect(res.body.runningPort).toBe(4395)
+    })
+  })
+
+  describe('displayPath', () => {
+    it('shortens the home folder to ~ and leaves other paths alone', () => {
+      expect(displayPath('/Users/me/.specrails-dev/.specrails/desktop.sqlite', '/Users/me')).toBe('~/.specrails-dev/.specrails/desktop.sqlite')
+      expect(displayPath('/Users/me', '/Users/me')).toBe('~')
+      expect(displayPath('/Users/meow/x', '/Users/me')).toBe('/Users/meow/x')
+      expect(displayPath(':memory:', '/Users/me')).toBe(':memory:')
+    })
   })
 
   // ─── Specrails Agents defaults ─────────────────────────────────────────────
@@ -672,6 +731,57 @@ describe('desktop-router', () => {
       })
       expect(res.status).toBe(400)
       expect(res.body.error).toBe('duplicate_server_name')
+    })
+  })
+
+  // ─── Connectors in missions ────────────────────────────────────────────────
+
+  describe('GET/PATCH /api/mission-connectors', () => {
+    function createConnectorsApp() {
+      const { registry } = createMockRegistry(desktopDb)
+      const missionConnectors = new MissionConnectors({
+        db: desktopDb, env: {}, home: () => '/nonexistent-home-for-test',
+        listClaudeConnectors: async () => 'claude.ai Gmail: https://g - ✔ Connected\n',
+        probeTools: async () => ({ tools: 2, chars: 270 }),
+      })
+      const app = express()
+      app.use(express.json())
+      app.use('/api', createDesktopRouter(registry, vi.fn(), undefined, { missionConnectors }))
+      return app
+    }
+
+    it('lists connectors per provider, enabled by default', async () => {
+      const res = await request(createConnectorsApp()).get('/api/mission-connectors?refresh=1')
+      expect(res.status).toBe(200)
+      const claude = res.body.providers.find((entry: { provider: string }) => entry.provider === 'claude')
+      expect(claude.connectors).toEqual([{ name: 'claude.ai Gmail', kind: 'account-connector', enabled: true, status: 'connected', transport: { url: 'https://g' } }])
+      expect(res.body.providers.map((entry: { provider: string }) => entry.provider)).toEqual(['claude', 'codex', 'gemini', 'kimi'])
+    })
+
+    it('PATCH turns one connector off and back on', async () => {
+      const app = createConnectorsApp()
+      const off = await request(app).patch('/api/mission-connectors').send({ provider: 'claude', name: 'claude.ai Gmail', enabled: false })
+      expect(off.status).toBe(200)
+      expect(off.body.providers[0].connectors[0].enabled).toBe(false)
+      const on = await request(app).patch('/api/mission-connectors').send({ provider: 'claude', name: 'claude.ai Gmail', enabled: true })
+      expect(on.body.providers[0].connectors[0].enabled).toBe(true)
+    })
+
+    it('PATCH rejects a malformed toggle', async () => {
+      const res = await request(createConnectorsApp()).patch('/api/mission-connectors').send({ provider: 'nope', name: 'x', enabled: true })
+      expect(res.status).toBe(400)
+      expect(res.body.error).toBe('unknown_provider')
+    })
+
+    it('POST /measure answers with the refreshed view', async () => {
+      const res = await request(createConnectorsApp()).post('/api/mission-connectors/measure')
+      expect(res.status).toBe(200)
+      expect(res.body.measuring).toBe(false)
+    })
+
+    it('is not mounted without the service', async () => {
+      const { app } = createApp()
+      expect((await request(app).get('/api/mission-connectors')).status).toBe(404)
     })
   })
 
@@ -809,6 +919,34 @@ describe('desktop-router', () => {
   // ─── GET /api/available-providers ───────────────────────────────────────
 
   describe('GET /api/available-providers', () => {
+    beforeEach(() => { _resetAvailableProvidersCacheForTests() })
+
+    it('shares one machine probe between concurrent requests and reuses it within the TTL', async () => {
+      vi.mocked(detectAvailableCLIsAsync).mockClear()
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({ claude: true, codex: false, gemini: false, kimi: true })
+      vi.mocked(checkCoreCompat).mockResolvedValue({ compatible: true, contractFound: true, supportedProviders: ['kimi'] } as never)
+      vi.mocked(kimiAdapter.detectInstalled).mockClear()
+      const { app } = createApp()
+      const bodies = (await Promise.all([1, 2, 3].map(() => request(app).get('/api/available-providers')))).map(res => res.body)
+      expect(bodies.every(body => body.claude === true && body.kimi === true)).toBe(true)
+      await request(app).get('/api/available-providers')
+      expect(detectAvailableCLIsAsync).toHaveBeenCalledTimes(1)
+      expect(kimiAdapter.detectInstalled).toHaveBeenCalledTimes(1)
+      expect(AVAILABLE_PROVIDERS_TTL_MS).toBeGreaterThan(0)
+    })
+
+    it('re-probes after an explicit re-detect (new detection generation)', async () => {
+      vi.mocked(detectAvailableCLIsAsync).mockClear()
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValueOnce({ claude: false, codex: false, gemini: false })
+      const { app } = createApp()
+      expect((await request(app).get('/api/available-providers')).body.claude).toBe(false)
+      const { _resetDetectionForTests } = await import('./provider-detection')
+      _resetDetectionForTests() // bumps the generation like a completed detection cycle
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValueOnce({ claude: true, codex: false, gemini: false })
+      expect((await request(app).get('/api/available-providers')).body.claude).toBe(true)
+      expect(detectAvailableCLIsAsync).toHaveBeenCalledTimes(2)
+    })
+
     it('returns available CLI providers (codex forced to false — coming soon)', async () => {
       const { app } = createApp()
       const res = await request(app).get('/api/available-providers')
@@ -825,7 +963,7 @@ describe('desktop-router', () => {
       register(createLocalAdapter({ id: 'lmstudio', kind: 'openai-compatible', baseUrl: 'http://127.0.0.1:1234/v1' }), 'local')
       try {
         // The PATH probe says "installed" (its binary is node) …
-        vi.mocked(detectAvailableCLIs).mockReturnValue({ claude: false, codex: false, gemini: false, kimi: false, lmstudio: true })
+        vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({ claude: false, codex: false, gemini: false, kimi: false, lmstudio: true })
         // … but the endpoint probe is the authority: unreachable ⇒ unavailable.
         vi.mocked(getDetectionSnapshot).mockResolvedValueOnce({
           providers: { lmstudio: { id: 'lmstudio', displayName: 'LM Studio', installed: false, executable: false, authState: 'unknown', usable: false, kind: 'local', error: 'unreachable' } },
@@ -845,12 +983,12 @@ describe('desktop-router', () => {
         expect(res.body.tiers).toContain('full')
       } finally {
         unregisterAdapter('lmstudio')
-        vi.mocked(detectAvailableCLIs).mockReturnValue({ claude: true, codex: false, gemini: false })
+        vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({ claude: true, codex: false, gemini: false })
       }
     })
 
     it('gates detected Kimi on Core rendering support and returns remediation', async () => {
-      vi.mocked(detectAvailableCLIs).mockReturnValue({
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({
         claude: false,
         codex: false,
         gemini: false,
@@ -873,7 +1011,7 @@ describe('desktop-router', () => {
     })
 
     it('enables detected Kimi when bundled Core advertises providers.kimi', async () => {
-      vi.mocked(detectAvailableCLIs).mockReturnValue({
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({
         claude: false,
         codex: false,
         gemini: false,
@@ -892,7 +1030,7 @@ describe('desktop-router', () => {
     })
 
     it('does not advertise a detected Kimi binary below the supported 0.27 floor', async () => {
-      vi.mocked(detectAvailableCLIs).mockReturnValue({
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({
         claude: false,
         codex: false,
         gemini: false,
@@ -917,7 +1055,7 @@ describe('desktop-router', () => {
     })
 
     it('does not advertise a Kimi shim that exists but cannot execute', async () => {
-      vi.mocked(detectAvailableCLIs).mockReturnValue({
+      vi.mocked(detectAvailableCLIsAsync).mockResolvedValue({
         claude: false,
         codex: false,
         gemini: false,
@@ -1253,6 +1391,15 @@ describe('desktop-router', () => {
       expect((await request(app).put('/api/settings').send({ subagentRuntime: { provider: '', model: 'x' } })).status).toBe(400)
       expect((await request(app).put('/api/settings').send({ subagentRuntime: null })).status).toBe(200)
       expect((await request(app).get('/api/settings')).body.subagentRuntime).toBeNull()
+    })
+
+    it('keeps the automatic continuation setting, on by default', async () => {
+      const { app } = createApp()
+      expect((await request(app).get('/api/settings')).body.autoContinueRuns).toBe(true)
+      expect((await request(app).put('/api/settings').send({ autoContinueRuns: false })).status).toBe(200)
+      expect((await request(app).get('/api/settings')).body.autoContinueRuns).toBe(false)
+      expect((await request(app).put('/api/settings').send({ autoContinueRuns: 'no' })).status).toBe(400)
+      expect((await request(app).get('/api/settings')).body.autoContinueRuns).toBe(false)
     })
 
     it('rejects a non-boolean allowSubagents without writing anything', async () => {

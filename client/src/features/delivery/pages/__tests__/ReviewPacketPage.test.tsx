@@ -194,6 +194,26 @@ describe('ReviewPacketPage — above the fold', () => {
     expect(screen.getByText('This build cost $2.50')).toBeInTheDocument()
   })
 
+  it('shows what the delivered proposal says changed, and why, instead of "No summary was recorded"', async () => {
+    respond({
+      packet: packet({ sections: [{
+        ...packet().sections[0],
+        solution: null,
+        solutionOverflow: null,
+        whatChanged: '- `parse()` accepts `w` and `d` components.\n- Version bumped to 1.5.0.',
+        whyChanged: 'Callers convert days by hand.',
+      }] }),
+    })
+    renderPage()
+    expect(await screen.findByText('Your change is ready for review')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('What was done'))
+    const block = screen.getByTestId('packet-what-changed')
+    expect(block).toHaveTextContent('What changed')
+    expect(block).toHaveTextContent('Version bumped to 1.5.0.')
+    expect(block).toHaveTextContent('Callers convert days by hand.')
+    expect(screen.queryByText('No summary was recorded.')).not.toBeInTheDocument()
+  })
+
   it('renders the spec narrative as markdown — lists stay lists, code reads as code, the overflow sits behind a disclosure', async () => {
     respond({
       packet: packet({ sections: [{
@@ -270,6 +290,33 @@ describe('ReviewPacketPage — above the fold', () => {
     respond({ packet: packet({ cost: { totalUsd: null, estimated: false } }) })
     renderPage()
     expect(await screen.findByText('This build cost —')).toBeInTheDocument()
+  })
+
+  it('proves the final verification and folds the earlier failed runs away as history', async () => {
+    respond({ packet: packet({ proof: [{ tier: 'app-verified', code: 'proof.hostCommandPassed', values: { label: 'node --test test/', exitCode: 0, seconds: 1 }, rawExcerpt: 'ok 3',
+      earlier: [{ passed: false, exitCode: 1, seconds: 2, rawExcerpt: 'not ok 3' }] }] }) })
+    renderPage()
+    fireEvent.click(await screen.findByText('How it was checked'))
+    const history = await screen.findByTestId('packet-proof-earlier')
+    expect(history.tagName).toBe('DETAILS')
+    expect(history).not.toHaveAttribute('open')
+    expect(history).toHaveTextContent('1 earlier run of this check')
+    expect(history).toHaveTextContent('Failed with exit code 1 (2 s), before the fix that made it pass')
+  })
+
+  it('words the measured counts in the singular or the plural, never "branch(es)"', async () => {
+    respond({ packet: packet({ proof: [
+      { tier: 'app-verified', code: 'proof.filesChanged', values: { files: 1, added: 4, removed: 0 } },
+      { tier: 'app-verified', code: 'proof.testFilesChanged', values: { count: 1 } },
+      { tier: 'app-verified', code: 'proof.commitsRecorded', values: { branches: 1 } },
+      { tier: 'app-verified', code: 'proof.commitsRecorded', values: { branches: 3 } },
+    ] }) })
+    renderPage()
+    fireEvent.click(await screen.findByText('How it was checked'))
+    expect(await screen.findByText('1 file changed (+4 / −0 lines)')).toBeInTheDocument()
+    expect(screen.getByText('1 test file was changed')).toBeInTheDocument()
+    expect(screen.getByText('Work was recorded on 1 branch')).toBeInTheDocument()
+    expect(screen.getByText('Work was recorded on 3 branches')).toBeInTheDocument()
   })
 
   it('says the reviewer score is unavailable rather than implying a good one', async () => {
@@ -849,6 +896,21 @@ describe('ReviewPacketPage — what to look at (reviewer risk brief)', () => {
     expect(screen.getByTestId('brief-human-checks')).toBeInTheDocument()
     expect(screen.getByTestId('brief-diagnostic')).toHaveTextContent('Review brief dropped after the repair turn')
     expect(screen.getByTestId('brief-dropped')).toHaveTextContent('2 brief entries')
+  })
+
+  it('lists the reviewer findings no correction round acted on, labelled by kind, after the human checks', async () => {
+    respond({ packet: packet({ whatToLookAt: { ...brief, risks: [], reviewNotes: [
+      { ticketId: 1, kind: 'advice', issue: 'Consider naming the export value.', reason: 'the reviewer marked it as advice' },
+      { ticketId: 1, kind: 'out-of-scope', issue: 'Add a CLI flag in a follow-up.', reason: null },
+      { ticketId: 1, kind: 'future-kind', issue: 'Something newer Core reports.', reason: null },
+    ] } }) })
+    renderPage()
+    const notes = await screen.findByTestId('brief-review-notes')
+    expect(notes).toHaveTextContent('Reviewer notes, not acted on')
+    expect(screen.getAllByTestId('brief-review-note').map((item) => item.textContent)).toEqual([
+      'AdviceConsider naming the export value.', 'Out of scopeAdd a CLI flag in a follow-up.', 'NoteSomething newer Core reports.',
+    ])
+    expect(screen.getByTestId('brief-human-checks').compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('is hidden entirely without a brief', async () => {

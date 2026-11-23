@@ -35,7 +35,16 @@ describe('loopsApi', () => {
     fetchMock.mockResolvedValueOnce(fakeRes(200, { loops: [sampleLoop] }))
     const loops = await loopsApi.list()
     expect(loops).toEqual([sampleLoop])
-    expect(fetchMock).toHaveBeenCalledWith('/api/loops', expect.objectContaining({ method: 'GET' }))
+    // A plain GET (no init), shared by concurrent callers (lib/shared-fetch).
+    expect(fetchMock).toHaveBeenCalledWith('/api/loops')
+  })
+
+  it('list() shares one request between concurrent callers', async () => {
+    fetchMock.mockResolvedValueOnce(fakeRes(200, { loops: [sampleLoop] }))
+    const [a, b] = await Promise.all([loopsApi.list(), loopsApi.list()])
+    expect(a).toEqual([sampleLoop])
+    expect(b).toEqual([sampleLoop])
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it('create() POSTs the body and unwraps the loop', async () => {

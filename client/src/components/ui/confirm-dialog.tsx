@@ -35,6 +35,8 @@ export interface ConfirmDialogProps {
   tone?: 'destructive' | 'default'
   /** Disables only the confirm button (e.g. until a required field is filled). */
   confirmDisabled?: boolean
+  /** Stack the footer at every width (primary on top): for four or more actions, which wrap unevenly in a row. */
+  stackedFooter?: boolean
   /** Stacking layer; defaults to the parent dialog's layer (see lib/layers). */
   layer?: DialogLayer
   /** data-testid on the panel / the confirm / the cancel button. */
@@ -62,6 +64,7 @@ export function ConfirmDialog({
   secondaryAction,
   tone = 'destructive',
   confirmDisabled = false,
+  stackedFooter = false,
   layer,
   testId,
   confirmTestId,
@@ -88,7 +91,7 @@ export function ConfirmDialog({
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
         {children ? <DialogBody className="space-y-3 text-body">{children}</DialogBody> : null}
-        <DialogFooter>
+        <DialogFooter className={stackedFooter ? 'sm:flex-col-reverse sm:flex-nowrap sm:items-stretch' : undefined}>
           <Button
             type="button"
             variant="ghost"

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { NARRATABLE_ACTIONS, buildNarration, type NarrationMilestone } from '../narration-model'
 import type { EventRow } from '../../../../../types'
+import i18n, { loadLanguage } from '../../../../../lib/i18n'
 
 let seq = 0
 function ev(event_type: string, payload: unknown): EventRow {
@@ -644,6 +645,21 @@ describe('buildNarration — Specrails Core agent runtime', () => {
     ])
     expect(model.milestones[0].values.title).toBe('AI Step (claude/sonnet)')
     expect(model.milestones[0].values.roleCode).toBeUndefined()
+  })
+
+  it('narrates the person\'s own Pause and Resume in their words', async () => {
+    const model = buildNarration({ events: [
+      step(1, 'Implement'),
+      runtime('step_started', { stepId: 'developer' }),
+      ev('run-user-pause', { state: 'paused' }),
+      ev('run-user-pause', { state: 'resumed' }),
+      ev('run-user-pause', { state: 'unknown' }),
+      runtime('workflow_resumed'),
+    ], settled: false })
+    expect(codes(model.milestones)).toEqual(['step.start', 'activity.phase.developer', 'activity.phase.pausedByYou', 'activity.phase.resumedByYou', 'activity.phase.resumed'])
+    await loadLanguage('es')
+    expect(i18n.getFixedT('es')('narration:activity.phase.resumedByYou')).toBe('Reanudada por ti')
+    expect(i18n.getFixedT('en')('narration:activity.phase.pausedByYou')).toBe('Paused by you')
   })
 
   it('narrates each runtime phase as a structural milestone and folds tool activity into it', () => {

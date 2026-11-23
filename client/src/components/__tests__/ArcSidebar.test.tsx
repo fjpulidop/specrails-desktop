@@ -1,10 +1,11 @@
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useLocation } from 'react-router-dom'
 import { render as baseRender, screen, fireEvent, act, within } from '../../test-utils'
 import { useSidebarPin } from '../../context/SidebarPinContext'
 import { ArcSidebar } from '../ArcSidebar'
 import type { DesktopProject } from '../../hooks/useDesktop'
+import { openProjectSettings } from '../../lib/app-settings-events'
 
 function PinControls() {
   const { cycleLeftMode } = useSidebarPin()
@@ -63,6 +64,28 @@ beforeEach(() => {
 })
 
 describe('ArcSidebar', () => {
+  it('opens project settings at the requested section (a run\'s "Configure")', () => {
+    function SearchProbe() { const location = useLocation(); return <div data-testid="route">{location.pathname + location.search}</div> }
+    render(<><ArcSidebar {...defaultProps} /><SearchProbe /></>)
+    act(() => { openProjectSettings('agentRuntime') })
+    expect(screen.getByTestId('route')).toHaveTextContent('/settings?section=agentRuntime')
+    act(() => { openProjectSettings('budget', 'projectBudget', 'proj-1') })
+    expect(screen.getByTestId('route')).toHaveTextContent('/settings?setting=projectBudget')
+    expect(mockSetActiveProjectId).not.toHaveBeenCalled()
+  })
+
+  it('switches to the run\'s project first when a Job detail window asks for another project\'s settings', () => {
+    function SearchProbe() { const location = useLocation(); return <div data-testid="route">{location.pathname + location.search}</div> }
+    render(<><ArcSidebar {...defaultProps} /><SearchProbe /></>)
+    act(() => { openProjectSettings('agentRuntime', undefined, 'proj-2') })
+    expect(mockSetActiveProjectId).toHaveBeenCalledWith('proj-2')
+    // The route waits for the switch to commit (route memory would overwrite it).
+    expect(screen.getByTestId('route')).not.toHaveTextContent('/settings')
+    act(() => { openProjectSettings('agentRuntime', undefined, 'proj-unknown') })
+    expect(mockSetActiveProjectId).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('route')).toHaveTextContent('/settings?section=agentRuntime')
+  })
+
   it('is a labelled landmark with labelled navigation lists', () => {
     render(<ArcSidebar {...defaultProps} />)
     expect(screen.getByRole('complementary', { name: 'Projects and missions' })).toBeInTheDocument()
@@ -82,13 +105,13 @@ describe('ArcSidebar', () => {
     expect(defaultProps.onOpenSettings).not.toHaveBeenCalled()
   })
 
-  it('lists app tools as plain rows above App settings (no disclosure)', () => {
+  it('lists app tools as plain rows above Settings (no disclosure)', () => {
     render(<ArcSidebar {...defaultProps} onOpenCompanion={vi.fn()} />)
     expect(screen.queryByRole('button', { name: 'Expand', expanded: false })).not.toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: 'App settings' })).not.toBeInTheDocument()
-    const footer = screen.getByRole('button', { name: 'App settings' }).parentElement as HTMLElement
+    expect(screen.queryByRole('group', { name: 'Settings' })).not.toBeInTheDocument()
+    const footer = screen.getByRole('button', { name: 'Settings' }).parentElement as HTMLElement
     expect(within(footer).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
-      'All-projects analytics', 'Docs', 'Companion', 'App settings',
+      'All-projects analytics', 'Docs', 'Companion', 'Settings',
     ])
   })
 
@@ -265,7 +288,7 @@ describe('ArcSidebar', () => {
     render(<ArcSidebar {...defaultProps} />)
     expect(screen.getByRole('button', { name: /Docs/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'All-projects analytics' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'App settings' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument()
   })
 
   it('calls onOpenAnalytics when All-projects analytics is clicked', () => {
@@ -274,9 +297,9 @@ describe('ArcSidebar', () => {
     expect(defaultProps.onOpenAnalytics).toHaveBeenCalledOnce()
   })
 
-  it('calls onOpenSettings when App settings is clicked', () => {
+  it('calls onOpenSettings when Settings is clicked', () => {
     render(<ArcSidebar {...defaultProps} />)
-    fireEvent.click(screen.getByRole('button', { name: 'App settings' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     expect(defaultProps.onOpenSettings).toHaveBeenCalledOnce()
   })
 
@@ -346,5 +369,34 @@ describe('projectMonogram', () => {
     expect(projectMonogram('tetris')).toBe('TE')
     expect(projectMonogram('x')).toBe('X')
     expect(projectMonogram('---')).toBe('?')
+  })
+})
+
+describe('ArcSidebar in a narrow window', () => {
+  const originalMatchMedia = window.matchMedia
+  beforeEach(() => {
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('max-width'), media: query, onchange: null,
+      addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia
+  })
+  afterEach(() => { window.matchMedia = originalMatchMedia })
+
+  it('the sidebar toggle opens it as an overlay, so Mission/Board and the live board stay one click away', () => {
+    const { container } = render(<ArcSidebar {...defaultProps} onOpenLiveBoard={vi.fn()} />)
+    const panel = screen.getByTestId('arc-sidebar-panel')
+    expect(panel).toHaveAttribute('aria-hidden', 'true')
+    fireEvent.click(screen.getByText('Cycle sidebar from header'))
+    expect(panel).not.toHaveAttribute('aria-hidden', 'true')
+    expect(panel).toHaveAttribute('data-overlay', 'true')
+    expect(within(panel as HTMLElement).getAllByTestId('ui-mode-switch').length).toBeGreaterThan(0)
+    expect(within(panel as HTMLElement).getByRole('button', { name: 'Live board' })).toBeInTheDocument()
+    // A click outside closes it; Escape too.
+    fireEvent.pointerDown(document.body)
+    expect(panel).toHaveAttribute('aria-hidden', 'true')
+    fireEvent.click(screen.getByText('Cycle sidebar from header'))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(panel).toHaveAttribute('aria-hidden', 'true')
+    expect(sidebarRoot(container)).toBeInTheDocument()
   })
 })

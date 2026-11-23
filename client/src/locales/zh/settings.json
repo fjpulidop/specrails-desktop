@@ -34,18 +34,25 @@
   },
   "budget": {
     "title": "预算",
-    "description": "为此项目设置每日支出上限。达到上限时队列自动暂停。",
+    "description": "为此项目设置每日支出上限。达到上限时运行会暂停。",
     "dailyLabel": "每日上限",
-    "dailyHelper": "支出按最近 24 小时计算。达到上限后队列会暂停。",
-    "perJobLabel": "单任务成本告警（USD）",
-    "perJobHelper": "当此项目中的单个任务超过此金额时告警。",
+    "dailyHelper": "支出按最近 24 小时计算。达到上限时运行会暂停。",
+    "perJobLabel": "单次运行成本提醒 (USD)",
+    "perJobHelper": "当此项目中的单次运行花费超过此金额时提醒你。",
     "perJobPlaceholder": "如 0.50",
     "invalidNumber": "请输入正数，或留空以禁用",
-    "perJobAlertDisabled": "已禁用单任务成本告警",
-    "alertSet": "已设置任务超过 {{amount}} 时告警",
+    "perJobAlertDisabled": "单次运行成本提醒已关闭",
+    "alertSet": "已为超过 {{amount}} 的运行设置提醒",
     "saveThresholdFailed": "保存阈值失败",
     "dailyCurrent": "当前每日 {{amount}}",
-    "dailyNone": "未设置每日上限"
+    "dailyNone": "未设置每日上限",
+    "resumeOnDailyReset": {
+      "label": "每日重置时恢复因每日上限而暂停的运行",
+      "helper": "每日重置时，仅因每日上限而暂停的运行会在有空闲容量时自动继续。你暂停的运行，或仍受其自身单次运行上限限制的运行，会继续等待你。",
+      "enabled": "因每日上限暂停的运行将在每日重置时恢复",
+      "disabled": "因每日上限暂停的运行将等待你",
+      "saveFailed": "无法保存设置"
+    }
   },
   "desktop": {
     "nav": {
@@ -61,9 +68,11 @@
       "webhooks": "Webhooks",
       "about": "关于",
       "effects": "效果",
-      "subscriptionUsage": "订阅用量"
+      "subscriptionUsage": "订阅用量",
+      "notifications": "通知",
+      "storage": "存储"
     },
-    "title": "Desktop 设置",
+    "title": "设置",
     "description": "外观、AI 提供商、更新以及 Desktop 全局偏好设置。",
     "registeredProjects": "已注册项目",
     "noProjects": "尚未注册任何项目",
@@ -71,20 +80,20 @@
     "techUrlSaved": "specrails-tech URL 已保存",
     "techUrlSaveFailed": "保存 URL 失败",
     "budgetAlertsHeading": "预算与告警",
-    "dailyBudgetLabel": "Desktop 每日上限",
-    "dailyBudgetHelper": "所有项目的全局每日支出上限。超出后队列自动暂停。",
-    "perJobHelper": "当单个任务超过此金额时告警。留空表示禁用。",
-    "costAlertsDisabled": "已禁用成本告警",
+    "dailyBudgetLabel": "全应用每日上限",
+    "dailyBudgetHelper": "所有项目共用一个每日支出上限。达到上限时运行会暂停。",
+    "perJobHelper": "当单次运行花费超过此金额时提醒你。留空则不提醒。",
+    "costAlertsDisabled": "成本提醒已关闭",
     "projectRemoved": "项目已移除",
     "projectRemoveFailed": "移除项目失败",
     "onboardingHeading": "新手引导",
     "platformTour": "平台导览",
     "platformTourDescription": "重播欢迎向导，回顾核心功能。",
     "replayTour": "重播导览",
-    "infoHeading": "Desktop 信息",
+    "infoHeading": "关于",
     "infoPort": "端口",
     "infoProjects": "项目",
-    "infoDb": "Desktop 数据库",
+    "infoDb": "数据库",
     "removeProjectConfirmTitle": "移除 {{name}}？",
     "removeProjectConfirmBody": "{{name}} 将从 Specrails 中取消注册，正在运行的工作会停止。磁盘上的仓库文件不会被删除，之后可以重新添加该文件夹。",
     "navLabel": "设置分区",
@@ -95,18 +104,8 @@
     },
     "unsavedChanges": "未保存的更改",
     "dailyBudgetCurrent": "当前每日 {{amount}}",
-    "dailyBudgetNone": "未设置每日上限"
-  },
-  "notifications": {
-    "heading": "系统通知",
-    "description": "任务完成或失败时显示原生桌面通知。仅在标签页未聚焦时显示通知。",
-    "enableLabel": "启用系统通知",
-    "notifyOn": "通知时机：",
-    "filterAll": "全部（完成与失败）",
-    "filterCompleted": "仅完成",
-    "filterFailed": "仅失败",
-    "enabledToast": "已启用系统通知",
-    "disabledToast": "已禁用系统通知"
+    "dailyBudgetNone": "未设置每日上限",
+    "infoVersion": "版本"
   },
   "webhooks": {
     "heading": "出站 Webhook",
@@ -164,7 +163,7 @@
   "appearance": {
     "taglines": {
       "dracula": "经典原版 — 紫色调暗色主题，霓虹色点缀鲜明",
-      "aurora-light": "高级浅色 — 受 Linear 启发的靛蓝配暖白底色",
+      "aurora-light": "日光下的绘图桌 — 暖色纸面上的墨迹，以柔和阴影营造层次",
       "obsidian-dark": "石墨专业版 — 中性近黑底色，仅一抹柔和紫色点缀",
       "specrails": "品牌主题 — 深海军靛蓝配饱和青色点缀",
       "code-rain": "磷光终端 — 绿黑底色上的柔和薄荷绿",
@@ -177,7 +176,7 @@
   },
   "mobile": {
     "heading": "移动伴侣",
-    "description": "通过手机上的 SpecRails Companion 应用控制 Specrails，完全经由本地网络。默认关闭。已配对的手机可以在收件箱中回答问题、恢复、重试并创建草稿 PR，具体取决于 MCP 权限级别；合并、丢弃和设置仍只能在这台电脑上操作。",
+    "description": "通过手机上的 Specrails Companion 应用控制 Specrails，完全经由本地网络。默认关闭。已配对的手机可以在收件箱中回答问题、恢复、重试并创建草稿 PR，具体取决于 MCP 权限级别；合并、丢弃和设置仍只能在这台电脑上操作。",
     "accessOn": "移动访问已开启",
     "accessOff": "移动访问已关闭",
     "listeningOnPort": "正在监听端口 {{port}}",
@@ -190,7 +189,7 @@
     "identityReset": "移动身份已重置",
     "enableFailed": "无法启用移动访问",
     "disableFailed": "无法禁用移动访问",
-    "windowsFirewall": "首次启用时，Windows 防火墙会询问是否允许 SpecRails 服务器——请选择“允许在专用网络上”。",
+    "windowsFirewall": "首次启用时，Windows 防火墙会询问是否允许 Specrails 服务器——请选择“允许在专用网络上”。",
     "pairedDevices": "已配对设备",
     "noDevices": "尚无已配对设备。",
     "revokeDevice": "吊销 {{name}}",
@@ -533,5 +532,114 @@
       "full": "完整动效",
       "fullHint": "即使系统要求减少也播放动画"
     }
+  },
+  "missionConnectors": {
+    "title": "任务中的连接器",
+    "description": "任务可以使用你在各个提供方中已配置的连接器和 MCP 服务器。它们默认全部开启；关闭任务不需要的即可。",
+    "refresh": "刷新",
+    "measure": "测量大小",
+    "measuring": "正在测量…",
+    "loadFailed": "无法列出提供方的连接器。",
+    "measureFailed": "无法测量连接器。",
+    "saveFailed": "无法更新 {{name}}。",
+    "empty": "你的提供方中没有找到连接器或 MCP 服务器。",
+    "appliesNextTurn": "更改从任务的下一轮开始生效。那一轮会重建一次提供方的提示缓存，因此费用会稍高。",
+    "claudeListStale": "Claude Code 没有响应，此列表显示的是它记住的账户连接器。",
+    "waitsForToolSearch": "当 Claude 能按需查找工具后，Claude 任务才会加载你自己的 MCP 服务器（需要更新 Core）。",
+    "notLoadedYet": "尚未加载",
+    "toggleLabel": "在 {{provider}} 任务中使用 {{name}}",
+    "sizeTitle": "提供方完整发送工具定义时的大致大小",
+    "size_one": "{{count}} 个工具 · 约 {{tokens}} 个 token",
+    "size_other": "{{count}} 个工具 · 约 {{tokens}} 个 token",
+    "kind": {
+      "account-connector": "账户连接器",
+      "mcp-server": "MCP 服务器"
+    },
+    "status": {
+      "needsAuth": "需要在提供方中登录",
+      "failed": "未能连接"
+    },
+    "lock": {
+      "specrails-duplicate": "与 Specrails 自己的 MCP 是同一服务器：始终排除（任务已经拥有它）。",
+      "disabled-in-provider": "已在你的 {{provider}} 配置中关闭。",
+      "external-mcp": "通过外部 MCP 服务器添加（设置 ▸ MCP）。",
+      "unsupported": "{{provider}} 会自行加载；Specrails 无法关闭它。"
+    },
+    "providerNote": {
+      "claude": "claude.ai 账户连接器以及 ~/.claude.json 中的 MCP 服务器。Claude 每次请求都会发送连接器的完整工具定义。",
+      "codex": "~/.codex/config.toml 中的服务器。Codex 仅在智能体查找时才加载工具定义。",
+      "gemini": "~/.gemini/settings.json 中的服务器。",
+      "kimi": "~/.kimi-code/mcp.json 中的服务器。"
+    }
+  },
+  "attention": {
+    "heading": "通知",
+    "description": "需要你处理的事项：你不在时发送系统通知，你在应用的其他位置时显示提示，已经在屏幕上时不打扰。",
+    "enable": "通知我",
+    "enableHint": "关闭后，下面所有的通知和提示都会停止。",
+    "categoriesLegend": "通知我以下内容",
+    "categories": {
+      "question": {
+        "label": "提问和回复",
+        "hint": "某个代理在等你回答，或某个任务已回复"
+      },
+      "review": {
+        "label": "可以评审",
+        "hint": "某个交付或拉取请求在等你决定"
+      },
+      "failed": {
+        "label": "失败",
+        "hint": "某次运行失败、被阻塞或停止推进"
+      },
+      "budget": {
+        "label": "支出上限",
+        "hint": "某次运行因预算、支出上限或提供商的用量上限而暂停"
+      },
+      "done": {
+        "label": "已完成的作业",
+        "hint": "某个作业已完成（仅在你离开应用时）"
+      }
+    },
+    "sound": "播放声音",
+    "soundHint": "系统的通知声音",
+    "dockBadge": "程序坞徽标",
+    "dockBadgeHint": "应用图标显示收件箱中你还没看过的项目数",
+    "dockBadgeDesktopOnly": "在桌面应用中，应用图标显示收件箱中你还没看过的项目数",
+    "projectsHeading": "项目",
+    "projectsDescription": "关闭某个项目即可将其通知静音。它的项目仍会显示在收件箱中。",
+    "saveFailed": "无法保存通知设置"
+  },
+  "autoContinue": {
+    "title": "继续失败的运行",
+    "description": "当运行因 Specrails 知道如何修复的原因失败时，它会自动继续一次，并在运行历史中注明。",
+    "toggleLabel": "自动继续一次",
+    "stateOn": "开启：Specrails 会对可修复的失败自动继续一次。",
+    "stateOff": "关闭：失败的运行会等你手动继续。",
+    "explainWhen": "未完成的任务、缺少的工具、提供方的临时错误或停滞：下一次尝试会保留全部工作，并获得所需的指引。",
+    "explainNever": "凭据或密钥、策略拒绝、支出上限、用量限制、你主动停止或同一失败重复出现时，绝不会自动继续。",
+    "enabled": "Specrails 将对可修复的失败自动继续一次",
+    "disabled": "失败的运行将等你处理",
+    "saveFailed": "无法保存该设置"
+  },
+  "machineInstalls": {
+    "title": "已记住的安装",
+    "description": "你为某次运行批准过的全机安装。Specrails 会不再询问直接重新执行；撤销后下次会再询问。",
+    "empty": "尚未记住任何安装。当运行需要在全机安装工具时，会先询问你。",
+    "approvedAt": "批准于 {{date}}",
+    "uses_one": "使用 1 次",
+    "uses_other": "使用 {{count}} 次",
+    "revoke": "撤销",
+    "revoked": "已撤销批准。再次执行前 Specrails 会先询问。",
+    "revokeFailed": "无法撤销批准",
+    "loadFailed": "无法加载已记住的安装"
+  },
+  "envFiles": {
+    "title": "运行中的环境文件",
+    "description": "将此项目被 Git 忽略的 .env 文件（.env、.env.local、.env.test 及其他 .env.<名称>）从每个仓库复制到每次运行的工作树中，让需要它们的测试能够运行。默认关闭。",
+    "label": "将此项目的 .env 文件复制到运行中",
+    "consequence": "此项目运行中的智能体可以读取这些文件。它们绝不会被提交，也不会在评审中显示。",
+    "enabled": "运行现在会获得此项目的 .env 文件",
+    "disabled": "运行不再获得此项目的 .env 文件",
+    "saveFailed": "无法保存环境文件设置"
   }
 }

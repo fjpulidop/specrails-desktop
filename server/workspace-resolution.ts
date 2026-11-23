@@ -34,6 +34,7 @@ import fs from 'fs'
 import path from 'path'
 import { resolveArtifacts, type ResolvedArtifacts } from './artifact-registry'
 import { ensureWorkspace } from './workspace-manager'
+import { resolveTicketStoragePath } from './modules/specs/runtime/ticket-store'
 
 /** Minimal project shape this module needs (a subset of `ProjectRow`). */
 export interface ResolvableProject {
@@ -67,7 +68,9 @@ export interface ProjectExecution {
   /** `.specrails` root for the resolved layout. */
   specrailsDir: string
   stateDir: string
-  /** Env vars to MERGE into the spawn env. Empty `{}` in legacy mode. */
+  /** Env vars to MERGE into the spawn env. Empty `{}` in legacy mode, except
+   *  `SPECRAILS_TICKETS_PATH` for a new project Core is still assembling (its
+   *  `ticketsPath` is then already the workspace store). */
   env: Record<string, string>
 }
 
@@ -124,7 +127,12 @@ export function resolveProjectExecution(
   // core install still lives in-repo). This is what keeps every existing
   // assertion valid: a registry entry alone never flips a project to relocated.
   if (!isWorkspacePopulated(art.workspaceDir)) {
-    return legacyExecution(repoDir)
+    // A new project still being assembled already owns its workspace spec
+    // store (see `resolveProjectTicketsPath`); everything else stays in-repo.
+    const pending = pendingWorkspaceTicketsPath(project, art)
+    return pending
+      ? { ...legacyExecution(repoDir), ticketsPath: pending, env: { SPECRAILS_TICKETS_PATH: pending } }
+      : legacyExecution(repoDir)
   }
 
   // Relocated. (Re)create the workspace `./project` symlink so tools spawned from
@@ -193,6 +201,43 @@ export function resolveLoopBaseEnv(
   if (!exec.relocated) return baseEnv
   const { SPECRAILS_REPO_DIR: _perRun, ...projectEnv } = exec.env
   return { ...baseEnv, ...projectEnv }
+}
+
+/**
+ * The spec store a project reads and writes right now. Every ticket read and
+ * write funnels through here so the board, the routes and the run settlement
+ * agree on ONE file.
+ *
+ * A relocated project uses its workspace store. A project that is NOT yet
+ * relocated normally uses its in-repo store, with one exception: a new project
+ * whose workspace Core is still assembling (registry entry, no in-repo install,
+ * no in-repo store yet) writes the workspace store from the start. Its gate
+ * flips the moment Core writes the workspace marker, mid-assembly; a store
+ * chosen by that gate split the specs created in the first minute across two
+ * files, and the in-repo ones vanished from the board (their ids reused).
+ * Writing the store the project ends up with removes the split, whatever the
+ * timing. An in-repo store written before this rule is adopted by
+ * `adoptPreAssemblySpecs` once the workspace is populated.
+ */
+export function resolveProjectTicketsPath(project: ResolvableProject, home?: string): string {
+  const exec = resolveProjectExecution(project, home)
+  // Relocated, or a new project still being assembled: the workspace store.
+  if (exec.relocated || exec.env.SPECRAILS_TICKETS_PATH) return exec.ticketsPath
+  return resolveTicketStoragePath(project.path)
+}
+
+/** The workspace store of a registered project Core has not populated yet;
+ *  null when the project keeps (or will keep) its in-repo store. */
+function pendingWorkspaceTicketsPath(project: ResolvableProject, art: ResolvedArtifacts): string | null {
+  if (art.isLegacy || !art.ticketsPath) return null
+  // A repository with its own in-repo install (or an integration contract that
+  // may name its store) keeps the in-repo store on purpose.
+  if (fs.existsSync(path.join(project.path, '.specrails', 'specrails-version')) || fs.existsSync(path.join(project.path, '.specrails-version'))) return null
+  if (fs.existsSync(path.join(project.path, '.claude', 'integration-contract.json'))) return null
+  // Specs already live in the repository (written before this rule): keep them
+  // there until assembly adopts them, never split them.
+  if (fs.existsSync(resolveTicketStoragePath(project.path))) return null
+  return art.ticketsPath
 }
 
 /** Build the legacy (in-repo, byte-identical-to-today) execution. */

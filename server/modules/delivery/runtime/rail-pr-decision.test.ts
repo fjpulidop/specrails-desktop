@@ -538,13 +538,15 @@ describe('create-pr', () => {
     ])
   })
 
-  it('persists a successful safety archive without marking cleanup incomplete, including later fd writes', async () => {
+  it('removes unchanged kit, persists a safety archive for kept paths without marking cleanup incomplete, including later fd writes', async () => {
     const worktree = path.join(tmpDir, 'archive-wt')
     const overlayDirectory = path.join(worktree, '.claude', 'rules')
     const overlayFile = path.join(overlayDirectory, 'owned.md')
     fs.mkdirSync(overlayDirectory, { recursive: true })
     fs.writeFileSync(overlayFile, 'allocator copy')
-    const fingerprint = fingerprintOverlayCleanupPath(overlayDirectory)!
+    const kitFile = path.join(worktree, '.claude', 'kit.md')
+    fs.writeFileSync(kitFile, 'specrails kit')
+    const kitFingerprint = fingerprintOverlayCleanupPath(kitFile)!
     const fd = fs.openSync(overlayFile, 'r+')
     createRailWorktree(db, {
       id: 'archive-wt', railIndex: 0, ticketId: 1, branch: 'feat/1-t1',
@@ -554,15 +556,20 @@ describe('create-pr', () => {
       decision: 'on_review', worktreeIds: ['archive-wt'],
       branches: [{
         ...branchRecords([1])[0],
-        overlayExcludes: ['.claude/rules'],
-        overlayCleanupEvidence: [{ path: '.claude/rules', ...fingerprint }],
+        overlayExcludes: ['.claude/kit.md'],
+        overlayCleanupEvidence: [{ path: '.claude/kit.md', ...kitFingerprint }],
+        // An ignored directory the settlement snapshot authorized: its bytes are
+        // not provably Specrails's own, so release keeps them in the archive.
+        settlementIgnoredPaths: ['.claude/rules'],
       }],
     })
     transitionDecision(db, row.id, 'on_review', 'on_review', { safetyArchives: ['/previous/archive'] })
     const base = fakeGit()
     const git: GitRunner = {
       async run(args, cwd) {
-        if (cwd === worktree && args[0] === 'status') return ok
+        if (cwd === worktree && args[0] === 'status') {
+          return fs.existsSync(overlayDirectory) ? { code: 0, stdout: '!! .claude/rules/\n', stderr: '' } : ok
+        }
         if (cwd === worktree && args[0] === 'ls-files') return { code: 1, stdout: '', stderr: 'not tracked' }
         if (cwd === worktree && args.join(' ') === 'rev-parse --verify HEAD') {
           return { code: 0, stdout: `${'1'.repeat(40)}\n`, stderr: '' }
@@ -589,6 +596,8 @@ describe('create-pr', () => {
       const archive = snapshot.safetyArchives[1]
       expect(archive).toContain('.specrails-overlay-quarantine-')
 
+      expect(fs.existsSync(path.join(archive, '.claude', 'kit.md'))).toBe(false)
+      expect(fs.existsSync(kitFile)).toBe(false)
       fs.writeSync(fd, 'post-rename write', 0, 'utf8')
       expect(fs.readFileSync(path.join(archive, '.claude', 'rules', 'owned.md'), 'utf8')).toContain('post-rename write')
     } finally {
@@ -4209,6 +4218,21 @@ describe('milestone chain: ancestor sweep + head discard', () => {
     const row = mkRow({ decision: 'on_review', baseBranch: 'develop' })
     const res = await executePrDecision(deps, { prDeliveryId: row.id, action: 'merge-local', expectedDecision: 'on_review' })
     expect(res.status).toBe(200)
+  })
+
+  it('discarding a chain head rewinds to the integration branch when the previous spec is already merged', async () => {
+    const { deps } = mkDeps({ git: gitScript().git })
+    const first = mkRow({ decision: 'merged', ticketIds: [1], branch: 'feat/1-merged-and-deleted' })
+    db.prepare('UPDATE rail_pr_deliveries SET rail_index = 1 WHERE id = ?').run(first.id)
+    const second = mkRow({ decision: 'on_review', ticketIds: [2], branch: BATCH })
+    createChain(db, { id: 'chain-3', milestoneN: 1, milestoneId: 'm1', mode: 'sequential', chunks: [[1], [2]], integrationBranch: 'main' })
+    updateChain(db, 'chain-3', 'running', { status: 'paused', pauseReason: 'chunk_failed', headBranch: BATCH, nextChunk: 2, launched: [
+      { chunk: 1, railIndex: 1, ticketIds: [1], runIds: [], deliveryId: first.id },
+      { chunk: 2, railIndex: 0, ticketIds: [2], runIds: [], deliveryId: second.id },
+    ] })
+    const res = await executePrDecision(deps, { prDeliveryId: second.id, action: 'discard', expectedDecision: 'on_review' })
+    expect(res.status).toBe(200)
+    expect(getChain(db, 'chain-3')!).toMatchObject({ status: 'paused', pause_reason: 'head_discarded', head_branch: null })
   })
 
   it('discarding a chain head pauses the chain head_discarded and broadcasts the chain', async () => {

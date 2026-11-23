@@ -40,7 +40,7 @@ import { decorateAgentInputMessages, enqueueAgentInput, getAgentInput, listPendi
 import { AGENT_CAPABILITY_HEADER } from './modules/missions/runtime/agent-tier'
 import { _resetAgentCapabilitiesForTest } from './mcp/agent-capability'
 import { registerTieredTool, type McpToolContext, type McpToolSpec, type ToolHandlerExtra } from './mcp/tools/types'
-import { missionTools } from './mcp/tools/mission'
+import { missionTools } from './mcp/v2/tools/mission'
 import type { DbInstance } from './db'
 import type { AdapterEvent } from './providers/types'
 import type { InvocationResult, RunInvocationHooks } from './modules/execution/runtime/spawn-lifecycle'
@@ -60,7 +60,8 @@ interface SimulatedInvocation {
 
 const parsedBlocks = (result: CallToolResult): Array<Record<string, any>> => result.content.flatMap(block => {
   if (block.type !== 'text') return []
-  try { return [JSON.parse(block.text)] } catch { return [] }
+  // Unwrap the MCP response envelope of a successful call; steering blocks pass through.
+  try { const value = JSON.parse(block.text); return [value && value.ok === true && 'summary' in value ? value.data : value] } catch { return [] }
 })
 const updates = (result: CallToolResult) => parsedBlocks(result).filter(block => block.type === 'mission_user_updates')
 const textOf = (result: CallToolResult) => result.content.filter(block => block.type === 'text').map(block => block.text).join('\n')
@@ -141,14 +142,18 @@ describe('mission live steering across manager, durable inbox and MCP dispatch',
   const ack = (id: string, revision: number) => call(id, 'specrails_mission', { action: 'acknowledge_updates', revision })
   const events = (type: string) => broadcast.mock.calls.map(([event]) => event).filter(event => event.type === type)
   const transcript = (id: string) => listAgentMessages(db, id).map(message => [message.role, message.content])
-  it('records an explicit initial-message read receipt in a provider with MCP delivery', async () => {
+  it('marks the initial message read on the server in a stream-json provider and keeps the tool idempotent', async () => {
     const id = conversation('gemini')
     const running = manager.sendMessage(id, 'Start the task.', { queueId: 'initial' })
     await vi.waitFor(() => expect(invocations).toHaveLength(1))
-    expect(invocations[0].hooks.buildOpts?.prompt).toContain('Mission input ID: "initial"')
+    expect(invocations[0].hooks.buildOpts?.prompt).not.toContain('Mission input ID')
     expect(getAgentInput(db, id, 'initial')?.receipt).toBe('sent')
+    invocations[0].hooks.onEvent?.({ kind: 'text-delta', text: 'Working' })
+    expect(getAgentInput(db, id, 'initial')?.receipt).toBe('read')
+    expect(events('agent_input_receipt')).toEqual([expect.objectContaining({ queueId: 'initial', receipt: 'read' })])
     expect((await call(id, 'specrails_mission', { action: 'acknowledge_inputs', inputIds: ['initial'] })).isError).toBeUndefined()
     expect(getAgentInput(db, id, 'initial')?.receipt).toBe('read')
+    expect(events('agent_input_receipt')).toHaveLength(1)
     invocations[0].finish('done')
     await running
   })
@@ -269,8 +274,8 @@ describe('mission live steering across manager, durable inbox and MCP dispatch',
     const result = await inFlight
     if (failure) {
       expect(result.isError).toBe(true)
-      expect(result.content[0]).toMatchObject({ text: 'Error: Existing work encountered a merge conflict.' })
-    } else expect(JSON.parse((result.content[0] as { text: string }).text)).toEqual({ jobId: 'existing-job-42', committed: true })
+      expect(JSON.parse((result.content[0] as { text: string }).text)).toMatchObject({ ok: false, error: { message: 'Existing work encountered a merge conflict.' } })
+    } else expect(JSON.parse((result.content[0] as { text: string }).text)).toMatchObject({ ok: true, data: { jobId: 'existing-job-42', committed: true } })
     expect(updates(result)[0].content).toContain('After that operation, inspect the conflict.')
     expect(stale).not.toHaveBeenCalled()
     expect(events('agent_steered')).toHaveLength(1)

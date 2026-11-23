@@ -10,6 +10,10 @@ import path from 'path'
 // for git invocations against the real on-disk repo). The queue-manager spawn
 // path uses spawn(), not execSync, so the two coexist cleanly. We also wrap
 // execSync so `which/where claude` resolves on CI runners that lack the binary.
+// Provenance git children are async (`spawn('git', …)` via runBounded): route
+// them to the REAL spawn so the hook diffs the on-disk repo; every other spawn
+// (the provider CLI) returns the test's fake child.
+let fakeSpawnChild: unknown = null
 vi.mock('child_process', async () => {
   const actual = await vi.importActual<typeof import('child_process')>('child_process')
   const wrappedExecSync = ((cmd: string, opts?: unknown) => {
@@ -21,7 +25,8 @@ vi.mock('child_process', async () => {
   return {
     ...actual,
     execSync: wrappedExecSync,
-    spawn: vi.fn(),
+    spawn: vi.fn((cmd: string, ...rest: unknown[]) =>
+      cmd === 'git' ? (actual.spawn as (...a: unknown[]) => unknown)(cmd, ...rest) : fakeSpawnChild),
   }
 })
 
@@ -30,6 +35,7 @@ vi.mock('tree-kill', () => ({ default: vi.fn() }))
 vi.mock('./hooks', () => ({ resetPhases: vi.fn(), setActivePhases: vi.fn() }))
 
 import { spawn as mockSpawn } from 'child_process'
+import { newId } from './ids'
 import treeKill from 'tree-kill'
 import { QueueManager } from './modules/execution/runtime/queue-manager'
 import { initDb, type DbInstance } from './db'
@@ -73,6 +79,11 @@ function fakeInteractiveChild() {
   return child
 }
 
+/** Wait until the provider CLI (not a provenance git child) was spawned. */
+async function waitForProviderSpawn(): Promise<void> {
+  await vi.waitFor(() => expect(vi.mocked(mockSpawn).mock.calls.some(([cmd]) => cmd !== 'git')).toBe(true))
+}
+
 function initGitRepo(dir: string): void {
   const opts = { cwd: dir, stdio: 'ignore' as const }
   realExecSync('git init -q -b main', opts)
@@ -90,7 +101,8 @@ describe('QueueManager — code-explorer provenance hook', () => {
   const savedInteractiveFlag = process.env.SPECRAILS_INTERACTIVE_JOBS
 
   beforeEach(() => {
-    vi.resetAllMocks()
+    vi.clearAllMocks()
+    fakeSpawnChild = null
     delete process.env.SPECRAILS_CODE_EXPLORER
     // Pin the legacy one-shot spawn path (the interactive-by-default flip is
     // covered by its own test below, which re-enables the default).
@@ -121,10 +133,12 @@ describe('QueueManager — code-explorer provenance hook', () => {
 
   it('records provenance rows for created, modified, and deleted files', async () => {
     const child = fakeChild()
-    vi.mocked(mockSpawn).mockReturnValue(child as never)
+    fakeSpawnChild = child
 
-    // Enqueue triggers _startJob which captures the snapshot.
+    // Enqueue triggers _startJob, which awaits the async snapshot BEFORE it
+    // spawns the provider — the job can only write after that.
     qm.enqueue('/specrails:implement #42')
+    await waitForProviderSpawn()
 
     // Mutate working tree as if the rail did the work. `git add` the new
     // file so it shows up in the diff against the stash blob — untracked
@@ -137,8 +151,8 @@ describe('QueueManager — code-explorer provenance hook', () => {
     // Emit the close event so _onJobExit runs.
     ;(child as unknown as EventEmitter).emit('close', 0)
 
-    // Allow the synchronous hook to finish.
-    await new Promise((r) => setImmediate(r))
+    // The capture is async: wait for the recorded rows.
+    await qm.whenProvenanceSettled()
 
     const rows = db.prepare(
       `SELECT file_path, kind, ticket_id, job_id FROM file_provenance ORDER BY file_path`,
@@ -165,10 +179,11 @@ describe('QueueManager — code-explorer provenance hook', () => {
 
   it('inserts no rows when the working tree is untouched', async () => {
     const child = fakeChild()
-    vi.mocked(mockSpawn).mockReturnValue(child as never)
+    fakeSpawnChild = child
     qm.enqueue('/specrails:implement #1')
+    await waitForProviderSpawn()
     ;(child as unknown as EventEmitter).emit('close', 0)
-    await new Promise((r) => setImmediate(r))
+    await qm.whenProvenanceSettled()
     const count = (db.prepare(`SELECT COUNT(*) as n FROM file_provenance`).get() as { n: number }).n
     expect(count).toBe(0)
   })
@@ -176,7 +191,7 @@ describe('QueueManager — code-explorer provenance hook', () => {
   it('skips the hook entirely when SPECRAILS_CODE_EXPLORER=false', async () => {
     process.env.SPECRAILS_CODE_EXPLORER = 'false'
     const child = fakeChild()
-    vi.mocked(mockSpawn).mockReturnValue(child as never)
+    fakeSpawnChild = child
     qm.enqueue('/specrails:implement #1')
     fs.writeFileSync(path.join(projectDir, 'new-file.ts'), 'x\n')
     ;(child as unknown as EventEmitter).emit('close', 0)
@@ -191,7 +206,7 @@ describe('QueueManager — code-explorer provenance hook', () => {
     // before the session starts and the diff runs at settle.
     delete process.env.SPECRAILS_INTERACTIVE_JOBS
     const child = fakeInteractiveChild()
-    vi.mocked(mockSpawn).mockReturnValue(child as never)
+    fakeSpawnChild = child
     vi.mocked(treeKill).mockImplementation((_pid, signal, callback) => {
       callback?.()
       if (signal === 'SIGTERM') {
@@ -203,7 +218,7 @@ describe('QueueManager — code-explorer provenance hook', () => {
     qm.enqueue('/specrails:implement #42')
     // This manager has projectId+slug+cwd, so _startJob awaits plugin
     // resolution before spawning — wait for the session child.
-    await vi.waitFor(() => expect(vi.mocked(mockSpawn)).toHaveBeenCalled())
+    await waitForProviderSpawn()
     expect(child.stdinWrites[0]).toContain('/specrails:implement #42')
 
     // The rail does its work while the turn streams.
@@ -222,6 +237,7 @@ describe('QueueManager — code-explorer provenance hook', () => {
     await vi.waitFor(() => {
       expect(qm.getJobs().find((j) => j.id === 'job-1')?.status).toBe('completed')
     })
+    await qm.whenProvenanceSettled()
 
     const rows = db.prepare(
       `SELECT file_path, kind, ticket_id, job_id FROM file_provenance ORDER BY file_path`,
@@ -237,5 +253,32 @@ describe('QueueManager — code-explorer provenance hook', () => {
       .map((c) => c[0])
       .filter((m) => m.type === 'file.provenance_updated')
     expect(provenanceMsgs.length).toBe(rows.length)
+  })
+
+  it('the next job spawns only after the previous job\'s settle diff read the tree', async () => {
+    vi.mocked(newId).mockReturnValueOnce('job-1').mockReturnValueOnce('job-2')
+    const first = fakeChild()
+    const second = fakeChild()
+    fakeSpawnChild = first
+    qm.enqueue('/specrails:implement #42')
+    await waitForProviderSpawn()
+    fakeSpawnChild = second
+    qm.enqueue('/specrails:implement #43')
+    fs.writeFileSync(path.join(projectDir, 'from-job-1.ts'), 'export const one = 1\n')
+    ;(first as unknown as EventEmitter).emit('close', 0)
+
+    await vi.waitFor(() => expect(vi.mocked(mockSpawn).mock.calls.filter(([cmd]) => cmd !== 'git')).toHaveLength(2))
+    await qm.whenProvenanceSettled()
+    const calls = vi.mocked(mockSpawn).mock.calls.map(([cmd, args]) => cmd === 'git' ? (args as string[]).slice(0, 2).join(' ') : 'provider')
+    const providerSpawns = calls.flatMap((c, i) => c === 'provider' ? [i] : [])
+    const job1Diff = calls.indexOf('diff --name-status')
+    const job2Stash = calls.lastIndexOf('stash create')
+    expect(job1Diff).toBeGreaterThan(providerSpawns[0])
+    // Settle diff → successor snapshot → successor spawn, in that order.
+    expect(job2Stash).toBeGreaterThan(job1Diff)
+    expect(providerSpawns[1]).toBeGreaterThan(job2Stash)
+
+    const rows = db.prepare(`SELECT file_path, job_id FROM file_provenance`).all() as Array<{ file_path: string; job_id: string }>
+    expect(rows).toEqual([{ file_path: 'from-job-1.ts', job_id: 'job-1' }])
   })
 })

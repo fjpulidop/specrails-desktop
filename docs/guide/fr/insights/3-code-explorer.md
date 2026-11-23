@@ -10,7 +10,7 @@ Ouvrez-la depuis la barre latérale droite (**Code**) et, comme tout le reste, e
 
 Le volet de gauche est une arborescence virtualisée des fichiers de votre projet — rapide même sur de gros dépôts. Elle respecte votre `.gitignore` et une liste d'exclusion intégrée, pour que vous voyiez les fichiers qui comptent, et non un océan d'artefacts de build et de `node_modules`.
 
-À côté des fichiers, vous remarquerez des **pastilles de provenance** — de petits marqueurs qui vous indiquent qu'un fichier a été *touché par l'IA*. C'est le cœur du Code explorer : Specrails enregistre quels fichiers chaque job de pipeline a créés ou modifiés, et les relie au ticket qui a déclenché le travail. Vous pouvez ainsi répondre, d'un coup d'œil, à la question « est-ce l'IA qui a écrit ça, ou moi ? »
+À côté des fichiers, vous remarquerez des **pastilles de provenance** — de petits marqueurs qui vous indiquent qu'un fichier a été *touché par l'IA*. C'est le cœur du Code explorer : Specrails enregistre quels fichiers chaque job de pipeline a créés ou modifiés, et les relie à la spec qui a déclenché le travail. Vous pouvez ainsi répondre, d'un coup d'œil, à la question « est-ce l'IA qui a écrit ça, ou moi ? »
 
 En haut de l'arborescence se trouve un filtre :
 
@@ -39,17 +39,17 @@ Vous pouvez aussi choisir la **langue des résumés** (anglais ou espagnol) dans
 
 ## L'histoire de construction
 
-Sous l'afficheur de code vit l'**histoire de construction** : une chronologie de chaque spec et de chaque job qui ont bâti le fichier que vous regardez. Chaque chapitre est une carte : quelle spec est intervenue (avec son statut actuel), quand, si le fichier a été créé, modifié ou supprimé, et l'ampleur du changement (lignes ajoutées et supprimées). Cliquez sur une carte pour ouvrir le détail de cette spec. Les rails basés sur des loops enregistrent aussi les fichiers qu'ils touchent : le travail effectué dans des worktrees isolés apparaît dans l'histoire comme les jobs classiques du pipeline.
+Sous l'afficheur de code vit l'**histoire de construction** : une chronologie de chaque spec et de chaque job qui ont bâti le fichier que vous regardez. Chaque chapitre est une carte : quelle spec est intervenue (avec son statut actuel), quand, si le fichier a été créé, modifié ou supprimé, et l'ampleur du changement (lignes ajoutées et supprimées). Cliquez sur une carte de spec pour ouvrir le détail de cette spec. Les rails basés sur des loops enregistrent aussi les fichiers qu'ils touchent : le travail effectué dans des worktrees isolés apparaît dans l'histoire comme les jobs classiques du pipeline.
 
 Pour n'importe quel chapitre, vous pouvez demander une explication en langage simple : appuyez sur **Expliquer ce changement** et l'app rédige une à trois phrases décrivant ce que ce changement précis a apporté au fichier — sans code, sans jargon. Les explications partagent le même budget mensuel que les résumés de fichiers, et tant qu'aucune n'a été générée, la carte s'en tient aux faits qu'elle connaît : le type de changement, la spec et la date. Vous préférez les données brutes ? Un sélecteur **Histoire / Journal** bascule vers la liste classique des modifications avec des diffs à la demande. Le même panneau apparaît dans le volet **Files** du mode Agent.
 
 ## Relier le code aux specs
 
-Le lien de provenance fonctionne dans les deux sens. Dans le Code explorer, cliquer sur la pastille d'un ticket attachée à un fichier ouvre le détail de ce ticket. Et dans l'autre sens, la vue **détail du ticket** comporte une section *Fichiers touchés par ce ticket* — cliquez-y sur un fichier et vous atterrissez directement dans le Code explorer avec ce fichier ouvert. La boucle est ainsi bouclée entre « voici la spec que nous avons écrite » et « voici le code qui en est sorti ».
+Le lien de provenance fonctionne dans les deux sens. Dans le Code explorer, cliquer sur la pastille d'une spec attachée à un fichier ouvre le détail de cette spec. Et dans l'autre sens, la vue **détail de la spec** comporte une section *Fichiers touchés par cette spec* — cliquez-y sur un fichier et vous atterrissez directement dans le Code explorer avec ce fichier ouvert. La boucle est ainsi bouclée entre « voici la spec que nous avons écrite » et « voici le code qui en est sorti ».
 
 ## Ce qu'il ne fait pas (encore)
 
-Pour poser les attentes clairement, cette première version laisse délibérément quelques éléments de côté : l'édition dans l'application, les résumés par symbole ou par répertoire, une vue de diff narrative, et le « pose une question à l'IA sur ce fichier » conversationnel. La provenance attribue un fichier à son ticket principal uniquement. Ce sont là le genre de choses qui pourront se développer au fil du temps.
+Pour poser les attentes clairement, cette première version laisse délibérément quelques éléments de côté : l'édition dans l'application, les résumés par symbole ou par répertoire, une vue de diff narrative, et le « pose une question à l'IA sur ce fichier » conversationnel. La provenance attribue un fichier à sa spec principale uniquement. Ce sont là le genre de choses qui pourront se développer au fil du temps.
 
 ## Le désactiver
 

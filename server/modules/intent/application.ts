@@ -68,6 +68,8 @@ export interface HandOffFlowInput {
   flowId: string
   railIndex: number
   options?: IntentLaunchOptions
+  /** No engine given: run on the Intent conversation's engine (as the hand-off card preselects), not the rail default. */
+  missionEngine?: boolean
 }
 
 export interface IntentCost {
@@ -353,7 +355,7 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
       if (frozen.adoptedChange) session = commit({ ...session, derivedChanges: withDerivedChange(session, frozen.adoptedChange) })
       session = apply(session, { type: 'frozen', headSha: frozen.headSha, now: ports.clock.now() })
       const launched = await ports.rails.launch({
-        flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, railIndex: input.railIndex, options: input.options ?? {},
+        flowId: session.id, conversationId: session.conversationId, ticketId: session.ticketId!, railIndex: input.railIndex, options: input.missionEngine ? handOffOptions(session.conversationId, input.options ?? {}) : input.options ?? {},
         ...repositoryOf(session),
       })
       const after = load(session.id)
@@ -369,6 +371,20 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
       if (latest.state !== 'handed_off') commit(transition(latest, { type: 'hand-off-failed', now: ports.clock.now() }).session)
       throw error
     }
+  }
+
+  /**
+   * A hand-off that asks for the mission's engine and names none (an MCP
+   * client) runs on what the person uses in the Intent, as the card preselects: the
+   * conversation's provider/model/effort when that provider can run here, else
+   * the rail default. An explicit engine is kept as given.
+   */
+  function handOffOptions(conversationId: string, options: IntentLaunchOptions): IntentLaunchOptions {
+    if (options.aiEngine) return options
+    let engine: ReturnType<NonNullable<IntentPorts['agent']['launchEngine']>> = null
+    try { engine = ports.agent.launchEngine?.(conversationId) ?? null } catch { engine = null }
+    if (!engine?.aiEngine) return options
+    return { ...options, ...engine, ...(options.model ? { model: options.model } : {}), ...(options.reasoningEffort ? { reasoningEffort: options.reasoningEffort } : {}) }
   }
 
   /**
@@ -534,7 +550,7 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
       const stopped = ports.rails.stoppedDelivery(input.deliveryId)
       const returned = await returnWorktree(current, input.deliveryId)
       const railIndex = returned.railIndex ?? stopped?.railIndex ?? null
-      if (railIndex === null) throw new IntentConflictError('flow_rail_unknown', 'The rail of the stopped run is unknown; hand off from the Intent bar', session.id)
+      if (railIndex === null) throw new IntentConflictError('flow_rail_unknown', 'The rail of the stopped run is unknown; hand it off again on a rail (the Intent bar, or specrails_missions intent_hand_off with options.rail)', session.id)
       return handOff({ flowId: session.id, railIndex, options: relaunchOptions(session.conversationId, { ...(stopped?.options ?? {}), ...returned.options }) })
     })
   }
@@ -738,7 +754,7 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
         billingRetried.add(session.id)
         const timer = setTimeout(() => {
           const current = ports.repository.get(session.id)
-          if (current?.state === 'delivered') void announceDelivered(current, summarizeSettlement(ports.effects.list(current.id)))
+          if (current?.state === 'delivered') void announceDelivered(current, summarizeSettlement(ports.effects.list(current.id))).catch((error: unknown) => console.error('[intent] delivered summary failed:', error))
         }, retryMs)
         ;(timer as { unref?: () => void }).unref?.()
       }

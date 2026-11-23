@@ -2,7 +2,7 @@ import { ChevronUp } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../../lib/utils'
 import { useTicketDetailModal } from '../../../specs/context/TicketDetailModalContext'
-import { LiveDot } from '../../../../components/ui/live-dot'
+import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
 
 export interface SummaryPayload {
   summary: string
@@ -90,7 +90,7 @@ export function SummaryHeader({ path, summary, stale, regenerating, generateDisa
               </span>
             )}
             {regenerating && (
-              <LiveDot tone="primary" size="xs" aria-hidden />
+              <RunStateDot state="working" />
             )}
           </div>
           <p className="text-sm text-foreground mt-1 whitespace-pre-wrap break-words">{summary.summary}</p>

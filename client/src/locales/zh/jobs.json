@@ -14,7 +14,6 @@
     "failed": "任务以非零退出码结束",
     "canceled": "任务已被手动取消",
     "queued": "任务正在队列中等待",
-    "queuedToRun": "任务正在等待运行",
     "zombie": "任务因长时间无活动而被自动终止",
     "skipped": "因流水线中的上游任务失败，此任务被跳过"
   },
@@ -168,18 +167,30 @@
     "cancelJob": "取消任务",
     "stopRun": "停止运行",
     "stopRunConfirmTitle": "停止此运行？",
-    "stopRunConfirmDescription": "循环运行将在下一个步骤边界停止。此操作无法撤销。",
+    "stopRunConfirmDescription": "它会在下一步停止并关闭。你之后可以在一次保留工作的新尝试中继续。",
     "toast": {
       "cancelSignalSent": "已发送取消信号",
       "cancelSignalSentDescription": "任务将在下一个安全点停止",
-      "stopSignalSent": "已发送停止信号",
-      "stopSignalSentDescription": "运行将在下一个步骤边界停止",
+      "stopSignalSent": "正在停止运行",
+      "stopSignalSentDescription": "它会在下一步停止并关闭。你之后可以在一次保留工作的新尝试中继续。",
       "cancelFailed": "取消失败",
-      "networkError": "网络错误"
+      "networkError": "网络错误",
+      "pauseRequested": "正在暂停运行",
+      "pauseRequestedDescription": "它会在当前步骤之后暂停。恢复会继续这同一次运行。",
+      "pauseFailed": "无法暂停运行",
+      "pauseUnsupported": "此运行的引擎无法中途暂停。请改为停止它：之后你仍可以继续。",
+      "resumed": "运行已恢复",
+      "resumedDescription": "它从暂停处继续。",
+      "resumeFailed": "无法恢复运行"
     },
     "title": "{{kind}} 任务 · #{{id}}",
     "titleLoop": "循环运行 · #{{id}}",
-    "titleGeneric": "任务 · #{{id}}"
+    "titleGeneric": "任务 · #{{id}}",
+    "pauseRun": "暂停",
+    "pausing": "正在暂停…",
+    "resumeRun": "恢复",
+    "pauseRunTooltip": "在当前步骤之后暂停。不会丢失任何内容：恢复会继续这同一次运行。",
+    "pausingTooltip": "正在完成当前步骤，然后运行将暂停。"
   },
   "comparison": {
     "title": "任务对比",
@@ -253,7 +264,8 @@
       "networkError": "网络错误"
     },
     "emptyCta": "打开规格看板",
-    "loading": "正在加载任务…"
+    "loading": "正在加载任务…",
+    "attempt": "第 {{number}} 次尝试"
   },
   "activeJob": {
     "none": "没有进行中的任务",
@@ -284,12 +296,13 @@
     "copyCommand": "复制",
     "interrupted": "已中断",
     "waiting": "等待下一个步骤…",
+    "notStarted": "尚未运行任何步骤。",
     "stepMapAria": "循环步骤图",
     "stalled": "已停滞",
     "stalledIdle_one": "{{count}} 分钟内无提供方输出，应用已停止此次尝试",
     "stalledIdle_other": "{{count}} 分钟内无提供方输出，应用已停止此次尝试",
     "providerLimit": "提供商限额",
-    "providerLimitHint": "提供商返回了用量限额提示，应用已停止运行而不是继续循环。",
+    "providerLimitHint": "提供商返回了用量限额提示，应用已在限额处暂停运行，而不是继续循环。",
     "paused": "已暂停",
     "runtimeGraph": "执行图",
     "graphFullscreen": "全屏",
@@ -310,8 +323,39 @@
     "repeatFromHere": "从此处重复",
     "forkFailed": "无法创建关联运行",
     "forkPending": "请重试最初选择的步骤，以完成待处理的分支。",
-    "forkCreated": "已创建关联运行。请打开并从所选检查点恢复。",
-    "openFork": "打开关联运行"
+    "forkCreated": "已创建关联运行，并从所选步骤继续。",
+    "forkResumeFailed": "已创建关联运行，但无法自动继续（{{detail}}）。请打开并继续它。",
+    "openFork": "打开关联运行",
+    "graphFollow": "跟随执行",
+    "graphFitAll": "查看全部",
+    "graphLegend": "图例",
+    "graphAttempt": "第 {{n}} 次尝试",
+    "graphAttempts_one": "{{count}} 次尝试",
+    "graphAttempts_other": "{{count}} 次尝试",
+    "graphTrace": "追踪",
+    "graphPathOnly": "仅显示已走路径",
+    "notReached": "{{count}} 个未到达",
+    "graphOutcome": {
+      "next": "下一步",
+      "true": "是",
+      "false": "否",
+      "pass": "通过",
+      "fail": "未通过",
+      "failed": "失败",
+      "invalid": "无效",
+      "blocked": "受阻",
+      "continue": "继续",
+      "stop": "停止",
+      "approved": "已批准",
+      "rejected": "已拒绝",
+      "timeout": "超时",
+      "error": "错误",
+      "done": "完成",
+      "skipped": "已跳过",
+      "retry": "重试",
+      "answered": "已回答",
+      "declined": "已谢绝"
+    }
   },
   "logViewer": {
     "loading": "正在加载日志…",
@@ -364,14 +408,15 @@
       "running": "进行中",
       "skipped": "已跳过",
       "passed": "通过",
-      "unavailable": "不可用"
+      "unavailable": "不可用",
+      "unverified": "未验证"
     }
   },
   "runHeader": {
     "details": "详情",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "截至目前由提供方上报；最终数据在任务结束时给出。",
-    "questionPending": "回答问题"
+    "questionPending": "回答"
   },
   "runDetail": {
     "failure": "失败原因",
@@ -379,6 +424,72 @@
     "graph": "执行图",
     "detail": "日志详情",
     "navigation": "运行详情",
-    "sections": "日志分区"
+    "sections": "日志分区",
+    "stopped": "继续"
+  },
+  "held": {
+    "label": {
+      "restart": "已暂停",
+      "interrupted": "已中断",
+      "provider_limit": "用量上限",
+      "budget": "支出上限",
+      "question": "需要处理",
+      "approval": "需要处理",
+      "paused": "已暂停",
+      "queued": "排队中",
+      "pausedByYou": "已由你暂停"
+    },
+    "tooltip": {
+      "restart": "此运行工作时应用重启了。在你继续之前不会运行任何内容。",
+      "interrupted": "某个步骤在完成前停止了。在你继续之前不会运行任何内容。",
+      "provider_limit": "已达到提供商的用量上限。运行将等待其重置。",
+      "budget": "已达到支出上限。在你继续之前不会运行任何内容。",
+      "question": "运行向你提了一个问题，正在等待你的回答。",
+      "approval": "运行正在等待你的批准才能继续。",
+      "paused": "在你继续之前不会运行任何内容。",
+      "queued": "已启动，正在等待容量。有空位时会自动开始。",
+      "pausedByYou": "你暂停了此运行。它不占用运行名额，在你恢复之前不会运行任何内容。"
+    },
+    "reason": {
+      "restart": "应用在 {{step}} 步骤期间重启了。",
+      "restartNoStep": "应用在运行工作时重启了。",
+      "interrupted": "{{step}} 步骤在完成前停止了。",
+      "interruptedNoStep": "某个步骤在完成前停止了。",
+      "provider_limit": "正在等待提供商的用量上限重置。",
+      "budget": "已达到支出上限。",
+      "question": "正在等待你的回答。",
+      "approval": "正在等待你的批准。",
+      "paused": "在你继续之前不会运行任何内容。",
+      "queued": "开始前正在等待容量。",
+      "pausedByYou": "已由你暂停。在你恢复之前不会运行任何内容。"
+    },
+    "stoppedTime": "停止前的工作时长",
+    "cancelRun": "取消运行",
+    "cancelRunConfirmTitle": "取消这个已暂停的运行？",
+    "cancelRunConfirmDescription": "它将以已停止结束，不再运行任何内容。它的更改保留在其工作树中，之后你仍可以从运行窗口继续它。",
+    "keepPaused": "保持暂停",
+    "queue": {
+      "run_slots": "正在等待空闲位置：这台机器已在处理它能承载的最多运行。",
+      "project_slots": "正在等待此项目的其他运行：它已同时运行允许的最多轨道。",
+      "provider_slots": "正在等待此 AI 提供商的其他运行：它已同时运行允许的最多轨道。",
+      "cpu": "正在等待 CPU：机器已饱和，再启动一个运行会拖慢所有运行。",
+      "memory": "开始前正在等待空闲内存。",
+      "provider_quota": "正在等待提供商的用量窗口：现在无法再完成一个运行。",
+      "other": "开始前正在等待容量。",
+      "position": "排在第 {{position}} 位；会自动开始。"
+    }
+  },
+  "budgetPause": {
+    "beforeFirstStep": "它在第一步之前停止，因此尚未运行任何内容。",
+    "beforeStep": "它在 {{step}} 之前停止。",
+    "betweenSteps": "它在两个步骤之间停止。",
+    "titleShared": "运行因支出限额暂停",
+    "limit": "限额",
+    "spent": "已花费",
+    "left": "剩余",
+    "nextStep": "下一步",
+    "about": "约 {{usd}}",
+    "nextStepNote": "{{step}}，估算值",
+    "failed": "无法继续运行"
   }
 }

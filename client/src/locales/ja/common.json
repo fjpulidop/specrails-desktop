@@ -59,6 +59,28 @@
     "draft": "下書き",
     "onReview": "レビュー中"
   },
+  "runState": {
+    "queued": "待機中",
+    "working": "実行中",
+    "needs-input": "回答が必要",
+    "review": "レビュー待ち",
+    "paused": "一時停止中",
+    "blocked": "ブロック中",
+    "failed": "失敗",
+    "done": "完了",
+    "stopped": "停止",
+    "hint": {
+      "queued": "開始を待っています",
+      "working": "作業を進めています",
+      "needs-input": "エージェントがあなたの回答を待っています",
+      "review": "結果があなたの判断を待っています",
+      "paused": "一時停止中：再開すると続行します",
+      "blocked": "外部の状況が変わるまで続行できません",
+      "failed": "エラーで終了しました",
+      "done": "正常に完了しました",
+      "stopped": "完了せずに終了しました：キャンセル、スキップ、または置き換え"
+    }
+  },
   "prDeliveryStatus": {
     "implementation_running": "実装を実行中",
     "implementation_failed": "実装に失敗",
@@ -179,6 +201,7 @@
     "stillExceeded": "1日の予算はまだ使い切られています。",
     "exceededRun": "1 回の実行あたりの上限に達しました（{{spent}} / {{budget}}）。実行は一時停止しています。",
     "pausedRun": "1 回の実行あたりの上限で一時停止しました（{{spent}} / {{budget}}）。上限なしで続行するか、上限を引き上げてください。",
+    "pausedRunNext": "{{step}} の前で一時停止しました。このステップは通常 約 {{next}} かかり、1 回の実行あたりの上限 {{budget}} の残りは {{left}} です（{{spent}} 使用済み）。1 回だけ実行するか、上限なしで続行するか、上限を引き上げてください。",
     "actionRun": "上限なしで続行するか、上限を引き上げてから再開してください。",
     "exceededProject_week": "プロジェクトの週間予算に達しました（{{spent}} / {{budget}}）。何も起動していません。",
     "exceededProject_month": "プロジェクトの月間予算に達しました（{{spent}} / {{budget}}）。何も起動していません。",
@@ -198,6 +221,7 @@
       "title": "実行が上限で一時停止しました",
       "raise": "上限を引き上げて続行",
       "continue": "上限なしで続行",
+      "once": "このステップだけ実行",
       "raiseTo": "上限を引き上げる額（USD）",
       "mustExceed": "すでに使用した {{spent}} を上回る必要があります"
     },
@@ -259,7 +283,11 @@
       "specsBoard": "スペックとバックログ",
       "specTimeline": "スペックのタイムラインと引き継ぎ",
       "accessibility": "アクセシビリティとカスタマイズ",
-      "prDecision": "納品オプション"
+      "prDecision": "納品オプション",
+      "attention": "通知",
+      "liveBoard": "ライブボード",
+      "serverRecovery": "ローカルサーバーが停止したとき",
+      "retainedWorktrees": "ディスクに残っている実行用ワークツリー"
     }
   },
   "forecast": {
@@ -295,7 +323,7 @@
       "pausedBudget": "実行を一時停止:支出の上限に達しました",
       "pausedLimit": "実行を一時停止:プロバイダーの上限に達しました",
       "needsYou": "対応が必要な実行があります",
-      "needsYouRail": "レール {{rail}}:対応が必要な実行があります",
+      "needsYouRail": "レール {{rail}}：対応が必要な実行があります",
       "failed": "実行が失敗しました",
       "failedRail": "レール {{rail}}:実行が失敗しました",
       "finished": "実行が完了しました",
@@ -310,12 +338,50 @@
       "finishedSpec": "レール {{rail}}:#{{id}} が完了しました",
       "failedSpec": "レール {{rail}}:#{{id}} が失敗しました",
       "stoppedSpec": "レール {{rail}}:#{{id}} を停止しました",
-      "needsYouSpec": "レール {{rail}}:#{{id}} は対応が必要です",
+      "needsYouSpec": "レール {{rail}}：#{{id}} の対応が必要です",
       "reviewReadySpec": "レール {{rail}}:#{{id}} のレビューの準備ができました"
     }
   },
   "errors": {
     "technicalDetails": "技術的な詳細",
     "copyDetails": "詳細をコピー"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "プランナーが判断を求めています",
+      "developer": "開発者があなたの判断を求めています",
+      "fixer": "修正担当があなたの判断を求めています",
+      "reviewer": "レビュー担当があなたの判断を求めています",
+      "install": "Specrails があなたの許可を求めています",
+      "run": "実行があなたの回答を待っています"
+    },
+    "approval": "実行があなたの承認を待っています",
+    "recommended": "おすすめ",
+    "other": "別の回答…",
+    "otherLabel": "あなたの回答",
+    "otherPlaceholder": "回答を入力",
+    "answer": "回答",
+    "approve": "承認",
+    "reject": "却下",
+    "rejectLabel": "却下する理由は？",
+    "rejectPlaceholder": "理由",
+    "back": "戻る",
+    "sending": "送信中…",
+    "consequence": {
+      "waits": "回答するまで、実行は費用なしで待機します。",
+      "mayEnd": "ここで行うべきではないと答えると、実行は終了します。",
+      "endsRunOption": "「{{label}}」を選ぶと実行は終了します。",
+      "reject": "却下すると実行は終了します。アーカイブもマージもされません。"
+    },
+    "sent": "回答を送信しました。実行を続けます。",
+    "approved": "承認しました。実行を続けます。",
+    "rejected": "却下しました。実行は終了します。",
+    "failed": "回答を送信できませんでした",
+    "showMore": "すべて表示",
+    "showLess": "表示を減らす",
+    "notice": "要対応",
+    "notHere": "ここでは行わない",
+    "notHereMeaning": "この spec はこのリポジトリのものではありません。変更なしで実行を終了します。",
+    "sentEnds": "回答を送信しました。実行は終了します。"
   }
 }

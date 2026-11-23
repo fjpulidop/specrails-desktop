@@ -1,7 +1,7 @@
 import { useEffect, useId, useReducer, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { CheckCircle2, Hourglass, MessageCircleQuestion, Send } from 'lucide-react'
+import { CheckCircle2, Send } from 'lucide-react'
 import { getApiBase } from '../../../lib/api'
 import { API_ORIGIN } from '../../../lib/origin'
 import { cn } from '../../../lib/utils'
@@ -9,11 +9,14 @@ import { Button } from '../../../components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
+import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
 import { formatUsd } from '../../../lib/format-usd'
 
 import { notifyError } from '../../../lib/notify-error'
 import type { RuntimeRunsState } from './job-run/useRuntimeRuns'
 import { answerableRun } from './job-run/job-run-model'
+
 
 /** Running SUM of every completed turn's REAL usage (from job.turn_done /
  *  job.finalized — never an estimate). */
@@ -144,7 +147,6 @@ export function InteractiveJobComposer({
   runtime,
 }: InteractiveJobComposerProps) {
   const { t } = useTranslation('jobs')
-  const { t: tl } = useTranslation('loops')
   const { t: tRuntime } = useTranslation('agentRuntime')
   const questionRun = answerableRun(runtime?.runs[0])
   const [pending, setPending] = useState<PendingInterrupt[]>(pendingInterrupts ?? [])
@@ -277,6 +279,10 @@ export function InteractiveJobComposer({
     }
   }
 
+  // A pending question or approval has one place in the run window: the question card
+  // docked above (RunQuestionDock). The composer steps aside instead of asking it twice.
+  if (pending.length > 0 || questionRun) return null
+
   const sendDisabled = questionRun
     ? answering || !draft.trim()
     : sending || waiting || !text.trim() || needsApproval || (pending.length > 0 && !selectedInterrupt)
@@ -295,18 +301,20 @@ export function InteractiveJobComposer({
       <div className="flex items-center justify-between gap-3 text-caption text-muted-foreground">
         <span className="flex min-w-0 items-center gap-2">
           {questionRun ? (
-            <span className="inline-flex items-center gap-1.5 text-accent-warning">
-              <MessageCircleQuestion className="h-3 w-3" aria-hidden />
+            // The run waits for the person's answer: needs-input (its words stay the runtime's).
+            <span className="inline-flex items-center gap-1.5 text-accent-primary" data-run-state="needs-input">
+              <RunStateGlyph state="needs-input" size="xs" />
               {tRuntime('runs.status.paused')}
             </span>
           ) : waiting ? (
             <span className="inline-flex items-center gap-1.5">
-              <Hourglass className="h-3 w-3 motion-safe:animate-pulse" />
+              {/* Waiting for the next step to start: queued, not a pulsing icon. */}
+              <RunStateGlyph state="queued" size="xs" />
               {t('detail.interactive.waitingForStepShort')}
             </span>
           ) : state.streaming ? (
             <span className="inline-flex items-center gap-1.5">
-              <LiveDot tone="primary" size="xs" aria-hidden />
+              <RunStateDot state="working" />
               <span className="relative">
                 {workingLabel}
                 <span aria-hidden className="title-shimmer pointer-events-none absolute inset-0">
@@ -316,7 +324,8 @@ export function InteractiveJobComposer({
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5">
-              <LiveDot tone="success" size="xs" aria-hidden />
+              {/* Session health, not a run outcome: the session is idle and accepts input. */}
+              <LiveDot tone="success" pulsing={false} size="xs" aria-hidden />
               {t('detail.interactive.ready')}
             </span>
           )}
@@ -385,25 +394,7 @@ export function InteractiveJobComposer({
       {/* Quiet mode hint: auto jobs finish themselves; between loop steps the
           waiting explainer replaces it. Finalize mode needs no hint (the button
           IS the contract, unchanged). */}
-      {pending.length > 0 && (
-        <div className="space-y-2 rounded-md border border-accent-warning/30 bg-accent-warning/5 p-3">
-          <label className="block text-sm">{tl('core.selectInterrupt')}
-            <select aria-label={tl('core.selectInterrupt')} className="mt-1 w-full rounded border border-border bg-background p-2" value={interruptId} onChange={event => setInterruptId(event.target.value)}>
-              <option value="">{tl('core.selectInterrupt')}</option>
-              {pending.map(item => <option key={item.id} value={item.id}>{item.nodePath} · {tl(`core.${item.kind === 'question' ? 'answerQuestion' : 'approval'}`)}</option>)}
-            </select>
-          </label>
-          {selectedInterrupt && typeof selectedInterrupt.value === 'object' && selectedInterrupt.value !== null && typeof (selectedInterrupt.value as {prompt?: unknown}).prompt === 'string' && <p className="whitespace-pre-wrap text-sm">{String((selectedInterrupt.value as {prompt: string}).prompt)}</p>}
-          {needsApproval && <Button onClick={() => void handleSend(true)} disabled={sending || waiting}>{tl('core.approveContinue')}</Button>}
-        </div>
-      )}
-      {questionRun && (
-        <div data-testid="composer-runtime-question" className="space-y-1 rounded-md border border-accent-warning/30 bg-accent-warning/5 p-3 text-sm">
-          <p className="font-medium">{tRuntime('runs.question')}</p>
-          <p className="whitespace-pre-wrap">{questionRun.pendingQuestion!.question}</p>
-        </div>
-      )}
-      {mode === 'auto' && !pending.length && !questionRun && (
+      {mode === 'auto' && (
         <p className="text-caption leading-snug text-muted-foreground">
           {waiting ? t('detail.interactive.waitingForStep') : t('detail.interactive.autoHint')}
         </p>

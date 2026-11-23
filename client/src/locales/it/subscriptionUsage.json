@@ -63,5 +63,13 @@
     "limitUnknown": "Limite mensile non disponibile",
     "resets": "Si reimposta il {{time}}",
     "progress": "Spesa mensile di Claude"
+  },
+  "statusBar": {
+    "label": "Uso del piano: {{provider}} al {{percent}}%. Mostra dettagli",
+    "rejectedLabel": "Uso del piano: limite di {{provider}} raggiunto. Mostra dettagli"
+  },
+  "today": {
+    "title": "Speso oggi",
+    "estimated": "Include stime per i provider che non riportano un prezzo"
   }
 }

@@ -8,7 +8,8 @@
 // card (`surface: 'return'`, no actions).
 
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, ChevronRight, Undo2 } from 'lucide-react'
+import { ChevronRight, Undo2 } from 'lucide-react'
+import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
 import { cn } from '../../../lib/utils'
 import type { MissionRunFailureOutcomeProps } from '../../missions/context/MissionExtensionsContext'
 import { flowFailureStep, firstLine } from '../lib/intent-failure'
@@ -36,7 +37,8 @@ export function IntentRunFailure({
       className={cn('text-label', !embedded && 'mt-2 rounded-md border border-accent-warning/35 bg-accent-warning/[0.06] px-2.5 py-2')}
     >
       <p className="flex items-start gap-1.5 font-medium leading-4 text-foreground">
-        <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0 text-accent-warning" aria-hidden />
+        {/* The work is intact and goes back to the Intent: blocked, not lost. */}
+        <RunStateGlyph state="blocked" size="sm" className="mt-px" />
         <span data-testid="flow-run-failure-headline">{t(`flow.failure.step.${step}`)}</span>
       </p>
       {causeLine && (

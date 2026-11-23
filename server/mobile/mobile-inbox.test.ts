@@ -5,8 +5,8 @@ import request from 'supertest'
 import { initDesktopDb, setDesktopSetting } from '../desktop-db'
 import type { DbInstance } from '../db'
 import { createDevice, hashToken, setAllowedProjects, _resetAclColumnCacheForTests } from './mobile-devices'
-import { createMobileRouter } from './mobile-router'
-import { companionTargetsFor } from './mobile-inbox'
+import { createMobileRouter, MOBILE_ALLOWLIST } from './mobile-router'
+import { applyInboxDismissals, companionTargetsFor, dismissalHides, dismissInboxItem, readInboxDismissals, restoreInboxItem, INBOX_DISMISSALS_KEY, MAX_INBOX_DISMISSALS } from './mobile-inbox'
 import type { InboxItem } from '../modules/inbox'
 
 // A stand-in desktop API: records every call the gateway forwards so each safe
@@ -15,6 +15,7 @@ let internal: http.Server
 let internalPort = 0
 let calls: Array<{ method: string; path: string; body: unknown }> = []
 let runState: Record<string, unknown> = {}
+let loopRunStatus = 'paused'
 
 const item = (over: Partial<InboxItem>): InboxItem => ({
   id: 'p1:question:r1', projectId: 'p1', projectName: 'P1', kind: 'question', title: 'Run', detail: null,
@@ -38,6 +39,10 @@ beforeAll(async () => {
   app.get('/api/projects/:id/agent-runtime/runs/:rid', (req, res) => {
     calls.push({ method: 'GET', path: req.path, body: null })
     res.json({ runs: [runState] })
+  })
+  app.get('/api/projects/:id/loop-runs/:rid', (req, res) => {
+    calls.push({ method: 'GET', path: req.path, body: null })
+    res.json({ loopRun: { id: req.params.rid, status: loopRunStatus } })
   })
   app.use((req, res) => {
     calls.push({ method: req.method, path: req.path, body: req.body })
@@ -91,6 +96,82 @@ describe('companion inbox decisions', () => {
     it('needs a device token', async () => {
       expect((await request(app).get('/v1/inbox')).status).toBe(401)
     })
+
+    it('hides items snoozed or done on another remote surface; ?all=1 lists them marked', async () => {
+      dismissInboxItem(db, { itemId: 'p2:question:r9', version: 'v' })
+      const res = await request(app).get('/v1/inbox').set(auth)
+      expect(res.body.items.map((i: InboxItem) => i.id)).toEqual(['p1:question:r1'])
+      const all = await request(app).get('/v1/inbox?all=1').set(auth)
+      expect(all.body.items.map((i: InboxItem & { dismissed?: unknown }) => [i.id, !!i.dismissed])).toEqual([['p1:question:r1', false], ['p2:question:r9', true]])
+    })
+  })
+
+  describe('POST/DELETE /v1/inbox/dismissals', () => {
+    it('is on the companion allow-list', () => {
+      expect(MOBILE_ALLOWLIST).toEqual(expect.arrayContaining([{ method: 'POST', path: '/v1/inbox/dismissals' }, { method: 'DELETE', path: '/v1/inbox/dismissals/:itemId' }]))
+    })
+
+    it('snoozes or marks done at the version seen, and brings an item back', async () => {
+      const done = await request(app).post('/v1/inbox/dismissals').set(auth).send({ itemId: 'p1:question:r1', version: 'v' })
+      expect(done.status).toBe(200)
+      expect(done.body.dismissed).toMatchObject({ kind: 'done', version: 'v', until: null })
+      const until = new Date(Date.now() + 3_600_000).toISOString()
+      const snoozed = await request(app).post('/v1/inbox/dismissals').set(auth).send({ itemId: 'p2:question:r9', version: 'v', until })
+      expect(snoozed.body.dismissed).toMatchObject({ kind: 'snooze', until })
+      expect((await request(app).get('/v1/inbox').set(auth)).body.items).toEqual([])
+      const back = await request(app).delete('/v1/inbox/dismissals/p1:question:r1').set(auth)
+      expect(back.body).toEqual({ ok: true, itemId: 'p1:question:r1', restored: true })
+      expect((await request(app).get('/v1/inbox').set(auth)).body.items.map((i: InboxItem) => i.id)).toEqual(['p1:question:r1'])
+    })
+
+    it('refuses bad input, past times and projects outside the device grant', async () => {
+      expect((await request(app).post('/v1/inbox/dismissals').set(auth).send({ itemId: 'nope', version: 'v' })).status).toBe(400)
+      expect((await request(app).post('/v1/inbox/dismissals').set(auth).send({ itemId: 'p1:question:r1', version: 'v', until: '2000-01-01T00:00:00Z' })).status).toBe(400)
+      const [{ id }] = db.prepare('SELECT id FROM mobile_devices').all() as Array<{ id: string }>
+      setAllowedProjects(db, id, ['p1'])
+      expect((await request(app).post('/v1/inbox/dismissals').set(auth).send({ itemId: 'p2:question:r9', version: 'v' })).status).toBe(404)
+      expect((await request(app).delete('/v1/inbox/dismissals/p2:question:r9').set(auth)).status).toBe(404)
+      expect(readInboxDismissals(db)).toEqual({})
+    })
+  })
+
+  describe('the dismissal store', () => {
+    const now = new Date('2026-11-21T10:00:00.000Z')
+    it('Done holds while the version is unchanged; a snooze until its time', () => {
+      const done = dismissInboxItem(db, { itemId: 'p1:question:r1', version: 'v1' }, now)
+      expect(dismissalHides(done, 'v1', now)).toBe(true)
+      expect(dismissalHides(done, 'v2', now)).toBe(false)
+      const snooze = dismissInboxItem(db, { itemId: 'p1:question:r1', version: 'v1', until: '2026-11-21T11:00:00.000Z' }, now)
+      expect(dismissalHides(snooze, 'v9', now)).toBe(true)
+      expect(dismissalHides(snooze, 'v9', new Date('2026-11-21T11:00:01.000Z'))).toBe(false)
+    })
+
+    it('caps a snooze at 30 days and refuses a past or invalid time', () => {
+      expect(dismissInboxItem(db, { itemId: 'p1:question:r1', version: 'v', until: '2027-12-01T00:00:00Z' }, now).until).toBe('2026-12-21T10:00:00.000Z')
+      expect(() => dismissInboxItem(db, { itemId: 'p1:question:r1', version: 'v', until: '2026-11-20T00:00:00Z' }, now)).toThrow(RangeError)
+      expect(() => dismissInboxItem(db, { itemId: 'bad id', version: 'v' }, now)).toThrow(RangeError)
+    })
+
+    it('splits visible from hidden and prunes dismissals that no longer hide anything', () => {
+      dismissInboxItem(db, { itemId: 'p1:question:r1', version: 'v' }, now)
+      dismissInboxItem(db, { itemId: 'p1:failed:gone', version: 'v' }, now)
+      dismissInboxItem(db, { itemId: 'p2:question:r9', version: 'old' }, now)
+      const { visible, hidden } = applyInboxDismissals(db, [item({}), item({ id: 'p2:question:r9' })], { now, prune: true })
+      expect(visible.map((i) => i.id)).toEqual(['p2:question:r9'])
+      expect(hidden.map((i) => i.id)).toEqual(['p1:question:r1'])
+      expect(Object.keys(readInboxDismissals(db))).toEqual(['p1:question:r1'])
+      expect(restoreInboxItem(db, 'p1:question:r1')).toBe(true)
+      expect(restoreInboxItem(db, 'p1:question:r1')).toBe(false)
+    })
+
+    it('reads a corrupt record as empty and keeps at most the newest entries', () => {
+      setDesktopSetting(db, INBOX_DISMISSALS_KEY, '{not json')
+      expect(readInboxDismissals(db)).toEqual({})
+      for (let i = 0; i < MAX_INBOX_DISMISSALS + 5; i++) dismissInboxItem(db, { itemId: `p1:failed:r${i}`, version: 'v' }, new Date(now.getTime() + i))
+      const stored = readInboxDismissals(db)
+      expect(Object.keys(stored)).toHaveLength(MAX_INBOX_DISMISSALS)
+      expect(stored['p1:failed:r0']).toBeUndefined()
+    })
   })
 
   describe('which actions a row offers', () => {
@@ -111,6 +192,11 @@ describe('companion inbox decisions', () => {
       expect(companionTargetsFor(item({ kind: 'failed', railIndex: 1, diagnosis: null })).ids).toEqual([])
     })
 
+    it('offers Resume for a run whose primary remedy is Continue (and its older id)', () => {
+      expect(companionTargetsFor(item({ kind: 'failed', diagnosis: diagnosis(['continue', 'open-logs', 'retry']) }))).toEqual({ ids: ['resume'], target: { runId: 'r1' } })
+      expect(companionTargetsFor(item({ kind: 'blocked', diagnosis: diagnosis(['resume', 'retry']) })).ids).toEqual(['resume'])
+    })
+
     it('leaves budget caps and Jira to the desktop', () => {
       expect(companionTargetsFor(item({ kind: 'budget', action: 'raise-cap' })).ids).toEqual([])
       expect(companionTargetsFor(item({ kind: 'jira', action: 'retry-jira' })).ids).toEqual([])
@@ -121,7 +207,7 @@ describe('companion inbox decisions', () => {
     it('shows the pending question', async () => {
       runState = { engineVersion: 2, pendingQuestion: { stepId: 's1', question: 'Which database?', requestedAt: 't' } }
       const res = await request(app).get('/v1/projects/p1/inbox/runs/r1/question').set(auth)
-      expect(res.body).toEqual({ pending: true, question: 'Which database?', requestedAt: 't' })
+      expect(res.body).toEqual({ pending: true, question: 'Which database?', requestedAt: 't', card: null })
     })
 
     it('answers a workflow run through the loop-run resume the desktop uses, pinned to the exact question', async () => {
@@ -129,6 +215,18 @@ describe('companion inbox decisions', () => {
       const res = await request(app).post('/v1/projects/p1/inbox/answer').set(auth).send({ runId: 'r1', answer: '  SQLite  ', evil: 1 })
       expect(res.status).toBe(200)
       expect(calls.at(-1)).toEqual({ method: 'POST', path: '/api/projects/p1/loop-runs/r1/resume', body: { answer: 'SQLite', interruptId: 's1' } })
+    })
+
+    it('shows the structured card and answers by a choice the question offered (Core questionOptions)', async () => {
+      const card = { interruptId: 's1', kind: 'question', asker: 'planner', text: 'Which database?', options: [{ id: 'sqlite', label: 'SQLite' }, { id: 'pg', label: 'Postgres' }], endsRun: [], mayEndRun: true, canReject: false }
+      runState = { engineVersion: 2, pendingQuestion: { stepId: 's1', question: 'Which database?', requestedAt: 't' }, question: card }
+      const shown = await request(app).get('/v1/projects/p1/inbox/runs/r1/question').set(auth)
+      expect(shown.body.card).toMatchObject({ asker: 'planner', options: [{ id: 'sqlite' }, { id: 'pg' }] })
+      const res = await request(app).post('/v1/projects/p1/inbox/answer').set(auth).send({ runId: 'r1', answer: 'SQLite', optionId: 'sqlite' })
+      expect(res.status).toBe(200)
+      expect(calls.at(-1)).toEqual({ method: 'POST', path: '/api/projects/p1/loop-runs/r1/resume', body: { answer: 'SQLite', interruptId: 's1', optionId: 'sqlite' } })
+      const refused = await request(app).post('/v1/projects/p1/inbox/answer').set(auth).send({ runId: 'r1', answer: 'x', optionId: 'mongo' })
+      expect(refused.status).toBe(400)
     })
 
     it('answers a v1 runtime run through the agent-runtime resume', async () => {
@@ -150,6 +248,14 @@ describe('companion inbox decisions', () => {
     it('resumes through the desktop loop-run resume, addressed to the item project', async () => {
       await request(app).post('/v1/projects/p2/inbox/resume').set(auth).send({ runId: 'r9' })
       expect(calls.at(-1)).toEqual({ method: 'POST', path: '/api/projects/p2/loop-runs/r9/resume', body: {} })
+    })
+
+    it('continues a run that already ended, the desktop\'s Continue', async () => {
+      loopRunStatus = 'completed'
+      try {
+        await request(app).post('/v1/projects/p1/inbox/resume').set(auth).send({ runId: 'r1' })
+        expect(calls.at(-1)).toEqual({ method: 'POST', path: '/api/projects/p1/loop-runs/r1/remedy', body: { remedy: 'continue' } })
+      } finally { loopRunStatus = 'paused' }
     })
 
     it('carries the run-cap choice: ignore or raise, never both nor junk', async () => {

@@ -16,6 +16,7 @@ vi.mock('sonner', () => ({
 
 vi.mock('../../../../lib/api', () => ({
   getApiBase: () => '/api',
+  getActiveProjectId: () => null,
 }))
 
 vi.mock('../../../../lib/ws-url', () => ({
@@ -27,10 +28,11 @@ vi.mock('../../../../lib/feature-flags', async importOriginal => ({ ...await imp
 
 // Capture the modal's WS handler so tests can feed live frames through it.
 let wsHandler: ((data: unknown) => void) | null = null
-vi.mock('../../../../hooks/useWebSocket', () => ({
-  useWebSocket: vi.fn((_url: string, handler: (d: unknown) => void) => {
-    wsHandler = handler
-    return { connectionStatus: 'connected' }
+vi.mock('../../../../hooks/useSharedWebSocket', () => ({
+  useSharedWebSocket: () => ({
+    registerHandler: (_id: string, handler: (d: unknown) => void) => { wsHandler = handler },
+    unregisterHandler: () => {},
+    connectionStatus: 'connected',
   }),
 }))
 
@@ -53,9 +55,9 @@ vi.mock('../LogViewer', () => ({
 }))
 
 vi.mock('../../../loops/components/loop-log/LoopStepExplorer', () => ({
-  LoopStepExplorer: ({ events }: { events: EventRow[] }) => {
+  LoopStepExplorer: ({ events, toolbarLeading }: { events: EventRow[]; toolbarLeading?: import('react').ReactNode }) => {
     displayedEvents = events
-    return <div data-testid="loop-step-explorer">{events.length} loop events</div>
+    return <div data-testid="loop-step-explorer">{toolbarLeading}{events.length} loop events</div>
   },
 }))
 
@@ -114,11 +116,12 @@ describe('JobDetailModal', () => {
     expect(await screen.findByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
     const panel = screen.getByRole('tabpanel', { name: 'Failure reasons' })
     expect(panel).toContainElement(screen.getByTestId('failure-diagnosis-card'))
-    fireEvent.click(within(panel).getByRole('button', { name: 'Details' }))
-    expect(panel).toContainElement(screen.getByTestId('job-run-details'))
     expect(panel).toHaveClass('min-h-0', 'max-h-full', 'overflow-y-auto')
     expect(panel).not.toContainElement(screen.getByRole('tablist', { name: 'Run detail' }))
-    expect(within(screen.getByTestId('job-run-header')).queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
+    fireEvent.click(within(screen.getByTestId('run-detail-bar')).getByRole('button', { name: 'Details' }))
+    expect(screen.getByRole('dialog', { name: 'Details' })).toContainElement(screen.getByTestId('job-run-details'))
+    expect(panel).not.toContainElement(screen.getByTestId('job-run-details'))
     fireEvent.click(screen.getByRole('tab', { name: 'Log' }))
     expect(screen.getByTestId('log-viewer')).toBeVisible()
   })
@@ -130,22 +133,20 @@ describe('JobDetailModal', () => {
     expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
   })
 
-  it('keeps modal preferences independent of page and restores graph/detail and Details', async () => {
+  it('keeps modal preferences independent of page and restores graph/detail, with Details closed', async () => {
     localStorage.setItem('specrails-desktop:job-run-log-section', JSON.stringify({ page: 'graph', modal: 'detail' }))
-    localStorage.setItem('specrails-desktop:job-run-details', JSON.stringify({ page: false, glass: true }))
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:l' }, events: [] }) })
     const first = render(<JobDetailModal jobId={mockJob.id} onClose={onClose} />)
     expect(await screen.findByRole('tab', { name: 'Log detail' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('button', { name: 'Details' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: 'Details' })).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(screen.getByRole('tab', { name: 'Execution graph' }))
     first.unmount()
     render(<JobDetailModal jobId={mockJob.id} onClose={onClose} />)
     expect(await screen.findByRole('tab', { name: 'Execution graph' })).toHaveAttribute('aria-selected', 'true')
-    expect(JSON.parse(localStorage.getItem('specrails-desktop:job-run-details')!)).toEqual({ page: false, glass: true })
     expect(JSON.parse(localStorage.getItem('specrails-desktop:job-run-log-section')!)).toEqual({ page: 'graph', modal: 'graph' })
   })
 
-  it('reveals question-only Details, retains a failed answer and removes the tab after settlement', async () => {
+  it('shows the question once, as its card above the log: Answer goes there, a refused answer keeps its draft, no Failure reasons tab', async () => {
     const user = userEvent.setup()
     let pending = true
     let rejectAnswer = true
@@ -160,36 +161,36 @@ describe('JobDetailModal', () => {
         : { job: mockJob, events: [] } }
     })
     render(<JobDetailModal jobId={mockJob.id} projectId="mission" onClose={onClose} />)
-    await user.click(await screen.findByRole('button', { name: 'Answer the question' }))
-    expect(screen.getByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Answer and resume' })).toBeDisabled()
-    await user.type(screen.getByLabelText('Your answer'), 'Redis')
-    await user.click(screen.getByRole('button', { name: 'Answer and resume' }))
+    const card = await screen.findByTestId('run-question-card')
+    expect(card).toHaveTextContent('Which backend?')
+    expect(screen.getAllByText('Which backend?')).toHaveLength(1)
+    expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
+    // The header's Answer takes the person to the card.
+    await user.click(screen.getAllByRole('button', { name: 'Answer' }).find(button => !card.contains(button))!)
+    expect(screen.getByTestId('run-question-input')).toHaveFocus()
+    expect(screen.getByTestId('run-question-send')).toBeDisabled()
+    await user.type(screen.getByTestId('run-question-input'), 'Redis')
+    await user.click(screen.getByTestId('run-question-send'))
     const { toast } = await import('sonner')
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not update this run.', expect.objectContaining({ description: 'Answer rejected' })))
-    await user.click(screen.getByRole('tab', { name: 'Log' }))
-    await user.click(screen.getByRole('button', { name: 'Answer the question' }))
-    expect(screen.getByLabelText('Your answer')).toHaveValue('Redis')
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't send your answer", expect.objectContaining({ description: 'Answer rejected' })))
+    expect(screen.getByTestId('run-question-input')).toHaveValue('Redis')
     rejectAnswer = false
-    await user.click(screen.getByRole('button', { name: 'Answer and resume' }))
-    await waitFor(() => expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument())
-    expect(screen.getByRole('tab', { name: 'Log' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('button', { name: 'Details' })).toHaveAttribute('aria-expanded', 'true')
+    await user.click(screen.getByTestId('run-question-send'))
+    expect(await screen.findByTestId('run-question-sent')).toHaveTextContent('Answer sent — the run continues.')
     expect(fetch).toHaveBeenCalledWith('/api/projects/mission/agent-runtime/runs/r/resume', expect.objectContaining({ method: 'POST', body: JSON.stringify({ answer: 'Redis' }) }))
   })
 
-  it('reveals graph remedy separately from raw and narrated Log detail', async () => {
-    localStorage.setItem('specrails-desktop:job-log-mode', 'narrated')
+  it('opens a loop failure remedy on the step logs in Log detail, with story and raw log one click away', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:l', status: 'failed', failureDiagnosis: diagnosis }, events: [] }) })
     const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(function (this: HTMLElement) { expect(this).toBeVisible() })
     render(<JobDetailModal jobId={mockJob.id} onClose={onClose} />)
     fireEvent.click(await screen.findByTestId('failure-remedy-open-logs'))
     await waitFor(() => expect(scroll).toHaveBeenCalled())
-    expect(screen.getByRole('tab', { name: 'Execution graph' })).toHaveAttribute('aria-selected', 'true')
-    fireEvent.click(screen.getByRole('tab', { name: 'Log detail' }))
-    expect(screen.getByTestId('modal-narration-mode-narrated')).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(screen.getByTestId('modal-narration-mode-log'))
+    expect(screen.getByRole('tab', { name: 'Log detail' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('loop-detail-mode-steps')).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByTestId('loop-detail-mode-narrated'))
+    expect(screen.queryByTestId('log-viewer')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('loop-detail-mode-log'))
     expect(screen.getByTestId('log-viewer')).toBeVisible()
     scroll.mockRestore()
   })
@@ -199,8 +200,9 @@ describe('JobDetailModal', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { ...mockJob, command: 'loop:l' }, events: [] }) })
     render(<JobDetailModal jobId={mockJob.id} onClose={onClose} />)
     fireEvent.click(await screen.findByRole('tab', { name: 'Log detail' }))
+    expect(screen.queryByTestId('loop-detail-mode-narrated')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('loop-detail-mode-log'))
     expect(screen.getByTestId('log-viewer')).toBeVisible()
-    expect(screen.queryByTestId('modal-narration-mode-log')).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Execution graph' })).toBeVisible()
   })
 
@@ -854,7 +856,7 @@ describe('JobDetailModal', () => {
       })
       expect(screen.getByPlaceholderText(/Send a message to the running job/i)).toBeInTheDocument()
       expect(screen.getByText('Wrap up now')).toBeInTheDocument()
-      expect(screen.queryByText('Finalize Job')).not.toBeInTheDocument()
+      expect(screen.queryByText('Finalize job')).not.toBeInTheDocument()
     })
 
     it("keeps Finalize semantics for a 'finalize' (freestyle) session", async () => {
@@ -868,7 +870,7 @@ describe('JobDetailModal', () => {
       })
       render(<JobDetailModal jobId="job-running" onClose={onClose} />)
       await waitFor(() => {
-        expect(screen.getByText('Finalize Job')).toBeInTheDocument()
+        expect(screen.getByText('Finalize job')).toBeInTheDocument()
       })
     })
 
@@ -932,6 +934,9 @@ describe('JobDetailModal', () => {
       fireEvent.click(screen.getByRole('button', { name: /^stop$/i }))
 
       await waitFor(() => expect(screen.getByText('Stop this run?')).toBeInTheDocument())
+      // Honest: it closes, and Continue later forks a new attempt that keeps the work.
+      expect(screen.getByText('It stops at the next step and closes. You can continue it later in a new attempt that keeps the work.')).toBeInTheDocument()
+      expect(screen.queryByText(/cannot be undone/i)).not.toBeInTheDocument()
       fireEvent.click(screen.getByRole('button', { name: /^stop run$/i }))
 
       await waitFor(() => {
@@ -942,10 +947,58 @@ describe('JobDetailModal', () => {
           expect.objectContaining({ method: 'POST' })
         )
         expect(toast.success).toHaveBeenCalledWith(
-          'Stop signal sent',
-          expect.objectContaining({ description: expect.stringContaining('step boundary') })
+          'Stopping the run',
+          expect.objectContaining({ description: expect.stringContaining('new attempt that keeps the work') })
         )
       })
+    })
+
+    // The person's Pause: the primary control of a running Core run, Stop beside it.
+    function pauseFetch(job: Record<string, unknown>) {
+      return vi.fn(async (url: string) => {
+        if (url.endsWith('/pause')) return { ok: true, json: async () => ({ loopRunId: 'job-running', pausing: true }) }
+        if (url.endsWith('/resume')) return { ok: true, json: async () => ({ loopRunId: 'job-running', resumed: true }) }
+        return { ok: true, json: async () => ({ job, events: [], phaseDefinitions: [], runs: [] }) }
+      })
+    }
+
+    it('a running Core run offers Pause beside Stop; Pause asks Core and shows Pausing… until it parks', async () => {
+      const { toast } = await import('sonner')
+      global.fetch = pauseFetch({ ...mockLoopJob, pauseControl: 'pause' }) as unknown as typeof fetch
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      const pause = await screen.findByRole('button', { name: /^pause$/i })
+      expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument()
+      fireEvent.click(pause)
+      await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/loop-runs/job-running/pause', expect.objectContaining({ method: 'POST' })))
+      expect(await screen.findByRole('button', { name: /pausing…/i })).toBeDisabled()
+      expect(toast.info).toHaveBeenCalledWith('Pausing the run', expect.objectContaining({ description: expect.stringContaining('same run') }))
+    })
+
+    it('says Pausing… while the server reports the pause pending', async () => {
+      global.fetch = pauseFetch({ ...mockLoopJob, pauseControl: 'pausing' }) as unknown as typeof fetch
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      expect(await screen.findByTestId('run-pausing')).toBeDisabled()
+      expect(screen.getByRole('button', { name: /^stop$/i })).toBeInTheDocument()
+    })
+
+    it('a run paused by you reads "Paused by you" and resumes in place with Resume', async () => {
+      const { toast } = await import('sonner')
+      global.fetch = pauseFetch({ ...mockLoopJob, pauseControl: 'resume', hold: { kind: 'paused', byYou: true, step: null, since: '2026-11-21T10:00:00.000Z' } }) as unknown as typeof fetch
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      const resume = await screen.findByTestId('run-resume')
+      expect(screen.getAllByText('Paused by you').length).toBeGreaterThan(0)
+      // Ending it is "Cancel run" of a paused run, not Stop of a live one.
+      expect(screen.getByRole('button', { name: /^cancel run$/i })).toBeInTheDocument()
+      fireEvent.click(resume)
+      await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/loop-runs/job-running/resume', expect.objectContaining({ method: 'POST' })))
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Run resumed', expect.anything()))
+    })
+
+    it('a run that cannot pause (legacy engine, older Core) keeps Stop only', async () => {
+      global.fetch = pauseFetch(mockLoopJob) as unknown as typeof fetch
+      render(<JobDetailModal jobId="job-running" onClose={onClose} />)
+      await screen.findByRole('button', { name: /^stop$/i })
+      expect(screen.queryByRole('button', { name: /^pause$/i })).not.toBeInTheDocument()
     })
 
     it('cancels against the EXPLICIT projectId (mission mode, cross-project pin)', async () => {

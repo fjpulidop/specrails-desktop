@@ -86,27 +86,30 @@ describe('BudgetCard', () => {
     expect(screen.queryByTestId('budget-projection-value')).toBeNull()
   })
 
-  it('decides plan billing once: one note, named provider windows, no projection dollars, dollar fields collapsed', async () => {
-    usage = { providers: [{ providerId: 'claude', availability: 'available', plan: 'max', spend: null, windows: [{ label: '5h', usedPercent: 42 }, { label: 'weekly', usedPercent: 18 }] }] }
+  it('decides plan billing once: one Plan limits strip with meters and turns, no projection, dollar fields collapsed', async () => {
+    usage = { providers: [{ providerId: 'claude', availability: 'available', plan: 'max', spend: null, windows: [{ label: '5h', usedPercent: 42 }, { label: 'weekly', usedPercent: 85 }] }] }
     render(<BudgetCard projectId="p1" />)
-    const week = await row('project', 'week')
-    await waitFor(() => expect(within(week).getByTestId('budget-spent-project-week')).toHaveTextContent('Turns: 30'))
-    expect(within(week).getByTestId('budget-spent-project-week')).not.toHaveTextContent('$')
-    // Today (no cap) reads like the other rows, not "$0.00 · no limit" beside "Turns".
-    expect(within(await row('project', 'day')).getByTestId('budget-spent-project-day')).toHaveTextContent('Turns: 30')
-    expect(week).toHaveTextContent('Claude: 5h 42% · weekly 18%')
-    // The note appears once, under the title, not in every row.
-    expect(screen.getAllByText(/Plan billing: no dollar cost per use/)).toHaveLength(1)
-    expect(week).not.toHaveTextContent('Plan billing')
-    // The month-end projection has no dollars to project.
-    expect(screen.getByTestId('budget-projection-plan')).toHaveTextContent('no per-use dollar cost')
-    expect(screen.queryByTestId('budget-projection-value')).toBeNull()
-    // The dollar fields live in a collapsed section for metered providers.
-    const details = screen.getByTestId('budget-caps-metered-project')
+    const strip = await screen.findByTestId('budget-plan-limits')
+    // Turns as three inline numerals, never dollars.
+    expect(within(strip).getByTestId('budget-turns-day')).toHaveTextContent('30')
+    expect(within(strip).getByTestId('budget-turns-week')).toHaveTextContent('30')
+    expect(within(strip).getByTestId('budget-turns-month')).toHaveTextContent('30')
+    expect(strip).not.toHaveTextContent('$')
+    // One row per provider, one meter per window; the caution lamp from 80%.
+    const claude = within(strip).getByTestId('budget-plan-provider-claude')
+    const meters = within(claude).getAllByTestId('budget-plan-window')
+    expect(meters.map((m) => m.textContent)).toEqual(['5h42%', 'weekly85%'])
+    expect(meters.map((m) => m.getAttribute('data-level'))).toEqual(['ok', 'caution'])
+    // No empty track rows, no projection, the plan note as a hint.
+    expect(screen.queryByTestId('budget-row-project-week')).toBeNull()
+    expect(screen.queryByTestId('budget-projection')).toBeNull()
+    expect(screen.getByTestId('budget-plan-note')).toHaveTextContent(/Plan billing: no dollar cost per use/)
+    // The dollar fields live in one collapsed section for metered providers.
+    const details = screen.getByTestId('budget-caps-metered')
     expect(details.tagName).toBe('DETAILS')
     expect(details).not.toHaveAttribute('open')
     expect(details).toHaveTextContent('Dollar limits (metered providers)')
-    expect(within(week).queryByLabelText('Project weekly limit (USD)')).toBeNull()
+    expect(within(details).getByLabelText('Project weekly limit (USD)')).toBeInTheDocument()
   })
 
   it('names each provider once when several plan providers have usage windows', async () => {
@@ -119,8 +122,27 @@ describe('BudgetCard', () => {
       { providerId: 'codex', availability: 'available', plan: 'plus', spend: null, windows: [{ label: 'weekly', usedPercent: 0 }] },
     ] }
     render(<BudgetCard projectId="p1" />)
-    const week = await row('project', 'week')
-    await waitFor(() => expect(week).toHaveTextContent('Claude: session 7% · weekly 71% · Codex: weekly 0%'))
+    const strip = await screen.findByTestId('budget-plan-limits')
+    expect(within(strip).getAllByTestId(/^budget-plan-provider-/)).toHaveLength(2)
+    expect(within(strip).getByTestId('budget-plan-provider-claude')).toHaveTextContent('Claude')
+    expect(within(strip).getByTestId('budget-plan-provider-codex')).toHaveTextContent('weekly0%')
+  })
+
+  it('names plan limits only for the engines the project has configured', async () => {
+    ;(project.spend as Record<string, unknown>).week = period(42, [
+      { provider: 'claude', usd: 20, estimatedUsd: 0, invocations: 2, turns: 10 },
+      { provider: 'codex', usd: 22, estimatedUsd: 0, invocations: 2, turns: 20 },
+    ])
+    usage = { providers: [
+      { providerId: 'claude', availability: 'available', plan: 'max', spend: null, windows: [{ label: 'weekly', usedPercent: 71 }] },
+      { providerId: 'codex', availability: 'available', plan: 'plus', spend: null, windows: [{ label: 'weekly', usedPercent: 0 }] },
+    ] }
+    render(<BudgetCard projectId="p1" configuredProviders={['claude']} />)
+    const strip = await screen.findByTestId('budget-plan-limits')
+    expect(within(strip).getByTestId('budget-plan-provider-claude')).toBeInTheDocument()
+    expect(strip).not.toHaveTextContent('Codex')
+    // The turn total still counts every provider.
+    expect(within(strip).getByTestId('budget-turns-week')).toHaveTextContent('30')
   })
 
   it('keeps showing dollars when any provider with spend is metered', async () => {

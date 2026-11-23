@@ -317,7 +317,10 @@ export interface ScopedToolFlags {
 //                              use a sentinel to disable all tools).
 export function toolFlagsForScope(scope: ContextScope): ScopedToolFlags {
   if (scope.full && (scope.mcp || scope.userMcp)) {
-    return { args: ['--disallowedTools', 'Write,Edit,NotebookEdit'] }
+    // `mcp__specrails` too: a `specrails` server reachable here (the person's
+    // user-scope or project `.mcp.json` entry from `mcp connect`) is their
+    // unrestricted external bridge, never meant for an Explore turn.
+    return { args: ['--disallowedTools', 'Write,Edit,NotebookEdit,mcp__specrails'] }
   }
   if (scope.full) {
     return { args: ['--tools', 'Read,Grep,Glob'] }

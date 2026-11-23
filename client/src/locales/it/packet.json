@@ -78,10 +78,13 @@
     }
   },
   "proof": {
-    "filesChanged": "{{files}} file modificati (+{{added}} / −{{removed}} righe)",
-    "testFilesChanged": "{{count}} file di test modificati",
+    "filesChanged_one": "{{files}} file modificato (+{{added}} / −{{removed}} righe)",
+    "filesChanged_other": "{{files}} file modificati (+{{added}} / −{{removed}} righe)",
+    "testFilesChanged_one": "{{count}} file di test modificato",
+    "testFilesChanged_other": "{{count}} file di test modificati",
     "noTestFilesChanged": "Nessun file di test modificato.",
-    "commitsRecorded": "Il lavoro è stato registrato su {{branches}} ramo/i",
+    "commitsRecorded_one": "Il lavoro è stato registrato su {{branches}} ramo",
+    "commitsRecorded_other": "Il lavoro è stato registrato su {{branches}} rami",
     "verificationPassed": "L'IA ha riferito che i suoi controlli sono passati ({{count}})",
     "verificationFailed": "L'IA ha riferito che i suoi controlli sono FALLITI ({{count}})",
     "noVerificationReported": "L'IA non ha riferito alcuna verifica.",
@@ -91,11 +94,15 @@
     "reviewerScoreUnavailable": "Nessun punteggio del revisore prodotto.",
     "evidenceUnavailable": "prove non disponibili",
     "hostCommandPassed": "Il runtime ha eseguito {{label}} da solo: codice di uscita {{exitCode}} ({{seconds}} s)",
+    "hostStaticCheckPassed": "Il runtime ha eseguito {{label}} da solo, ma il controllo legge solo il contenuto dei file e non esegue il codice: codice di uscita {{exitCode}} ({{seconds}} s)",
     "hostCommandFailed": "Il runtime ha eseguito {{label}} da solo ed è FALLITO: codice di uscita {{exitCode}} ({{seconds}} s)",
     "acceptanceCheckPassed": "Controllo del revisore superato: {{name}}",
     "acceptanceCheckFailed": "Controllo del revisore FALLITO: {{name}}",
     "reviewerSummary": "Riepilogo del revisore IA:",
-    "reviewerFinding": "Il revisore IA ha segnalato:"
+    "reviewerFinding": "Il revisore IA ha segnalato:",
+    "earlierAttempts_one": "{{count}} esecuzione precedente di questo controllo",
+    "earlierAttempts_other": "{{count}} esecuzioni precedenti di questo controllo",
+    "earlierAttempt": "Fallito con codice di uscita {{exitCode}} ({{seconds}} s), prima della correzione che lo ha fatto passare"
   },
   "watch": {
     "humanReviewRecommended": "Il revisore IA ha dato {{overall}}/100 e consiglia che una persona lo guardi.",
@@ -128,6 +135,11 @@
   "planned": {
     "title": "Approccio previsto (dalla spec)",
     "caveat": "Ciò che la richiesta proponeva, non un resoconto di ciò che ha fatto l'IA. I fatti qui sopra sono ciò che è cambiato davvero."
+  },
+  "delivered": {
+    "title": "Cosa è cambiato",
+    "caveat": "Dalla proposta OpenSpec consegnata: scritta dall'agente e verificata dal revisore.",
+    "why": "Perché"
   },
   "outcome": {
     "succeeded": "Implementato",
@@ -216,7 +228,8 @@
       "invariantsTouched": "Invarianti toccati",
       "untested": "Percorsi senza test",
       "humanChecks": "Controlli umani",
-      "divergences": "Divergenze dalla spec"
+      "divergences": "Divergenze dalla spec",
+      "reviewNotes": "Note del revisore, non applicate"
     },
     "userVisible": "Visibile agli utenti",
     "invariantStatus": {
@@ -229,7 +242,17 @@
     "dropped_other": "{{count}} voci della nota non rispettavano il formato previsto e sono state ignorate.",
     "topRisk": "Rischio principale",
     "moreRisks_one": "+{{count}} altro",
-    "moreRisks_other": "+{{count}} altri"
+    "moreRisks_other": "+{{count}} altri",
+    "reviewNotesCaveat": "Rilievi che il revisore ha segnato come estranei a questa esecuzione. Nessun ciclo di correzione li ha trattati.",
+    "noteKind": {
+      "advice": "Consiglio",
+      "out-of-scope": "Fuori ambito",
+      "host-only-check": "Controllo manuale",
+      "regenerated-lockfile": "Lockfile rigenerato",
+      "frozen-artifact": "Artefatto congelato",
+      "withdrawn-criterion": "Ritirato da te",
+      "other": "Nota"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} azione",

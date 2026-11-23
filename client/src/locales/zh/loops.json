@@ -330,9 +330,9 @@
   },
   "core": {
     "selectInterrupt": "选择待处理的问题或审批",
-    "answerQuestion": "回答问题",
+    "answerQuestion": "回答",
     "approval": "审批",
-    "approveContinue": "批准并继续",
+    "approveContinue": "批准",
     "paused": "已暂停",
     "acceptance": "验收",
     "verified": "已验证",
@@ -350,7 +350,15 @@
     "inDirectory": "在 {{cwd}} 中",
     "requiredAction": "需要的操作",
     "copyCommand": "复制命令",
-    "copiedCommand": "已复制"
+    "copiedCommand": "已复制",
+    "machineInstall": {
+      "question": "此运行需要 {{tool}}。用此命令安装吗？",
+      "install": "安装",
+      "installMeaning": "Specrails 在运行之外执行一次此命令，运行会自动继续。",
+      "self": "我自己来",
+      "selfMeaning": "不会安装任何内容；运行将停止并给出此命令供你执行。",
+      "once": "这会影响本机上的所有项目。Specrails 会记住你的批准，不会再为此命令询问（设置 ▸ 已记住的安装）。"
+    }
   },
   "conversion": {
     "title": "将{{name}}转换为Core",

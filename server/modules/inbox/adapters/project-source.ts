@@ -1,8 +1,13 @@
+import { readLimitPause } from '../../loops/runtime/loop-limit-pauses'
+import { readRunHold } from '../../loops/runtime/loop-run-hold'
+import { runQuestionFromStatus, shortQuestion } from '../../../shared/run-question'
 import type { DbInstance } from '../../../db'
 import { getLinkByIssueId, listOutbox } from '../../../jira/jira-db'
 import { listActivePrDeliveries, readSpecSnapshot, type RailPrDeliveryRow } from '../../delivery/runtime/rail-pr-store'
 import { readRunDiagnosis } from '../../recovery/adapters/sqlite'
+import { readRunAttempts, supersededAttemptSql } from '../../loops/runtime/run-attempts'
 import { inboxItemId, oneLine, toIso, type InboxItem } from '../domain'
+import { missionCardItems } from './mission-source'
 import type { ProjectInboxSource } from '../ports'
 import type { PresentedFailureDiagnosis } from '../../recovery'
 import type { CapStatus } from '../../execution'
@@ -17,6 +22,8 @@ export interface InboxProjectHandle {
   /** Every configured spend cap this project answers for (its own, plus the
    *  app-wide ones when this project is the one that speaks for them). */
   caps?: () => CapStatus[]
+  /** The app database (missions live above projects): only this project's mission cards are read from it. */
+  desktopDb?: DbInstance
 }
 
 interface RunRow {
@@ -30,6 +37,7 @@ interface RunRow {
   ticket_ids_json: string | null
   rail_index: number | null
   failure_diagnosis: string | null
+  runtime_status_json: string | null
 }
 
 function parseJsonArray(raw: string | null | undefined): unknown[] {
@@ -49,15 +57,44 @@ function deliveryTitle(row: RailPrDeliveryRow): string {
   return row.loop_name || row.rail_key
 }
 
+function ticketIdsOf(raw: string | null): number[] {
+  return parseJsonArray(raw).filter((v): v is number => typeof v === 'number')
+}
+
 function ticketLabel(raw: string | null): string {
-  const ids = parseJsonArray(raw).filter((v): v is number => typeof v === 'number')
+  const ids = ticketIdsOf(raw)
   if (ids.length === 0) return ''
   return ` · ${ids.slice(0, 3).map((id) => `#${id}`).join(', ')}${ids.length > 3 ? ` +${ids.length - 3}` : ''}`
 }
 
-/** Provider limits and environment problems wait for the person; they are not defects of the change. */
+/**
+ * The spec title each run worked on, from the spec snapshot its delivery froze
+ * at launch (one statement for all runs). A run without a delivery has none.
+ */
+function runSpecTitles(db: DbInstance, runIds: readonly string[]): Map<string, Map<number, string>> {
+  const out = new Map<string, Map<number, string>>()
+  if (runIds.length === 0) return out
+  try {
+    const rows = db.prepare(`
+      SELECT j.value AS run_id, d.spec_snapshot
+      FROM rail_pr_deliveries d, json_each(d.run_ids) j
+      WHERE d.spec_snapshot IS NOT NULL AND j.value IN (${runIds.map(() => '?').join(',')})
+    `).all(...runIds) as Array<{ run_id: string; spec_snapshot: string | null }>
+    for (const row of rows) {
+      const titles = out.get(row.run_id) ?? new Map<number, string>()
+      for (const spec of readSpecSnapshot(row.spec_snapshot) ?? []) {
+        const title = spec.title?.trim()
+        if (title && !titles.has(spec.ticketId)) titles.set(spec.ticketId, title)
+      }
+      if (titles.size) out.set(row.run_id, titles)
+    }
+  } catch { /* a database without deliveries: titles fall back to the loop's name */ }
+  return out
+}
+
+/** Provider limits, environment problems and taken ports wait for the person; they are not defects of the change. */
 function needsHost(diagnosis: PresentedFailureDiagnosis | null): boolean {
-  return diagnosis?.confidence === 'high' && (diagnosis.kind === 'provider_limit' || diagnosis.kind === 'environment')
+  return diagnosis?.confidence === 'high' && (diagnosis.kind === 'provider_limit' || diagnosis.kind === 'environment' || diagnosis.kind === 'port_in_use')
 }
 
 function deliveryDiagnosis(handle: InboxProjectHandle, row: RailPrDeliveryRow): PresentedFailureDiagnosis | null {
@@ -68,9 +105,15 @@ function deliveryDiagnosis(handle: InboxProjectHandle, row: RailPrDeliveryRow): 
   return null
 }
 
+function attemptField(position: { attempt: number; attempts: number } | undefined): { attempt?: { number: number; of: number } } {
+  return position ? { attempt: { number: position.attempt, of: position.attempts } } : {}
+}
+
 /** Deliveries that wait for a decision or ended badly, mirroring the client's `deliveryAttention`. */
 function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], nowIso: string): InboxItem[] {
   const out: InboxItem[] = []
+  const lastRun = (row: RailPrDeliveryRow): string | undefined => parseJsonArray(row.run_ids).filter((v): v is string => typeof v === 'string').pop()
+  const attempts = readRunAttempts(handle.db, rows.map(lastRun).filter((id): id is string => !!id))
   for (const row of rows) {
     const decision = row.decision
     const changesRequested = decision === 'implementation_failed' && row.status_code === 'review_changes_requested'
@@ -86,7 +129,12 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
       projectName: handle.project.name,
       kind,
       title: deliveryTitle(row),
-      detail: oneLine(row.status_detail) ?? (failed ? oneLine(diagnosis?.detail) ?? row.status_code : null),
+      ...(ticketIdsOf(row.ticket_ids).length ? { ticketIds: ticketIdsOf(row.ticket_ids) } : {}),
+      // The run's diagnosis is the cause; a settlement note (for example why the
+      // partial work of a failed run could not be committed) is only a consequence.
+      detail: failed
+        ? oneLine(diagnosis?.detail) ?? oneLine(row.status_detail) ?? row.status_code
+        : oneLine(row.status_detail),
       diagnosis,
       at: toIso((waiting ? row.on_review_at : null) ?? row.updated_at, nowIso),
       version: `${decision}:${row.status_code ?? ''}:${row.pr_state}`,
@@ -95,6 +143,7 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
       conversationId: row.origin_conversation_id,
       decision,
       ...(Number.isInteger(row.rail_index) ? { railIndex: row.rail_index } : {}),
+      ...attemptField(attempts.get(lastRun(row) ?? '')),
     })
   }
   return out
@@ -109,10 +158,11 @@ function deliveryItems(handle: InboxProjectHandle, rows: RailPrDeliveryRow[], no
 function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<string>, nowIso: string, nowMs: number): InboxItem[] {
   const since = new Date(nowMs - FAILED_RUN_WINDOW_MS).toISOString()
   const rows = handle.db.prepare(`
-    SELECT r.id, r.loop_name, r.status, r.final_outcome, r.restart_reason, r.started_at, r.finished_at, r.ticket_ids_json, r.rail_index, r.failure_diagnosis
+    SELECT r.id, r.loop_name, r.status, r.final_outcome, r.restart_reason, r.started_at, r.finished_at, r.ticket_ids_json, r.rail_index, r.failure_diagnosis, r.runtime_status_json
     FROM loop_runs r
     WHERE r.project_id = ?
-      AND NOT EXISTS (SELECT 1 FROM definition_fork_operations f WHERE f.source_run_id = r.id AND f.adopted = 1)
+      -- An attempt a later one continued is history: the chain speaks through its latest attempt.
+      AND NOT ${supersededAttemptSql('r')}
       AND (
         (r.status = 'paused' AND COALESCE(r.restart_reason, '') != 'fork')
         OR (r.status = 'completed' AND r.final_outcome IN ('failed','blocked','stalled') AND r.finished_at >= ?
@@ -126,9 +176,19 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
     LIMIT 100
   `).all(handle.project.id, since) as RunRow[]
   const out: InboxItem[] = []
+  const attempts = readRunAttempts(handle.db, rows.map((run) => run.id))
+  const specTitles = runSpecTitles(handle.db, rows.map((run) => run.id))
   for (const run of rows) {
-    if (representedRunIds.has(run.id)) continue
-    const title = `${run.loop_name || 'Run'}${ticketLabel(run.ticket_ids_json)}`
+    // A paused run waits on the person (a question, a usage limit, a budget, a restart) while its
+    // delivery is still building, and the inbox lists no building delivery: never hide it behind one.
+    if (run.status !== 'paused' && representedRunIds.has(run.id)) continue
+    // What the person asked for (the spec's title, as a delivery item reads), not the loop that ran it;
+    // the spec ids stay in `ticketIds`. Without a known spec title: the loop's name and the ids.
+    const ticketIds = ticketIdsOf(run.ticket_ids_json)
+    const specTitle = ticketIds.map((id) => specTitles.get(run.id)?.get(id)).find(Boolean)
+    const title = specTitle
+      ? ticketIds.length > 1 ? `${specTitle} +${ticketIds.length - 1}` : specTitle
+      : `${run.loop_name || 'Run'}${ticketLabel(run.ticket_ids_json)}`
     const version = `${run.status}:${run.final_outcome ?? ''}:${run.restart_reason ?? ''}`
     const base = {
       projectId: handle.project.id,
@@ -136,17 +196,35 @@ function runItems(handle: InboxProjectHandle, representedRunIds: ReadonlySet<str
       title,
       version,
       subjectId: run.id,
+      ...(ticketIds.length ? { ticketIds } : {}),
       conversationId: null,
       diagnosis: null as PresentedFailureDiagnosis | null,
       ...(typeof run.rail_index === 'number' ? { railIndex: run.rail_index } : {}),
+      ...attemptField(attempts.get(run.id)),
     }
     if (run.status === 'paused') {
-      if (run.restart_reason === 'budget_paused') {
+      // One classification for every surface (the run's hold): only a question or an approval
+      // needs the person's answer; a usage limit or the budget is a pause, a restart or an
+      // interruption waits for Resume.
+      const hold = readRunHold(handle.db, run.id)
+      // A legacy (pre-Core) loop paused on a human decision records no checkpoint and no reason: it asks.
+      const legacyAsk = !run.runtime_status_json && !run.restart_reason
+      const kind = hold?.kind === 'paused' && legacyAsk ? 'question' : hold?.kind ?? 'paused'
+      if (kind === 'question' || kind === 'approval') {
+        const question = runQuestionFromStatus(run.runtime_status_json)
+        out.push({ ...base, id: inboxItemId(handle.project.id, 'question', run.id), kind: 'question', version: `${version}:${question?.interruptId ?? ''}`,
+          detail: shortQuestion(question), ...(question ? { question } : {}), at: toIso(run.started_at, nowIso), action: 'open-run' })
+      } else if (kind === 'provider_limit') {
+        const limit = readLimitPause(handle.db, run.id)
+        out.push({ ...base, id: inboxItemId(handle.project.id, 'budget', run.id), kind: 'budget', version: `${version}:${limit?.resumeAt ?? ''}:${limit?.autoResume ?? ''}`,
+          detail: limit ? `usage_limit:${limit.providerId}:${limit.autoResume && limit.resumeAt ? limit.resumeAt : ''}` : null, at: toIso(limit?.pausedAt ?? run.started_at, nowIso), action: 'resume-run' })
+      } else if (kind === 'budget') {
         out.push({ ...base, id: inboxItemId(handle.project.id, 'budget', run.id), kind: 'budget', detail: null, at: toIso(run.started_at, nowIso), action: 'resume-run' })
-      } else if (run.restart_reason === 'restart') {
-        out.push({ ...base, id: inboxItemId(handle.project.id, 'blocked', run.id), kind: 'blocked', detail: 'interrupted', at: toIso(run.started_at, nowIso), action: 'resume-run' })
       } else {
-        out.push({ ...base, id: inboxItemId(handle.project.id, 'question', run.id), kind: 'question', detail: null, at: toIso(run.started_at, nowIso), action: 'open-run' })
+        // `held:<kind>[:<step>]`: the client words it like the run window ("The app restarted during the Developer step.").
+        // The person's own Pause is `held:pausedByYou` ("Paused by you"), never a plain or limit pause.
+        const heldKind = kind === 'paused' && hold?.byYou ? 'pausedByYou' : kind
+        out.push({ ...base, id: inboxItemId(handle.project.id, 'blocked', run.id), kind: 'blocked', detail: `held:${heldKind}${hold?.step ? `:${hold.step}` : ''}`, at: toIso(run.started_at, nowIso), action: 'resume-run' })
       }
       continue
     }
@@ -207,6 +285,78 @@ function capItems(handle: InboxProjectHandle, nowIso: string): InboxItem[] {
   }))
 }
 
+interface ChainRow {
+  id: string
+  milestone_n: number
+  status: 'paused' | 'awaiting_approval'
+  pause_reason: string | null
+  auto_advance: number
+  next_chunk: number
+  chunks: string
+  current_run_ids: string
+  current_delivery_id: string | null
+  retry_chunk: number | null
+  updated_at: string
+}
+
+/** Pause reasons that come from the in-flight rail itself: its run or delivery item is folded into the chain's. */
+const RAIL_CAUSED = /^(chunk_|provider_limit)/
+
+/**
+ * Milestone chains that stopped for the person: paused (a rail failed or hit a
+ * limit, an integration conflict, a missing head, the rail limit, the person's
+ * own pause) or parked at a wave checkpoint (`awaiting_approval`, auto-advance
+ * off). One item per chain; its primary action resumes the chain the way the
+ * chain row's Resume does (`POST blueprint/chains/:id/resume`). A rail-caused
+ * pause folds the in-flight rail's failed / blocked / limit item into the chain
+ * item (Resume continues or retries that rail), keeping its diagnosis; a
+ * question stays its own item, since only the run can take the answer.
+ */
+function chainItems(handle: InboxProjectHandle, items: InboxItem[], nowIso: string): InboxItem[] {
+  const rows = handle.db.prepare(`
+    SELECT id, milestone_n, status, pause_reason, auto_advance, next_chunk, chunks, current_run_ids, current_delivery_id, retry_chunk, updated_at
+    FROM milestone_launch_chains
+    WHERE status IN ('paused', 'awaiting_approval')
+    ORDER BY updated_at DESC
+    LIMIT 20
+  `).all() as ChainRow[]
+  const out: InboxItem[] = []
+  for (const row of rows) {
+    const total = parseJsonArray(row.chunks).length
+    let folded: InboxItem | undefined
+    if (row.status === 'paused' && RAIL_CAUSED.test(row.pause_reason ?? '')) {
+      const subjects = new Set([...parseJsonArray(row.current_run_ids).filter((id): id is string => typeof id === 'string'), ...(row.current_delivery_id ? [row.current_delivery_id] : [])])
+      for (let i = items.length - 1; i >= 0; i -= 1) {
+        const item = items[i]
+        if (!subjects.has(item.subjectId) || item.kind === 'question' || item.kind === 'review') continue
+        folded ??= item
+        items.splice(i, 1)
+      }
+    }
+    const reason = row.status === 'paused' ? row.pause_reason : null
+    out.push({
+      id: inboxItemId(handle.project.id, 'chain', row.id),
+      projectId: handle.project.id,
+      projectName: handle.project.name,
+      kind: 'chain',
+      title: `Milestone ${row.milestone_n}`,
+      detail: folded?.detail ?? reason,
+      at: toIso(row.updated_at, nowIso),
+      version: `${row.status}:${reason ?? ''}:${row.next_chunk}:${row.retry_chunk ?? ''}:${row.auto_advance}`,
+      action: 'resume-chain',
+      subjectId: row.id,
+      conversationId: folded?.conversationId ?? null,
+      diagnosis: folded?.diagnosis ?? null,
+      ...(folded?.railIndex !== undefined ? { railIndex: folded.railIndex } : {}),
+      chain: {
+        milestoneN: row.milestone_n, status: row.status, pauseReason: reason, autoAdvance: row.auto_advance !== 0,
+        nextChunk: row.next_chunk, totalChunks: total, retryChunk: row.retry_chunk,
+      },
+    })
+  }
+  return out
+}
+
 /** Run ids that recent deliveries already account for (the delivery speaks for them). */
 function representedRuns(db: DbInstance): Set<string> {
   const ids = new Set<string>()
@@ -236,6 +386,12 @@ export function createProjectInboxSource(handle: InboxProjectHandle, now: () => 
       guard('runs', () => runItems(handle, represented, nowIso, nowMs))
       guard('jira', () => jiraItems(handle, nowIso))
       guard('caps', () => capItems(handle, nowIso))
+      // Last among the project's own reads: a rail-caused pause folds its rail's item into the chain's.
+      guard('chains', () => chainItems(handle, items, nowIso))
+      if (handle.desktopDb) {
+        const desktopDb = handle.desktopDb
+        guard('missions', () => missionCardItems({ project: handle.project, db: desktopDb }, nowMs))
+      }
       return items
     },
   }

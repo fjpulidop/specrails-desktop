@@ -3,6 +3,9 @@ import path from 'node:path'
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { compilerFailures, core, execute, useFactoryPairing } from './__fixtures__/factory-pairing'
+import { definitionReviewBrief } from '../../delivery/runtime/delivery-evidence'
+import { buildWhatToLookAt } from '../../delivery/runtime/review-brief'
+import type { DefinitionRunProbe } from './loop-definition-recovery'
 
 // Factory pairing: configurable Implement correction routing, budgets and
 // stalls through the real bridge and a built Core checkout.
@@ -13,8 +16,9 @@ vi.mock('../../agent-runtime/runtime/agent-runtime-package', async importOrigina
   const original = await importOriginal<typeof import('../../agent-runtime/runtime/agent-runtime-package')>()
   const selected = new Map<string, string>()
   return { ...original,
+    prepareRetainedAgentRuntime: async () => {},
     retainAgentRuntime: (cli: string, contextPath: string) => { selected.set(contextPath, cli); return cli },
-    resolveRetainedAgentRuntime: (contextPath: string) => {
+    resolveRetainedAgentRuntime: async (contextPath: string) => {
       const cli = selected.get(contextPath)
       if (!cli) throw new Error('Fixture runtime was never retained')
       return cli
@@ -124,4 +128,68 @@ it.skipIf(!core)('retains the correction budget across a question before fixing 
   expect(actual.calls.filter(call => call.role === 'plan')).toHaveLength(1)
   expect(actual.calls.filter(call => call.role === 'build')).toHaveLength(1)
   expect(actual.result.errorText).toContain('Automatic correction limit reached (3/3)')
+}, 180_000)
+
+const startsOf = (events: Array<Record<string, any>>): string[] => events.filter(event => event.type === 'workflow-event' && event.event.type === 'step_started').map(event => event.event.nodePath)
+
+it.skipIf(!core)('verifies again after a fixer repaired the environment without changing the candidate, and delivers (bench5 D7)', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_ENV_REPAIR', 'install')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'correct', 'assess'])
+  expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
+  const starts = startsOf(actual.events)
+  expect(starts.filter(node => node === 'verify')).toHaveLength(2)
+  expect(starts).toContain('mark-environment-reverify')
+  expect(starts).not.toContain('correction-stalled')
+  expect(starts).toContain('archive')
+  // The repair stayed in the ignored node_modules: the delivered candidate is the developer's alone.
+  expect(spawnSync('git', ['-C', actual.repository, 'status', '--porcelain']).stdout.toString()).not.toContain('node_modules')
+}, 180_000)
+
+it.skipIf(!core)('stalls the second unchanged correction when a claimed environment repair did not fix verification', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_ENV_REPAIR', 'claim')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  // One re-verification per candidate: the second unchanged fixer turn on the same candidate stalls,
+  // and each fixer turn spent one correction attempt.
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'correct', 'correct'])
+  expect(actual.result).toMatchObject({ runtimeStatus: 'failed', completion: { ok: false, verified: false }, errorText: expect.stringContaining('Automatic correction made no candidate changes') })
+  const starts = startsOf(actual.events)
+  expect(starts.filter(node => node === 'verify')).toHaveLength(2)
+  expect(starts.filter(node => node === 'mark-environment-reverify')).toHaveLength(1)
+  expect(starts).toContain('correction-stalled')
+  expect(starts).not.toContain('reviewer')
+}, 180_000)
+
+it.skipIf(!core)('delivers a review whose only findings the reviewer marked as advice or out of scope, with the findings recorded', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_REVIEW_MODE', 'advice')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'assess'])
+  expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded', completion: { ok: true, verified: true } })
+  expect(actual.calls.find(call => call.role === 'assess')!.prompt).toContain('`[advice] `')
+  const starts = startsOf(actual.events)
+  expect(starts).not.toContain('fixer')
+  expect(starts).toContain('archive')
+  // The review packet reads the reviewer's committed scope from Core's status: the marked findings are
+  // there as review notes, outside the issues that drive corrections.
+  const status = spawnSync(process.execPath, [path.join(core!, 'dist/agent-runtime/cli.js'), 'status', '--context', actual.contextPath], { cwd: actual.repository, env: { ...process.env, SPECRAILS_GIT_AUTO: 'false' }, encoding: 'utf8' })
+  const state = (JSON.parse(status.stdout) as { state: { status: string; scopes: DefinitionRunProbe['scopes'] } }).state
+  const packet = buildWhatToLookAt([{ ticketId: 1, reviewBrief: definitionReviewBrief({ status: 'succeeded', scopes: state.scopes } as DefinitionRunProbe, 'reviewer') }])
+  expect(packet?.reviewNotes).toEqual([
+    { ticketId: 1, kind: 'advice', issue: 'Consider naming the export value.', reason: expect.stringContaining('advice') },
+    { ticketId: 1, kind: 'out-of-scope', issue: 'Add a CLI flag for the value in a follow-up.', reason: expect.stringContaining('outside this change') },
+  ])
+  expect(packet?.humanChecks ?? []).toEqual([])
+}, 180_000)
+
+it.skipIf(!core)('corrects only the actionable finding of a review that mixes it with advice', async () => {
+  vi.stubEnv('SPECRAILS_FACTORY_REVIEW_MODE', 'advice-mixed')
+  const actual = await execute('implement', false, false, undefined, undefined, false, true)
+  expect(actual.calls.map(call => call.role)).toEqual(['plan', 'build', 'assess', 'correct', 'assess'])
+  const fixer = actual.calls.find(call => call.role === 'correct')!.prompt
+  const findings = fixer.split('Latest review findings for this candidate: ')[1]?.split('. Prior execution:')[0] ?? ''
+  expect(findings).toContain('Required canvas fallback is missing.')
+  expect(findings).not.toContain('Consider naming the export value.')
+  expect(findings).not.toContain('CLI flag')
+  expect(startsOf(actual.events).filter(node => node === 'fixer')).toHaveLength(1)
+  expect(actual.result).toMatchObject({ runtimeStatus: 'succeeded' })
 }, 180_000)

@@ -1,0 +1,264 @@
+{
+ "defaults": {
+  "provider": "claude",
+  "model": "haiku",
+  "timeoutMinutes": 25
+ },
+ "scenarios": [
+  {
+   "name": "decision-dev",
+   "group": "features",
+   "notes": "The conflict is only visible when the tests run after the change (an encoded billing contract checked by npm test): the developer should ask through decisionNeeded.",
+   "repo": {
+    "template": "node-lib",
+    "files": {
+     "package.json": "{\n  \"name\": \"decision-dev\",\n  \"version\": \"1.0.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"scripts\": {\n    \"test\": \"node --test && node scripts/contract.mjs\"\n  }\n}\n",
+     "scripts/contract.mjs": "import { readFileSync } from 'node:fs'\nimport { total } from '../src/cart.js'\nconst spec = JSON.parse(Buffer.from(readFileSync(new URL('./contract.b64', import.meta.url), 'utf8'), 'base64').toString())\nconst got = total(spec.input)\nif (typeof got !== spec.type) { console.error(`billing contract v1: total() must return a ${spec.type}: ${spec.why}`); process.exit(1) }\nconsole.log('billing contract v1 ok')\n",
+     "scripts/contract.b64": "eyJpbnB1dCI6IFt7InByaWNlIjogMjUwLCAicXR5IjogMX1dLCAidHlwZSI6ICJudW1iZXIiLCAid2h5IjogInRoZSBpbnZvaWNpbmcgZXhwb3J0IGRpdmlkZXMgaXQgYnkgMTAwOyBjaGFuZ2luZyB0aGUgdHlwZSBuZWVkcyB0aGUgYmlsbGluZyBvd25lcidzIHNpZ24tb2ZmIn0=\n"
+    }
+   },
+   "ticket": {
+    "title": "Show cart totals as money strings",
+    "description": "Change `total()` in src/cart.js to return a string with two decimals, e.g. '2.50' for 250 cents, and update the unit test. `npm test` must pass."
+   },
+   "answers": [
+    {
+     "asker": "developer",
+     "recommended": true
+    },
+    {
+     "recommended": true,
+     "once": false
+    }
+   ],
+   "expect": {
+    "status": "any"
+   }
+  },
+  {
+   "name": "approval-reject",
+   "group": "features",
+   "approvalBeforeArchive": true,
+   "repo": "node-lib",
+   "ticket": {
+    "title": "Add a discount helper",
+    "description": "Add `applyDiscount(total, percent)` to src/cart.js that returns the total reduced by percent (0-100), with tests."
+   },
+   "answers": [
+    {
+     "kind": "approval",
+     "reject": "Not now: the pricing team wants to review discounts first."
+    }
+   ],
+   "expect": {
+    "status": "failed"
+   }
+  },
+  {
+   "name": "approval-approve",
+   "group": "features",
+   "approvalBeforeArchive": true,
+   "repo": "node-lib",
+   "ticket": {
+    "title": "Add an item count helper",
+    "description": "Add `itemCount(items)` to src/cart.js returning the sum of qty, with tests."
+   },
+   "answers": [
+    {
+     "kind": "approval",
+     "approve": true
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "install-ask",
+   "group": "features",
+   "repo": "gha-lint",
+   "ticket": {
+    "title": "Add a release workflow",
+    "description": "Add .github/workflows/release.yml that runs `npm test` on tags. `npm test` must pass (it runs actionlint)."
+   },
+   "answers": [
+    {
+     "match": "actionlint|install",
+     "optionId": "install"
+    }
+   ],
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "triage-device",
+   "group": "features",
+   "repo": {
+    "template": "node-lib",
+    "files": {
+     "README.md": "# cart\nUsed by the checkout on Android phones (Chrome).\n"
+    }
+   },
+   "ticket": {
+    "title": "Format totals for display",
+    "description": "Add `formatTotal(cents)` returning `$12.34` for 1234. Acceptance: it reads correctly on a physical Android phone."
+   },
+   "expect": {
+    "status": "delivered"
+   }
+  },
+  {
+   "name": "reg-react",
+   "group": "regression",
+   "repo": "react-vite",
+   "ticket": {
+    "title": "Filter books by text",
+    "description": "Add a search input above the list that filters books case-insensitively as you type, with a test."
+   }
+  },
+  {
+   "name": "reg-fastapi",
+   "group": "regression",
+   "repo": "fastapi",
+   "ticket": {
+    "title": "Create notes",
+    "description": "Add POST /notes {text} that appends a note and returns it with an id; 422 for empty text. Tests with TestClient."
+   }
+  },
+  {
+   "name": "reg-rust",
+   "group": "regression",
+   "repo": "rust-cli",
+   "ticket": {
+    "title": "Count lines too",
+    "description": "Add `line_count(&str) -> usize` and a `--lines` flag to the CLI, with tests."
+   }
+  },
+  {
+   "name": "reg-go",
+   "group": "regression",
+   "repo": "go-api",
+   "ticket": {
+    "title": "Filter tasks by title",
+    "description": "Add `FilterTitle(ts []Task, q string) []Task` (case-insensitive substring) with a table test."
+   }
+  },
+  {
+   "name": "reg-canvas",
+   "group": "regression",
+   "repo": "canvas-game",
+   "ticket": {
+    "title": "Show lives on screen",
+    "description": "Draw the remaining lives as text in the top-left corner of the canvas and expose them on window.__game, with a unit test for the state."
+   }
+  },
+  {
+   "name": "reg-godot",
+   "group": "regression",
+   "repo": "godot-game",
+   "ticket": {
+    "title": "Reset the score",
+    "description": "Add `reset()` to Score that sets points back to 0 and extend tests/run_tests.gd."
+   }
+  },
+  {
+   "name": "reg-multi",
+   "group": "regression",
+   "repos": [
+    "mr-api",
+    "mr-web"
+   ],
+   "ticket": {
+    "title": "Show user emails",
+    "description": "Add `email` to the API's userDto and render it in the web repository's renderUser as a <small> element. Tests in both repositories."
+   }
+  },
+  {
+   "name": "reg-docs",
+   "group": "regression",
+   "repo": "docs-site",
+   "ticket": {
+    "title": "Document rollbacks",
+    "description": "Add docs/rollbacks.md explaining how to roll back a deploy and link it from docs/index.md. Documentation only."
+   }
+  },
+  {
+   "name": "restart-mid-step",
+   "group": "restarts",
+   "repo": {
+    "template": "node-lib",
+    "name": "restart-mid-step"
+   },
+   "ticket": {
+    "title": "Add a tax helper",
+    "description": "Add `withTax(cents, ratePercent)` to src/cart.js rounding half up, with tests."
+   },
+   "actions": [
+    {
+     "when": "phase:developer",
+     "do": "restart"
+    }
+   ]
+  },
+  {
+   "name": "restart-on-question",
+   "group": "restarts",
+   "repo": {
+    "template": "node-lib",
+    "name": "restart-on-question"
+   },
+   "ticket": {
+    "title": "Persist the cart",
+    "description": "Goal: the cart survives restarts by saving to cart.json. Non-goal: the library must never touch the filesystem."
+   },
+   "actions": [
+    {
+     "when": "question",
+     "do": "restart"
+    }
+   ],
+   "answers": [
+    {
+     "recommended": true
+    }
+   ]
+  },
+  {
+   "name": "install-self",
+   "group": "features",
+   "repo": {
+    "template": "cfg-lint",
+    "name": "install-self"
+   },
+   "ticket": {
+    "title": "Add a logging config",
+    "description": "Add config/logging.toml with `level = \"info\"` and read the default level in src/config.js as DEFAULT_LOG_LEVEL, with a test. `npm test` must pass (it runs cfgvet)."
+   },
+   "answers": [
+    {
+     "match": "cfgvet|install",
+     "optionId": "self"
+    }
+   ],
+   "expect": {
+    "status": "failed"
+   }
+  },
+  {
+   "name": "install-remembered",
+   "group": "features",
+   "repo": {
+    "template": "gha-lint",
+    "name": "install-remembered"
+   },
+   "ticket": {
+    "title": "Add a nightly workflow",
+    "description": "Add .github/workflows/nightly.yml that runs `npm test` on a schedule. `npm test` must pass (it runs actionlint)."
+   },
+   "expect": {
+    "status": "delivered"
+   }
+  }
+ ]
+}

@@ -203,14 +203,14 @@ describe('TicketDetailModal', () => {
       expect(screen.getByText('#42')).toBeDefined()
     })
 
-    it('renders the On Review badge in the header for an on_review spec', () => {
+    it('renders the On review badge in the header for an on_review spec', () => {
       render(<TicketDetailModal {...makeDefaultProps({ ticket: makeTicket({ status: 'on_review' }) })} />)
       const badge = screen.getByTestId('ticket-modal-on-review-badge')
       expect(badge).toBeDefined()
-      expect(badge.textContent).toContain('On Review')
+      expect(badge.textContent).toContain('On review')
     })
 
-    it('does not render the On Review badge for a todo spec', () => {
+    it('does not render the On review badge for a todo spec', () => {
       render(<TicketDetailModal {...makeDefaultProps()} />)
       expect(screen.queryByTestId('ticket-modal-on-review-badge')).toBeNull()
     })
@@ -534,7 +534,7 @@ describe('TicketDetailModal', () => {
     })
   })
 
-  describe('Continue Editing button', () => {
+  describe('Continue editing button', () => {
     const EDITABLE = ['draft', 'todo'] as const
     const NON_EDITABLE = ['in_progress', 'done', 'cancelled'] as const
 

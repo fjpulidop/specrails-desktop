@@ -11,8 +11,11 @@ import { probeDefinitionRun, probeDefinitionRuns, toDefinitionStates } from './l
 import type { LoopRunRequest } from './loop-run-manager'
 import { runAgentRuntimeControl } from '../../agent-runtime/runtime/agent-runtime-bridge'
 
-const retained = vi.hoisted(() => ({ cli: '' }))
-vi.mock('../../agent-runtime/runtime/agent-runtime-package', () => ({ resolveRetainedAgentRuntime: () => retained.cli }))
+const retained = vi.hoisted(() => ({ cli: '', syncResolutions: 0, inspections: 0 }))
+vi.mock('../../agent-runtime/runtime/agent-runtime-package', () => ({
+  resolveRetainedAgentRuntime: async () => { retained.syncResolutions++; return retained.cli },
+  resolveRetainedAgentRuntimeForInspection: async () => { retained.inspections++; return retained.cli },
+}))
 vi.mock('../../../core-node-runtime', () => ({ resolveCoreNodeRuntime: () => process.execPath }))
 let db: DbInstance, directory: string, contextPath: string
 const status = () => ({ type: 'runtime-status', engineVersion: 2, revision: 7, eventCursor: 12, completion: null,
@@ -33,6 +36,14 @@ function respond(value: unknown) {
   writeFileSync(retained.cli, `require('node:assert/strict').deepEqual(process.argv.slice(2),['status','--context',${JSON.stringify(contextPath)},'--compact']);require('node:assert/strict').equal(process.env.SPECRAILS_GIT_AUTO,'false');process.stdout.write(${JSON.stringify(JSON.stringify(value))})`)
 }
 const ctx = () => ({ db, cwd: directory, env: { ...process.env, SPECRAILS_GIT_AUTO: 'true' } })
+
+it('verifies the retained package with the shared asynchronous inspection, never the blocking digest', async () => {
+  respond(status())
+  retained.syncResolutions = 0; retained.inspections = 0
+  await probeDefinitionRuns(ctx(), ['run', 'run'])
+  expect(retained.inspections).toBe(1)
+  expect(retained.syncResolutions).toBe(0)
+})
 
 it('probes only retained status with frozen host and preserves the durable cursor', async () => {
   respond(status())

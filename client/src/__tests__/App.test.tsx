@@ -9,11 +9,14 @@ import { replayTour } from '../lib/onboarding-events'
 
 vi.mock('../features/loops/components/LoopWindowSurface', () => ({ LoopWindowSurface: () => <div data-testid="loop-window-surface" /> }))
 
+vi.mock('../SurfaceWindowContent', () => ({ SurfaceWindowContent: () => <div data-testid="surface-content" />, preloadSurfaceWindowContent: () => {} }))
+
 vi.mock('../features/plugins/pages/PluginsPage', () => ({ default: () => <div data-testid="plugins-window-surface" /> }))
 
 vi.mock('../features/loops/pages/LoopsPage', () => ({ default: () => <div data-testid="loops-library" /> }))
 
 vi.mock('../features/projects/components/OnboardingWizard', () => ({ OnboardingWizard: ({ open }: { open: boolean }) => (open ? <div data-testid="platform-tour" /> : null), hasSeenOnboarding: () => true }))
+vi.mock('../features/projects/lib/onboarding-state', () => ({ hasSeenOnboarding: () => true, resetOnboarding: () => {}, dismissOnboarding: () => {} }))
 
 vi.mock('sonner', () => ({
   toast: {
@@ -22,6 +25,7 @@ vi.mock('sonner', () => ({
     success: vi.fn(),
   },
   Toaster: ({ position }: { position?: string }) => <div data-testid="toaster" data-position={position} />,
+  useSonner: () => ({ toasts: [] }),
 }))
 
 vi.mock('../lib/api', () => ({
@@ -124,6 +128,18 @@ it('boots the independent loop surface without mounting the main mission workspa
 })
 
 
+it('a native surface window renders its own toaster, so a failure shows where the person acted', async () => {
+  // The job window's failed Continue used to be relayed to the main window, behind it, and seen by no one.
+  window.history.replaceState({}, '', '/?surfaceWindow=job-detail&requestId=r1&jobId=j1')
+  try {
+    render(<App />)
+    expect(await screen.findByTestId('surface-content')).toBeInTheDocument()
+    expect(screen.getByTestId('toaster')).toHaveAttribute('data-position', 'bottom-right')
+    expect(screen.queryByTestId('project-layout')).not.toBeInTheDocument()
+  } finally { window.history.replaceState({}, '', '/') }
+})
+
+
 it('boots Plugins in an independent window without the main mission workspace', async () => {
   window.history.replaceState({}, '', '/?pluginsWindow=1')
   try {
@@ -151,8 +167,9 @@ it.each([['Loops', 'loops-modal'], ['Plugins', 'plugins-modal']])('opens %s insi
 it('opens the app settings modal on the section a feature page requests', async () => {
   global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ projects: [] }) })
   render(<App />)
-  const dialog = await screen.findByTestId('settings-dialog')
-  expect(dialog).toHaveAttribute('data-open', 'false')
+  await waitFor(() => expect(screen.getByTestId('desktop-provider')).toBeInTheDocument())
+  // The modal's chunk loads on first open: nothing is mounted before.
+  expect(screen.queryByTestId('settings-dialog')).not.toBeInTheDocument()
   act(() => openAppSettings('updates'))
   await waitFor(() => expect(screen.getByTestId('settings-dialog')).toHaveAttribute('data-open', 'true'))
   expect(screen.getByTestId('settings-dialog')).toHaveAttribute('data-section', 'updates')
@@ -171,7 +188,7 @@ it('a Learn more hint opens the guide over the current screen at the hinted sect
     return { ok: true, status: 200, json: async () => ({ projects: [] }) }
   })
   render(<App />)
-  await screen.findByTestId('settings-dialog')
+  await waitFor(() => expect(screen.getByTestId('desktop-provider')).toBeInTheDocument())
   expect(screen.queryByTestId('docs-modal')).not.toBeInTheDocument()
   act(() => openDocs(helpTarget('dailyBudget')))
   expect(await screen.findByTestId('docs-modal')).toBeInTheDocument()
@@ -183,7 +200,7 @@ it('a Learn more hint opens the guide over the current screen at the hinted sect
 })
 
 
-it('Loops over a mission: standard header with a visible close, focus returns to the sidebar trigger, toasts move clear of the footer', async () => {
+it('Loops over a mission: standard header with a visible close, focus returns to the sidebar trigger, toasts stay bottom-right', async () => {
   global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ projects: [] }) })
   localStorage.setItem('specrails-desktop:uiMode', 'agent')
   const popup = vi.spyOn(window, 'open').mockReturnValue(null)
@@ -197,14 +214,13 @@ it('Loops over a mission: standard header with a visible close, focus returns to
     expect(modal).toHaveAttribute('data-dialog-size', 'fullscreen')
     // The visible heading is the dialog's accessible name.
     expect(screen.getByRole('dialog', { name: 'Loops' })).toBe(modal)
-    // While a modal is open, toasts render top-right (never over its footer).
-    await waitFor(() => expect(screen.getByTestId('toaster')).toHaveAttribute('data-position', 'top-right'))
+    // Toasts stay bottom-right while a modal is open (they stay clickable over it).
+    expect(screen.getByTestId('toaster')).toHaveAttribute('data-position', 'bottom-right')
     const closes = within(modal).getAllByRole('button', { name: 'Close' })
     expect(closes).toHaveLength(1)
     fireEvent.click(closes[0])
     await waitFor(() => expect(screen.queryByTestId('loops-modal')).not.toBeInTheDocument())
     await waitFor(() => expect(screen.getByRole('button', { name: 'Loops' })).toHaveFocus())
-    await waitFor(() => expect(screen.getByTestId('toaster')).toHaveAttribute('data-position', 'bottom-right'))
   } finally { popup.mockRestore(); localStorage.removeItem('specrails-desktop:uiMode') }
 })
 

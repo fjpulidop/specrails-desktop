@@ -1,21 +1,26 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
+import { jobDisplayStatus, jobHoldOf, jobStepHold } from '../lib/job-run-state'
 import { flushSync } from 'react-dom'
 import { RunDetailTabs } from '../components/job-run/RunDetailTabs'
+import { LoopRunDetail } from '../components/job-run/LoopRunDetail'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getApiBase } from '../../../lib/api'
-import { cancelJob } from '../lib/cancel-job'
+import { cancelJob, cancelKindForJob } from '../lib/cancel-job'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { getDateFnsLocale } from '../../../lib/i18n'
 import { ChevronRight, Home, RotateCcw, Download } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
+import { SegmentedControl } from '../../../components/ui/segmented-control'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../components/ui/tooltip'
 import { JobRunHeader } from '../components/job-run/JobRunHeader'
 import { useRuntimeRuns } from '../components/job-run/useRuntimeRuns'
 import { computePipelineTotals } from '../components/job-run/job-run-model'
 import { JobTicketHeader } from '../components/JobTicketHeader'
 import { InteractiveJobComposer } from '../components/InteractiveJobComposer'
+import { RunQuestionDock, runWindowQuestion } from '../components/job-run/RunQuestionDock'
 import { useTicketDetailModal } from '../../specs/context/TicketDetailModalContext'
 import { cn } from '../../../lib/utils'
 import { LogViewer } from '../components/LogViewer'
@@ -33,6 +38,9 @@ import { formatCommandForProvider } from '../../../lib/format-command'
 import { openLogsAtFailure } from '../../recovery/lib/failure-diagnosis'
 
 import { notifyError } from '../../../lib/notify-error'
+import { RunLimitPause } from '../../provider-quota/components/RunLimitPause'
+import { RunBudgetPause } from '../components/job-run/RunBudgetPause'
+import { RunPauseControl } from '../components/job-run/RunPauseControl'
 export default function JobDetailPage() {
   const { t } = useTranslation('jobs')
   const { t: tNarration } = useTranslation('narration')
@@ -53,6 +61,11 @@ export default function JobDetailPage() {
   const [pipelineJobs, setPipelineJobs] = useState<JobSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [confirmCancelHeld, setConfirmCancelHeld] = useState(false)
+  // A held run that streams again was continued: re-read its row (at most every 3 s).
+  const heldRef = useRef(false)
+  heldRef.current = !!jobHoldOf(job)
+  const holdRefetchRef = useRef(0)
   // Log-surface altitude, remembered per project like the Code explorer's
   // Story|Log toggle. Narrated is the default: a reader who wants raw logs can
   // switch in one click, but a reader who cannot read them never has to.
@@ -188,6 +201,10 @@ export default function JobDetailPage() {
 
   const handleMessage = useCallback((data: unknown) => {
     const msg = data as { type: string; projectId?: string } & Record<string, unknown>
+    if (heldRef.current && Date.now() - holdRefetchRef.current > 3000 && (msg.jobId === id || msg.processId === id) && (msg.type === 'event' || msg.type === 'log')) {
+      holdRefetchRef.current = Date.now()
+      fetch(`${getApiBase()}/jobs/${id}`).then((r) => r.json()).then((data: { job: JobSummary }) => { if (data?.job) setJob(data.job) }).catch(() => {})
+    }
 
     // Filter by active project
     if (activeProjectRef.current && msg.projectId && msg.projectId !== activeProjectRef.current) {
@@ -235,7 +252,7 @@ export default function JobDetailPage() {
       (msg.type === 'job.finalized' && msg.jobId === id)
       || (msg.type === 'runtime.continuation' && msg.jobId === id)
       || (msg.type === 'job.interactive' && msg.jobId === id)
-      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed') && msg.loopRunId === id)
+      || ((msg.type === 'loop.run_paused' || msg.type === 'loop.run_resumed' || msg.type === 'loop.pause_requested' || msg.type === 'loop.pause_request_ended' || msg.type === 'loop.pause_support') && msg.loopRunId === id)
     ) {
       // The interactive session settled (turn totals live in the composer,
       // which owns the job.turn_* stream) — refetch the authoritative row.
@@ -386,7 +403,7 @@ export default function JobDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="w-full px-4 py-6">
         <div role="status" aria-busy="true" aria-label={t('common:states.loading')} className="space-y-3">
           <div className="h-4 w-48 bg-muted/30 rounded motion-safe:animate-pulse" />
           <div className="h-20 bg-muted/30 rounded-lg motion-safe:animate-pulse" />
@@ -398,7 +415,7 @@ export default function JobDetailPage() {
 
   if (notFound || !job) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col items-center gap-3 mt-12">
+      <div className="w-full px-4 py-6 flex flex-col items-center gap-3 mt-12">
         <p className="text-lg font-semibold">{t('detail.notFound')}</p>
         <p className="text-sm text-muted-foreground">{t('detail.notFoundDescription', { id })}</p>
         <Button asChild variant="outline" size="sm">
@@ -412,17 +429,31 @@ export default function JobDetailPage() {
   }
 
   const isRunning = job.status === 'running'
+  // Held: stopped without settling. Ending it is "Cancel run", confirmed with its consequence.
+  const held = !!jobHoldOf(job)
+  const displayStatus = jobDisplayStatus(job)
+  const settledView = displayStatus !== 'running' && displayStatus !== 'queued'
   const isFinished = job.status === 'completed' || job.status === 'failed'
   // An interactive freestyle session that is still resident: the user converses
   // and must Finalize (no auto-terminate). FEATURE-gated via the server flag —
   // job.interactive is only ever set when the feature is on.
   const isInteractive = !!job.interactive
-  const isInteractiveRunning = isInteractive && isRunning
+  // A held run (a restart, a limit, a question) has nothing to steer: its card or its Resume speaks for it.
+  const isInteractiveRunning = isInteractive && isRunning && !held
+  // A Core definition run stops like in the run window: "Stop", confirmed with what it keeps.
+  const isLoopRun = cancelKindForJob(job) === 'loop-run'
+  // Held at a spending limit: its card says what happened and how to go on (in place of the map before any step ran).
+  const budgetHeld = isRunning && (job.loopPauseKind === 'budget_paused' || jobHoldOf(job)?.kind === 'budget')
+  const stepsRan = events.some((event) => event.event_type === 'loop_step')
+  const budgetCard = (layout: 'docked' | 'centered') => budgetHeld && activeProjectId
+    ? <RunBudgetPause projectId={activeProjectId} runId={job.id} budget={job.loopPauseBudget} stepsRan={stepsRan} layout={layout} className={layout === 'docked' ? 'mx-3 mb-2 shrink-0' : undefined} />
+    : null
   const hasTicketHeader = (job.tickets?.length ?? 0) > 0
   // "Implement · #15 Title" when the spec title is known; the raw command is its tooltip.
   const rawCommand = formatCommandForProvider(job.command, activeProvider)
   const friendlyCommand = humaniseCommand(job.command, ticketTitlesOf(job.tickets), { omitTitle: hasTicketHeader })
   const crumbLabel = humaniseJobCrumb(job.command)
+  const commandRepeatsCrumb = !!crumbLabel && !!friendlyCommand && friendlyCommand.trim() === crumbLabel.trim()
   // Loop runs get the step-grouped explorer; every other job keeps the legacy
   // LogViewer byte-identical. Same discriminator as the composer `kind` below.
   const isLoopJob = job.command.startsWith('loop:')
@@ -430,24 +461,42 @@ export default function JobDetailPage() {
   const pipelineTotals = computePipelineTotals(pipelineJobs)
 
   return (
-    <div ref={evidenceRoot} data-job-detail-surface className="flex min-h-0 flex-col h-full overflow-hidden max-w-5xl mx-auto w-full">
-      {/* Header */}
-      <div className="px-4 pt-3 pb-2 space-y-2">
-        {/* Breadcrumb */}
-        <nav aria-label={t('detail.breadcrumbAria')} className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Link to="/jobs" className="hover:text-foreground transition-colors flex items-center gap-1">
-            <Home className="w-3 h-3" aria-hidden />
-            {t('detail.breadcrumbJobs')}
-          </Link>
-          <ChevronRight className="w-3 h-3" aria-hidden />
-          <span
-            aria-current="page"
-            className={cn('text-foreground', !crumbLabel && 'font-mono')}
-            title={t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}
-          >
-            {crumbLabel ?? t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}
+    <div ref={evidenceRoot} data-job-detail-surface className="flex min-h-0 flex-col h-full overflow-hidden w-full">
+      {/* Header: one row — breadcrumb · what ran · when · model. The ticket
+          card follows only when the job references tickets. */}
+      <div className="px-4 pt-2.5 pb-2 space-y-2">
+        <div className="flex min-w-0 items-center gap-x-3 gap-y-1 text-label text-muted-foreground">
+          <nav aria-label={t('detail.breadcrumbAria')} className="flex shrink-0 items-center gap-1">
+            <Link to="/jobs" className="hover:text-foreground transition-colors flex items-center gap-1">
+              <Home className="w-3 h-3" aria-hidden />
+              {t('detail.breadcrumbJobs')}
+            </Link>
+            <ChevronRight className="w-3 h-3" aria-hidden />
+            <span
+              aria-current="page"
+              className={cn('text-foreground', !crumbLabel && 'font-mono')}
+              title={t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}
+            >
+              {crumbLabel ?? t('detail.breadcrumbJob', { id: id?.slice(0, 8) })}
+            </span>
+          </nav>
+          {/* The command only when it says more than the crumb. */}
+          <h1 className={cn('min-w-0 truncate', commandRepeatsCrumb && 'sr-only')}>
+            {friendlyCommand ? (
+              <span title={rawCommand} data-testid="job-detail-command" className="font-medium text-foreground">
+                {friendlyCommand}
+              </span>
+            ) : (
+              <code className="font-mono text-foreground">{rawCommand}</code>
+            )}
+          </h1>
+          <span className="shrink-0 num">
+            {job.started_at
+              ? t('detail.startedAgo', { timeAgo: formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: getDateFnsLocale() }) })
+              : t('detail.queuedWaiting')}
           </span>
-        </nav>
+          {job.model && <span className="min-w-0 truncate">{job.model}</span>}
+        </div>
 
         {/* Ticket identity card — premium header when the job references tickets */}
         {hasTicketHeader && (
@@ -456,36 +505,6 @@ export default function JobDetailPage() {
             onTicketClick={openTicketDetail}
           />
         )}
-
-        {/* Job identity — command · started-ago · model (status/elapsed live in JobRunHeader) */}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap min-w-0">
-          <h1 className="contents">
-            {friendlyCommand ? (
-              <span
-                title={rawCommand}
-                data-testid="job-detail-command"
-                className={cn('truncate font-medium', hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm text-foreground')}
-              >
-                {friendlyCommand}
-              </span>
-            ) : (
-              <code
-                className={cn(
-                  'font-mono text-foreground truncate',
-                  hasTicketHeader ? 'text-xs text-muted-foreground' : 'text-sm',
-                )}
-              >
-                {rawCommand}
-              </code>
-            )}
-          </h1>
-          <span>
-            {job.started_at
-              ? t('detail.startedAgo', { timeAgo: formatDistanceToNow(new Date(job.started_at), { addSuffix: true, locale: getDateFnsLocale() }) })
-              : t('detail.queuedWaiting')}
-          </span>
-          {job.model && <span className="text-muted-foreground">{job.model}</span>}
-        </div>
       </div>
 
       {/* The ONE run header shared with the mission-mode modal: status · elapsed ·
@@ -512,17 +531,26 @@ export default function JobDetailPage() {
             job={job}
             events={events}
             surface="page"
+            projectId={activeProjectId ?? undefined}
             isLoop={isLoopJob}
             onOpenLogs={handleOpenLogs}
-            graphContent={<>
+            graphContent={navigation => <>
               {eventBuffer.omitted && (
                 <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
                   {t('logViewer.retainedTail')}
                 </p>
               )}
-              <LoopStepExplorer events={events} jobStatus={job.status} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} />
+              <LoopStepExplorer events={events} jobStatus={displayStatus} hold={job ? jobStepHold(t, job) : null} variant="page" onOpenRun={id => navigate(`/jobs/${id}`)} view="graph" onShowStep={navigation.showStep} notStarted={budgetCard('centered')} />
             </>}
-            logContent={<>
+            logContent={navigation => isLoopJob ? <>
+              {eventBuffer.omitted && (
+                <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
+                  {t('logViewer.retainedTail')}
+                </p>
+              )}
+              <LoopRunDetail events={events} jobStatus={displayStatus} hold={job ? jobStepHold(t, job) : null} variant="page" navigation={navigation} onOpenRun={id => navigate(`/jobs/${id}`)}
+                settled={settledView} elapsedMs={job.duration_ms ?? null} />
+            </> : <>
               {eventBuffer.omitted && (
                 <p role="status" className="shrink-0 border-b border-border/50 px-3 py-2 text-xs text-muted-foreground">
                   {t('logViewer.retainedTail')}
@@ -531,29 +559,23 @@ export default function JobDetailPage() {
               <div className="min-h-0 flex-1 overflow-hidden relative">
                 {FEATURE_NARRATED_PROGRESS ? (
                   <div className="flex min-h-0 h-full flex-col">
-                    <div className="flex items-center gap-1 border-b border-border/50 px-3 py-1.5">
-                      {(['narrated', 'log'] as const).map((mode) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => setNarrationMode(mode)}
-                          aria-pressed={narrationMode === mode}
-                          data-testid={`job-narration-mode-${mode}`}
-                          className={`rounded-md px-2 py-0.5 text-caption font-medium transition-colors ${
-                            narrationMode === mode
-                              ? 'bg-accent-primary/15 text-accent-primary'
-                              : 'text-muted-foreground hover:bg-surface'
-                          }`}
-                        >
-                          {tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog')}
-                        </button>
-                      ))}
+                    <div className="flex items-center border-b border-border/50 px-3 py-1">
+                      <SegmentedControl
+                        value={narrationMode}
+                        onChange={setNarrationMode}
+                        label={tNarration('modeLabel')}
+                        options={(['narrated', 'log'] as const).map(mode => ({
+                          value: mode,
+                          label: tNarration(mode === 'narrated' ? 'modeNarrated' : 'modeLog'),
+                          testId: `job-narration-mode-${mode}`,
+                        }))}
+                      />
                     </div>
                     <div className="min-h-0 flex-1 overflow-hidden">
                       {narrationMode === 'narrated' ? (
                         <NarratedProgress
                           events={events}
-                          settled={job.status !== 'running' && job.status !== 'queued'}
+                          settled={settledView}
                           durationRange={durationRange}
                           elapsedMs={job.duration_ms ?? null}
                           variant="page"
@@ -611,20 +633,21 @@ export default function JobDetailPage() {
                 </TooltipContent>
               </Tooltip>
             )}
+            {isRunning && <RunPauseControl job={job} projectId={null} />}
             {isRunning && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleCancel}
+                    onClick={held || isLoopRun ? () => setConfirmCancelHeld(true) : handleCancel}
                     className="h-7 border-destructive/30 text-destructive hover:bg-destructive/10"
                   >
-                    {isInteractive ? t('detail.cancelInteractive') : t('detail.cancelJob')}
+                    {held ? t('held.cancelRun') : isLoopRun ? t('dashboard:railControls.stop') : isInteractive ? t('detail.cancelInteractive') : t('detail.cancelJob')}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {t('detail.cancelJobTooltip')}
+                  {held ? t('held.cancelRunConfirmDescription') : isLoopRun ? t('modal.stopRunConfirmDescription') : t('detail.cancelJobTooltip')}
                 </TooltipContent>
               </Tooltip>
             )}
@@ -635,6 +658,25 @@ export default function JobDetailPage() {
       {/* Interactive in-job agent composer — send more prompts to the resident
           agent (queued server-side), see live turn totals, and settle per the
           session's mode (Finalize for freestyle, quiet wrap-up for auto). */}
+      {/* provider-quota: a run paused at a usage limit says when it resumes and how to continue. */}
+      {/* The run's question: its one place in the run window, answered inline. */}
+      {job && activeProjectId && (
+        <RunQuestionDock projectId={activeProjectId} runId={job.id} initial={runWindowQuestion(job, runtime.runs[0])} onAnswered={runtime.refresh} />
+      )}
+      {job && activeProjectId && job.status === 'running' && job.loopPauseKind === 'limit_paused' && (
+        <RunLimitPause projectId={activeProjectId} runId={job.id} initial={job.loopPauseLimit} className="shrink-0 px-3 pb-2" />
+      )}
+      {stepsRan && budgetCard('docked')}
+      <ConfirmDialog
+        open={confirmCancelHeld}
+        onOpenChange={setConfirmCancelHeld}
+        testId="job-cancel-held-confirm"
+        title={held ? t('held.cancelRunConfirmTitle') : t('modal.stopRunConfirmTitle')}
+        description={held ? t('held.cancelRunConfirmDescription') : t('modal.stopRunConfirmDescription')}
+        cancelLabel={held ? t('held.keepPaused') : t('modal.keepRunning')}
+        confirmLabel={held ? t('held.cancelRun') : t('modal.stopRun')}
+        onConfirm={() => { setConfirmCancelHeld(false); void handleCancel() }}
+      />
       {isInteractiveRunning && (
         <InteractiveJobComposer
           jobId={job.id}

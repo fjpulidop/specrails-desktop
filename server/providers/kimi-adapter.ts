@@ -9,7 +9,7 @@
 // successful terminal `session.resume_hint`, but no authoritative token or USD
 // cost envelope.
 
-import { execSync } from 'child_process'
+import { probeCliBinary } from '../binary-probe'
 import path from 'path'
 import { windowsSpawnEnv } from '../util/win-spawn'
 import { formatKimiCoreCommand } from './kimi-skill-prompt'
@@ -24,8 +24,6 @@ import type {
   SpawnOptions,
 } from './types'
 
-const whichCommand = (): 'where' | 'which' =>
-  process.platform === 'win32' ? 'where' : 'which'
 const KIMI_MIN_VERSION = '0.27.0'
 
 const KIMI_MODELS = [
@@ -253,28 +251,18 @@ function compareSemver(a: string, b: string): number {
 }
 
 async function detectKimiInstalled(): Promise<DetectionResult> {
-  const env = windowsSpawnEnv()
-  try {
-    execSync(`${whichCommand()} kimi`, { stdio: 'ignore', env })
-  } catch {
-    return { installed: false, executable: false }
-  }
-
-  try {
-    // The only official, non-billable bounded readiness probe is --version.
-    // Authentication has no safe probe in 0.27; setup directs users to login.
-    // `exec` intentionally uses the platform shell for this constant command:
-    // Windows npm installs expose `kimi.cmd`, which direct execFile cannot
-    // launch. No user-controlled text enters this command.
-    const raw = execSync('kimi --version', {
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      // ProviderAdapter.detectInstalled() is a UI/startup health probe. Keep
-      // the contract's hard three-second ceiling on every platform, including
-      // npm-installed Windows `.cmd` shims.
-      timeout: 3_000,
-      env,
-    }).trim()
+  // The only official, non-billable bounded readiness probe is --version.
+  // Authentication has no safe probe in 0.27; setup directs users to login.
+  // The shared probe (binary-probe.ts) intentionally uses the platform shell
+  // for this constant command: Windows npm installs expose `kimi.cmd`, which
+  // direct execFile cannot launch. No user-controlled text enters it.
+  // ProviderAdapter.detectInstalled() is a UI/startup health probe. Keep the
+  // contract's hard three-second ceiling on every platform, including
+  // npm-installed Windows `.cmd` shims.
+  const probe = await probeCliBinary('kimi', { versionTimeoutMs: 3_000, env: windowsSpawnEnv() })
+  if (!probe.executable) return probe
+  {
+    const raw = probe.versionOutput
     const match = raw.match(/\d+\.\d+\.\d+/)
     const version = match?.[0] ?? raw
     const meetsMinimum = !!match && compareSemver(version, KIMI_MIN_VERSION) >= 0
@@ -291,8 +279,6 @@ async function detectKimiInstalled(): Promise<DetectionResult> {
           }
         : {}),
     }
-  } catch {
-    return { installed: true, executable: false }
   }
 }
 

@@ -24,31 +24,12 @@ export function loopsTools(): McpToolSpec[] {
       name: 'specrails_loops',
       title: 'Loops',
       description:
-        'Manage the global (cross-project) loop library and its templates/factory/constants. ' +
-        'Loops are visual builder graphs reused across projects; this is an APP-LEVEL domain (no projectId, except the run actions). ' +
-        'To RUN a loop on a project\'s tickets: publish it, then specrails_rails(launch, mode:\'loop\', loopId=…). ' +
-        'For a standalone ticket-less run use the run action. ' +
-        'Actions: ' +
-        'list (all saved loops), ' +
-        'get (one loop by id, plus turnLimits: each AI step\'s role and effective Maximum turns — set graph.config.agents.roles.<role>.maxTurns, or agents.<role> for built-in roles, then publish; project Agent Runtime settings never change loop runs), ' +
-        'templates (gallery template catalog with graphs; includes Freestyle and SDD Quick (OpenSpec), which a user adds explicitly via from_template), ' +
-        'factory (the built-in loops — factory:implement — with the graph a rail launch runs; ' +
-        'built-ins are ordinary editable loops whose loopId IS the factory id: change them with update + publish and the change applies to every rail, chat launch and companion that uses that built-in), ' +
-        'commands (magic-command catalog for the builder palette), ' +
-        'constants_list (global cross-loop constants), ' +
-        'constant_create (write), constant_update (write), constant_delete (destructive), ' +
-        'preview (dry-run resolve tokens of a graph — no spawn), ' +
-        'import (import loops from an export envelope), ' +
-        'create (new Draft loop), ' +
-        'from_template (instantiate from a template), ' +
-        'fork (same as duplicate for a built-in: copies it into a separate Draft; kept for back-compat), ' +
-        'update (name/description/graph — reverts to Draft; 409 while running except for built-ins, whose rails keep using the last published version until you publish), ' +
-        'publish (graph-validated), unpublish (409 while running; 409 builtin_loop for built-ins), ' +
-        'duplicate (copy a loop), ' +
-        'restore_builtin (reset a built-in to its original default, Published — 409 while running), ' +
-        'delete (destructive — 409 while running; built-ins cannot be deleted: 409 builtin_loop, use restore_builtin), ' +
-        'run (ai-spawn — standalone ticket-less run of a Published loop against a project: spawns an AI CLI, incurs token cost, returns 202 with loopRunId), ' +
-        'run_get (read one loop run\'s live/terminal state — the post-timeout recovery read).',
+        'The app-wide loop library (visual builder graphs; no projectId except run/run_get). To run a loop on specs: publish it, then specrails_rails(launch, mode:"loop", loopId). ' +
+        'Actions: list, get (+ turnLimits per AI step), templates (gallery incl. Freestyle and SDD Quick, added with from_template), factory (the built-in factory:implement graph; built-ins are ordinary editable loops: update + publish applies everywhere), ' +
+        'commands, constants_list, constant_create / constant_update (write), constant_delete (destructive), preview (dry-run token resolution, no spawn), ' +
+        'import, create (Draft), from_template, fork / duplicate (copy into a Draft), update (reverts to Draft; 409 while running), publish (graph-validated), unpublish (409 for built-ins), ' +
+        'restore_builtin (reset a built-in), delete (destructive; built-ins: use restore_builtin), run (ai-spawn — standalone run of a Published loop; 202 with loopRunId), run_get (a run\'s state). ' +
+        'Lifecycle details: specrails_guide.',
       hintTier: 'read',
       tier: (a) => {
         const action = a.action as string

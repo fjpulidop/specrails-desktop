@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { execFileSync } from 'child_process'
+import { gitInvocationEnv } from './util/git-invocation'
 
 /** Membership belongs to a logical project; the same checkout may be a member of others. */
 export interface ProjectRepository {
@@ -143,7 +144,7 @@ export function inspectRepositoryPath(input: ProjectRepositoryInput, requireAvai
   let gitIdentity: string | null = null
   if (repositoryAvailable(canonical)) {
     try {
-      const commonDir = execFileSync('git', ['-C', canonical, 'rev-parse', '--git-common-dir'], { encoding: 'utf8', timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+      const commonDir = execFileSync('git', ['-C', canonical, 'rev-parse', '--git-common-dir'], { encoding: 'utf8', env: gitInvocationEnv(undefined, ['rev-parse']), timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'] }).trim()
       gitIdentity = repositoryPathKey(canonicalRepositoryPath(path.resolve(canonical, commonDir)))
     } catch { /* Non-Git context folders are supported. */ }
   }

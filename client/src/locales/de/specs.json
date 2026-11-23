@@ -13,7 +13,10 @@
     "untitledSpec": "Unbenannte Spec",
     "doneHeading": "Erledigt · {{count}}",
     "clearFilters": "Filter zurücksetzen",
-    "emptyNoSearchMatch": "Keine Spec passt zu „{{query}}“"
+    "emptyNoSearchMatch": "Keine Spec passt zu „{{query}}“",
+    "emptyAllOnRails": "Alle Specs liegen auf einer Rail",
+    "emptyAllOnRailsHint_one": "{{count}} Spec liegt in der Spalte Rails.",
+    "emptyAllOnRailsHint_other": "{{count}} Specs liegen in der Spalte Rails."
   },
   "status": {
     "todo": "To-do",

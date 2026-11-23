@@ -42,4 +42,4 @@
 
 - [添加 Spec — Explore 模式](add-spec-explore-mode.md)——适合需要打磨的 spec。
 - [草稿与 Contract Layer](drafts-and-contract-layer.md)——详解 Contract Layer 增强。
-- [运行流水线](running-pipelines.md)——把你新建的 spec 拖到 rail 上并实现它。
+- [运行流水线](../pipeline/rails-and-jobs)——把你新建的 spec 拖到 rail 上并实现它。

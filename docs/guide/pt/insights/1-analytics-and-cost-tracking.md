@@ -6,74 +6,80 @@ Abra-a a partir da barra lateral direita (tem a etiqueta **Analytics**). Tudo o 
 
 ## O que conta como gasto
 
-O Specrails etiqueta cada execução de IA com uma *superfície*: a parte da app que gerou o gasto. As superfícies principais têm uma cor fixa e um chip de filtro próprio, para que as identifique num relance:
+Todas as chamadas de IA do projeto contam: jobs de pipeline e passos de loops, escrita de specs, resumos de ficheiros, chats laterais, diagnóstico de falhas, e as missões e turnos de Intent que corre com o agente enquanto está fixado a este projeto. As missões no Início (sem projeto fixado) não pertencem a nenhum projeto e não são contadas aqui.
 
-- **Job** — um job do pipeline em fila (Architect → Developer → Reviewer → Ship), incluindo as execuções Freestyle.
-- **Loop** — cada passo de IA de uma execução de loop. Os rails correm como loops por omissão, por isso a maior parte do gasto dos rails aparece aqui.
-- **Quick spec** — uma spec gerada pelo caminho rápido de Add Spec.
-- **Explore spec** — uma conversa de Explore em que dá forma a uma spec à medida que conversa.
-- **AI edit** — um refinamento assistido por IA sobre um agente ou ficheiro.
-- **SMASH** — a divisão de uma spec épica em specs mais pequenas.
-- **File summary** — os resumos em linguagem simples e as histórias de ficheiros que dão vida ao Code explorer.
+Cada chamada é etiquetada com a *superfície* que a gastou, e cada superfície pertence a uma de cinco **categorias** que dizem *porquê* se gastou o dinheiro:
 
-Também são registadas superfícies menores, sem chip próprio: o chat da barra lateral, o lançador de specs do OpenSpec, as propostas de specs, o Agent Studio e o chat de configuração antigo. As missões fixadas ao projeto também contam para o seu gasto. Nada que execute uma CLI de IA fica de fora, por isso os totais refletem toda a atividade de IA do projeto.
+- **Implementação** — construir specs com rails, loops e jobs.
+- **Missões** — conversar com o agente e modo Intent (turnos de missão, turnos de Intent e a reescrita da spec de Intent).
+- **Specs** — escrever e refinar specs: specs Quick e Explore, refinamento, divisão, o lançador de specs, propostas e triagem.
+- **Código** — explicar o código: resumos de ficheiros e histórias de ficheiros.
+- **Suporte** — configuração, diagnóstico e chats laterais: análise de falhas, configuração, Agent Studio e o chat da barra lateral.
 
 ## Ler o painel
 
-A página é composta por um punhado de blocos, de cima para baixo:
+A página lê-se de cima para baixo como *quanto → em quê e porquê → quando → com que modelos → as chamadas individuais*.
 
 ### O medidor de consumo (Hero)
 
-O grande número no topo é o seu gasto total para o período selecionado, acompanhado por uma variação **vs anterior**, para perceber num relance se a tendência é de subida ou de descida face à janela anterior. Se acabou de começar a usar um projeto, o estado vazio indica-lhe quando o registo começou ("Registo iniciado em YYYY-MM-DD") — não há preenchimento retroativo de histórico, por isso o medidor só conhece as execuções que aconteceram enquanto estava nesta versão.
+O grande número no topo é o seu gasto total para o período selecionado, acompanhado por uma variação **vs anterior**, para perceber num relance se a tendência é de subida ou de descida face à janela anterior. Quando todos os motores estão num plano de subscrição, o valor tem a etiqueta *Estimativa equivalente em API*: o que as chamadas custariam a preços de API, não dinheiro que foi cobrado. Se acabou de começar a usar um projeto, o estado vazio indica-lhe quando o registo começou.
+
+### Para onde foi o dinheiro
+
+Uma linha por categoria com o seu custo, a sua parte do total, o número de chamadas e de tokens, e um motivo numa linha. A parte tracejada de uma barra é custo estimado (motores que não reportam o custo nativamente). Abra uma categoria para ver as superfícies que a compõem, e clique numa para filtrar toda a página por ela. A categoria Missões também lista as suas conversas mais caras.
 
 ### Cronologia diária
 
-Um gráfico de barras empilhadas com o gasto por dia, dividido por superfície. Os dias sem atividade aparecem como zero em vez de serem saltados, para que a forma da sua semana seja honesta. É a forma mais rápida de ver *quando* correu um lote dispendioso.
+Um gráfico de barras empilhadas com o gasto por dia, dividido por superfície, com as missões na sua própria cor. Os dias sem atividade aparecem como zero em vez de serem saltados. É a forma mais rápida de ver *quando* correu um lote dispendioso.
 
-### Quick vs Explore
+### Orçamento
 
-Um cartão lado a lado a comparar os seus dois estilos de criação de specs. Se correu menos de cinco sessões de Explore, mostra um convite à ação delicado em vez de médias enganadoras — amostras pequenas não dão comparações de confiança.
+Os seus limites diário, semanal, mensal e por execução, a projeção para o fim do mês e o recálculo *E se* (ver abaixo).
 
-### Por modelo
+### Motores e modelos
 
-Os seus modelos com mais gasto (até dez). Clique em qualquer modelo para filtrar todo o painel apenas por esse modelo — útil quando quer saber quanto lhe está realmente a custar um modelo topo de gama em particular.
+O gasto por motor (nos projetos com mais de um) e os seus modelos com mais gasto. Clique em qualquer modelo para filtrar todo o painel apenas por esse modelo.
 
-### Dispersão custo vs turnos
+### Top specs
 
-Cada ponto é uma invocação, representando o custo face ao número de turnos. Os pontos discrepantes — as execuções caras, de muitos turnos — saltam logo à vista. (A dispersão mostra os seus 500 pontos mais recentes, para se manter ágil.)
-
-### Top tickets
-
-Os seus dez tickets mais caros somando *todas* as superfícies, para que um ticket que custou pouco no Explore e muito num job mostre o seu verdadeiro total. Os tickets eliminados e as execuções sem atribuição ganham os seus próprios baldes, para que nada desapareça silenciosamente dos totais.
+As suas dez specs mais caras somando *todas* as superfícies, para que uma spec que custou pouco no Explore e muito num job mostre o seu verdadeiro total. Os turnos de missão não têm spec, por isso não aparecem aqui.
 
 ### Tabela de invocações em bruto
 
-A verdade dos factos: uma linha por invocação. Este bloco tem os seus próprios filtros secundários, que afetam apenas a tabela, para poder aprofundar sem mexer nos gráficos acima.
+A verdade dos factos: uma linha por chamada. A coluna **Motivo** mostra a superfície e a sua categoria; as linhas de missão e de Intent mostram a conversa a que pertencem. Este bloco tem os seus próprios filtros secundários, que afetam apenas a tabela.
+
+### Mais detalhamentos
+
+Recolhidos por omissão: tempo até à decisão e ao merge, economia por loop, a dispersão custo vs turnos e a comparação Quick vs Explore.
 
 ## Filtrar
 
-O cabeçalho fixo no topo traz os dois filtros principais — **período** e **superfície** — e ambos ficam guardados no URL da página. Isto significa que pode marcar nos favoritos ou partilhar uma vista filtrada ("últimos 30 dias, só jobs") e ela reabre exatamente como a deixou. Os filtros da tabela em bruto são separados e ficam locais a esse bloco.
+O cabeçalho fixo traz os filtros principais — **período**, **categoria** e (nos projetos com vários motores) **motor** — e todos ficam guardados no URL da página, para que possa marcar nos favoritos ou partilhar uma vista filtrada ("últimos 30 dias, só missões"). Passe o rato sobre um chip de categoria para ver o que abrange. Pode selecionar uma única superfície a partir do cartão *Para onde foi o dinheiro* (ou com `?surface=` no URL); um chip removível no cabeçalho mostra-a. Os filtros da tabela em bruto são separados e ficam locais a esse bloco.
 
 Uma nota sobre rigor: as execuções falhadas e abortadas ficam de fora das *médias de custo* (distorceriam os números por execução), mas continuam a contar para o total de execuções e para a taxa de falhas. Assim, as médias mantêm-se limpas enquanto o retrato de fiabilidade se mantém completo.
 
-## Custo por ticket
+## Custo por spec
 
-Não precisa de ir à página de Analytics para ver quanto custou uma spec. Abra qualquer ticket e, se tiver algum gasto associado, vê um resumo numa só linha logo por baixo do título:
+Não precisa de ir à página de Analytics para ver quanto custou uma spec. Abra qualquer spec e, se tiver algum gasto associado, vê um resumo numa só linha logo por baixo do título:
 
 > $0.42 · 6 turnos · 1m 12s ativos · detalhe
 
-Clique nele e vai parar à página de Analytics já filtrada por esse ticket. É o caminho mais rápido entre "quanto me custou esta funcionalidade?" e o detalhe completo.
+Clique nele e vai parar à página de Analytics já filtrada por essa spec. É o caminho mais rápido entre "quanto me custou esta funcionalidade?" e o detalhe completo.
+
+## Todos os projetos {#all-projects}
+
+Para ter o retrato de todos os projetos, abra **Analytics** a partir da barra lateral esquerda ou da paleta de comandos. Mostra o custo total, os jobs e a taxa de sucesso, o custo ao longo do tempo e uma linha por projeto, e usa as mesmas cinco categorias e cores da página do projeto. Os turnos de missão e de Intent contam em todos os valores. Os turnos que não pertencem a nenhum projeto carregado, como as missões do Início e as conversas de Blueprint ou Builder, ficam agrupados numa linha **Início e Blueprint**, contada em turnos do agente em vez de jobs. O custo estimado é marcado com `~`, como na página do projeto.
 
 ## Exportar os seus dados
 
 Quando precisa dos números fora da aplicação — uma folha de cálculo, um relatório financeiro, a sua própria análise — use o menu **Export**. Oferece quatro formatos:
 
-- **CSV de resumo** — um ficheiro com várias secções, com totais, cronologia diária, por superfície, por modelo e top tickets.
+- **CSV de resumo** — um ficheiro com várias secções, com totais, cronologia diária, por categoria, por superfície, por modelo e top specs.
 - **JSON de resumo** — o mesmo resumo, estruturado.
 - **CSV em bruto** — todas as linhas de invocação (até 10.000; assinala se teve de truncar).
 - **JSON em bruto** — as mesmas linhas em bruto, estruturadas.
 
-As exportações respeitam os filtros de período e superfície que tiver aplicados nesse momento, e os ficheiros são nomeados de forma a ordenarem-se com lógica: `<project>-analytics-<period>-<date>.csv`. O botão fica desativado quando não há nada para exportar, e recebe uma notificação de erro clara se uma transferência falhar.
+As exportações respeitam os filtros de período, categoria e superfície que tiver aplicados nesse momento, e os ficheiros são nomeados de forma a ordenarem-se com lógica: `<project>-analytics-<period>-<date>.csv`. O botão fica desativado quando não há nada para exportar, e recebe uma notificação de erro clara se uma transferência falhar.
 
 ## Sempre em direto
 
@@ -81,12 +87,12 @@ Não precisa de atualizar a página. Quando uma nova invocação é registada em
 
 ## Orçamentos diários {#daily-budget}
 
-Defina um orçamento diário para limitar quanto um dia pode custar. Todos os limites (diário, semanal, mensal e por execução) são editados em um único lugar: **Análises → Orçamento**. **Configurações → Avançado** e **Configurações do projeto → Orçamento** apenas mostram o limite diário atual, com um botão **Abrir Orçamento** que leva até lá.
+Defina um orçamento diário para limitar quanto um dia pode custar. Todos os limites (diário, semanal, mensal e por execução) são editados em um único lugar: **Analytics → Orçamento**. **Configurações → Avançado** e **Configurações do projeto → Orçamento** apenas mostram o limite diário atual, com um botão **Abrir Orçamento** que leva até lá.
 
-Quando o gasto registrado do dia atinge um orçamento, a fila se pausa sozinha, os rails e as execuções de loops se recusam a iniciar com *Orçamento diário atingido*, e uma execução de loop em andamento para entre etapas, pausada pelo orçamento. Aumente ou remova o orçamento, ou espere a redefinição diária, e depois retome.
+Quando o gasto registrado do dia atinge um orçamento, a fila se pausa sozinha, os rails e as execuções de loops se recusam a iniciar com *Orçamento diário atingido*, e uma execução de loop em andamento para entre etapas, pausada pelo orçamento. Aumente ou remova o orçamento, ou espere a redefinição diária, e depois retome. Uma execução de loop retida apenas pelo orçamento diário é retomada sozinha quando o dia reinicia (à meia-noite local para o orçamento de um projeto, à meia-noite UTC para o de todo o app), assim que houver capacidade, e registra isso no seu log; isso inclui uma execução retida durante a meia-noite com o app fechado, que é retomada quando o app abre. Uma execução que você pausou, ou que o próprio limite por execução (ou um limite semanal ou mensal) ainda retém, continua esperando por você. Desative em **Configurações → Avançado → Retomar as execuções retidas pelo limite diário quando o dia reiniciar**.
 
-O orçamento do projeto conta o seu dia local; o de todo o app conta o dia UTC. O alerta de custo por job é uma configuração separada.
+Ambos os orçamentos contam o seu dia local, e ambos incluem o gasto das missões: o orçamento de um projeto conta os turnos fixados a esse projeto, o de todo o app conta todos os turnos. "Hoje" significa o seu dia local em todo o app, na barra de estado, em Analytics e nos limites. O alerta de custo por job é uma configuração separada.
 
-**Limites semanais, mensais e por execução.** Os limites mais longos funcionam do mesmo jeito. Abra **Análises → Orçamento** para definir um limite **semanal** e um **mensal**, por projeto e para o app inteiro, e um **limite flexível por execução** (*pausar e perguntar em $X*). As semanas começam na segunda-feira e os meses no dia 1, no seu horário local. Um limite semanal ou mensal pausa as filas, recusa inícios e deixa em pausa os loops em andamento exatamente como o orçamento diário; aumente-o ou remova-o ali, ou espere o reinício. Quando o custo informado de uma execução chega ao limite por execução, ela pausa, e **Retomar** pergunta se deve continuar sem o limite ou aumentá-lo. Atingir qualquer limite também adiciona um item **Aumentar limite** à caixa de entrada.
+**Limites semanais, mensais e por execução.** Os limites mais longos funcionam do mesmo jeito. Abra **Analytics → Orçamento** para definir um limite **semanal** e um **mensal**, por projeto e para o app inteiro, e um **limite flexível por execução** (*pausar e perguntar em $X*). As semanas começam na segunda-feira e os meses no dia 1, no seu horário local. Um limite semanal ou mensal pausa as filas, recusa inícios e deixa em pausa os loops em andamento exatamente como o orçamento diário; aumente-o ou remova-o ali, ou espere o reinício. Uma etapa que já começou não pode ser interrompida, por isso o limite por execução é verificado **antes de cada etapa de IA**, em relação ao que essa etapa costuma custar: o que ela custou antes na mesma execução, senão a mediana das suas execuções recentes no projeto com o mesmo modelo, senão uma estimativa de uma etapa típica do seu tipo pela tabela de preços. Quando a próxima etapa não cabe, a execução pausa antes dela e explica o motivo (*Em pausa antes de Developer: costuma custar cerca de $0.45 e restam $0.12 do limite de $0.40 por execução*); **Retomar** oferece então **executar só esta etapa** (o limite volta a valer depois), continuar sem o limite ou aumentá-lo. Uma execução cujo custo informado chega ao limite pausa da mesma forma. São estimativas: uma etapa que custa muito mais do que o normal ainda pode ultrapassar o limite. Atingir qualquer limite também adiciona um item **Aumentar limite** à lista **Pendências**.
 
 O painel de Orçamento mostra hoje, esta semana e este mês em relação a cada limite. A **projeção** para o fim do mês é uma estimativa (a média dos últimos 14 dias completos vezes os dias restantes, mais o que você já gastou) e nunca é somada ao gasto faturado. **E se** recalcula os últimos 30 dias de uso de tokens registrado com outro modelo, pela tabela de preços do app, e diz *Sem preço* para um modelo sem preço. Em um plano de assinatura não há custo em dólares por uso, então o painel mostra turnos e limites do plano no lugar de dólares.

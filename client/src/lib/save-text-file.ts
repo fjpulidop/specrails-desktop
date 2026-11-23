@@ -32,3 +32,34 @@ export async function saveTextFile(suggestedName: string, text: string, mimeType
     return 'failed'
   }
 }
+
+/**
+ * Save binary content (a ZIP report) as a file the person chooses. In the
+ * desktop shell the bytes travel as the raw IPC body to `desktop_save_bytes`
+ * (binary-safe, never a JSON number array) and the host owns the save dialog;
+ * in a browser it falls back to an anchor download.
+ */
+export async function saveBinaryFile(suggestedName: string, bytes: Uint8Array, mimeType = 'application/octet-stream'): Promise<SaveTextResult> {
+  if (isTauri()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core')
+      const written = await invoke<boolean>('desktop_save_bytes', bytes, { headers: { 'x-specrails-suggested-name': encodeURIComponent(suggestedName) } })
+      return written === false ? 'cancelled' : 'saved'
+    } catch {
+      return 'failed'
+    }
+  }
+  try {
+    const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: mimeType }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = suggestedName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    return 'saved'
+  } catch {
+    return 'failed'
+  }
+}

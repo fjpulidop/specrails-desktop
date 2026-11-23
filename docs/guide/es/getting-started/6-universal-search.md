@@ -2,6 +2,12 @@
 
 Pulsa **⌘K** (**Ctrl+K** en Windows y Linux) para buscar casi todo en Specrails desde un solo sitio: misiones, specs, registros de trabajos, archivos, ajustes y esta guía. Escribe una consulta normal para buscar misiones, proyectos, specs y trabajos recientes como siempre, o empieza con un **prefijo** para buscar solo en una fuente.
 
+## Volver a
+
+Con la caja vacía, el primer grupo es **Volver a**: tus misiones y trabajos con actividad más reciente, de lo más nuevo a lo más antiguo, con el más reciente del proyecto abierto delante para que **Intro** te deje donde estás. Cada fila muestra el piloto de su estado y el nombre del proyecto cuando no es el abierto. Cuando algo te necesita, una fila arriba del todo dice cuántos avisos hay (**3 avisos pendientes**) y abre la bandeja, la única lista de lo que espera por ti; los elementos de la bandeja no se listan aquí.
+
+Pulsa de **⌘1** a **⌘6** (de **Ctrl+1** a **Ctrl+6** en Windows y Linux) para abrir directamente una fila de misión o de trabajo (la fila de la bandeja no tiene número), o elige una fila con las flechas e **Intro**. Cada fila se abre igual que en el resto de la app: una misión abre la misión y un trabajo abre el trabajo. Mientras la paleta está abierta esas teclas son suyas: los atajos de página (⌘1–5) y el cambio de proyecto (⌥⌘1–9) esperan a que se cierre. El orden no cambia mientras la paleta sigue abierta, para que ninguna fila se mueva bajo tu dedo; los estados sí se actualizan, y la lista se reordena la próxima vez que la abras. Las filas de este grupo no se repiten en Misiones ni en Trabajos.
+
 ## Prefijos
 
 | Escribe | Busca | Intro abre |

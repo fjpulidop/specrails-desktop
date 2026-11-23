@@ -52,6 +52,6 @@
     "close": "Close {{label}}",
     "continueEditing": "Continue editing · {{projectName}}",
     "kindAiEdit": "AI Edit",
-    "kindExploreSpec": "Explore Spec"
+    "kindExploreSpec": "Explore spec"
   }
 }

@@ -19,7 +19,7 @@ import { reattachIsolatedSettlement, type AllocatedRun } from './rail-isolated-l
 import { getRepositoryExecutionReferences, type RunExecutionManifest } from './multi-repo-execution-store'
 
 const retained = vi.hoisted(() => ({ cli: '' }))
-vi.mock('../../agent-runtime/runtime/agent-runtime-package', () => ({ resolveRetainedAgentRuntime: () => retained.cli }))
+vi.mock('../../agent-runtime/runtime/agent-runtime-package', () => ({ resolveRetainedAgentRuntime: async () => retained.cli, resolveRetainedAgentRuntimeForInspection: async () => retained.cli }))
 vi.mock('../../../core-node-runtime', () => ({ resolveCoreNodeRuntime: () => process.execPath }))
 const core = process.env.SPECRAILS_CORE_SOURCE_DIR ?? process.env.SPECRAILS_EFFICIENCY_CORE_ROOT
 let root: string | undefined, db: DbInstance | undefined

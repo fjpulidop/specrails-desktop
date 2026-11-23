@@ -55,7 +55,7 @@
   },
   "instructions": {
     "title": "Installa gli strumenti di sviluppo",
-    "description": "SpecRails richiede Node.js, npm, npx e Git sul PATH. Scegli lo snippet per il tuo sistema operativo, eseguilo e poi clicca \"L'ho installato, ricontrolla\".",
+    "description": "Specrails richiede Node.js, npm, npx e Git sul PATH. Scegli lo snippet per il tuo sistema operativo, eseguilo e poi clicca \"L'ho installato, ricontrolla\".",
     "darwin": {
       "intro": "Con Homebrew ottieni entrambi gli strumenti in una riga. Se non hai brew, usa i download ufficiali.",
       "installNodeGit": "Installa Node.js e Git con Homebrew"

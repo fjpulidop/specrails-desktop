@@ -105,6 +105,8 @@
       "stopped": "Die Laufzeit wurde gestoppt: {{target}}",
       "corrections": "Setzt die verbleibenden Aufgaben fort (Entwickler)",
       "resumed": "Gespeicherte Ausführung wird fortgesetzt",
+      "pausedByYou": "Von dir pausiert",
+      "resumedByYou": "Von dir fortgesetzt",
       "blocked": "Die Host-Umgebung hat den Lauf blockiert: {{target}}"
     },
     "check": {
@@ -118,5 +120,7 @@
   "repeats": "×{{count}}",
   "round": "Korrekturrunde {{round}} von {{total}}",
   "checks_one": "+1 Prüfung",
-  "checks_other": "+{{count}} Prüfungen"
+  "checks_other": "+{{count}} Prüfungen",
+  "modeSteps": "Schritte",
+  "modeLabel": "Ansicht"
 }

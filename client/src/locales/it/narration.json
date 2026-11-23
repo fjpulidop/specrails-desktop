@@ -105,6 +105,8 @@
       "stopped": "Il motore si è fermato: {{target}}",
       "corrections": "Prosecuzione delle attività rimanenti (sviluppatore)",
       "resumed": "Ripresa dell’esecuzione salvata",
+      "pausedByYou": "Messa in pausa da te",
+      "resumedByYou": "Ripresa da te",
       "blocked": "L'ambiente host ha bloccato l'esecuzione: {{target}}"
     },
     "check": {
@@ -118,5 +120,7 @@
   "repeats": "×{{count}}",
   "round": "Ciclo di correzione {{round}} di {{total}}",
   "checks_one": "+1 controllo",
-  "checks_other": "+{{count}} controlli"
+  "checks_other": "+{{count}} controlli",
+  "modeSteps": "Passi",
+  "modeLabel": "Vista"
 }

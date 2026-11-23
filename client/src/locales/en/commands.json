@@ -6,6 +6,7 @@
     "noResults": "No results found.",
     "activeBadge": "active",
     "groups": {
+      "jumpBackIn": "Jump back in",
       "projects": "Projects",
       "missions": "Missions",
       "spec": "Spec",
@@ -22,10 +23,10 @@
     },
     "nav": {
       "dashboard": "Dashboard",
-      "desktopAnalytics": "Desktop Analytics",
-      "projectAnalytics": "Project Analytics",
-      "activityFeed": "Activity Feed",
-      "desktopSettings": "Desktop Settings",
+      "desktopAnalytics": "Desktop analytics",
+      "projectAnalytics": "Project analytics",
+      "activityFeed": "Activity feed",
+      "desktopSettings": "Settings",
       "docs": "Docs",
       "replayTour": "Replay tour"
     },
@@ -68,7 +69,7 @@
       "switchTheme": "Switch theme",
       "switchToMission": "Switch to Mission mode",
       "switchToBoard": "Switch to Board mode",
-      "openAppSettings": "Open app settings",
+      "openAppSettings": "Open settings",
       "openProjectSettings": "Open project settings",
       "switchProject": "Switch project",
       "runLoop": "Run loop",
@@ -94,7 +95,7 @@
         "themeTitle": "Theme",
         "themePlaceholder": "Pick a theme...",
         "noThemes": "No themes available.",
-        "appSettingsTitle": "App settings",
+        "appSettingsTitle": "Settings",
         "projectSettingsTitle": "Project settings",
         "sectionPlaceholder": "Pick a section...",
         "noSections": "No sections.",
@@ -149,7 +150,11 @@
       "copyPrDescriptionN": "Copy PR description for #{{id}}",
       "exportHandoff": "Export hand-off",
       "copyPrDescription": "Copy PR description",
-      "moveFocusedSpec": "Move focused spec…"
+      "moveFocusedSpec": "Move focused spec…",
+      "openLiveBoard": "Open live board",
+      "openLiveBoardKeywords": "live board, board, runs, running, all projects, missions, status",
+      "toggleKeepAwake": "Keep computer awake (on / off)",
+      "toggleKeepAwakeKeywords": "keep awake, prevent sleep, sleep, awake"
     },
     "scopes": {
       "remove": "Remove scope",
@@ -212,7 +217,7 @@
       }
     },
     "settings": {
-      "appScope": "Desktop settings",
+      "appScope": "Settings",
       "projectScope": "Project settings",
       "entries": {
         "theme": {
@@ -247,6 +252,10 @@
           "label": "Sub-agents (Desktop)",
           "keywords": "sub-agents, subagents, native, delegated, parallel"
         },
+        "missionConnectors": {
+          "label": "Connectors in missions",
+          "keywords": "connectors, mcp, claude.ai, codex, servers, google drive, tools"
+        },
         "mobileCompanion": {
           "label": "Mobile companion",
           "keywords": "mobile, companion, phone, pair, qr, ipad, remote"
@@ -258,6 +267,10 @@
         "budgetAlerts": {
           "label": "Daily limit and cost alerts",
           "keywords": "budget, daily, cost, spend, limit, alert, usd, money"
+        },
+        "resumeOnDailyReset": {
+          "label": "Resume runs at the daily reset",
+          "keywords": "budget, daily, reset, midnight, resume, held, runs, automatically"
         },
         "notifications": {
           "label": "OS notifications",
@@ -282,6 +295,10 @@
         "about": {
           "label": "Desktop information",
           "keywords": "about, info, port, database, version"
+        },
+        "reportProblem": {
+          "label": "Report a problem",
+          "keywords": "report, problem, bug, crash, logs, diagnostics, zip, support"
         },
         "repositories": {
           "label": "Repositories",
@@ -350,9 +367,30 @@
         "reduceMotion": {
           "label": "Reduce motion",
           "keywords": "reduce motion, animation, accessibility, vestibular, calm, transitions"
+        },
+        "retainedWorktrees": {
+          "label": "Run worktrees kept on disk",
+          "keywords": "storage, disk, worktrees, cleanup, clean up, space, retained, branches, remove"
+        },
+        "safetyArchives": {
+          "label": "Files kept outside a PR",
+          "keywords": "storage, disk, safety archive, kept files, quarantine, cleanup, delete"
+        },
+        "autoContinue": {
+          "label": "Continue failed runs automatically",
+          "keywords": "continue, retry, failed run, automatic, recovery"
+        },
+        "machineInstalls": {
+          "label": "Remembered installs",
+          "keywords": "install, brew, machine-wide, tool, approval, revoke"
+        },
+        "envFiles": {
+          "label": "Environment files in runs",
+          "keywords": "env files, .env, dotenv, APP_KEY, secrets, environment, worktree"
         }
       }
-    }
+    },
+    "jumpAttempt": "Attempt {{number}}"
   },
   "toasts": {
     "queued": "{{name}} queued",
@@ -372,7 +410,7 @@
     "displayNames": {
       "proposeSpec": "Custom-Propose",
       "updateBacklog": "Auto-propose",
-      "productBacklog": "Auto-Select Specs"
+      "productBacklog": "Auto-select specs"
     },
     "emptyState": {
       "title": "No commands installed",
@@ -385,7 +423,7 @@
     }
   },
   "shortcuts": {
-    "title": "Keyboard Shortcuts",
+    "title": "Keyboard shortcuts",
     "subtitle": "Press <1>?</1> anywhere to toggle this panel",
     "categories": {
       "general": "General",
@@ -403,6 +441,7 @@
       "navigateProjectPageWithAgents": "Navigate to project page (Dashboard/Jobs/Analytics/Agents/Settings)",
       "navigateProjectPage": "Navigate to project page (Dashboard/Jobs/Analytics/Settings)",
       "switchProject": "Switch to project by position",
+      "paletteJumpBackIn": "Open a “Jump back in” row while the ⌘K palette is open",
       "goDashboard": "Go to Dashboard",
       "goActivity": "Go to Activity / Jobs",
       "goAnalytics": "Go to Analytics",
@@ -416,7 +455,7 @@
       "flowHandOff": "Hand off the Intent (run strip focused)",
       "historyBackForward": "Go back / forward to the previous place",
       "undoLast": "Undo the last change",
-      "openInbox": "Open the Needs you inbox",
+      "openInbox": "Open the Needs attention inbox",
       "reviewFiles": "Review: next / previous changed file",
       "reviewAnnotations": "Review: next / previous annotation",
       "reviewViewed": "Review: mark the file viewed",
@@ -424,7 +463,12 @@
       "boardSelectClick": "Board: click toggles a spec, Shift+click selects a range",
       "boardSelectColumn": "Board: select every spec in the column",
       "boardClearSelection": "Board: clear the selection",
-      "boardMove": "Board: move the focused spec (status or rail)"
+      "boardMove": "Board: move the focused spec (status or rail)",
+      "openLiveBoard": "Open the live board (every run of every project)",
+      "splitFocusPane": "Focus the next / previous mission pane",
+      "splitMaximize": "Maximize or restore the focused mission pane",
+      "splitEqualize": "Equalize mission panes",
+      "splitClose": "Close the focused mission pane"
     },
     "searchLabel": "Search shortcuts and guides",
     "searchPlaceholder": "Search shortcuts and guides…",
@@ -440,7 +484,9 @@
       "downloading": "Downloading update",
       "installing": "Installing update",
       "ready": "Update ready",
-      "error": "Update failed"
+      "error": "Update failed",
+      "busy": "Work is still running",
+      "waiting": "Waiting to restart"
     },
     "desc": {
       "available": "A new version of Specrails is ready to install.",
@@ -448,12 +494,15 @@
       "progress": "{{percent}}% · {{downloaded}} of {{total}}",
       "installing": "Verifying signature and finishing up…",
       "ready": "Restart to launch version {{version}}.",
-      "errorFallback": "Couldn’t complete the update. Please try again."
+      "errorFallback": "Couldn’t complete the update. Please try again.",
+      "busy": "Restarting now stops {{what}}.",
+      "waiting": "Restarts when nothing runs · {{what}}"
     },
     "pill": {
       "downloading": "Downloading",
       "installing": "Installing",
-      "ready": "Ready"
+      "ready": "Ready",
+      "waiting": "Waiting"
     },
     "actions": {
       "restart": "Restart",
@@ -461,7 +510,10 @@
       "update": "Update",
       "installing": "Installing…",
       "tryAgain": "Try again",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "whenIdle": "Install when nothing is running",
+      "restartNow": "Restart now",
+      "cancelWait": "Cancel"
     },
     "mockReady": "Mock update ready — restart skipped",
     "errors": {
@@ -470,6 +522,17 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "{{count}} mission turn",
+      "missions_other": "{{count}} mission turns",
+      "runs_one": "{{count}} run",
+      "runs_other": "{{count}} runs",
+      "something": "work in progress"
+    },
+    "chip": {
+      "text": "Update",
+      "label": "Specrails {{version}} is available. Show the update"
     }
   },
   "notifications": {
@@ -483,8 +546,43 @@
     "jobStuckStopped": "Run stopped",
     "jobStuckStopFailed": "Could not stop the run",
     "providerLimit": "Provider usage limit reached",
-    "providerLimitBody": "{{provider}} refused the request: usage limit reached — resets {{resetsAt}}. The run stopped; relaunch or Recover & retry after the reset.",
-    "providerLimitBodyNoReset": "{{provider}} refused the request: usage limit reached. The run stopped; relaunch after the limit resets."
+    "providerLimitBody": "{{provider}} refused the request: usage limit reached — resets {{resetsAt}}. The run is paused and resumes on its own after the reset; you can also continue it now on another provider.",
+    "providerLimitBodyNoReset": "{{provider}} refused the request: usage limit reached. The run is paused; resume it once the limit resets, or continue it now on another provider.",
+    "attention": {
+      "open": "Open",
+      "openInbox": "Open inbox",
+      "actions": {
+        "answer": "Answer",
+        "review": "Review",
+        "view": "View",
+        "open": "Open"
+      },
+      "single": {
+        "question": "{{subject}} is waiting for your answer",
+        "approval": "{{subject}} needs your approval",
+        "review": "{{subject}} is ready for review",
+        "stopped": "{{subject}} has stopped",
+        "stuck": "{{subject}}: a run has stalled",
+        "paused": "{{subject}} is paused by a limit",
+        "pausedByYou": "{{subject}} is paused (by you)",
+        "held": "{{subject}} is paused",
+        "done": "{{subject}} has finished",
+        "generic": "{{subject}} needs your attention"
+      },
+      "pending_one": "{{count}} pending item",
+      "pending_other": "{{count}} pending items",
+      "breakdown": "{{list}} pending",
+      "group": {
+        "question_one": "{{count}} question",
+        "question_other": "{{count}} questions",
+        "approval_one": "{{count}} approval",
+        "approval_other": "{{count}} approvals",
+        "review_one": "{{count}} review",
+        "review_other": "{{count}} reviews"
+      },
+      "missionReplied": "{{title}} replied",
+      "untitledMission": "Your mission"
+    }
   },
   "templates": {
     "emptyState": {
@@ -515,8 +613,8 @@
     }
   },
   "templateDialog": {
-    "editTitle": "Edit Template",
-    "newTitle": "New Template",
+    "editTitle": "Edit template",
+    "newTitle": "New template",
     "nameLabel": "Name",
     "namePlaceholder": "e.g. Full pipeline",
     "descriptionLabel": "Description (optional)",

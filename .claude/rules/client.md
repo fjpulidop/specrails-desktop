@@ -9,7 +9,7 @@ paths:
 
 - React 18 + TypeScript + Vite + Tailwind v4
 - ESM modules (`client/tsconfig.json` — separate from root `tsconfig.json`)
-- File naming: PascalCase for components (e.g., `DesktopApp.tsx`, `SetupWizard.tsx`), kebab-case for utilities
+- File naming: PascalCase for components (e.g., `DashboardPage.tsx`, `JobDetailModal.tsx`), kebab-case for utilities
 - Run `cd client && npm install` separately — client has its own `package.json`
 
 ## API calls
@@ -40,7 +40,7 @@ paths:
 ## Super mode
 
 - `App.tsx` mounts `DesktopProvider` and `DesktopApp` unconditionally (Super mode is the only mode; `GET /api/state` reports `mode: 'super'`)
-- `useDesktop.tsx` — `DesktopProvider` context: project list, active project, setup wizard state
+- `useDesktop.tsx` — `DesktopProvider` context: project list and active project
 - `useProjectRouteMemory` — saves/restores URL route per project on tab switch
 - On project switch: show cached data immediately, fetch fresh data in background — never reset to empty state
 

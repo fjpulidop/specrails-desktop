@@ -50,7 +50,8 @@
       "reopen": "Wird erneut geöffnet…",
       "merge-local": "Wird lokal integriert…",
       "recover-and-retry": "Gesichertes Ergebnis wird committet und erneut gepusht…",
-      "acknowledge-no-changes": "Wird als erledigt markiert…"
+      "acknowledge-no-changes": "Wird als erledigt markiert…",
+      "refresh-on-base": "Wird auf die neue Basis aktualisiert…"
     },
     "markDone": "Als erledigt markieren",
     "refine": "Verfeinern",
@@ -83,9 +84,6 @@
     "cleanupIncomplete_other": "Bereinigung unvollständig ({{count}} Warnungen)",
     "cleanupIncompleteHint": "Lokale Wiederherstellungsdaten wurden beibehalten. Prüfe diese Details, bevor du etwas manuell entfernst.",
     "copyCleanupDetails": "Wiederherstellungsdetails kopieren",
-    "safetyArchiveTitle": "Sicherheitsarchiv ({{count}})",
-    "safetyArchiveHint": "Temporäre Workspace-Dateien wurden vorsichtshalber außerhalb des PR aufbewahrt. Du kannst sie prüfen oder manuell entfernen.",
-    "copySafetyArchive": "Pfade kopieren",
     "unit": {
       "failed": "Implementierung fehlgeschlagen",
       "blocked": "Bereitstellung blockiert",
@@ -101,9 +99,9 @@
     "iteratingPr": "PR wird aktualisiert",
     "prReady": "PR bereit",
     "implementationFailed": "Implementierung fehlgeschlagen",
-    "implementationFailedHint": "Der Implementierungslauf ist fehlgeschlagen. Öffne das Run-Protokoll und verwirf diese Karte vor einem erneuten Start.",
+    "implementationFailedHint": "Der Lauf hat angehalten, bevor er etwas liefern konnte. Öffne sein Protokoll, um zu sehen, warum.",
     "runStopped": "Gestoppt",
-    "runStoppedHint": "Du hast diesen Lauf gestoppt, bevor er etwas geliefert hat. Starte ihn neu, wenn du weitermachen willst, oder verwirf diese Karte.",
+    "runStoppedHint": "Du hast diesen Lauf vor der Lieferung angehalten. Fortsetzen macht dort weiter, wo er angehalten wurde, oder verwirf diese Karte.",
     "prFailed": "PR fehlgeschlagen",
     "prFailedDetail": "PR fehlgeschlagen",
     "createDegraded": "PR konnte nicht veröffentlicht werden — {{detail}}. Nach Behebung erneut versuchen.",
@@ -156,9 +154,10 @@
     "actionFailed": "PR-Entscheidung konnte nicht angewendet werden",
     "mergedToast": "PR gemergt — Specs nach Fertig verschoben",
     "discardedToast": "PR verworfen — Specs zurück in Specs",
-    "decisionPending": "Dieser Rail hat eine ausstehende PR-Entscheidung — erstelle, veröffentliche oder verwirf sie, bevor du neu startest",
+    "decisionPendingOnRail": "Rail {{rail}} hat eine Lieferung, die auf deine Prüfung wartet",
+    "decisionPendingAction": "Prüfe sie zuerst (PR erstellen, genehmigen oder verwerfen) oder starte diese Specs auf einem anderen Rail.",
     "discardConfirmTitle": "Diese Lieferung verwerfen?",
-    "discardConfirmBody": "Der PR wird geschlossen, ohne seinen Remote-Branch zu löschen. Nur lokale Branches und Worktrees, die SpecRails gehören und noch auf dem aufgezeichneten Commit stehen, werden entfernt; alles Veränderte bleibt mit einer Warnung erhalten. Die Specs kehren in den Specs-Backlog zurück. Entfernte lokale Ressourcen können nicht wiederhergestellt werden.",
+    "discardConfirmBody": "Der PR wird geschlossen, ohne seinen Remote-Branch zu löschen. Nur lokale Branches und Worktrees, die Specrails gehören und noch auf dem aufgezeichneten Commit stehen, werden entfernt; alles Veränderte bleibt mit einer Warnung erhalten. Die Specs kehren in den Specs-Backlog zurück. Entfernte lokale Ressourcen können nicht wiederhergestellt werden.",
     "implementationFailedDiscardTitle": "Diese fehlgeschlagene Lieferung verwerfen?",
     "implementationFailedDiscardBody": "Die Karte wird geschlossen und ihre Specs kehren zu Specs zurück. Lokale Arbeit und Branches bleiben zur Prüfung erhalten. Nur nachweislich sicher bereinigbare Ressourcen dürfen entfernt werden.",
     "mergeLocal": "Lokal integrieren",
@@ -187,7 +186,10 @@
     "fixCi": "CI / Konflikte reparieren",
     "fixCiTooltip": "Auf die Checks warten, Fehler und Konflikte beheben und in diesen PR pushen, bis er grün ist",
     "fixCiStarted": "CI-Überwachung gestartet",
-    "fixCiFailed": "Die CI-Schleife konnte nicht starten"
+    "fixCiFailed": "Die CI-Schleife konnte nicht starten",
+    "continue": "Fortsetzen",
+    "continueHint": "Behält alles und macht dort weiter, wo der Lauf fehlschlug oder angehalten wurde, im selben Worktree.",
+    "implementationFailedDiscardTooltip": "Schließt diese Karte und schickt ihre Specs zurück zu Specs. Das Protokoll des Laufs bleibt verfügbar."
   },
   "railsBoard": {
     "title": "Rails",
@@ -199,6 +201,14 @@
     "summary": {
       "running_one": "{{count}} läuft",
       "running_other": "{{count}} laufen",
+      "needsInput_one": "{{count}} wartet auf dich",
+      "needsInput_other": "{{count}} warten auf dich",
+      "blocked_one": "{{count}} blockiert",
+      "blocked_other": "{{count}} blockiert",
+      "paused_one": "{{count}} pausiert",
+      "paused_other": "{{count}} pausiert",
+      "waiting_one": "{{count}} wartet auf den Start",
+      "waiting_other": "{{count}} warten auf den Start",
       "ready_one": "{{count}} bereit",
       "ready_other": "{{count}} bereit",
       "failed_one": "{{count}} fehlgeschlagen",
@@ -266,6 +276,7 @@
     "worktreesNeedsReview": "{{count}} zu prüfen",
     "execSteps": "{{count}} Schritte",
     "execLines": "{{count}} Zeilen",
+    "execHeld": "wartet",
     "recommended": "Empfohlen",
     "recommendedOption": "{{label}} · empfohlen",
     "loopDescriptions": {
@@ -282,7 +293,8 @@
     "status": {
       "idle": "Inaktiv",
       "running": "Läuft",
-      "failed": "Fehlgeschlagen"
+      "failed": "Fehlgeschlagen",
+      "paused": "Pausiert"
     },
     "deleteMenuItem": "Rail löschen",
     "deleteConfirm": {
@@ -334,5 +346,45 @@
   "board": {
     "pageTitle": "{{project}}: Board",
     "pageTitleBare": "Board"
+  },
+  "mergePreview": {
+    "conflictsWithBase_one": "Konflikt mit {{base}} in {{files}}",
+    "conflictsWithBase_other": "Konflikt mit {{base}} in {{count}} Dateien: {{files}}",
+    "collidesWithRail": "Kollidiert mit Rail {{rail}} in {{files}}",
+    "alreadyMerged": "Bereits in {{base}}",
+    "clean": "Lässt sich in {{base}} im aktuellen Stand sauber mergen",
+    "unknown": "Merge-Vorschau nicht verfügbar (Git 2.38 oder neuer nötig, oder eine Referenz existiert nicht mehr)",
+    "baseMoved_one": "{{base}} ist seit dem Abzweigen dieses Branches um {{count}} Commit weitergegangen",
+    "baseMoved_other": "{{base}} ist seit dem Abzweigen dieses Branches um {{count}} Commits weitergegangen",
+    "moreFiles": "+{{count}} weitere",
+    "title": "Merge-Vorschau"
+  },
+  "safetyArchive": {
+    "title_one": "{{count}} Datei wurde aufbewahrt, die nicht in den PR kam",
+    "title_other": "{{count}} Dateien wurden aufbewahrt, die nicht in den PR kamen",
+    "hint": "Specrails konnte nicht bestätigen, dass sie von Specrails stammen, und hat sie deshalb beiseitegelegt statt sie zu löschen.",
+    "toastHint": "Unter Details prüfen oder löschen.",
+    "delete": "Löschen",
+    "dismiss": "Ausblenden",
+    "details": "Details",
+    "close": "Schließen",
+    "copyPath": "Pfad kopieren",
+    "copied": "Kopiert",
+    "revealFinder": "Im Finder zeigen",
+    "revealFolder": "Im Ordner zeigen",
+    "filesLabel": "Aufbewahrte Dateien",
+    "link": "Link",
+    "moreFiles_one": "und {{count}} weitere Datei",
+    "moreFiles_other": "und {{count}} weitere Dateien",
+    "confirmTitle_one": "{{count}} aufbewahrte Datei löschen?",
+    "confirmTitle_other": "{{count}} aufbewahrte Dateien löschen?",
+    "confirmDescription_one": "Der Ordner {{folder}} mit {{count}} Datei ({{size}}) wird gelöscht. Das lässt sich nicht rückgängig machen.",
+    "confirmDescription_other": "Der Ordner {{folder}} mit {{count}} Dateien ({{size}}) wird gelöscht. Das lässt sich nicht rückgängig machen.",
+    "confirmDescriptionMany_one": "{{folders}} Ordner mit {{count}} Datei ({{size}}) werden gelöscht. Das lässt sich nicht rückgängig machen.",
+    "confirmDescriptionMany_other": "{{folders}} Ordner mit {{count}} Dateien ({{size}}) werden gelöscht. Das lässt sich nicht rückgängig machen.",
+    "deleteFailed_one": "{{count}} Ordner konnte nicht gelöscht werden.",
+    "deleteFailed_other": "{{count}} Ordner konnten nicht gelöscht werden.",
+    "goneTitle": "Nichts mehr zu prüfen",
+    "gone": "Diese Dateien wurden bereits gelöscht oder ausgeblendet."
   }
 }

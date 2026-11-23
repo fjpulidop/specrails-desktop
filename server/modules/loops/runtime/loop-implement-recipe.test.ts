@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { configurableImplementGraph, PLAN_REPAIR_LIMIT } from './loop-implement-recipe'
+import { configurableImplementGraph, DEVELOPER_SELF_REVIEW, ENVIRONMENT_REPAIR_EXPR, PLAN_REPAIR_LIMIT, UNBLOCK_LIMIT } from './loop-implement-recipe'
 import { factoryLoopsForCapabilities } from './loop-factory'
 import { compileLoopToDefinition } from './loop-definition'
 
 it('defines agent roles, schemas, decisions and approval as editable loop data without Core phases', () => {
   const graph = configurableImplementGraph()
   const turns = graph.nodes.filter(node => node.data?.kind === 'role-turn')
-  expect(turns.map(node => node.data!.params!.roleId)).toEqual(['plan', 'build', 'assess', 'correct'])
+  expect(turns.map(node => node.data!.params!.roleId)).toEqual(['plan', 'build', 'build', 'assess', 'correct'])
   expect(turns.every(node => !('phase' in node.data!.params!))).toBe(true)
   expect(graph.nodes.some(node => ['implementation', 'implementation-step'].includes(String(node.data?.kind)))).toBe(false)
   expect(graph.config.journal).toBe('ledger-only')
@@ -81,7 +81,8 @@ describe('host blockers', () => {
       expect(definition.nodes.fixer.ends.next).toBe('correction-blocker')
       expect(definition.nodes['correction-blocker'].params.expr).toBe('exists($outputs.fixer.structured.blocker) && $outputs.fixer.structured.blocker != null')
       expect(definition.nodes['correction-blocker'].ends).toEqual({ true: 'fixer-blocker-kind', false: 'correction-progress' })
-      expect(definition.nodes['correction-progress'].ends).toEqual({ true: 'tasks', false: 'correction-stalled' })
+      expect(definition.nodes['correction-progress'].ends).toEqual({ true: 'tasks', false: 'correction-environment' })
+      expect(definition.nodes['correction-environment'].ends).toEqual({ true: 'mark-environment-reverify', false: 'correction-stalled' })
       const schema = definition.nodes.fixer.params.structuredOutput as { required: string[]; properties: { blocker: { properties: { kind: { enum: string[] } }; required: string[] } } }
       expect(schema.required).toEqual(['summary', 'incomplete'])
       expect(schema.properties.blocker.properties.kind.enum).toEqual(['network', 'credential', 'environment-variable', 'toolchain', 'setup', 'environment', 'scope'])
@@ -99,20 +100,131 @@ describe('host blockers', () => {
       // Incomplete tasks never route straight back to the developer.
       expect(definition.nodes.tasks.ends).toMatchObject({ pass: 'verify', fail: 'implementation-budget' })
       expect(definition.nodes['initialize-corrections'].params).toMatchObject({ set: { implementationAttempts: 0, implementationLimit: 3 } })
-      expect(definition.nodes['implementation-budget'].ends).toEqual({ true: 'implementation-progress', false: 'implementation-exhausted' })
+      expect(definition.nodes['implementation-budget'].ends).toEqual({ true: 'implementation-progress', false: 'unblock-budget' })
       expect(definition.nodes['implementation-progress'].params.expr).toBe('!exists($vars.lastImplementationHash) || $outputs.developer.candidateHash != $vars.lastImplementationHash')
-      expect(definition.nodes['implementation-progress'].ends).toEqual({ true: 'begin-implementation', false: 'implementation-stalled' })
+      expect(definition.nodes['implementation-progress'].ends).toEqual({ true: 'begin-implementation', false: 'unblock-budget' })
       expect(definition.nodes['begin-implementation'].params).toMatchObject({ increment: { implementationAttempts: 1 }, set: { lastImplementationHash: '{{outputs.developer.candidateHash}}' } })
       expect(definition.nodes['begin-implementation'].ends).toMatchObject({ next: 'developer' })
-      for (const end of ['implementation-stalled', 'implementation-exhausted']) expect(definition.nodes[end].params).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('{{outputs.developer.structured.incomplete}}') })
+      for (const end of ['implementation-stalled', 'implementation-exhausted']) expect(definition.nodes[end].params).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('{{outputs.unblock.structured.incomplete}}') })
       expect(definition.nodes['developer-blocked'].params).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('{{outputs.developer.structured.blocker.requiredAction}}') })
     }
     expect(compile(configurableImplementGraph(paired)).nodes['developer-blocked'].params).toMatchObject({ blockerFrom: 'developer' })
   })
+  it('never fails on a resolvable stall: unblock turns with the run tools come first', () => {
+    for (const capabilities of [paired, { ...paired, humanTasks: 1 }, { engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }]) {
+      const definition = compile(configurableImplementGraph(capabilities))
+      const ends = (id: string) => definition.nodes[id].ends
+      expect(definition.nodes['initialize-corrections'].params).toMatchObject({ set: { unblockAttempts: 0, unblockLimit: UNBLOCK_LIMIT, humanChecks: expect.any(String) } })
+      expect(UNBLOCK_LIMIT).toBe(2)
+      expect(definition.nodes['unblock-budget'].params.expr).toBe('$vars.unblockAttempts < $vars.unblockLimit')
+      expect(ends('unblock-budget')).toEqual({ true: 'count-unblock', false: 'stall-kind' })
+      expect(ends('count-unblock')).toMatchObject({ next: 'unblock' })
+      // The unblock turn is a write turn of the developer role with the developer's own account and the tools.
+      expect(definition.nodes.unblock.params).toMatchObject({ roleId: 'build' })
+      const prompt = String(definition.nodes.unblock.params.prompt)
+      for (const text of ['{{outputs.developer.structured.incomplete}}', '{{outputs.developer.structured.summary}}', '$SPECRAILS_BROWSE', 'install it', '$PORT']) expect(prompt).toContain(text)
+      expect(ends('unblock')).toMatchObject({ next: 'unblock-blocker' })
+      expect(ends('unblock-blocker')).toEqual({ true: 'unblock-blocked', false: 'unblock-tasks' })
+      // Finished (or only human checks left) → host verification → reviewer → delivery; never failed.
+      expect(definition.nodes['unblock-tasks'].params).toMatchObject({ action: 'check', requireCompletedTasks: true })
+      expect(ends('unblock-tasks')).toMatchObject({ pass: 'capture-human-checks', fail: 'unblock-budget' })
+      expect(definition.nodes['capture-human-checks'].params).toEqual({ set: { humanChecks: '{{outputs.unblock.structured.humanChecks}}' } })
+      expect(ends('capture-human-checks')).toMatchObject({ next: 'verify' })
+      expect(ends('stall-kind')).toEqual({ true: 'implementation-exhausted', false: 'implementation-stalled' })
+      // The reviewer hands the remaining checks to the person instead of rejecting for them.
+      const reviewer = definition.nodes.reviewer.params
+      expect(String(reviewer.prompt)).toContain('{{run.humanChecks}}')
+      expect(String(reviewer.prompt)).toContain('brief.humanChecks')
+      expect((reviewer.structuredOutput as { properties: Record<string, unknown> }).properties.brief).toMatchObject({ required: ['humanChecks'] })
+      // A reviewer that omits the brief (a terse model, an older fixture) still reviews: the brief is advisory, never a schema failure.
+      expect((reviewer.structuredOutput as { required: string[] }).required).not.toContain('brief')
+      for (const id of ['developer', 'fixer', 'unblock']) expect(String(definition.nodes[id].params.prompt)).toContain('$SPECRAILS_BROWSE')
+      expect(String(definition.nodes.architect.params.prompt)).toContain('completable AND checkable by the run itself')
+    }
+  })
+  it('lets write roles ask the person a decision only on a Core that advertises roleDecisions', () => {
+    const asking = compile(configurableImplementGraph({ ...paired, roleDecisions: 1 }))
+    for (const id of ['developer', 'unblock', 'fixer']) expect(asking.nodes[id].params).toMatchObject({ decisions: 'ask' })
+    for (const id of ['architect', 'reviewer']) expect(asking.nodes[id].params).not.toHaveProperty('decisions')
+    const older = compile(configurableImplementGraph(paired))
+    for (const id of ['developer', 'unblock', 'fixer']) expect(older.nodes[id].params).not.toHaveProperty('decisions')
+  })
+  it('sends an unchanged candidate back to review when the fixer settled a decision with the person (bench5)', () => {
+    const asking = compile(configurableImplementGraph({ ...paired, roleDecisions: 1 }))
+    expect(asking.nodes['correction-progress'].ends).toMatchObject({ true: 'tasks', false: 'correction-environment' })
+    expect(asking.nodes['correction-environment'].ends).toMatchObject({ true: 'mark-environment-reverify', false: 'correction-decided' })
+    expect(asking.nodes['correction-decided'].params).toEqual({ expr: 'exists($outputs.fixer.decisions) && $outputs.fixer.decisions.length > 0' })
+    expect(asking.nodes['correction-decided'].ends).toMatchObject({ true: 'reviewer', false: 'correction-stalled' })
+    const older = compile(configurableImplementGraph(paired))
+    expect(older.nodes['correction-environment'].ends).toMatchObject({ false: 'correction-stalled' })
+    expect(older.nodes).not.toHaveProperty('correction-decided')
+  })
+  it('verifies an unchanged candidate again once when the fixer repaired the environment (bench5 D7), within the correction budget', () => {
+    const definition = compile(configurableImplementGraph(paired))
+    expect(definition.nodes['correction-environment'].params).toEqual({ expr: ENVIRONMENT_REPAIR_EXPR })
+    expect(ENVIRONMENT_REPAIR_EXPR).toContain('$outputs.verify.valid == false')
+    expect(ENVIRONMENT_REPAIR_EXPR).toContain('$outputs.verify.environmentFailure == true')
+    expect(ENVIRONMENT_REPAIR_EXPR).toContain('matches($outputs.fixer.structured.environmentRepair, /\\S/)')
+    expect(ENVIRONMENT_REPAIR_EXPR).toContain('$vars.environmentReverified != $outputs.verify.candidateHash')
+    expect(definition.nodes['mark-environment-reverify']).toMatchObject({ kind: 'assign', params: { set: { environmentReverified: '{{outputs.verify.candidateHash}}' } }, ends: { next: 'verify' } })
+    // The re-verification goes through the ordinary failure path: its correction is counted again.
+    expect(definition.nodes.verify.ends).toMatchObject({ fail: 'correction-context' })
+    const fixer = definition.nodes.fixer.params as { prompt: string; structuredOutput: { properties: Record<string, unknown>; required: string[] } }
+    expect(fixer.structuredOutput.properties).toHaveProperty('environmentRepair')
+    expect(fixer.structuredOutput.required).not.toContain('environmentRepair')
+    expect(fixer.prompt).toContain('environmentRepair')
+    expect(definition.nodes.developer.params.structuredOutput).not.toMatchObject({ properties: { environmentRepair: expect.anything() } })
+  })
+  it('asks the reviewer to mark advice and out-of-scope findings only on a Core with reviewTriage 2', () => {
+    expect(String(compile(configurableImplementGraph({ ...paired, reviewTriage: 2 })).nodes.reviewer.params.prompt)).toContain('`[advice] `')
+    for (const reviewTriage of [undefined, 1]) expect(String(compile(configurableImplementGraph({ ...paired, ...(reviewTriage ? { reviewTriage } : {}) })).nodes.reviewer.params.prompt)).not.toContain('[advice]')
+  })
+  it('offers planner choices and approval rejection only on a Core that advertises questionOptions', () => {
+    const structured = compile(configurableImplementGraph({ ...paired, questionOptions: 1 }))
+    expect(structured.nodes.clarify.params).toMatchObject({ asker: 'architect', optionsFrom: 'architect', endsRun: ['not-here'] })
+    expect(String(structured.nodes.architect.params.prompt)).toContain('questionOptions')
+    expect((structured.nodes.architect.params.structuredOutput as { properties: Record<string, unknown>; required: string[] }).properties).toHaveProperty('questionOptions')
+    expect((structured.nodes.architect.params.structuredOutput as { required: string[] }).required).not.toContain('questionOptions')
+    expect(structured.nodes['approval-policy'].ends).toMatchObject({ false: 'rejected' })
+    expect(String(structured.nodes.rejected.params.reason)).toContain('{{outputs.approve.response.reason}}')
+    const older = compile(configurableImplementGraph(paired))
+    expect(older.nodes.clarify.params).toEqual({ text: '{{outputs.architect.structured.question}}' })
+    expect(String(older.nodes.architect.params.prompt)).not.toContain('questionOptions')
+    expect(older.nodes['approval-policy'].ends).toMatchObject({ false: 'failed' })
+    expect(older.nodes).not.toHaveProperty('rejected')
+  })
+  it('asks the person once for a machine-wide install only on a Core that advertises machineInstalls', () => {
+    const asking = compile(configurableImplementGraph({ ...paired, verificationSummary: 1, machineInstalls: 1 }))
+    for (const id of ['developer', 'unblock', 'fixer']) {
+      expect(asking.nodes[id].params).toMatchObject({ machineInstalls: 'ask' })
+      expect(JSON.stringify(asking.nodes[id].params.structuredOutput)).toContain('"install"')
+      expect(String(asking.nodes[id].params.prompt)).toContain('return the structured blocker with kind toolchain, the failing command, the exact install command as install')
+    }
+    for (const id of ['verify', 'baseline']) expect(asking.nodes[id].params).toMatchObject({ machineInstalls: 'ask', hostBlockers: true })
+    for (const id of ['architect', 'reviewer']) expect(asking.nodes[id].params).not.toHaveProperty('machineInstalls')
+    // A blocker that still names an install (the person kept it for themselves) ends the run instead of another verification.
+    for (const id of ['developer-blocker-kind', 'fixer-blocker-kind', 'unblock-blocker']) expect(String(asking.nodes[id].params.expr)).toMatch(/matches\(\$outputs\.(developer|fixer|unblock)\.structured\.blocker\.install, \/\\S\/\)/)
+    const older = compile(configurableImplementGraph(paired))
+    for (const id of ['developer', 'unblock', 'fixer', 'verify']) expect(older.nodes[id].params).not.toHaveProperty('machineInstalls')
+    expect(JSON.stringify(older.nodes.developer.params.structuredOutput)).not.toContain('"install"')
+    expect(String(older.nodes['developer-blocker-kind'].params.expr)).not.toContain('install')
+  })
+  it('asks for [human] tasks only from a Core whose contract understands them', () => {
+    const tagged = compile(configurableImplementGraph({ ...paired, humanTasks: 1 }))
+    expect(String(tagged.nodes.architect.params.prompt)).toContain('[human]')
+    expect(String(tagged.nodes.unblock.params.prompt)).toContain('add the [human] tag')
+    expect(String(tagged.nodes.developer.params.prompt)).toContain('never tick it')
+    // An older Core would count a tagged task as unfinished work: design.md and the run's own list carry them.
+    const older = compile(configurableImplementGraph(paired))
+    expect(String(older.nodes.architect.params.prompt)).not.toContain('[human]')
+    expect(String(older.nodes.architect.params.prompt)).toContain('## Human checks')
+    expect(String(older.nodes.unblock.params.prompt)).toContain('tick it in tasks.md and list it under humanChecks')
+    expect(String(older.nodes.reviewer.params.prompt)).toContain('design.md `## Human checks`')
+  })
   it('ends on a blocker only when it needs the person or the host confirms it', () => {
     for (const capabilities of [paired, { engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }]) {
       const nodes = compile(configurableImplementGraph(capabilities)).nodes
-      expect(nodes.developer.params.prompt).toContain('A failing test, a test you cannot make pass, or unexpected browser or tool behaviour is NOT a host blocker')
+      expect(nodes.developer.params.prompt).toContain('A failing test, a test you cannot make pass, a missing tool or browser, or unexpected browser or tool behaviour is NOT a host blocker')
       // Credentials, network and variables still end the run at once.
       expect(nodes['developer-blocker-kind'].params.expr).toBe('$outputs.developer.structured.blocker.kind == "credential" || $outputs.developer.structured.blocker.kind == "network" || $outputs.developer.structured.blocker.kind == "environment-variable"')
       // Anything else runs the host's own verification: failures go to the fixer, passes to the reviewer.
@@ -133,15 +245,26 @@ describe('host blockers', () => {
     expect(prompt).toContain('never write a task that edits or records evidence in them')
     expect(prompt).toContain('Do not invent prerequisites or gates the workflow does not run')
     expect(prompt).toContain('is a question with low confidence, not a task or a gate')
+    expect(prompt).toContain('propose at least one minimal command that exercises the changed code')
+    // triage-c: a "checked by hand on a physical Android phone" criterion paused the run at clarify.
+    expect(prompt).toContain('A criterion that only a person can check by hand (a physical device, taste, a real account) follows the human-check rule above and is never a question')
+    expect(prompt).not.toContain('A criterion no command can prove is a question')
   })
   it('verifies the unchanged code before the developer when Core summarizes verification', () => {
     const withSummary = compile(configurableImplementGraph({ ...paired, verificationSummary: 1 })).nodes
     expect(withSummary['initialize-corrections'].ends).toMatchObject({ next: 'baseline' })
     expect(withSummary.baseline).toMatchObject({ kind: 'verify', params: { commands: 'configured', setup: 'configured', hostBlockers: true } })
     // Failures only inform the roles; a broken setup or host precondition ends before any AI spend.
-    expect(withSummary.baseline.ends).toEqual({ pass: 'developer', fail: 'developer', failed: 'developer', blocked: 'host-blocked-baseline' })
+    expect(withSummary.baseline.ends).toEqual({ pass: 'record-baseline', fail: 'record-baseline', failed: 'baseline-unavailable', blocked: 'host-blocked-baseline' })
     expect(withSummary['host-blocked-baseline'].params).toMatchObject({ outcome: 'failure', blockerFrom: 'baseline' })
-    for (const role of ['developer', 'fixer', 'reviewer']) expect(withSummary[role].params.prompt).toContain('{{outputs.baseline.summary}}')
+    expect(withSummary['record-baseline']).toMatchObject({ kind: 'assign', params: { set: { baselineSummary: '{{outputs.baseline.summary}}' } }, ends: { next: 'developer' } })
+    // A baseline that could not execute has no output: the roles still get a summary instead of a
+    // missing-output crash in the developer turn.
+    expect(withSummary['baseline-unavailable']).toMatchObject({ kind: 'assign', params: { set: { baselineSummary: expect.stringMatching(/^unavailable: /) } }, ends: { next: 'developer' } })
+    for (const role of ['developer', 'fixer', 'reviewer', 'unblock']) {
+      expect(withSummary[role].params.prompt).toContain('{{run.baselineSummary}}')
+      expect(withSummary[role].params.prompt).not.toContain('outputs.baseline')
+    }
     // Without the summary (or host blockers) the shape is unchanged.
     const without = compile(configurableImplementGraph(paired)).nodes
     expect(without).not.toHaveProperty('baseline')
@@ -152,7 +275,16 @@ describe('host blockers', () => {
     const nodes = compile(configurableImplementGraph(paired)).nodes
     expect(nodes.architect.params.prompt).toContain('Tie every acceptance criterion to the check that proves it')
     expect(nodes.architect.params.prompt).toContain('never plan to record that evidence by hand')
-    expect(nodes.reviewer.params.prompt).toContain('name the missing verification command in issues')
+    // A canvas game's plan checked "page text contains Score": it can never pass, the score is drawn on the canvas.
+    expect(nodes.architect.params.prompt).toContain('page text never contains what it draws')
+    expect(nodes.architect.params.prompt).toContain('--eval of state the code exposes for tests')
+    expect(nodes.reviewer.params.prompt).toContain('name in issues the test the developer must add to a check the host already runs')
+    // Asking for a command the host never runs deadlocked runs: the fixer had nothing to change.
+    expect(nodes.reviewer.params.prompt).toContain('A command outside the host plan')
+    expect(nodes.reviewer.params.prompt).toContain('is never an issue the developer can close')
+    // A Tauri run hit the correction limit asking to delete the Cargo.lock cargo regenerates and to amend design.md.
+    expect(nodes.reviewer.params.prompt).toContain('never ask to delete or revert it')
+    expect(nodes.reviewer.params.prompt).toContain('which are frozen')
   })
   it('compiles the pre-blocker shape when the installed Core does not advertise hostBlockers', () => {
     const definition = compile(configurableImplementGraph({ engineV2: 1, workflowDefinitions: 1, workflowAgentSteps: 1 }))
@@ -166,4 +298,30 @@ describe('host blockers', () => {
     expect(definition.nodes['developer-blocked'].params).not.toHaveProperty('blockerFrom')
     expect(compile(configurableImplementGraph())).toEqual(definition)
   })
+})
+it('ends the run when the person declines the ticket for this repository instead of asking the same question again', () => {
+  const graph = configurableImplementGraph()
+  const edge = (source: string, label: string) => graph.edges.find(item => item.source === source && item.label === label)?.target
+  const params = (id: string) => graph.nodes.find(node => node.id === id)!.data!.params
+  expect(edge('architect', 'next')).toBe('plan-declined')
+  expect(params('plan-declined')!.expr).toBe('$outputs.architect.structured.confidence == "declined"')
+  expect([edge('plan-declined', 'true'), edge('plan-declined', 'false')]).toEqual(['declined', 'confidence'])
+  expect((params('architect')!.structuredOutput as { properties: { confidence: { enum: string[] } } }).properties.confidence.enum).toContain('declined')
+  expect(String(params('architect')!.prompt)).toContain('return confidence declined')
+  // Never plan a publish/deploy, nor a rewrite onto a toolchain that is not installed.
+  expect(String(params('architect')!.prompt)).toContain('Publishing or deploying')
+  expect(String(params('architect')!.prompt)).toContain('cannot be verified here: ask with low confidence')
+  expect(String(params('architect')!.prompt)).toContain('never invent it')
+  expect(graph.nodes.find(node => node.id === 'declined')!.data).toMatchObject({ outcome: 'failure', reason: expect.stringContaining('Not implemented: the person declined this ticket') })
+  const definition = compileLoopToDefinition(graph, { id: 'implement', title: 'Implement', provider: 'claude', constants: {}, roles: graph.config.agents!.roles, repositoryCount: 1, changeId: 'example' })
+  expect(definition.nodes['declined']).toMatchObject({ kind: 'end' })
+})
+
+it('has the developer check its own tests against every planned scenario and error case before it reports', () => {
+  const graph = configurableImplementGraph()
+  const prompt = (id: string) => String(graph.nodes.find(node => node.id === id)!.data!.params!.prompt)
+  expect(prompt('developer')).toContain(DEVELOPER_SELF_REVIEW)
+  expect(prompt('developer').indexOf(DEVELOPER_SELF_REVIEW)).toBeLessThan(prompt('developer').indexOf('Report summary and incomplete task descriptions.'))
+  expect(DEVELOPER_SELF_REVIEW).toContain('every scenario in the delta specs')
+  expect(DEVELOPER_SELF_REVIEW).toContain('run the configured checks again')
 })

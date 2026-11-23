@@ -56,7 +56,7 @@ Drafts are the one exception: a draft can have *no* priority at all, because it'
 
 ## Creating a spec
 
-To create a spec, click **New spec** (the Plus button on the SpecsBoard toolbar). The **Add Spec** dialog opens with a few ways to work:
+To create a spec, click **New spec** (the Plus button on the SpecsBoard toolbar). The **Add spec** dialog opens with a few ways to work:
 
 - **Intent mode** (the default) — you describe the problem, the outcome you want and how you will know; the AI writes the intent, then derives the spec from it for you to review. See [Intent](../integrations/intent-mode#intent-mode).
 - **Quick mode** — you describe what you want and the AI writes the full spec in one shot. See [Add Spec — Quick mode](add-spec-quick-mode.md).

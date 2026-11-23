@@ -78,10 +78,13 @@
     }
   },
   "proof": {
-    "filesChanged": "{{files}} ficheiros alterados (+{{added}} / −{{removed}} linhas)",
-    "testFilesChanged": "{{count}} ficheiros de teste alterados",
+    "filesChanged_one": "{{files}} ficheiro alterado (+{{added}} / −{{removed}} linhas)",
+    "filesChanged_other": "{{files}} ficheiros alterados (+{{added}} / −{{removed}} linhas)",
+    "testFilesChanged_one": "{{count}} ficheiro de teste alterado",
+    "testFilesChanged_other": "{{count}} ficheiros de teste alterados",
     "noTestFilesChanged": "Nenhum ficheiro de teste alterado.",
-    "commitsRecorded": "O trabalho foi registado em {{branches}} ramo(s)",
+    "commitsRecorded_one": "O trabalho foi registado em {{branches}} ramo",
+    "commitsRecorded_other": "O trabalho foi registado em {{branches}} ramos",
     "verificationPassed": "A IA reportou que as suas verificações passaram ({{count}})",
     "verificationFailed": "A IA reportou que as suas verificações FALHARAM ({{count}})",
     "noVerificationReported": "A IA não reportou qualquer verificação.",
@@ -91,11 +94,15 @@
     "reviewerScoreUnavailable": "Não foi gerada pontuação do revisor.",
     "evidenceUnavailable": "sem evidência",
     "hostCommandPassed": "O runtime executou {{label}} por si próprio: código de saída {{exitCode}} ({{seconds}} s)",
+    "hostStaticCheckPassed": "O runtime executou {{label}} por si próprio, mas a verificação só lê o conteúdo de ficheiros e não executa o código: código de saída {{exitCode}} ({{seconds}} s)",
     "hostCommandFailed": "O runtime executou {{label}} por si próprio e FALHOU: código de saída {{exitCode}} ({{seconds}} s)",
     "acceptanceCheckPassed": "Verificação do revisor aprovada: {{name}}",
     "acceptanceCheckFailed": "Verificação do revisor FALHOU: {{name}}",
     "reviewerSummary": "Resumo do revisor de IA:",
-    "reviewerFinding": "O revisor de IA assinalou:"
+    "reviewerFinding": "O revisor de IA assinalou:",
+    "earlierAttempts_one": "{{count}} execução anterior desta verificação",
+    "earlierAttempts_other": "{{count}} execuções anteriores desta verificação",
+    "earlierAttempt": "Falhou com código de saída {{exitCode}} ({{seconds}} s), antes da correção que a fez passar"
   },
   "watch": {
     "humanReviewRecommended": "O revisor IA pontuou {{overall}}/100 e recomenda que uma pessoa veja.",
@@ -128,6 +135,11 @@
   "planned": {
     "title": "Abordagem prevista (segundo a spec)",
     "caveat": "O que o pedido propunha — não um relatório do que a IA fez. Os factos acima são o que realmente mudou."
+  },
+  "delivered": {
+    "title": "O que mudou",
+    "caveat": "Da proposta OpenSpec entregue: escrita pelo agente e verificada pelo revisor.",
+    "why": "Porquê"
   },
   "outcome": {
     "succeeded": "Implementado",
@@ -216,7 +228,8 @@
       "invariantsTouched": "Invariantes afetados",
       "untested": "Caminhos sem teste",
       "humanChecks": "Verificações humanas",
-      "divergences": "Divergências da spec"
+      "divergences": "Divergências da spec",
+      "reviewNotes": "Notas do revisor, não aplicadas"
     },
     "userVisible": "Visível para usuários",
     "invariantStatus": {
@@ -229,7 +242,17 @@
     "dropped_other": "{{count}} entradas do resumo não seguiam o formato esperado e foram ignoradas.",
     "topRisk": "Principal risco",
     "moreRisks_one": "+{{count}} outro",
-    "moreRisks_other": "+{{count}} outros"
+    "moreRisks_other": "+{{count}} outros",
+    "reviewNotesCaveat": "Constatações que o revisor marcou como fora desta execução. Nenhuma rodada de correção atuou sobre elas.",
+    "noteKind": {
+      "advice": "Conselho",
+      "out-of-scope": "Fora do escopo",
+      "host-only-check": "Verificação manual",
+      "regenerated-lockfile": "Lockfile regenerado",
+      "frozen-artifact": "Artefato congelado",
+      "withdrawn-criterion": "Retirado por você",
+      "other": "Nota"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} ação",

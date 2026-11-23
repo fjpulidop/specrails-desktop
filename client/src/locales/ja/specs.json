@@ -13,7 +13,10 @@
     "untitledSpec": "無題のスペック",
     "doneHeading": "完了 · {{count}}",
     "clearFilters": "フィルターをクリア",
-    "emptyNoSearchMatch": "「{{query}}」に一致するスペックはありません"
+    "emptyNoSearchMatch": "「{{query}}」に一致するスペックはありません",
+    "emptyAllOnRails": "すべてのスペックがレールにあります",
+    "emptyAllOnRailsHint_one": "{{count}} 件のスペックがレール列にあります。",
+    "emptyAllOnRailsHint_other": "{{count}} 件のスペックがレール列にあります。"
   },
   "status": {
     "todo": "未着手",

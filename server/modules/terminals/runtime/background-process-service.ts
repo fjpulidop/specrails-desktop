@@ -12,7 +12,7 @@ export function resolveBackgroundCwd(repositoryRoot: string, cwd: unknown, scope
   if (cwd !== undefined && typeof cwd !== 'string') throw new RepositoryValidationError('cwd must be a string')
   const resolved = path.resolve(repositoryRoot, typeof cwd === 'string' && cwd.trim() ? cwd : '.')
   if (!isRepositoryPathWithin(canonicalRepositoryPath(repositoryRoot), canonicalRepositoryPath(resolved))) {
-    throw new RepositoryValidationError(`background_start cwd must stay within ${scope}.`)
+    throw new RepositoryValidationError(`specrails_background(start) cwd must stay within ${scope}.`)
   }
   return resolved
 }

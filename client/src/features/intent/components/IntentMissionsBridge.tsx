@@ -9,6 +9,7 @@
 // stopped with requested changes, and the Intent-authored explanation of a run
 // that failed outright, and the repository prompt of "Start in Intent". Missions never import this feature.
 
+import { intentRunStateOf } from '../lib/intent-run-tone'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Waves } from 'lucide-react'
@@ -69,6 +70,7 @@ export const FLOW_MISSION_EXTENSIONS: MissionExtensions = Object.freeze({
   RunCardActions: IntentRunCardActions,
   RunFailureOutcome: IntentRunFailure,
   RailLaunchAlternative: IntentRailLaunchAlternative,
+  runStateOf: intentRunStateOf,
 })
 
 export function IntentMissionsBridge({ children }: { children: ReactNode }) {

@@ -13,7 +13,10 @@
     "agentStudio": "エージェントスタジオ",
     "setup": "セットアップ",
     "triage": "トリアージ",
-    "flow": "Intent"
+    "flow": "Intent スペック",
+    "failureAnalysis": "失敗分析",
+    "mission": "ミッション",
+    "intent": "Intent ターン"
   },
   "periods": {
     "d7": "7日",
@@ -37,7 +40,13 @@
     "modelChip": "モデル：{{model}}",
     "clearModelFilter": "モデルフィルターをクリア",
     "localEngine": "ローカル",
-    "moreBreakdowns": "その他の内訳"
+    "moreBreakdowns": "その他の内訳",
+    "categoryFilterAria": "カテゴリで絞り込む",
+    "surfaceChip": "サーフェス: {{surface}}",
+    "clearSurfaceFilter": "サーフェスの絞り込みを解除",
+    "ticketChipLabel": "スペック #{{id}}",
+    "allEngines": "すべてのエンジン",
+    "period": "期間"
   },
   "hero": {
     "spending": "支出",
@@ -64,7 +73,15 @@
     "segmentTitle": "{{label}}: {{value}}",
     "legendBilled": "請求済み",
     "legendEstimated": "推定",
-    "apiEquivalent": "API 換算の推定値"
+    "apiEquivalent": "API 換算の推定値",
+    "statInvocations": "呼び出し",
+    "statTokens": "トークン",
+    "statBilledEstimated": "請求 · 推定",
+    "statEstimated": "推定",
+    "withoutCost_one": "{{total}} 件中 {{count}} 件の実行にコストデータがありません。",
+    "withoutCost_other": "{{total}} 件中 {{count}} 件の実行にコストデータがありません。",
+    "withoutUsage_one": "{{total}} 件中 {{count}} 件の実行にトークン使用量がありません。",
+    "withoutUsage_other": "{{total}} 件中 {{count}} 件の実行にトークン使用量がありません。"
   },
   "providerCard": {
     "title": "プロバイダー別",
@@ -164,7 +181,9 @@
     "sortLabel": "並べ替え",
     "sortRecency": "最近",
     "sortCost": "コスト",
-    "costUnknownLocalTooltip": "コスト不明（ローカルエンジン）。接続に料金を追加すると概算が表示されます。"
+    "costUnknownLocalTooltip": "コスト不明（ローカルエンジン）。接続に料金を追加すると概算が表示されます。",
+    "colWhy": "理由",
+    "missionConversation": "ミッションの会話 {{id}}"
   },
   "export": {
     "summaryCsv": "サマリー CSV",
@@ -205,7 +224,11 @@
     "costUnavailable": "呼び出しは記録されていますが、コストのテレメトリは利用できません。",
     "costUnavailableShort": "利用不可",
     "costPartiallyUnavailable_one": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。",
-    "costPartiallyUnavailable_other": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。"
+    "costPartiallyUnavailable_other": "既知のコスト小計；{{count}} 件の呼び出しは利用不可。",
+    "homeAndBlueprint": "ホームと Blueprint",
+    "homeAndBlueprintHint": "読み込まれたプロジェクトに固定されていないエージェントのターン：ホームのミッションと Blueprint / Builder のチャット。",
+    "agentTurns_one": "エージェントのターン {{count}} 件",
+    "agentTurns_other": "エージェントのターン {{count}} 件"
   },
   "windowLabels": {
     "7d": "過去 7 日間",
@@ -214,14 +237,45 @@
     "all": "全期間",
     "custom": "カスタム範囲"
   },
-  "agentMissions": {
-    "title": "エージェントミッション",
-    "subtitle": "このプロジェクトにピン留めされた Agent Chat ターン",
-    "vsPrev": "前期間比",
-    "turnsAndTokens": "{{turns}} ターン · {{tokens}} トークン",
+  "categories": {
+    "implementation": {
+      "label": "実装",
+      "why": "レール・ループ・ジョブでスペックを実装"
+    },
+    "missions": {
+      "label": "ミッション",
+      "why": "エージェントとの対話と Intent モード"
+    },
+    "specs": {
+      "label": "スペック",
+      "why": "スペックの作成と改善"
+    },
+    "code": {
+      "label": "コード",
+      "why": "コードの説明"
+    },
+    "support": {
+      "label": "サポート",
+      "why": "セットアップ、診断、サイドチャット"
+    }
+  },
+  "breakdown": {
+    "title": "費用の内訳",
+    "empty": "この期間の AI アクティビティはありません。",
+    "share": "支出の {{pct}}%",
+    "invocations_one": "{{count}} 回の呼び出し",
+    "invocations_other": "{{count}} 回の呼び出し",
+    "tokens": "{{tokens}} トークン",
+    "unpriced_one": "{{count}} 件はコストデータなし",
+    "unpriced_other": "{{count}} 件はコストデータなし",
+    "costUnavailable": "コスト不明",
+    "surfaceFilter": "{{surface}} のみ表示",
+    "topConversations": "主な会話",
     "untitled": "無題のミッション",
-    "estimatedNote": "推定コストを含む",
-    "flowShare": "うち Intent: {{cost}} · {{turns}} ターン"
+    "turns_one": "{{count}} ターン",
+    "turns_other": "{{count}} ターン",
+    "noActivity": "アクティビティなし: {{categories}}",
+    "filterCategory": "{{category}} のみ表示"
   },
   "legacyUsage": {
     "title": "従来のワークフローの使用状況",
@@ -362,6 +416,8 @@
       "session": "セッション",
       "weekly": "週間"
     },
-    "capsMetered": "ドル上限（従量課金のプロバイダー）"
+    "capsMetered": "ドル上限（従量課金のプロバイダー）",
+    "planLimits": "プランの上限",
+    "turnsUnit": "ターン"
   }
 }

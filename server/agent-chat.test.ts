@@ -356,7 +356,7 @@ describe('registerTieredTool agent capability', () => {
     const trusted = withCapability(0, 'proj-bound')
     trusted.requestInfo!.headers![AGENT_PROJECT_HEADER] = 'proj-spoofed'
     const r = await captured!({}, trusted)
-    expect(JSON.parse(r.content[0].text)).toMatchObject({
+    expect(JSON.parse(r.content[0].text).data).toMatchObject({
       active: 'proj-bound',
       conversation: 'conv-cap',
       firstParty: true,
@@ -367,7 +367,7 @@ describe('registerTieredTool agent capability', () => {
       [AGENT_PROJECT_HEADER]: 'proj-spoofed',
     } } }
     const untrusted = await captured!({}, spoofOnly)
-    expect(JSON.parse(untrusted.content[0].text)).toMatchObject({ active: null })
+    expect(JSON.parse(untrusted.content[0].text).data).toMatchObject({ active: null })
   })
 
   it('legacy autonomous header cannot bypass disabled Settings tiers', async () => {
@@ -749,7 +749,7 @@ vi.mock('./modules/execution/runtime/spawn-lifecycle', () => ({
 }))
 import { runAiCliInvocation } from './modules/execution/runtime/spawn-lifecycle'
 import { AgentChatManager as RealManager } from './modules/missions/runtime/agent-chat-manager'
-import { listenOnLoopback } from './loopback-test-server'
+import { listenOnLoopback } from './__fixtures__/loopback-test-server'
 
 describe('AgentChatManager', () => {
   let db: DbInstance
@@ -786,6 +786,71 @@ describe('AgentChatManager', () => {
     const msgs = listAgentMessages(db, c.id)
     expect(msgs.map((m) => `${m.role}:${m.content}`)).toEqual(['user:hi', 'assistant:Hello world'])
     expect(getAgentConversation(db, c.id)?.session_id).toBe('sess-9')
+  })
+
+  it('persists and broadcasts the Claude context snapshot, and clears it when the session resets', async () => {
+    const c = createAgentConversation(db, { provider: 'claude', model: 'sonnet' })
+    const assistant = (usage: Record<string, number>, parent?: string) => ({
+      kind: 'text-delta', text: 'ok', usage, model: 'claude-sonnet-4-5', ...(parent ? { parentToolUseId: parent } : {}),
+    }) as AdapterEvent
+    fakeRun([
+      { kind: 'session-started', sessionId: 'sess-ctx', model: 'claude-sonnet-4-5' } as AdapterEvent,
+      assistant({ input_tokens: 12, cache_creation_input_tokens: 600, cache_read_input_tokens: 18_000, output_tokens: 700 }),
+      assistant({ input_tokens: 90_000 }, 'toolu_sub'),
+      { kind: 'result', payload: { session_id: 'sess-ctx', modelUsage: { 'claude-sonnet-4-5': { contextWindow: 200_000 } } } },
+    ])
+    await manager.sendMessage(c.id, 'hi')
+    const expected = { provider: 'claude', model: 'claude-sonnet-4-5', usedTokens: 18_612, windowTokens: 200_000, percent: 9, source: 'response' }
+    expect(getAgentConversation(db, c.id)?.contextUsage).toMatchObject(expected)
+    expect(events.find((e) => e.type === 'agent_context_usage')).toMatchObject({ conversationId: c.id, contextUsage: expected })
+
+    events.length = 0
+    fakeRun([{ kind: 'error', message: 'boom' }], 1)
+    await manager.sendMessage(c.id, 'again')
+    expect(getAgentConversation(db, c.id)?.contextUsage).toBeUndefined()
+    expect(events.find((e) => e.type === 'agent_context_usage')).toMatchObject({ conversationId: c.id, contextUsage: null })
+  })
+
+  it('reads the Codex context snapshot from the session rollout', async () => {
+    const c = createAgentConversation(db, { provider: 'codex' })
+    const asked: string[] = []
+    manager.setCodexRolloutReader(async (sessionId) => {
+      asked.push(sessionId)
+      return [
+        JSON.stringify({ type: 'turn_context', payload: { model: 'gpt-5-codex' } }),
+        JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', info: { last_token_usage: { total_tokens: 68_000 }, model_context_window: 272_000 } } }),
+      ].join('\n')
+    })
+    fakeRun([{ kind: 'session-started', sessionId: 'thread-1' }, { kind: 'text-delta', text: 'done' }])
+    await manager.sendMessage(c.id, 'hi')
+    await vi.waitFor(() => expect(getAgentConversation(db, c.id)?.contextUsage).toMatchObject({
+      provider: 'codex', model: 'gpt-5-codex', usedTokens: 68_000, windowTokens: 272_000, percent: 25, source: 'session-file',
+    }))
+    expect(asked).toEqual(['thread-1'])
+  })
+
+  it('reads a Core-path Claude turn (no provider frames) from the session transcript, keeping the known window', async () => {
+    const c = createAgentConversation(db, { provider: 'claude', model: 'sonnet' })
+    // A stream-json turn first: it records the window.
+    fakeRun([
+      { kind: 'session-started', sessionId: 'sess-core', model: 'claude-sonnet-4-5' } as AdapterEvent,
+      { kind: 'text-delta', text: 'ok', usage: { input_tokens: 10, cache_read_input_tokens: 990 } } as AdapterEvent,
+      { kind: 'result', payload: { session_id: 'sess-core', modelUsage: { 'claude-sonnet-4-5': { contextWindow: 200_000 } } } },
+    ])
+    await manager.sendMessage(c.id, 'first')
+    const asked: Array<[string, string | null]> = []
+    manager.setClaudeTranscriptReader(async (sessionId, cwd) => {
+      asked.push([sessionId, cwd])
+      return JSON.stringify({ type: 'assistant', isSidechain: false, message: { model: 'claude-sonnet-4-5', usage: { input_tokens: 5, cache_creation_input_tokens: 1000, cache_read_input_tokens: 49_000 } } })
+    })
+    // A Core turn: only normalised events, provider session id from session.provider-ref.
+    fakeRun([{ kind: 'session-started', sessionId: 'sess-core' }, { kind: 'text-delta', text: 'second' }])
+    await manager.sendMessage(c.id, 'second')
+    await vi.waitFor(() => expect(getAgentConversation(db, c.id)?.contextUsage).toMatchObject({
+      provider: 'claude', usedTokens: 50_005, windowTokens: 200_000, percent: 25, source: 'session-file',
+    }))
+    expect(asked[0]?.[0]).toBe('sess-core')
+    expect(asked[0]?.[1]).toEqual(expect.any(String))
   })
 
   it('expands selected context chips into rich job snapshots before invoking the provider', async () => {
@@ -849,6 +914,20 @@ describe('AgentChatManager', () => {
     const userMessage = listAgentMessages(db, c.id).find((m) => m.role === 'user')
     expect(userMessage?.content).toBe('analizalo y dime')
     expect(userMessage?.context_refs[0]?.id).toBe(jobId)
+  })
+
+  it('tells the agent when the person writes from their own MCP client (no app buttons to point at), and only then', async () => {
+    const prompts: string[] = []
+    vi.mocked(runAiCliInvocation).mockImplementation(async (hooks) => {
+      prompts.push(hooks.buildOpts.prompt)
+      return { code: 0, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult
+    })
+    const c = createAgentConversation(db, { provider: 'claude' })
+    await manager.sendMessage(c.id, 'hand it off', { surface: 'mcp' })
+    await manager.sendMessage(c.id, 'and now from the app')
+    expect(prompts[0]).toContain('Surface: MCP client')
+    expect(prompts[0]).toContain('never an app button')
+    expect(prompts[1]).not.toContain('Surface: MCP client')
   })
 
   it('emits agent_error when the spawn fails', async () => {

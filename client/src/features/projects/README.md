@@ -16,6 +16,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/ProjectErrorBoundary.tsx](components/ProjectErrorBoundary.tsx)
 - [components/RepositoryScopeSelector.tsx](components/RepositoryScopeSelector.tsx)
 - [hooks/usePrerequisites.ts](hooks/usePrerequisites.ts)
+- [lib/onboarding-state.ts](lib/onboarding-state.ts)
 - [lib/project-repositories.ts](lib/project-repositories.ts)
 - [types/multi-repo.ts](types/multi-repo.ts)
 

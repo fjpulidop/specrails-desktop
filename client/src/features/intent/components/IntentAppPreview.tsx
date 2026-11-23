@@ -1,6 +1,6 @@
 // ─── Intent app preview ─────────────────────────────────────────────────────────
-// The app the Intent agent started in the worktree (`specrails_jobs
-// background_start`, tagged with the Intent) as a split control in the Intent bar:
+// The app the Intent agent started in the worktree (`specrails_background(start)`,
+// tagged with the Intent) as a split control in the Intent bar:
 // a live dot + "Preview" opening the local address, and a menu with the
 // network address (phones on the same Wi-Fi/VPN) and "Stop app". Mission apps
 // open in the system browser, like their chips; nothing renders until an app

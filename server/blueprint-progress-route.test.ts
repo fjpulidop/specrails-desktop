@@ -11,6 +11,8 @@ import { writeBlueprintPair } from './modules/builder/runtime/blueprint-render'
 import { mutateStore } from './modules/specs/runtime/ticket-store'
 import { workspacePathFor } from './workspace-manager'
 import { MilestoneProgressBroadcaster } from './modules/builder/runtime/milestone-progress'
+import { MilestoneChainManager } from './modules/builder/runtime/milestone-chain'
+import { createChain, updateChain } from './modules/builder/runtime/milestone-chain-store'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import type { Blueprint } from './modules/builder/runtime/blueprint-types'
 
@@ -151,6 +153,49 @@ describe('GET /:projectId/blueprint — progress payload', () => {
     expect(res.body).toEqual({ error: 'chain_terminal', detail: 'chain is cancelled' })
   })
 
+  it('a paused chain carries its reconciled plan; Resume takes the recommended step (the spec delivered by hand is skipped)', async () => {
+    const ws = workspacePathFor('recipely')
+    fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+    writeBlueprintPair(ws, blueprint())
+    const tickets = path.join(repo, '.specrails', 'local-tickets.json')
+    mutateStore(tickets, (s) => {
+      s.tickets['1'] = { id: 1, title: 'First', description: '', status: 'done', priority: 'medium', labels: ['M1'], assignee: null, prerequisites: [], metadata: {}, created_at: 'x', updated_at: 'x' } as never
+      s.tickets['2'] = { id: 2, title: 'Second', description: '', status: 'todo', priority: 'medium', labels: ['M1'], assignee: null, prerequisites: [], metadata: {}, created_at: 'x', updated_at: 'x' } as never
+    })
+    const launch = vi.fn(async () => ({ ok: true as const, loopRunIds: ['r2'] }))
+    const chains = new MilestoneChainManager(db, 'proj-1', {
+      createRail: async () => ({ ok: true, railIndex: 4 }),
+      assignTickets: async () => ({ ok: true }),
+      launch,
+      activeDeliveryForRail: () => null,
+      getDelivery: () => null,
+      branchExists: async () => true,
+      readTickets: () => [
+        { id: 1, status: 'done', labels: ['M1'], title: 'First' },
+        { id: 2, status: 'todo', labels: ['M1'], title: 'Second' },
+      ],
+      readBlueprint: () => blueprint(),
+      integrationBranch: async () => 'main',
+      integrateDelivery: async () => ({ ok: true }),
+      runState: () => null,
+      broadcast: () => {},
+    })
+    createChain(db, { id: 'c1', milestoneN: 1, milestoneId: 'm1', mode: 'sequential', chunks: [[1], [2]], integrationBranch: 'main' })
+    updateChain(db, 'c1', 'running', { status: 'paused', pauseReason: 'head_discarded', retryChunk: 0, nextChunk: 1, launched: [{ chunk: 1, railIndex: 3, ticketIds: [1], runIds: ['r1'], deliveryId: 'd1' }] })
+    const app = createApp(makeContext(db, repo, { railJobs: new Map(), railLoopRuns: new Map(), milestoneChains: chains }))
+    let res = await request(app).get('/api/projects/proj-1/blueprint')
+    expect(res.status).toBe(200)
+    expect(res.body.progress[0].state).toBe('paused')
+    expect(res.body.progress[0].chain.plan.offers).toEqual([expect.objectContaining({ kind: 'next', ticketId: 2, title: 'Second', from: 'recommended' })])
+    res = await request(app).post('/api/projects/proj-1/blueprint/chains/c1/resume').send({ from: 'bogus' })
+    expect(res.status).toBe(400)
+    res = await request(app).post('/api/projects/proj-1/blueprint/chains/c1/resume').send({ from: 'recommended' })
+    expect(res.status).toBe(202)
+    expect(launch).toHaveBeenCalledTimes(1)
+    expect(res.body.chain).toMatchObject({ status: 'running', nextChunk: 2 })
+    expect(res.body.chain.launched.map((l: { ticketIds: number[] }) => l.ticketIds[0])).toEqual([1, 2])
+  })
+
   it('commit-milestone invalidates the progress memo', async () => {
     const ws = workspacePathFor('recipely')
     fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
@@ -171,5 +216,39 @@ describe('GET /:projectId/blueprint — progress payload', () => {
       .send({ milestoneId: 'm2', specsComplete: true, specs: [spec] })
     expect([201, 400]).toContain(res.status)
     if (res.status === 201) expect(invalidate).toHaveBeenCalled()
+  })
+
+  it('[spec:blueprint-generation-settings/project-scoped-generation-preference] GET/PUT milestone-engines reads, sets and clears "only for M<n>"', async () => {
+    const ws = workspacePathFor('recipely')
+    fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+    const bp = blueprint()
+    bp.milestones.push({ id: 'm2', title: 'Pantry', goal: 'g', status: 'planned', plannedSpecs: [] })
+    writeBlueprintPair(ws, bp)
+    const schedule = vi.fn()
+    const ctx = makeContext(db, repo, { milestoneProgress: { schedule } as unknown as MilestoneProgressBroadcaster })
+    ctx.project.providers = ['claude', 'codex']
+    const app = createApp(ctx)
+    const url = '/api/projects/proj-1/blueprint/milestone-engines'
+    expect((await request(app).get(url)).body).toEqual({ overrides: { m1: null, m2: null } })
+    const engine = { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: 'high' }
+    let res = await request(app).put(url).send({ milestoneId: 'M2', engine })
+    expect(res.status).toBe(200)
+    expect(res.body.overrides.m2).toMatchObject({ engine })
+    expect(schedule).toHaveBeenCalledTimes(1)
+    for (const [body, status] of [
+      [{ milestoneId: 'm9', engine }, 404],
+      [{ milestoneId: 'two', engine }, 400],
+      [{ milestoneId: 'm2' }, 400],
+      [{ milestoneId: 'm2', engine: { ...engine, model: 'nope' } }, 400],
+    ] as const) expect((await request(app).put(url).send(body)).status).toBe(status)
+    expect((await request(app).get(url)).body.overrides.m2).toMatchObject({ engine })
+    res = await request(app).put(url).send({ milestoneId: 'm2', engine: null })
+    expect(res.body.overrides.m2).toBeNull()
+  })
+
+  it('milestone-engines 404s without a blueprint', async () => {
+    const app = createApp(makeContext(db, repo))
+    expect((await request(app).get('/api/projects/proj-1/blueprint/milestone-engines')).status).toBe(404)
+    expect((await request(app).put('/api/projects/proj-1/blueprint/milestone-engines').send({ milestoneId: 'm2', engine: null })).status).toBe(404)
   })
 })

@@ -8,9 +8,14 @@
 // adapters without integration retain their historical stacking behavior.
 // Launches are sequential; auto-continue is on by default. The plan lives in
 // SQLite and retains the current delivery through integration and recovery.
-// pauses with a typed reason on any failure (never skips ahead), and is
-// visible/controllable (resume / cancel) from every surface.
+// pauses with a typed reason on any failure (never skips a failed spec), and is
+// visible/controllable (resume / cancel) from every surface. Every launch,
+// advance and Resume is reconciled first (milestone-chain-reconcile.ts): specs
+// already delivered, merged or done — by the chain or by the person — are
+// skipped, a run already on a spec is adopted instead of duplicated, and the
+// snapshot's `plan` names the next step for every surface.
 
+import { logRejection } from '../../../util/log-rejection'
 import type { DbInstance } from '../../../db'
 import type { WsMessage } from '../../../types'
 import type { Blueprint } from './blueprint-types'
@@ -32,6 +37,16 @@ import {
   type MilestoneChainEngine,
 } from './milestone-chain-store'
 import { newId } from '../../../ids'
+import { readNextRailEngine } from './milestone-engine-preference'
+import {
+  orderChainTickets,
+  reconcileMilestoneChain,
+  type ChainNextAction,
+  type ChainPlan,
+  type ChainResumeFrom,
+  type ReconcileDelivery,
+  type ReconcileRun,
+} from './milestone-chain-reconcile'
 
 /** One spec per rail: every chunk of a milestone chain carries exactly one spec. */
 export const MAX_TICKETS_PER_CHAIN_CHUNK = 1
@@ -42,35 +57,8 @@ export function chunkTickets(ticketIds: number[], size = MAX_TICKETS_PER_CHAIN_C
   return chunks
 }
 
-/**
- * Launch order for a milestone's specs: a stable topological order over the
- * specs' `prerequisites` (edges to specs outside the set — already done or in
- * another milestone — are ignored), ties broken by `execution_order` (unset
- * last) and then id. A dependency cycle cannot block the milestone: the
- * remaining specs follow in tie order.
- */
-export function orderChainTickets(tickets: ReadonlyArray<Pick<ProgressTicket, 'id' | 'prerequisites' | 'executionOrder'>>): number[] {
-  const byId = new Map(tickets.map((t) => [t.id, t]))
-  const rank = (a: number, b: number): number => {
-    const ea = byId.get(a)?.executionOrder ?? Number.POSITIVE_INFINITY
-    const eb = byId.get(b)?.executionOrder ?? Number.POSITIVE_INFINITY
-    return ea !== eb ? (ea < eb ? -1 : 1) : a - b
-  }
-  const pending = new Map<number, Set<number>>()
-  for (const t of tickets) {
-    pending.set(t.id, new Set((t.prerequisites ?? []).filter((id) => id !== t.id && byId.has(id))))
-  }
-  const order: number[] = []
-  while (pending.size > 0) {
-    const ready = [...pending.entries()].filter(([, deps]) => deps.size === 0).map(([id]) => id).sort(rank)
-    // Cycle: take the best-ranked remaining spec so the chain still progresses.
-    const next = ready[0] ?? [...pending.keys()].sort(rank)[0]
-    order.push(next)
-    pending.delete(next)
-    for (const deps of pending.values()) deps.delete(next)
-  }
-  return order
-}
+export { orderChainTickets, reconcileMilestoneChain } from './milestone-chain-reconcile'
+export type { ChainPlan, ChainNextAction, ChainResumeFrom } from './milestone-chain-reconcile'
 
 /** Builder rails are named after their spec: `M1 · #12`. */
 export function chainRailName(n: number, ticketIds: readonly number[]): string {
@@ -87,6 +75,31 @@ export function isBuilderRailName(name: string | null | undefined): boolean {
 export const RAIL_LIMIT_REACHED = 'rail_limit_reached'
 
 export type ChainIoFailure = { ok: false; status: number; error: string; detail?: string }
+
+/** A local integration Git refused because the delivery conflicts with the base. */
+export function isIntegrationConflict(failure: ChainIoFailure): boolean {
+  return failure.error === 'merge_failed' && /\bCONFLICT\b/.test(failure.detail ?? '')
+}
+/**
+ * Where a chunk's integration stands while the chain waits (`status: 'waiting'`): the guarded
+ * merge (`integration_pending`), then, when it conflicts with what was integrated since, the base
+ * refresh: merging the base into the delivery (`integration_refreshing`) and an agent resolving the
+ * conflicted files (`integration_resolving`). While the merged candidate is verified again the
+ * chain runs (`integration_reverifying`). All keep the `integration_` prefix, so a restart
+ * integrates the delivery again (`recoverOnStartup`).
+ */
+export const INTEGRATION_PENDING = 'integration_pending'
+export const INTEGRATION_REFRESHING = 'integration_refreshing'
+export const INTEGRATION_RESOLVING = 'integration_resolving'
+export const INTEGRATION_REVERIFYING = 'integration_reverifying'
+const INTEGRATION_WAIT_REASONS: ReadonlySet<string> = new Set([INTEGRATION_PENDING, INTEGRATION_REFRESHING, INTEGRATION_RESOLVING])
+
+/** Why a conflicted integration paused after the automatic base refresh could not run (the pause detail). */
+const CONFLICT_REASON: Record<string, string> = {
+  refresh_conflict_unresolved: 'conflict_unresolved',
+  refresh_resolver_failed: 'conflict_unresolved',
+  refresh_limit_reached: 'conflict_refresh_limit',
+}
 
 export interface MilestoneChainIO {
   createRail(name: string): Promise<{ ok: true; railIndex: number } | ChainIoFailure>
@@ -111,6 +124,21 @@ export interface MilestoneChainIO {
   integrationBranch(): Promise<string | null>
   /** Integrate this verified delivery through the normal guarded decision path. */
   integrateDelivery?(delivery: PrDeliverySnapshot): Promise<{ ok: true } | ChainIoFailure>
+  /** Bring the updated base into a delivery whose integration conflicted and verify it again
+   *  (a run of its own on the delivery's worktree). Absent ⇒ a conflict pauses at once. */
+  refreshDelivery?(delivery: PrDeliverySnapshot): Promise<{ ok: true; runId: string } | ChainIoFailure>
+  /** Resume a failed run from the step that stopped it (re-running only the
+   *  interrupted steps), on its own worktree and delivery. Absent ⇒ a failed
+   *  chunk can only be relaunched from the start. */
+  resumeFailedRun?(runId: string): Promise<{ ok: true } | ChainIoFailure>
+  /** Resume a PAUSED run in place (the person, a restart, the budget or a
+   *  provider limit paused it): the same attempt continues from its next step. */
+  resumeRun?(runId: string): Promise<{ ok: true } | ChainIoFailure>
+  /** Every delivery (active and terminal) carrying one of these specs —
+   *  including the ones the person launched outside the chain. */
+  listDeliveriesForTickets?(ticketIds: number[]): PrDeliverySnapshot[]
+  /** Recent runs (live and settled) carrying one of these specs, any origin. */
+  listRunsForTickets?(ticketIds: number[]): ReconcileRun[]
   /** Loop-run row state for startup recovery: null = row missing. */
   runState(runId: string): { settled: boolean; outcome: string | null } | null
   broadcast(msg: WsMessage): void
@@ -129,6 +157,20 @@ type LaunchedChunk = { ok: true; entry: MilestoneChainLaunched } | ChainIoFailur
 
 const SUCCESS_DECISIONS: ReadonlySet<string> = new Set(['on_review', 'no_changes', 'pr_draft', 'pr_ready', 'completed', 'merged'])
 
+/** Messages after which a paused chain's plan may have moved. */
+const PLAN_TRIGGERS: ReadonlySet<string> = new Set([
+  'rail.pr_state', 'ticket_updated', 'ticket_created', 'ticket_deleted',
+  'loop.run_completed', 'loop.run_stopped', 'loop.run_started', 'loop.run_paused', 'loop.run_resumed', 'rail.job_started', 'rail.job_completed', 'rail.job_stopped',
+])
+
+function planSignature(plan: ChainPlan): string {
+  return JSON.stringify([plan.action, plan.offers, plan.settled, plan.total, plan.specs.map((s) => [s.ticketId, s.state, s.deliveryId, s.runId])])
+}
+
+function adoptOf(action: Extract<ChainNextAction, { kind: 'resume_run' | 'answer_run' }>): Extract<ChainNextAction, { kind: 'adopt_run' }> {
+  return { kind: 'adopt_run', ticketId: action.ticketId, runId: action.runId, deliveryId: action.deliveryId, railIndex: action.railIndex }
+}
+
 export class MilestoneChainManager {
   private readonly integrating = new Set<string>()
   constructor(
@@ -141,9 +183,9 @@ export class MilestoneChainManager {
     return this.io.now?.() ?? Date.now()
   }
 
-  /** Non-terminal chains. */
+  /** Non-terminal chains, each reconciled against the live rows. */
   listActive(): MilestoneChainSnapshot[] {
-    return listActiveChains(this.db).map(toChainSnapshot)
+    return listActiveChains(this.db).map((row) => this.snapshot(row))
   }
 
   /** Newest chain per milestone, any status (feeds the progress model). */
@@ -153,25 +195,86 @@ export class MilestoneChainManager {
     for (const row of listChains(this.db)) {
       if (seen.has(row.milestone_n)) continue
       seen.add(row.milestone_n)
-      out.push(toChainSnapshot(row))
+      out.push(this.snapshot(row))
     }
     return out
   }
 
   get(id: string): MilestoneChainSnapshot | null {
     const row = getChain(this.db, id)
-    return row ? toChainSnapshot(row) : null
+    return row ? this.snapshot(row) : null
   }
+
+  /** The store projection plus the reconciled plan (active chains only). */
+  private snapshot(row: MilestoneChainRow): MilestoneChainSnapshot {
+    const snap = toChainSnapshot(row)
+    if (!isActiveChainStatus(row.status)) return snap
+    let nextEngine: MilestoneChainSnapshot['nextEngine'] = null
+    try { const resolved = readNextRailEngine(this.db, row); nextEngine = resolved === 'invalid' ? null : resolved } catch { nextEngine = null }
+    try { return { ...snap, plan: this.plan(row), nextEngine } } catch { return { ...snap, plan: null, nextEngine } }
+  }
+
+  /**
+   * Reconcile the chain against the durable rows: every spec's real state from
+   * the ticket store, its deliveries and its runs — the chain's and the ones
+   * the person launched by hand. Pure read; safe to call at any time.
+   */
+  plan(row: MilestoneChainRow): ChainPlan {
+    const tickets = this.io.readTickets()
+    const label = milestoneLabelFor(row.milestone_n)
+    const launched = parseLaunched(row)
+    const ids = [...new Set([...parseChunks(row).flat(), ...tickets.filter((t) => Array.isArray(t.labels) && t.labels.includes(label)).map((t) => t.id)])]
+    const byId = new Map<string, PrDeliverySnapshot>()
+    try { for (const d of this.io.listDeliveriesForTickets?.(ids) ?? []) byId.set(d.id, d) } catch { /* fall back to the launched ones */ }
+    for (const entry of launched) {
+      if (!entry.deliveryId || byId.has(entry.deliveryId)) continue
+      try { const d = this.io.getDelivery(entry.deliveryId); if (d) byId.set(d.id, d) } catch { /* missing row */ }
+    }
+    let runs: ReconcileRun[] = []
+    try { runs = this.io.listRunsForTickets?.(ids) ?? [] } catch { runs = [] }
+    const deliveries: ReconcileDelivery[] = [...byId.values()].map((d) => ({
+      id: d.id, railIndex: d.railIndex, ticketIds: d.ticketIds, decision: d.decision, implementationOutcome: d.implementationOutcome,
+      branch: d.branch, runIds: d.runIds, createdAt: d.createdAt,
+      units: d.units.map((u) => ({ ticketId: (u as { ticketId?: number | null }).ticketId ?? null, branch: u.branch ?? null, succeeded: u.succeeded, implementationOutcome: (u as { implementationOutcome?: string | null }).implementationOutcome ?? null, deliveryOutcome: (u as { deliveryOutcome?: string | null }).deliveryOutcome ?? null })),
+    }))
+    return reconcileMilestoneChain({
+      chain: {
+        milestoneN: row.milestone_n, status: row.status, chunks: parseChunks(row), launched,
+        retryChunk: row.retry_chunk, headBranch: row.head_branch, integrationBranch: row.integration_branch,
+        pauseReason: row.pause_reason, currentDeliveryId: row.current_delivery_id,
+      },
+      tickets: tickets.map((t) => ({ id: t.id, status: t.status, labels: t.labels, title: t.title ?? null, prerequisites: t.prerequisites, executionOrder: t.executionOrder })),
+      deliveries,
+      runs,
+      integrates: Boolean(this.io.integrateDelivery),
+    })
+  }
+
+  private readonly planSignatures = new Map<string, string>()
 
   private emit(row: MilestoneChainRow): void {
     try {
+      const chain = this.snapshot(row)
+      if (chain.plan) this.planSignatures.set(row.id, planSignature(chain.plan))
       this.io.broadcast({
         type: 'milestone.chain_changed',
         projectId: this.projectId,
-        chain: toChainSnapshot(row),
+        chain,
         timestamp: new Date(this.now()).toISOString(),
       })
     } catch { /* durable row is authoritative */ }
+  }
+
+  /** A paused chain stays paused (the pause is the person's), but its plan
+   *  follows reality: re-emit when a delivery/run/spec change moved it. */
+  private refreshPlans(): void {
+    for (const row of listActiveChains(this.db)) {
+      if (row.status !== 'paused' && row.status !== 'awaiting_approval') continue
+      let signature: string
+      try { signature = planSignature(this.plan(row)) } catch { continue }
+      if (this.planSignatures.get(row.id) === signature) continue
+      this.emit(row)
+    }
   }
 
   private todoTicketIds(n: number): number[] {
@@ -184,13 +287,15 @@ export class MilestoneChainManager {
    *  else a free builder-owned rail (same name, this chain's, then any builder
    *  rail), else a fresh one. At the rail limit it fails `rail_limit_reached`. */
   private async launchChunk(n: number, chunks: number[][], chunkIndex: number, baseBranch: string | null, reuseRailIndex: number | null = null, baseDeliveryIds?: string[], chain?: MilestoneChainRow): Promise<LaunchedChunk> {
+    // Every NEW rail resolves its engine now (milestone-engine-preference.ts):
+    // what the popover shows — the milestone's own configuration, else the
+    // current usual one — the Launch choice only for the first rail or when no
+    // usual configuration exists. Never the snapshot frozen at Launch.
     let engine: MilestoneChainEngine | undefined
-    if (chain?.engine_config != null) {
-      try {
-        engine = JSON.parse(chain.engine_config)
-        if (!engine || typeof engine.provider !== 'string' || typeof engine.model !== 'string'
-          || (engine.reasoningEffort !== null && typeof engine.reasoningEffort !== 'string')) throw new Error('invalid engine')
-      } catch { return { ok: false, status: 409, error: 'milestone_engine_unavailable' } }
+    if (chain) {
+      const resolved = readNextRailEngine(this.db, chain)
+      if (resolved === 'invalid') return { ok: false, status: 409, error: 'milestone_engine_unavailable' }
+      if (resolved) engine = { provider: resolved.provider, model: resolved.model, reasoningEffort: resolved.reasoningEffort }
     }
     const ticketIds = chunks[chunkIndex]
     let railIndex: number
@@ -217,7 +322,7 @@ export class MilestoneChainManager {
     const delivery = this.io.activeDeliveryForRail(railIndex)
     return {
       ok: true,
-      entry: { chunk: chunkIndex + 1, railIndex, ticketIds, runIds: launched.loopRunIds, deliveryId: delivery?.id ?? null },
+      entry: { chunk: chunkIndex + 1, railIndex, ticketIds, runIds: launched.loopRunIds, deliveryId: delivery?.id ?? null, engine: engine ?? null },
     }
   }
 
@@ -250,7 +355,8 @@ export class MilestoneChainManager {
     try {
       const own = chain ? parseLaunched(chain).map((l) => l.railIndex) : []
       const builder = (this.io.listRails?.() ?? []).filter((r) => isBuilderRailName(r.name)).map((r) => r.railIndex)
-      for (const index of [...new Set([...own, ...builder])]) {
+      // An adopted run without a rail (shared checkout) is recorded as -1: never a slot.
+      for (const index of [...new Set([...own, ...builder])].filter((i) => i >= 0)) {
         if (this.railFree(index)) return index
       }
       return null
@@ -259,12 +365,11 @@ export class MilestoneChainManager {
     }
   }
 
-  /** The rail a retried chunk can reuse: its previous attempt's rail when no
+  /** The rail a retried spec can reuse: its previous attempt's rail when no
    *  undecided delivery still sits there (a failed delivery the user has not
    *  reviewed keeps the rail — the retry then takes a fresh one). */
-  private reusableRailFor(row: MilestoneChainRow, chunkIndex: number): number | null {
-    const previous = parseLaunched(row).find((l) => l.chunk === chunkIndex + 1)
-    if (!previous) return null
+  private reusableRailFor(_row: MilestoneChainRow, previous: MilestoneChainLaunched): number | null {
+    if (previous.railIndex < 0) return null
     try {
       return this.io.activeDeliveryForRail(previous.railIndex) ? null : previous.railIndex
     } catch {
@@ -275,7 +380,9 @@ export class MilestoneChainManager {
   /**
    * Launch a milestone. Always sequential: one spec per rail, each stacked on
    * the accumulated integration branch when integration is bound. `autoAdvance` defaults to ON; turning it off
-   * parks the chain at a checkpoint after every delivered rail.
+   * parks the chain at a checkpoint after every delivered rail. The first step
+   * is reconciled like every other: a spec already running (launched by hand)
+   * is adopted, never launched twice.
    */
   async start(n: number, opts: { autoAdvance?: boolean; engine?: MilestoneChainEngine } = {}): Promise<ChainStartResult> {
     const autoAdvance = opts.autoAdvance !== false
@@ -292,43 +399,62 @@ export class MilestoneChainManager {
       id: newId(), milestoneN: n, milestoneId: milestone.id, mode: 'sequential', chunks,
       integrationBranch: await this.safeIntegrationBranch(), autoAdvance, engine: opts.engine, nowMs: this.now(),
     })
-    const first = await this.launchChunk(n, chunks, 0, null, null, undefined, row)
+    const plan = this.plan(row)
+    // Launching is the person's explicit go: a failed spec runs again from the
+    // start; a paused run is adopted (the person resumes it from the run).
+    const action: ChainNextAction = plan.action.kind === 'resume_failed' ? { kind: 'launch', ticketId: plan.action.ticketId, retry: true }
+      : plan.action.kind === 'resume_run' || plan.action.kind === 'answer_run' ? adoptOf(plan.action)
+        : plan.action
+    const first = await this.execute(row, plan, action, null)
     if (!first.ok) {
       // Nothing launched ⇒ no chain remains active (the route relays the guard,
       // including `rail_limit_reached` when every rail holds undecided work).
-      updateChain(this.db, row.id, 'running', { status: 'cancelled', pauseReason: first.error === RAIL_LIMIT_REACHED ? RAIL_LIMIT_REACHED : `launch_rejected:${first.error}` }, this.now())
+      updateChain(this.db, row.id, ['running', 'waiting'], { status: 'cancelled', pauseReason: first.error === RAIL_LIMIT_REACHED ? RAIL_LIMIT_REACHED : `launch_rejected:${first.error}` }, this.now())
       return { ok: false, status: first.status, error: first.error, detail: first.detail, chainId: row.id }
     }
-    this.recordLaunched(row.id, first.entry)
     const fresh = getChain(this.db, row.id)
     if (fresh) this.emit(fresh)
-    return { ok: true, status: 202, chainId: row.id, launched: [first.entry], pending: chunks.slice(1) }
+    const order = plan.order
+    const at = first.entry ? order.indexOf(first.entry.ticketIds[0]) : order.length
+    return { ok: true, status: 202, chainId: row.id, launched: first.entry ? [first.entry] : [], pending: order.slice(at + 1).map((id) => [id]) }
   }
 
   private async safeIntegrationBranch(): Promise<string | null> {
     try { return await this.io.integrationBranch() } catch { return null }
   }
 
-  private recordLaunched(chainId: string, entry: MilestoneChainLaunched): void {
+  private recordLaunched(chainId: string, entry: MilestoneChainLaunched, chunks?: number[][]): void {
     const row = getChain(this.db, chainId)
     if (!row) return
-    // A retry REPLACES the failed attempt's entry for that chunk (the delivery
-    // rows keep the history); a fresh chunk appends.
-    const launched = parseLaunched(row).filter((l) => l.chunk !== entry.chunk)
+    // A retry REPLACES the earlier attempt's entry for that spec (the delivery
+    // rows keep the history); a fresh spec appends. Entries follow the
+    // reconciled order when the milestone's specs changed.
+    const order = (chunks ?? parseChunks(row)).map((c) => c[0])
+    const renumber = (l: MilestoneChainLaunched): MilestoneChainLaunched => {
+      const at = order.indexOf(l.ticketIds[0])
+      return at >= 0 ? { ...l, chunk: at + 1 } : l
+    }
+    const key = entry.ticketIds.join(',')
+    const previous = parseLaunched(row).find((l) => l.ticketIds.join(',') === key)
+    const launched = parseLaunched(row).filter((l) => l.ticketIds.join(',') !== key).map(renumber)
+    // Adopting / integrating the same run keeps the engine it was launched on.
+    const sameRun = previous?.engine && entry.engine === undefined && previous.runIds.some((id) => entry.runIds.includes(id))
+    const next = renumber(sameRun ? { ...entry, engine: previous!.engine } : entry)
     updateChain(this.db, chainId, row.status, {
-      nextChunk: entry.chunk,
-      currentRailIndex: entry.railIndex,
-      currentRunIds: entry.runIds,
-      currentDeliveryId: entry.deliveryId,
+      ...(chunks ? { chunks } : {}),
+      nextChunk: next.chunk,
+      currentRailIndex: next.railIndex,
+      currentRunIds: next.runIds,
+      currentDeliveryId: next.deliveryId,
       lastRunOutcome: null,
       status: 'running',
       pauseReason: null,
       retryChunk: null,
-      launched: [...launched, entry],
+      launched: [...launched, next].sort((x, y) => x.chunk - y.chunk),
     }, this.now())
   }
 
-  private pause(row: MilestoneChainRow, reason: string, patch: { headBranch?: string | null; retryChunk?: number | null } = {}): void {
+  private pause(row: MilestoneChainRow, reason: string, patch: { headBranch?: string | null; retryChunk?: number | null; chunks?: number[][] } = {}): void {
     if (updateChain(this.db, row.id, row.status, { status: 'paused', pauseReason: reason, ...patch }, this.now())) {
       const fresh = getChain(this.db, row.id)
       if (fresh) this.emit(fresh)
@@ -342,41 +468,131 @@ export class MilestoneChainManager {
     this.pause(row, reason, { retryChunk: Math.max(0, row.next_chunk - 1) })
   }
 
-  /** Launch the next chunk (or complete). Failures pause with `launch_rejected:<error>`. */
-  private async advance(chainId: string, head: string | null): Promise<void> {
+  /** The base a launch stacks on: the integration branch once every earlier
+   *  spec is integrated (integration mode, from the 2nd rail on), else the
+   *  newest delivered branch (legacy stacking). */
+  private baseFor(row: MilestoneChainRow, plan: ChainPlan, first: boolean): { baseBranch: string | null; baseDeliveryIds?: string[] } {
+    if (this.io.integrateDelivery) return { baseBranch: first ? null : row.integration_branch }
+    const multiRepositoryHistory = plan.baseDeliveryIds.some((id) => { try { return Boolean(this.io.getDelivery(id)?.executionManifest) } catch { return false } })
+    if (multiRepositoryHistory) return { baseBranch: null, baseDeliveryIds: plan.baseDeliveryIds }
+    // A no-changes or merged spec adds no branch: keep the recorded head.
+    return { baseBranch: plan.baseBranch ?? (first ? null : row.head_branch) }
+  }
+
+  /**
+   * Execute one reconciled action. Every path that puts work on a spec checks
+   * the plan first, so a spec with a live or resumable run is never launched
+   * twice; adopting a run is a CAS on the chain row.
+   */
+  private async execute(row: MilestoneChainRow, plan: ChainPlan, action: ChainNextAction, first: boolean | null): Promise<{ ok: true; entry: MilestoneChainLaunched | null } | ChainIoFailure> {
+    const chunks = plan.order.map((id) => [id])
+    const chunkOf = (ticketId: number): number => Math.max(0, plan.order.indexOf(ticketId))
+    switch (action.kind) {
+      case 'complete': {
+        if (updateChain(this.db, row.id, row.status, { status: 'completed', chunks, currentRailIndex: null, currentRunIds: [], currentDeliveryId: null, pauseReason: null, retryChunk: null }, this.now())) {
+          const fresh = getChain(this.db, row.id)
+          if (fresh) this.emit(fresh)
+        }
+        return { ok: true, entry: null }
+      }
+      case 'launch': {
+        const idx = chunkOf(action.ticketId)
+        const previous = parseLaunched(row).find((l) => l.ticketIds.length === 1 && l.ticketIds[0] === action.ticketId)
+        const reuse = previous ? this.reusableRailFor(row, previous) : null
+        const base = this.baseFor(row, plan, first ?? parseLaunched(row).length === 0)
+        const r = await this.launchChunk(row.milestone_n, chunks, idx, base.baseBranch, reuse, base.baseDeliveryIds, row)
+        if (!r.ok) return r
+        this.recordLaunched(row.id, r.entry, chunks)
+        return { ok: true, entry: r.entry }
+      }
+      case 'resume_run': {
+        if (!this.io.resumeRun) return { ok: false, status: 409, error: 'run_resume_unavailable', detail: 'resume this run from its own page' }
+        let resumed: { ok: true } | ChainIoFailure
+        try { resumed = await this.io.resumeRun(action.runId) } catch (error) {
+          resumed = { ok: false, status: 409, error: 'run_resume_failed', detail: error instanceof Error ? error.message : String(error) }
+        }
+        if (!resumed.ok) return resumed
+        return this.adopt(row, chunks, adoptOf(action))
+      }
+      case 'answer_run':
+        return this.adopt(row, chunks, adoptOf(action))
+      case 'adopt_run':
+        return this.adopt(row, chunks, action)
+      case 'integrate': {
+        const snap = this.safeDelivery(action.deliveryId)
+        const entry: MilestoneChainLaunched = { chunk: chunkOf(action.ticketId) + 1, railIndex: action.railIndex, ticketIds: [action.ticketId], runIds: snap?.runIds ?? [], deliveryId: action.deliveryId }
+        this.recordLaunched(row.id, entry, chunks)
+        await this.integrateChunk(row.id)
+        return { ok: true, entry }
+      }
+      case 'resume_failed': {
+        const r = await this.resumeFailedSpec(row, chunks, action)
+        return r.ok ? { ok: true, entry: null } : { ok: false, status: r.status, error: r.error, ...(r.detail ? { detail: r.detail } : {}) }
+      }
+    }
+  }
+
+  private safeDelivery(id: string | null): PrDeliverySnapshot | null {
+    if (!id) return null
+    try { return this.io.getDelivery(id) } catch { return null }
+  }
+
+  /** Follow a run already working on the spec (the chain's or the person's):
+   *  record it as the current rail and wait for its settle. */
+  private adopt(row: MilestoneChainRow, chunks: number[][], action: Extract<ChainNextAction, { kind: 'adopt_run' }>): { ok: true; entry: MilestoneChainLaunched } {
+    const snap = this.safeDelivery(action.deliveryId)
+    const order = chunks.map((c) => c[0])
+    const entry: MilestoneChainLaunched = {
+      chunk: Math.max(0, order.indexOf(action.ticketId)) + 1,
+      railIndex: action.railIndex ?? snap?.railIndex ?? -1,
+      ticketIds: [action.ticketId],
+      runIds: action.runId ? [action.runId] : snap?.runIds.slice(-1) ?? [],
+      deliveryId: action.deliveryId,
+    }
+    this.recordLaunched(row.id, entry, chunks)
+    // The run may have settled between the read and the adoption: replay it.
+    const settled = this.safeDelivery(action.deliveryId)
+    if (settled && settled.decision !== 'building') this.handleDeliveryState(settled)
+    else if (!settled && action.runId) {
+      const state = this.io.runState(action.runId)
+      if (state?.settled) this.onRunSettled(action.runId, state.outcome ?? 'failed')
+    }
+    return { ok: true, entry }
+  }
+
+  /** Reconcile and take the next automatic step (launch, adopt, integrate,
+   *  complete). A failed spec is never retried silently: it pauses. */
+  private async advance(chainId: string): Promise<void> {
     const row = getChain(this.db, chainId)
     if (!row || !isActiveChainStatus(row.status)) return
-    const chunks = parseChunks(row)
-    // A paused chain whose chunk FAILED retries that chunk; otherwise the next.
-    const chunkIndex = row.retry_chunk !== null && row.retry_chunk < row.next_chunk ? row.retry_chunk : row.next_chunk
-    if (chunkIndex >= chunks.length) {
-      if (updateChain(this.db, row.id, row.status, { status: 'completed', headBranch: head, currentRailIndex: null, currentRunIds: [], currentDeliveryId: null, pauseReason: null }, this.now())) {
-        const fresh = getChain(this.db, row.id)
-        if (fresh) this.emit(fresh)
+    const plan = this.plan(row)
+    if (plan.auto.kind === 'pause') {
+      const at = plan.order.indexOf(plan.auto.ticketId)
+      this.pause(row, plan.auto.reason, { retryChunk: at >= 0 ? at : null, chunks: plan.order.map((id) => [id]) })
+      return
+    }
+    const action = plan.auto.action
+    if (action.kind === 'launch') {
+      const base = this.baseFor(row, plan, false)
+      if (base.baseBranch && !this.io.integrateDelivery && !(await this.branchExistsSafe(base.baseBranch))) {
+        this.pause(row, 'head_missing', { headBranch: base.baseBranch })
+        return
       }
-      return
+      if (!updateChain(this.db, row.id, row.status, { status: 'waiting', headBranch: base.baseBranch ?? row.head_branch, pauseReason: null }, this.now())) return
     }
-    const earlierDeliveries = parseLaunched(row).filter((entry) => entry.chunk <= chunkIndex && entry.deliveryId).map((entry) => entry.deliveryId!)
-    const multiRepositoryHistory = !this.io.integrateDelivery && earlierDeliveries.some((id) => this.io.getDelivery(id)?.executionManifest)
-    if (!multiRepositoryHistory && head && !(await this.branchExistsSafe(head))) {
-      this.pause(row, 'head_missing', { headBranch: head })
-      return
-    }
-    updateChain(this.db, row.id, row.status, { status: 'waiting', headBranch: head, pauseReason: null }, this.now())
-    const reuse = chunkIndex < row.next_chunk ? this.reusableRailFor(row, chunkIndex) : null
-    const r = await this.launchChunk(row.milestone_n, chunks, chunkIndex, head, reuse, multiRepositoryHistory ? earlierDeliveries : undefined, row)
     const current = getChain(this.db, chainId)
     if (!current || !isActiveChainStatus(current.status)) return
+    const r = await this.execute(current, plan, action, false)
+    const after = getChain(this.db, chainId)
+    if (!after || !isActiveChainStatus(after.status)) return
     if (!r.ok) {
       // Every rail holds undecided work: wait for the user to decide pending
       // PRs, then Resume launches this same spec.
-      if (r.error === RAIL_LIMIT_REACHED) this.pause(current, RAIL_LIMIT_REACHED)
-      else this.pause(current, `launch_rejected:${r.error}`)
+      if (r.error === RAIL_LIMIT_REACHED) this.pause(after, RAIL_LIMIT_REACHED)
+      else this.pause(after, `launch_rejected:${r.error}`)
       return
     }
-    this.recordLaunched(chainId, r.entry)
-    const fresh = getChain(this.db, chainId)
-    if (fresh) this.emit(fresh)
+    if (action.kind !== 'complete') this.emit(after)
   }
 
   /**
@@ -388,9 +604,14 @@ export class MilestoneChainManager {
   private afterChunkSuccess(chainId: string, head: string | null): void {
     const row = getChain(this.db, chainId)
     if (!row) return
-    const remaining = parseChunks(row).length - row.next_chunk
-    if (row.auto_advance !== 0 || remaining <= 0) {
-      void this.advance(chainId, head)
+    let done = false
+    try { done = this.plan(row).action.kind === 'complete' } catch { done = parseChunks(row).length - row.next_chunk <= 0 }
+    if (row.auto_advance !== 0 || done) {
+      // Deferred: when this success comes from an integration, its re-entry
+      // guard is released only after this call returns — advancing inline
+      // would make the next integration (a delivery the person already
+      // produced) a silent no-op and strand the chain.
+      queueMicrotask(() => { void this.advance(chainId).catch(logRejection('milestone chain advance')) })
       return
     }
     if (updateChain(this.db, row.id, row.status, { status: 'awaiting_approval', headBranch: head, pauseReason: null }, this.now())) {
@@ -426,7 +647,7 @@ export class MilestoneChainManager {
     if (snap.implementationOutcome === 'partially_succeeded' || snap.implementationOutcome === 'failed') { this.pauseFailedChunk(row, 'chunk_failed'); return }
     if (snap.decision === 'merged' || snap.decision === 'completed') { this.completeIntegrated(row); return }
     this.integrating.add(chainId)
-    updateChain(this.db, row.id, row.status, { status: 'waiting', pauseReason: 'integration_pending' }, this.now())
+    updateChain(this.db, row.id, row.status, { status: 'waiting', pauseReason: INTEGRATION_PENDING }, this.now())
     const pending = getChain(this.db, chainId)!
     this.emit(pending)
     try {
@@ -435,11 +656,51 @@ export class MilestoneChainManager {
       if (!current || !isActiveChainStatus(current.status) || current.current_delivery_id !== snap.id) return
       const settled = this.io.getDelivery(snap.id)
       if (settled?.decision === 'merged' || settled?.decision === 'completed') this.completeIntegrated(current)
+      else if (!result.ok && isIntegrationConflict(result) && this.io.refreshDelivery) await this.refreshConflicted(current, snap)
       else this.pause(current, 'integration_failed:' + (result.ok ? 'not_confirmed' : result.error))
     } catch {
       const current = getChain(this.db, chainId)
       if (current && isActiveChainStatus(current.status) && current.current_delivery_id === snap.id) this.pause(current, 'integration_failed:unavailable')
     } finally { this.integrating.delete(chainId) }
+  }
+
+  /**
+   * The delivery conflicts with the base integrated since it was built: before pausing, bring the
+   * base into it (an agent step resolves real conflicts) and verify it again. The chain follows that
+   * run like any chunk: its settle back to review integrates again, a failure pauses with the
+   * failed-spec options. Only a refresh that cannot run pauses here, with its reason.
+   */
+  private async refreshConflicted(row: MilestoneChainRow, snap: PrDeliverySnapshot): Promise<void> {
+    // Every surface says the spec is being updated on the integrated base (then, with real conflicts,
+    // that an agent resolves them), not "integrating" while minutes of merge and agent work go by.
+    this.markIntegrationPhase(row.id, snap.id, INTEGRATION_REFRESHING)
+    let refreshed: { ok: true; runId: string } | ChainIoFailure
+    try { refreshed = await this.io.refreshDelivery!(snap) } catch (error) {
+      refreshed = { ok: false, status: 409, error: 'refresh_rejected', detail: error instanceof Error ? error.message : String(error) }
+    }
+    const current = getChain(this.db, row.id)
+    if (!current || !isActiveChainStatus(current.status) || current.current_delivery_id !== snap.id) return
+    if (!refreshed.ok) { this.pause(current, `integration_failed:${CONFLICT_REASON[refreshed.error] ?? 'conflict'}`); return }
+    // The re-verification is the same rail's run: its launch record carries it (with the engine
+    // the rail was launched on), so following, adopting or resuming it keeps that engine.
+    const runId = refreshed.runId
+    const launched = parseLaunched(current).map((l) => l.deliveryId === snap.id && !l.runIds.includes(runId) ? { ...l, runIds: [...l.runIds, runId] } : l)
+    // `integration_reverifying`: the chain follows the run that verifies the merged candidate again.
+    if (updateChain(this.db, current.id, current.status, { status: 'running', currentRunIds: [runId], pauseReason: INTEGRATION_REVERIFYING, launched }, this.now())) {
+      const fresh = getChain(this.db, current.id)
+      if (fresh) this.emit(fresh)
+    }
+  }
+
+  /** Record where the base refresh of the chain's waiting delivery stands (refreshing, then resolving). */
+  private markIntegrationPhase(chainId: string, deliveryId: string, reason: typeof INTEGRATION_REFRESHING | typeof INTEGRATION_RESOLVING): void {
+    const row = getChain(this.db, chainId)
+    if (!row || row.status !== 'waiting' || row.current_delivery_id !== deliveryId || row.pause_reason === reason) return
+    if (!row.pause_reason || !INTEGRATION_WAIT_REASONS.has(row.pause_reason)) return
+    if (updateChain(this.db, row.id, row.status, { pauseReason: reason }, this.now())) {
+      const fresh = getChain(this.db, row.id)
+      if (fresh) this.emit(fresh)
+    }
   }
 
   /** The delivery-settle chokepoint: a `rail.pr_state` for the in-flight chunk. */
@@ -448,7 +709,7 @@ export class MilestoneChainManager {
       if (row.current_delivery_id !== snap.id) continue
       if (snap.decision === 'building') continue
       if (this.io.integrateDelivery && SUCCESS_DECISIONS.has(snap.decision)) {
-        if (row.status === 'running' || row.status === 'waiting' && row.pause_reason === 'integration_pending') void this.integrateChunk(row.id)
+        if (row.status === 'running' || row.status === 'waiting' && row.pause_reason === INTEGRATION_PENDING) void this.integrateChunk(row.id).catch(logRejection('milestone chain integration'))
         else if (row.pause_reason?.startsWith('integration_') && ['merged', 'completed'].includes(snap.decision)) this.completeIntegrated(row)
         continue
       }
@@ -474,13 +735,34 @@ export class MilestoneChainManager {
 
   /** Tap for the project's bound broadcast (mirrors MilestoneProgressBroadcaster). */
   observe(msg: WsMessage): void {
-    if (msg.type !== 'rail.pr_state') return
-    const id = (msg as { prDeliveryId?: unknown }).prDeliveryId
-    if (typeof id !== 'string') return
-    if (!listActiveChains(this.db).some((row) => row.current_delivery_id === id)) return
-    let snap: PrDeliverySnapshot | null = null
-    try { snap = this.io.getDelivery(id) } catch { snap = null }
-    if (snap) this.handleDeliveryState(snap)
+    if (msg.type === 'milestone.chain_changed') {
+      // A projection made outside the manager (the discard hook) carries no
+      // plan: re-emit the reconciled one so every surface offers the right step.
+      const chain = (msg as { chain?: { id?: unknown; plan?: unknown } }).chain
+      if (chain && typeof chain.id === 'string' && chain.plan === undefined) {
+        this.planSignatures.delete(chain.id)
+        queueMicrotask(() => { try { this.refreshPlans() } catch { /* best effort */ } })
+      }
+      return
+    }
+    if (msg.type === 'delivery.base_refresh' && (msg as { phase?: unknown }).phase === 'resolving') {
+      const deliveryId = (msg as { deliveryId?: unknown }).deliveryId
+      if (typeof deliveryId === 'string') {
+        for (const row of listActiveChains(this.db)) if (row.current_delivery_id === deliveryId) this.markIntegrationPhase(row.id, deliveryId, INTEGRATION_RESOLVING)
+      }
+      return
+    }
+    if (msg.type === 'rail.pr_state') {
+      const id = (msg as { prDeliveryId?: unknown }).prDeliveryId
+      if (typeof id === 'string' && listActiveChains(this.db).some((row) => row.current_delivery_id === id)) {
+        let snap: PrDeliverySnapshot | null = null
+        try { snap = this.io.getDelivery(id) } catch { snap = null }
+        if (snap) this.handleDeliveryState(snap)
+      }
+    }
+    if (PLAN_TRIGGERS.has(msg.type)) {
+      try { this.refreshPlans() } catch { /* best effort */ }
+    }
   }
 
   /**
@@ -509,23 +791,120 @@ export class MilestoneChainManager {
     }
   }
 
-  async resume(id: string): Promise<ChainControlResult> {
+  /**
+   * Resume (or "Launch next rail" at a checkpoint): reconcile against the live
+   * rows and take the recommended step — continue with the next pending spec
+   * when the paused one is already delivered, integrate a delivery the person
+   * produced by hand, follow or resume a run already on the spec, or retry a
+   * spec that genuinely failed. `from` picks between the two failed-spec paths.
+   */
+  async resume(id: string, opts: { from?: ChainResumeFrom } = {}): Promise<ChainControlResult> {
     const row = getChain(this.db, id)
     if (!row) return { ok: false, status: 404, error: 'chain_not_found' }
+    const plan = this.plan(row)
+    // A chain following a run the person paused: Resume resumes that run.
+    if (row.status === 'running' && plan.action.kind === 'resume_run') {
+      const r = await this.execute(row, plan, plan.action, false)
+      if (!r.ok) return { ok: false, status: r.status, error: r.error, ...(r.detail ? { detail: r.detail } : {}) }
+      return { ok: true, status: 202, chain: this.snapshot(getChain(this.db, id)!) }
+    }
     if (row.status !== 'paused' && row.status !== 'awaiting_approval') return { ok: false, status: 409, error: 'chain_not_paused', detail: `chain is ${row.status}` }
-    if (this.io.integrateDelivery && row.current_delivery_id && row.pause_reason?.startsWith('integration_')) {
+    if (opts.from === 'failed_step') {
+      if (plan.action.kind === 'resume_failed') {
+        const r = await this.resumeFailedSpec(row, plan.order.map((t) => [t]), plan.action)
+        return r
+      }
+      return this.resumeFailedStep(row)
+    }
+    if (opts.from !== 'start' && this.io.integrateDelivery && row.current_delivery_id && row.pause_reason?.startsWith('integration_')) {
       await this.integrateChunk(id)
-      return { ok: true, status: 202, chain: toChainSnapshot(getChain(this.db, id)!) }
+      return { ok: true, status: 202, chain: this.snapshot(getChain(this.db, id)!) }
     }
-    if (row.head_branch && !(await this.branchExistsSafe(row.head_branch))) {
-      updateChain(this.db, row.id, row.status, { status: 'paused', pauseReason: 'head_missing' }, this.now())
-      const fresh = getChain(this.db, row.id)!
-      this.emit(fresh)
-      return { ok: false, status: 409, error: 'head_missing', detail: `branch ${row.head_branch} no longer exists` }
+    // `start`: run the spec again from the start — a failed spec, or a
+    // delivery whose integration was refused (rebuilt on the updated base).
+    const action: ChainNextAction = opts.from === 'start' && (plan.action.kind === 'resume_failed' || plan.action.kind === 'integrate')
+      ? { kind: 'launch', ticketId: plan.action.ticketId, retry: true }
+      : plan.action
+    if (action.kind === 'launch') {
+      const base = this.baseFor(row, plan, false)
+      if (base.baseBranch && !this.io.integrateDelivery && !(await this.branchExistsSafe(base.baseBranch))) {
+        updateChain(this.db, row.id, row.status, { status: 'paused', pauseReason: 'head_missing', headBranch: base.baseBranch }, this.now())
+        const fresh = getChain(this.db, row.id)!
+        this.emit(fresh)
+        return { ok: false, status: 409, error: 'head_missing', detail: `branch ${base.baseBranch} no longer exists` }
+      }
+      updateChain(this.db, row.id, row.status, { status: 'waiting', headBranch: base.baseBranch ?? row.head_branch, pauseReason: null }, this.now())
     }
-    await this.advance(row.id, row.head_branch)
+    const current = getChain(this.db, row.id)!
+    const r = await this.execute(current, plan, action, false)
     const after = getChain(this.db, row.id)!
-    return { ok: true, status: 202, chain: toChainSnapshot(after) }
+    if (!r.ok) {
+      if (action.kind === 'launch') {
+        // Same contract as an automatic advance: the chain pauses with the guard.
+        this.pause(after, r.error === RAIL_LIMIT_REACHED ? RAIL_LIMIT_REACHED : `launch_rejected:${r.error}`)
+        return { ok: true, status: 202, chain: this.snapshot(getChain(this.db, row.id)!) }
+      }
+      return { ok: false, status: r.status, error: r.error, ...(r.detail ? { detail: r.detail } : {}) }
+    }
+    if (action.kind !== 'complete' && action.kind !== 'integrate') this.emit(after)
+    return { ok: true, status: 202, chain: this.snapshot(getChain(this.db, row.id)!) }
+  }
+
+  /** Continue a spec that genuinely failed from the step that stopped it: its
+   *  newest run resumes in place (same lineage, worktree and delivery). */
+  private async resumeFailedSpec(row: MilestoneChainRow, chunks: number[][], action: Extract<ChainNextAction, { kind: 'resume_failed' }>): Promise<ChainControlResult> {
+    if (!this.io.resumeFailedRun) return { ok: false, status: 409, error: 'failed_step_unavailable', detail: 'this spec can only be relaunched from the start' }
+    const restore = { status: row.status, pauseReason: row.pause_reason, retryChunk: row.retry_chunk, currentRunIds: parseRunIds(row), currentDeliveryId: row.current_delivery_id, currentRailIndex: row.current_rail_index, lastRunOutcome: row.last_run_outcome, launched: parseLaunched(row), chunks: parseChunks(row), nextChunk: row.next_chunk }
+    const order = chunks.map((c) => c[0])
+    this.recordLaunched(row.id, { chunk: order.indexOf(action.ticketId) + 1, railIndex: action.railIndex ?? -1, ticketIds: [action.ticketId], runIds: [action.runId], deliveryId: action.deliveryId }, chunks)
+    let resumed: { ok: true } | ChainIoFailure
+    try { resumed = await this.io.resumeFailedRun(action.runId) } catch (error) {
+      resumed = { ok: false, status: 409, error: 'run_resume_failed', detail: error instanceof Error ? error.message : String(error) }
+    }
+    if (!resumed.ok) {
+      updateChain(this.db, row.id, 'running', restore, this.now())
+      const back = getChain(this.db, row.id)
+      if (back) this.emit(back)
+      return { ok: false, status: resumed.status, error: resumed.error, ...(resumed.detail ? { detail: resumed.detail } : {}) }
+    }
+    const fresh = getChain(this.db, row.id)!
+    this.emit(fresh)
+    return { ok: true, status: 202, chain: this.snapshot(fresh) }
+  }
+
+  /**
+   * Continue a FAILED chunk from the step that stopped it: the chunk's own run
+   * resumes in place (its worktree, its delivery), re-running only the
+   * interrupted steps, instead of a fresh run of the whole spec. The chain is
+   * marked running first so the resumed run's settle advances it as usual; a
+   * rejected resume restores the pause untouched, so Resume from the start
+   * stays available.
+   */
+  private async resumeFailedStep(row: MilestoneChainRow): Promise<ChainControlResult> {
+    const failed = row.status === 'paused' && row.retry_chunk !== null
+      ? parseLaunched(row).find((entry) => entry.chunk === row.retry_chunk! + 1)
+      : undefined
+    if (!failed) return { ok: false, status: 409, error: 'no_failed_step', detail: 'the chain is not paused on a failed spec' }
+    if (failed.runIds.length !== 1 || !this.io.resumeFailedRun) return { ok: false, status: 409, error: 'failed_step_unavailable', detail: 'this spec can only be relaunched from the start' }
+    const runId = failed.runIds[0]
+    const restore = { status: 'paused' as const, pauseReason: row.pause_reason, retryChunk: row.retry_chunk, currentRunIds: parseRunIds(row), currentDeliveryId: row.current_delivery_id, currentRailIndex: row.current_rail_index, lastRunOutcome: row.last_run_outcome }
+    if (!updateChain(this.db, row.id, row.status, {
+      status: 'running', pauseReason: null, retryChunk: null, lastRunOutcome: null,
+      currentRailIndex: failed.railIndex, currentRunIds: failed.runIds, currentDeliveryId: failed.deliveryId,
+    }, this.now())) return { ok: false, status: 409, error: 'chain_not_paused', detail: 'the chain changed; try again' }
+    let resumed: { ok: true } | ChainIoFailure
+    try { resumed = await this.io.resumeFailedRun(runId) } catch (error) {
+      resumed = { ok: false, status: 409, error: 'run_resume_failed', detail: error instanceof Error ? error.message : String(error) }
+    }
+    if (!resumed.ok) {
+      updateChain(this.db, row.id, 'running', restore, this.now())
+      const back = getChain(this.db, row.id)
+      if (back) this.emit(back)
+      return { ok: false, status: resumed.status, error: resumed.error, ...(resumed.detail ? { detail: resumed.detail } : {}) }
+    }
+    const fresh = getChain(this.db, row.id)!
+    this.emit(fresh)
+    return { ok: true, status: 202, chain: this.snapshot(fresh) }
   }
 
   /**
@@ -540,7 +919,7 @@ export class MilestoneChainManager {
     if (on && row.status === 'awaiting_approval') return this.resume(id)
     const fresh = getChain(this.db, row.id)!
     this.emit(fresh)
-    return { ok: true, status: 200, chain: toChainSnapshot(fresh) }
+    return { ok: true, status: 200, chain: this.snapshot(fresh) }
   }
 
   cancel(id: string): ChainControlResult {
@@ -550,7 +929,7 @@ export class MilestoneChainManager {
     updateChain(this.db, row.id, row.status, { status: 'cancelled' }, this.now())
     const fresh = getChain(this.db, row.id)!
     this.emit(fresh)
-    return { ok: true, status: 200, chain: toChainSnapshot(fresh) }
+    return { ok: true, status: 200, chain: this.snapshot(fresh) }
   }
 
   /**

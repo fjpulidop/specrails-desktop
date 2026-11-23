@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import express from 'express'
 import http from 'http'
 import type { AddressInfo } from 'net'
@@ -45,6 +45,9 @@ async function connectClient(url: URL): Promise<Client> {
   return client
 }
 
+// These cases pin the v1 catalog for external clients through the escape hatch
+// (`SPECRAILS_MCP_V2=false`); v2 is the default since the cut-over and has its
+// own suites under ./v2. In-app turns get the v1 catalog either way.
 describe('McpServerManager (embedded MCP server)', () => {
   let db: DbInstance
   let manager: McpServerManager
@@ -52,6 +55,7 @@ describe('McpServerManager (embedded MCP server)', () => {
   let url: URL
 
   beforeEach(async () => {
+    vi.stubEnv('SPECRAILS_MCP_V2', 'false')
     _resetAgentCapabilitiesForTest()
     db = initDesktopDb(':memory:')
     manager = new McpServerManager({ registry: makeRegistry(db), broadcast: () => {}, desktopPort: 4200 })
@@ -61,6 +65,7 @@ describe('McpServerManager (embedded MCP server)', () => {
   })
 
   afterEach(async () => {
+    vi.unstubAllEnvs()
     await manager.stop()
     await new Promise<void>((resolve) => server.close(() => resolve()))
   })
@@ -116,6 +121,37 @@ describe('McpServerManager (embedded MCP server)', () => {
     })
     expect(response.status).toBe(401)
     expect(manager.status().activeSessions).toBe(0)
+  })
+
+  it('loads the Specrails tools up front for in-app agents only, keeping the integration tools deferred', async () => {
+    vi.stubEnv('SPECRAILS_MCP_V2', '')
+    const capability = mintAgentCapability({ conversationId: 'conv-meta', tierLevel: 3 })
+    const inApp = new Client({ name: 'in-app', version: '1' })
+    await inApp.connect(new StreamableHTTPClientTransport(url, { requestInit: { headers: { [AGENT_CAPABILITY_HEADER]: capability } } }))
+    const external = await connectClient(url)
+    const alwaysLoad = (tools: Array<{ name: string; _meta?: Record<string, unknown> }>) =>
+      tools.filter((tool) => tool._meta?.['anthropic/alwaysLoad'] === true).map((tool) => tool.name)
+    const inAppTools = (await inApp.listTools()).tools
+    const loaded = alwaysLoad(inAppTools)
+    expect(loaded).toContain('specrails_status')
+    expect(loaded).toContain('specrails_guide')
+    expect(loaded).not.toContain('specrails_jira')
+    expect(loaded).not.toContain('specrails_plugins')
+    expect(loaded.length).toBe(inAppTools.length - 2)
+    vi.stubEnv('SPECRAILS_MCP_V2', 'false')
+    const externalV1 = await connectClient(url)
+    expect(alwaysLoad((await externalV1.listTools()).tools)).toEqual([])
+    await externalV1.close()
+    // v2 is on by default: the external client gets the v2 catalog; the in-app turn keeps the v1 tools its prompts name.
+    const externalTools = (await external.listTools()).tools
+    expect(externalTools.map((tool) => tool.name)).toContain('specrails_overview')
+    expect(externalTools.map((tool) => tool.name)).not.toContain('specrails_guide')
+    for (const name of ['specrails_mission', 'specrails_background', 'specrails_git', 'specrails_code', 'specrails_runs', 'specrails_rails', 'specrails_specs_write']) {
+      expect(inAppTools.map((tool) => tool.name)).toContain(name)
+    }
+    expect(inApp.getInstructions()).toBeUndefined()
+    await inApp.close()
+    await external.close()
   })
 
   it('binds sessions to their owning turn and closes them when that capability is revoked', async () => {
@@ -271,7 +307,14 @@ describe('McpServerManager (embedded MCP server)', () => {
     const result = await client.callTool({ name: 'specrails_guide', arguments: {} })
     const text = (result.content as Array<{ type: string; text: string }>)[0].text
     expect(text).toContain('Specrails')
+    expect(text).toContain('rails-and-launch')
     expect(result.isError).toBeFalsy()
+    const topic = await client.callTool({ name: 'specrails_guide', arguments: { topic: 'rails-and-launch' } })
+    expect(topic.isError).toBeFalsy()
+    expect(JSON.stringify(topic)).toContain('Launch, then release the turn')
+    const unknown = await client.callTool({ name: 'specrails_guide', arguments: { topic: 'nope' } })
+    expect(unknown.isError).toBe(true)
+    expect(JSON.stringify(unknown)).toContain('invalid_input')
     await client.close()
   })
 
@@ -339,8 +382,47 @@ describe('McpServerManager (embedded MCP server)', () => {
     const client = await connectClient(url)
     const result = await client.callTool({ name: 'specrails_projects', arguments: { action: 'list' } })
     expect(result.isError).toBeFalsy()
-    expect((result.content as Array<{ type: string; text: string }>)[0].text).toBe('[]')
+    const envelope = JSON.parse((result.content as Array<{ type: string; text: string }>)[0].text)
+    expect(envelope).toMatchObject({ ok: true, data: [], summary: expect.stringContaining('No projects') })
+    expect(result.structuredContent).toEqual(envelope)
     await client.close()
+  })
+
+  it('advertises the envelope outputSchema and confirm/dryRun only on tools with destructive actions', async () => {
+    setDesktopSetting(db, 'mcp_enabled', 'true')
+    const client = await connectClient(url)
+    try {
+      const { tools } = await client.listTools()
+      const byName = new Map(tools.map((tool) => [tool.name, tool]))
+      for (const name of ['specrails_status', 'specrails_inbox', 'specrails_missions']) expect(byName.has(name)).toBe(true)
+      for (const tool of tools) expect(tool.outputSchema?.properties).toHaveProperty('summary')
+      expect(byName.get('specrails_projects')?.inputSchema.properties).toHaveProperty('confirm')
+      expect(byName.get('specrails_missions')?.inputSchema.properties).toHaveProperty('dryRun')
+      expect(byName.get('specrails_status')?.inputSchema.properties).not.toHaveProperty('confirm')
+      expect(byName.get('specrails_guide')?.inputSchema.properties ?? {}).not.toHaveProperty('confirm')
+    } finally {
+      await client.close()
+    }
+  })
+
+  it('requires confirm:true for an external destructive call and previews it with dryRun', async () => {
+    setDesktopSetting(db, 'mcp_enabled', 'true')
+    const client = await connectClient(url)
+    try {
+      const refused = await client.callTool({ name: 'specrails_projects', arguments: { action: 'unregister', projectId: 'x' } })
+      expect(refused.isError).toBe(true)
+      expect(refused.structuredContent).toMatchObject({
+        ok: false,
+        error: { code: 'confirmation_required', retryable: false, resend: { tool: 'specrails_projects', args: { action: 'unregister', projectId: 'x', confirm: true } } },
+      })
+      const preview = await client.callTool({ name: 'specrails_projects', arguments: { action: 'unregister', projectId: 'x', dryRun: true } })
+      expect(preview.isError).toBeFalsy()
+      expect(preview.structuredContent).toMatchObject({ ok: true, status: 'dry_run', data: { wouldExecute: false, tier: 'destructive', requiresConfirm: true } })
+      const confirmed = await client.callTool({ name: 'specrails_projects', arguments: { action: 'unregister', projectId: 'x', confirm: true } })
+      expect(confirmed.structuredContent).toMatchObject({ ok: false, error: { code: 'not_found', message: 'Unknown projectId "x".' } })
+    } finally {
+      await client.close()
+    }
   })
 
   it('authorizes facade actions individually for a first-party read-only mission', async () => {

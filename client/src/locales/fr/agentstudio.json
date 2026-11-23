@@ -161,7 +161,7 @@
   },
   "templates": {
     "security-reviewer": {
-      "label": "Relecteur Sécurité",
+      "label": "Relecteur sécurité",
       "blurb": "Détecte les bugs d'authentification, d'injection et d'exposition de données dans un diff avant livraison."
     },
     "performance-profiler": {
@@ -169,7 +169,7 @@
       "blurb": "Repère les hot paths, les requêtes N+1, les boucles non bornées, le gonflement du bundle."
     },
     "data-engineer": {
-      "label": "Data Engineer",
+      "label": "Data engineer",
       "blurb": "Migrations de schéma, pipelines ETL, transformations de données."
     },
     "ui-ux-polisher": {
@@ -189,7 +189,7 @@
       "blurb": "CI/CD, observabilité, préparation aux incidents, runbooks."
     },
     "mobile-engineer": {
-      "label": "Ingénieur Mobile",
+      "label": "Ingénieur mobile",
       "blurb": "Patterns iOS + Android, offline-first, sobriété batterie."
     },
     "ml-engineer": {
@@ -197,7 +197,7 @@
       "blurb": "Pipelines, éval, reproductibilité, surveillance du drift."
     },
     "accessibility-auditor": {
-      "label": "Auditeur Accessibilité",
+      "label": "Auditeur accessibilité",
       "blurb": "Revue WCAG 2.2 : contraste, focus, ARIA, clavier."
     },
     "qa-test-strategist": {
@@ -217,7 +217,7 @@
       "blurb": "Bisecte, reproduit, écrit d'abord le test qui échoue."
     },
     "data-analyst": {
-      "label": "Data Analyst",
+      "label": "Data analyst",
       "blurb": "Transforme des questions vagues en requêtes + conclusions lisibles."
     },
     "etl-reviewer": {
@@ -229,11 +229,11 @@
       "blurb": "Dashboards lisibles d'un coup d'œil, axes honnêtes, une action par graphique."
     },
     "iac-reviewer": {
-      "label": "Relecteur IaC / Cloud",
+      "label": "Relecteur iaC / cloud",
       "blurb": "Terraform / CloudFormation : IAM, exposition publique, coûts."
     },
     "compliance-reviewer": {
-      "label": "Relecteur Conformité",
+      "label": "Relecteur conformité",
       "blurb": "Contrôles type RGPD / SOC2 / HIPAA sur les flux de données."
     },
     "threat-modeler": {
@@ -241,7 +241,7 @@
       "blurb": "STRIDE / LINDDUN sur les diagrammes d'architecture."
     },
     "product-manager": {
-      "label": "Product Manager",
+      "label": "Product manager",
       "blurb": "Cadrage du problème, PRD, priorisation."
     },
     "ux-researcher": {
@@ -253,7 +253,7 @@
       "blurb": "Des docs qu'on lit vraiment — tutoriels, références, changelogs."
     },
     "design-reviewer": {
-      "label": "Relecteur Design System",
+      "label": "Relecteur design system",
       "blurb": "Dérive des tokens, mauvais usage des composants, cohérence entre les flux."
     },
     "financial-analyst": {
@@ -261,7 +261,7 @@
       "blurb": "Unit economics, modèles de cohortes, analyse de scénarios."
     },
     "pricing-strategist": {
-      "label": "Stratège Pricing",
+      "label": "Stratège pricing",
       "blurb": "Paliers, packaging, études de disposition à payer."
     },
     "market-researcher": {
@@ -277,7 +277,7 @@
       "blurb": "SEO technique + contenu : indexabilité, architecture de l'information, adéquation à l'intention."
     },
     "growth-hacker": {
-      "label": "Expérimentateur Growth",
+      "label": "Expérimentateur growth",
       "blurb": "Diagnostic de funnel, expériences d'uplift, boucles d'activation."
     },
     "social-strategist": {
@@ -309,7 +309,7 @@
       "blurb": "Des questions qui mesurent la compréhension, pas la mémorisation."
     },
     "tutor-explainer": {
-      "label": "Tuteur / Vulgarisateur",
+      "label": "Tuteur / vulgarisateur",
       "blurb": "Explications simples façon Feynman, avec exemples corrigés."
     },
     "clinical-guideline-reviewer": {

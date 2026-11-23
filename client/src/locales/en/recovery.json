@@ -10,9 +10,14 @@
     },
     "provider_limit": "The AI provider's usage limit was reached",
     "environment": "The environment can't run the checks",
+    "port_in_use": {
+      "port": "Another process was already using port {{port}}",
+      "plain": "Another process was already using the port the run needed"
+    },
     "blocked": {
       "phase": "The run is blocked in the {{phase}} phase",
-      "plain": "The run is blocked"
+      "plain": "The run is blocked",
+      "corrections": "Automatic corrections ran out"
     },
     "timeout": {
       "phase": "The {{phase}} phase ran out of time",
@@ -26,31 +31,55 @@
       "phase": "The agent stopped unexpectedly in the {{phase}} phase",
       "plain": "The agent stopped unexpectedly"
     },
-    "unknown": "Unknown cause"
+    "provider_unavailable": {
+      "phase": "The provider's service was unavailable in the {{phase}} phase",
+      "plain": "The provider's service was unavailable"
+    },
+    "incomplete_tasks": "Some approved tasks were left unfinished",
+    "spec_invalid": "OpenSpec rejected the change's spec",
+    "workflow_protocol": {
+      "role": "The {{role}} model skipped required OpenSpec steps",
+      "plain": "The model skipped required OpenSpec steps"
+    },
+    "unknown": "Unknown cause",
+    "stepFailed": "The {{phase}} step failed"
   },
   "why": {
     "provider_limit": {
-      "reset": "It resets {{resetAt}}. Resume once it has.",
-      "noReset": "Wait for the limit to reset, then resume."
+      "resetsAt": "It resets at {{time}}. Continue then, or run it on another provider.",
+      "reset": "It resets {{resetAt}}. Continue then, or run it on another provider.",
+      "noReset": "Wait for the limit to reset, then continue, or run it on another provider."
     },
     "environment": "The change itself isn't the problem. The machine needs something first.",
+    "port_in_use": "The change itself isn't the problem: something else held the port. Stop it, or have the project read PORT (each run gets its own), then run again.",
     "tests_failed": "The checks still fail after the corrections.",
     "blocked": "A limit or a decision stopped it. It didn't crash.",
     "timeout": "It reached its time limit before finishing.",
     "tool_inactivity": "It stopped using tools and replying for too long.",
     "crash": "The provider process or its connection died mid-run.",
-    "unknown": "The app can't tell why it stopped, so it won't guess."
+    "provider_unavailable": "The provider's service did not answer for a moment, even after Specrails retried for about a minute. Nothing about the work is wrong.",
+    "incomplete_tasks": "Everything else is done. Continue finishes what is left with the browser and its tools; a check only a person can make can go to review instead.",
+    "spec_invalid": "The plan or spec didn't pass OpenSpec, and planning couldn't repair it.",
+    "workflow_protocol": {
+      "plain": "It ended its turn without the steps Specrails requires, even after a reminder. The work before that step is kept: continue from it.",
+      "stronger": "{{model}} is a small model and ended its turn without the steps Specrails requires, even after a reminder. Continue from that step; if it happens again, choose {{stronger}} for this role."
+    },
+    "unknown": "The run's own records don't name the cause. An AI reading of the log usually finds it.",
+    "correctionsExhausted": "The reviewer still asks for a change after {{count}} automatic corrections. Nothing crashed: the run stopped to ask before spending more."
   },
   "remedies": {
-    "label": "Ways to recover"
+    "label": "Ways to recover",
+    "more": "More ways to recover"
   },
   "remedy": {
-    "resume": "Resume",
-    "resumeFrom": "Resume from {{phase}}",
-    "retry": "Run again",
+    "retry": "Start over",
     "editSpec": "Edit spec and relaunch",
     "fixEnvironment": "Fix the environment",
-    "openLogs": "Open logs at the failure"
+    "openLogs": "Open logs at the failure",
+    "continueToReview": "Continue to review",
+    "continue": "Continue",
+    "continueFrom": "Continue from {{phase}}",
+    "copyEnvFiles": "Copy this project's .env into runs"
   },
   "environment": {
     "command": "Command",
@@ -59,7 +88,7 @@
     "inDirectory": "in {{cwd}}",
     "requiredAction": "Required action",
     "generic": "The environment needs attention before the run can continue.",
-    "then": "When that is done, resume the run."
+    "then": "When that is done, continue the run."
   },
   "logTail": {
     "title": "End of the log"
@@ -73,5 +102,139 @@
     "apply": "Use a Python {{version}} venv for checks",
     "saved": "Saved to the project settings. The next launch builds the venv before its checks.",
     "failed": "Could not save the settings. Open Project settings to configure them."
+  },
+  "analysis": {
+    "title": "AI analysis",
+    "offer": "Ask the AI to read the log and explain why this run stopped.",
+    "run": "Analyze with AI",
+    "retry": "Try again",
+    "running": "Reading the log to find why it stopped…",
+    "failed": "The AI analysis did not finish.",
+    "evidence": "From the log",
+    "nextSteps": "The plan to fix it",
+    "failedStep": "step: {{step}}",
+    "by": "AI analysis by {{model}}. It reads the log; check the lines it cites.",
+    "stale": "The log changed since this analysis.",
+    "regenerate": "Analyze again",
+    "category": {
+      "providerLimit": "Quota or usage limit",
+      "missingArtifact": "Missing artifact",
+      "configuration": "Configuration",
+      "tests": "Tests",
+      "environment": "Environment",
+      "agentError": "Agent error",
+      "interrupted": "Interrupted",
+      "incompleteTasks": "Unfinished tasks",
+      "other": "Other"
+    },
+    "interrupted": "The analysis was interrupted (the app restarted while it ran). Try again.",
+    "action": {
+      "changeModel": "Change the model",
+      "changeModelFor": "Change the {{role}} model"
+    },
+    "continueCarriesPlan": "You don't need to pick one: Continue (above) hands these steps to the agent and carries them out."
+  },
+  "facts": {
+    "label": "Where it failed",
+    "step": "Step",
+    "attempt": "Attempt",
+    "iteration": "Iteration",
+    "time": "Time"
+  },
+  "incomplete": {
+    "title": "Unfinished tasks"
+  },
+  "ai": {
+    "label": "From AI analysis",
+    "running": "Reading the log with AI to find the cause…"
+  },
+  "remedyResult": {
+    "continued": "Continuing to review with the remaining items as checks by hand.",
+    "notResumed": "The continued run did not start",
+    "failed": "Could not continue the run",
+    "continuing": "Continuing the run.",
+    "continuingFrom": "Continuing from the {{step}} step.",
+    "envFilesCopied": "Copied {{files}} into the run. Continuing.",
+    "envFilesUnavailable": "This project has no .env file to copy. Create it in your checkout, then try again.",
+    "continuingWith": "Continuing with: {{label}}",
+    "continuingWithInstruction": "Continuing with your instruction."
+  },
+  "consequence": {
+    "continue": "Keeps everything and goes on from the step that failed.",
+    "continueTasks": "Keeps everything and redoes only what was missing, with the browser and install guidance.",
+    "continueEnvironment": "Keeps everything; the agent is told what is missing and installs it, then goes on.",
+    "continueLimit": "Keeps everything and goes on once the provider accepts requests again.",
+    "continueTransient": "Keeps everything and runs the same step again.",
+    "continueStopped": "Picks it up where it stopped, in the same worktree, with everything it did so far.",
+    "continueToReview": "Sends it to review now, with what is left listed as checks by hand.",
+    "editSpec": "Opens the spec; a change to it starts a new run.",
+    "fixEnvironment": "Shows what the machine needs and the command to run.",
+    "openLogs": "Scrolls to the failed step in the log.",
+    "retry": "A fresh run from the base. This attempt's work is not carried over; it stays in the old worktree.",
+    "analyze": "The AI reads the log and says why it stopped.",
+    "copyEnvFiles": "Turns on the setting for this project and continues. Agents in its runs can read these files; they are never committed or shown in reviews.",
+    "continueCorrections": "Gives the fixer 3 new corrections with what the reviewer asks for, then reviews again."
+  },
+  "stopped": {
+    "headline": "You stopped this run",
+    "why": "Nothing is lost.",
+    "whyNoContinue": "Its work stays in its worktree. Start over runs it again from the base."
+  },
+  "lineage": {
+    "title": "Attempts",
+    "explain": "Each attempt continued the one before it, keeping its work. The latest one speaks for all of them.",
+    "attempt": "Attempt {{attempt}} of {{total}}",
+    "attemptShort": "Attempt {{attempt}}",
+    "continuedFromStep": "continued from the {{step}} step of attempt {{attempt}}",
+    "continuedFrom": "continued from attempt {{attempt}}",
+    "supersededBy": "attempt {{attempt}} took over",
+    "automatic": "Specrails continued automatically",
+    "this": "this one",
+    "open": "Open",
+    "fromStep": "From the {{step}} step",
+    "byAutomatic": "Specrails continued automatically",
+    "byPerson": "Continued by you",
+    "byReview": "Sent to review with checks by hand",
+    "guidance": "Guidance sent to the agent",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "Estimate from the rate card, not billed cost"
+  },
+  "resolution": {
+    "title": "Pick how to go on",
+    "intro": "Each choice says what it does and what may happen. One click continues the run.",
+    "recommended": "Recommended",
+    "whatMayHappen": "What may happen:",
+    "risk": {
+      "low": "Low risk",
+      "medium": "Some risk",
+      "high": "High risk"
+    },
+    "other": "Other instruction…",
+    "otherLabel": "What should the agent do?",
+    "otherPlaceholder": "For example: launch Electron without the debugger in the close tests and assert only the exit code",
+    "send": "Continue with this instruction",
+    "sending": "Continuing…",
+    "keepTrying": {
+      "label": "Keep trying as is",
+      "does": "Continues with the same approach and a fresh round of corrections.",
+      "consequence": "It will likely stop the same way again; each attempt has cost about {{cost}} so far.",
+      "consequenceNoCost": "It will likely stop the same way again."
+    }
+  },
+  "repeat": {
+    "title_one": "Stopped the same way {{count}} time",
+    "title_other": "Stopped the same way {{count}} times in a row",
+    "spend_one": "{{count}} attempt, {{cost}} so far",
+    "spend_other": "{{count}} attempts, {{cost}} so far",
+    "attempts_one": "{{count}} attempt so far",
+    "attempts_other": "{{count}} attempts so far",
+    "advice": "Continuing unchanged will likely stop here again. Pick one of the ways forward below.",
+    "adviceNoOptions": "Continuing unchanged will likely stop here again. The AI analysis below suggests ways forward.",
+    "adviceAlone": "Continuing unchanged will likely stop here again."
+  },
+  "flaky": {
+    "title_one": "This test looks flaky",
+    "title_other": "These tests look flaky",
+    "explain": "They passed on earlier rounds or on the same code and now fail on timing. Continuing asks the agent to make them deterministic, not to lengthen timeouts."
   }
 }

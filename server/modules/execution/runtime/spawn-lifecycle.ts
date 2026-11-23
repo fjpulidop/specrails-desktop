@@ -17,6 +17,7 @@ import { treeKillSafe as treeKill } from '../../../util/win-spawn'
 import { spawnAiCli } from '../../../util/cli-prompt'
 import { buildProviderEnv, parseStreamEvents } from '../../../providers/runtime'
 import type { ProviderAdapter, AdapterEvent, SpawnAction, SpawnOptions } from '../../../providers/types'
+import { observeQuotaLine } from '../../provider-quota/runtime/stream-observer'
 
 /** Node child_process spawn options the lifecycle forwards verbatim. */
 interface NodeSpawnOpts {
@@ -184,6 +185,7 @@ export function runAiCliInvocation(hooks: RunInvocationHooks): Promise<Invocatio
         // uncaught exception that takes the sidecar down.
         try {
           hooks.onStdoutLine?.(line)
+          observeQuotaLine(hooks.adapter.id, line)
           const parsedEvents = parseStreamEvents(hooks.adapter, line)
           for (const ev of parsedEvents) {
             events.push(ev)

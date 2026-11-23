@@ -1,0 +1,110 @@
+{
+  "title": "Live-Board",
+  "description": "Jeder Lauf in jedem Projekt, live",
+  "shortcutHint": "Mit {{shortcut}} öffnen oder schließen",
+  "stale": "Dieses Board ist möglicherweise nicht aktuell.",
+  "loading": "Deine Projekte werden gelesen…",
+  "openInWindow": "In Fenster öffnen",
+  "summary": {
+    "needsYou_one": "{{count}} offen",
+    "needsYou_other": "{{count}} offen",
+    "inProgress_one": "{{count}} läuft",
+    "inProgress_other": "{{count}} laufen",
+    "today": "heute {{cost}}",
+    "todayEstimated": "heute ~{{cost}} (inkl. Schätzungen)",
+    "paused_one": "{{count}} pausiert",
+    "paused_other": "{{count}} pausiert"
+  },
+  "layout": {
+    "label": "Ansicht",
+    "status": "Nach Status",
+    "mission": "Nach Mission"
+  },
+  "columns": {
+    "needs": "Erfordert Aufmerksamkeit",
+    "working": "In Arbeit",
+    "done": "Heute erledigt",
+    "doneHint": "Leert sich um Mitternacht",
+    "openInbox": "Offen öffnen"
+  },
+  "columnEmpty": {
+    "needs": "Nichts wartet auf dich.",
+    "working": "Nichts läuft.",
+    "done": "Heute ist noch nichts fertig."
+  },
+  "filters": {
+    "label": "Filter",
+    "project": "Projekt",
+    "kind": "Art",
+    "engine": "Engine",
+    "allProjects": "Alle Projekte"
+  },
+  "kinds": {
+    "rail": "Rails",
+    "loop": "Loops",
+    "intent": "Intent",
+    "job": "Jobs"
+  },
+  "kind": {
+    "rail": "Rail {{n}}",
+    "railUnknown": "Rail",
+    "loop": "Loop",
+    "intent": "Intent",
+    "job": "Job"
+  },
+  "lane": {
+    "noMission": "Nicht aus einer Mission",
+    "noMissionHint": "Vom Board, einem Loop oder einem Job gestartet",
+    "untitled": "Mission ohne Titel",
+    "mission": "Mission",
+    "projects_one": "{{count}} Projekt",
+    "projects_other": "{{count}} Projekte",
+    "runs_one": "{{count}} Lauf",
+    "runs_other": "{{count}} Läufe",
+    "today": "{{cost}} heute"
+  },
+  "card": {
+    "now": "gerade eben",
+    "waiting": "wartet seit {{age}}",
+    "queuedFor": "in der Warteschlange seit {{age}}",
+    "queued": "Wartet auf den Start",
+    "steps": "{{done}} von {{total}} Schritten erledigt",
+    "open": "Öffnen",
+    "openReview": "Review öffnen",
+    "untitled": "Lauf ohne Titel",
+    "untitledIntent": "Intent-Sitzung",
+    "question": "Frage",
+    "actionLabel": "{{action}}: {{title}}",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "Schätzung nach Preisliste, keine abgerechneten Kosten",
+    "costIncludesEstimate": "Enthält {{cost}} geschätzt nach Preisliste, nicht abgerechnet",
+    "mergeConflicts_one": "Konflikt mit der Basis in {{count}} Datei",
+    "mergeConflicts_other": "Konflikt mit der Basis in {{count}} Dateien",
+    "mergeSiblings_one": "Kollidiert mit {{count}} anderen Run",
+    "mergeSiblings_other": "Kollidiert mit {{count}} anderen Runs",
+    "baseMoved_one": "Basis ist {{count}} Commit weiter",
+    "baseMoved_other": "Basis ist {{count}} Commits weiter",
+    "mergeChip": {
+      "conflicts_one": "{{count}} Konflikt",
+      "conflicts_other": "{{count}} Konflikte",
+      "siblings_one": "Überschneidet {{count}} Run",
+      "siblings_other": "Überschneidet {{count}} Runs",
+      "baseMoved": "Basis weiter"
+    },
+    "attempt": "Versuch {{number}}",
+    "attemptCost": "Dieser Versuch: {{cost}}. Die Kosten der Karte umfassen alle {{of}} Versuche."
+  },
+  "empty": {
+    "title": "Nichts läuft",
+    "description": "Läufe aus allen Projekten erscheinen hier, sobald sie starten: Rails, Loops, Intent-Sitzungen und Jobs."
+  },
+  "emptyFiltered": {
+    "title": "Nichts passt zu diesen Filtern",
+    "clear": "Filter zurücksetzen"
+  },
+  "error": {
+    "title": "Live-Board konnte nicht geladen werden",
+    "description": "Die App konnte deine Projekte nicht lesen. Versuche es gleich noch einmal.",
+    "retry": "Erneut versuchen"
+  }
+}

@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { initDb } from '../../../db'
 import { recordInvocation } from '../../accounting/runtime/ai-invocations'
 import {
-  capRejection, dailyBudgetRejection, effectiveRunCap, firstExhaustedCap, isRunCapCrossed, localDayKey, periodEnd, periodStart,
-  projectMonthEnd, runCapRejection, tightestCap, type CapStatus,
+  capRejection, dailyBudgetRejection, effectiveRunCap, firstExhaustedCap, isRunCapCrossed, isRunCapReached, localDayKey, periodEnd, periodStart,
+  projectMonthEnd, runCapAheadUsd, runCapRejection, tightestCap, type CapStatus,
 } from '..'
 import { createDailyBudgetGate, createDailyBudgetHeadroom, readCapStatuses } from '../runtime/daily-budget-gate'
 import { readSpendOverview } from '../runtime/budget-overview'
-import { readProjectCaps, writeProjectCap } from '../adapters/budget-storage'
+import { appWideSpendSince, createQueueBudgetStorage, pinnedAppLedger, readProjectCaps, writeProjectCap } from '../adapters/budget-storage'
+import { initDesktopDb, recordAgentInvocation } from '../../../desktop-db'
 
 const local = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h)
 
@@ -73,6 +74,46 @@ describe('per-run soft cap', () => {
   })
   it('describes the rejection without a reset window', () => {
     expect(runCapRejection(5, 5.2)).toMatchObject({ period: 'run', budgetUsd: 5, spentUsd: 5.2, resetsAt: null })
+  })
+  it('enforces the cap before a turn whose expected cost would cross it', () => {
+    // The gpt-6-astra run: a $1.96 plan turn against a $2.00 cap.
+    expect(isRunCapReached(2, 1.96, 1.96)).toBe(true)
+    expect(isRunCapReached(2, 0.5, 0.5)).toBe(false)
+    expect(isRunCapReached(2, 1, 1)).toBe(false) // exactly at the cap still fits
+    expect(isRunCapReached(2, 0.8, runCapAheadUsd({ largestUsd: 0.8, lastUsd: 0.8 }, 2))).toBe(true) // this turn and the next
+    expect(isRunCapReached(2, 0.1, null)).toBe(false) // no turn yet: nothing projected
+    expect(isRunCapReached(null, 10, 10)).toBe(false)
+    expect(isRunCapReached(2, 2, null)).toBe(true)
+  })
+  it('reports the overshoot precisely, and what a raise must cover', () => {
+    expect(runCapRejection(2, 4.89, { largestUsd: 2.3, lastUsd: 0.63 })).toMatchObject({ overshootUsd: 2.89,
+      detail: "This run's cost $4.89 is $2.89 over its per-run cap of $2.00: its last turn cost $0.63, more than the cap had left." })
+    expect(runCapRejection(2, 1.96, { largestUsd: 1.96, lastUsd: 1.96 })).toMatchObject({ nextTurnUsd: 1.96,
+      detail: 'This run has spent $1.96 of its $2.00 per-run cap, and its next turn is expected to cost about $1.96 (its largest turn so far), which would take it to $3.92.',
+      action: 'Continue without the cap, or raise the per-run cap to at least $3.92, and the run resumes from the next step.' })
+    expect(runCapRejection(2, 2, { largestUsd: 1, lastUsd: 1 })).toMatchObject({ detail: "This run's cost $2.00 has reached the per-run cap of $2.00." })
+    // A small model's sub-cent spend is shown as it is, not rounded up to the cap (live haiku run: $0.0356 of $0.04).
+    expect(runCapRejection(0.04, 0.03561898, { largestUsd: 0.02, lastUsd: 0.02 }).detail).toBe('This run has spent $0.036 of its $0.04 per-run cap, and its next turn is expected to cost about $0.02 (its largest turn so far), which would take it to $0.056.')
+  })
+  // The soak runs: a $0.40 cap reached $0.52 / $0.61 because the first heavy step (a $0.49
+  // Developer) had no earlier turn of the run to predict it.
+  const developer = { nodePath: 'developer', label: 'Developer', usd: 0.45, basis: 'history' as const, samples: 6 }
+  it('projects the next AI step by its own estimate, not the largest turn so far', () => {
+    const turns = { largestUsd: 0.05, lastUsd: 0.05, next: developer, inFlight: null }
+    expect(runCapAheadUsd(turns)).toBe(0.45)
+    expect(isRunCapReached(0.4, 0.05, runCapAheadUsd(turns))).toBe(true)
+    // While a step runs, its own estimate counts too.
+    expect(runCapAheadUsd({ ...turns, inFlight: { ...developer, nodePath: 'architect', label: 'Architect', usd: 0.1 } }, 2)).toBeCloseTo(0.55, 9)
+    // No AI step follows: nothing ahead, whatever the largest turn was.
+    expect(runCapAheadUsd({ largestUsd: 0.3, lastUsd: 0.3, next: null })).toBeNull()
+    expect(isRunCapReached(0.4, 0.3, runCapAheadUsd({ largestUsd: 0.3, lastUsd: 0.3, next: null }))).toBe(false)
+  })
+  it('says which step it paused before, what it usually costs and what is left', () => {
+    expect(runCapRejection(0.4, 0.28, { largestUsd: 0.28, lastUsd: 0.28, next: { ...developer, usd: 0.45 } })).toMatchObject({
+      nextTurnUsd: 0.45, remainingUsd: 0.12, nextStep: { nodePath: 'developer', label: 'Developer', basis: 'history', samples: 6 },
+      detail: "The next step (Developer) usually costs about $0.45 (the median of its last 6 turns in this project), and $0.12 of this run's $0.40 per-run cap is left ($0.28 spent), so it has not started.",
+      action: 'Run this step once, continue without the cap, or raise the per-run cap to at least $0.73, and the run resumes from the next step.' })
+    expect(runCapRejection(0.4, 0, { largestUsd: null, lastUsd: null, next: { ...developer, basis: 'default', samples: 0 } }).detail).toContain('(a rate-card estimate of a typical turn of its kind on its model)')
   })
 })
 
@@ -175,5 +216,84 @@ describe('cap gating on a project database', () => {
       expect(overview.projection).toMatchObject({ estimate: true, trailingDays: 3, monthToDateUsd: 32 })
       expect(overview.projection?.projectedUsd).toBeCloseTo(32 + (32 / 3) * 6, 1)
     } finally { db.close() }
+  })
+})
+
+describe('mission spend (app ledger) counts against the caps', () => {
+  const invoke = (db: ReturnType<typeof initDb>, project: string, at: Date, cost: number) =>
+    recordInvocation(db, { project_id: project, provider: 'claude', surface: 'loop', status: 'success', started_at: at.toISOString(), total_cost_usd: cost })
+  let n = 0
+  const turn = (ddb: ReturnType<typeof initDesktopDb>, projectId: string | null, at: Date, cost: number | null, extra: Record<string, unknown> = {}) =>
+    recordAgentInvocation(ddb, { id: `turn-${n++}`, conversation_id: 'c1', project_id: projectId, provider: 'claude', status: 'success', started_at: at.toISOString(), total_cost_usd: cost, ...extra } as Parameters<typeof recordAgentInvocation>[1])
+
+  it('refuses a launch once pinned mission turns push the project over its weekly cap', () => {
+    const db = initDb(':memory:'); const ddb = initDesktopDb(':memory:')
+    try {
+      writeProjectCap(db, 'week', 20)
+      invoke(db, 'p1', local(2026, 10, 20), 12)
+      const at = local(2026, 10, 22)
+      const gate = createDailyBudgetGate({ db, projectId: 'p1', appLedgerDb: ddb, now: () => at })
+      expect(gate()).toBeNull()
+      turn(ddb, 'p1', local(2026, 10, 21), 9) // a mission turn pinned to p1
+      expect(gate()).toMatchObject({ scope: 'project', period: 'week', budgetUsd: 20, spentUsd: 21 })
+      // Without the app ledger the gate keeps its historical project-only view.
+      expect(createDailyBudgetGate({ db, projectId: 'p1', now: () => at })()).toBeNull()
+    } finally { db.close(); ddb.close() }
+  })
+
+  it('counts only the turns pinned to the project, never Home / Blueprint or other projects', () => {
+    const db = initDb(':memory:'); const ddb = initDesktopDb(':memory:')
+    try {
+      writeProjectCap(db, 'month', 10)
+      turn(ddb, null, local(2026, 10, 21), 50) // Home / Blueprint
+      turn(ddb, 'p2', local(2026, 10, 21), 50) // another project
+      turn(ddb, 'p1', local(2026, 10, 21), null) // unpriced: skipped, never zero-filled
+      turn(ddb, 'p1', local(2026, 10, 21), 4)
+      expect(readCapStatuses({ db, projectId: 'p1', appLedgerDb: ddb }, local(2026, 10, 22))).toEqual([expect.objectContaining({ period: 'month', spentUsd: 4, exhausted: false })])
+    } finally { db.close(); ddb.close() }
+  })
+
+  it('pauses the queue day budget on pinned mission spend (same storage the queue reads)', () => {
+    const db = initDb(':memory:'); const ddb = initDesktopDb(':memory:')
+    try {
+      db.prepare("INSERT OR REPLACE INTO queue_state (key, value) VALUES ('config.daily_budget_usd', '5')").run()
+      const now = new Date()
+      turn(ddb, 'p1', now, 6)
+      const dayStart = () => new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+      expect(createQueueBudgetStorage(db, ddb).project('p1', dayStart)).toEqual({ budget: 5, totalSpend: 6 })
+      expect(createQueueBudgetStorage(db).project('p1', dayStart)).toEqual({ budget: 5, totalSpend: 0 })
+    } finally { db.close(); ddb.close() }
+  })
+
+  it('the app-wide spend includes every agent turn (pinned, Home, Blueprint) plus every project', () => {
+    const db1 = initDb(':memory:'); const db2 = initDb(':memory:'); const ddb = initDesktopDb(':memory:')
+    try {
+      invoke(db1, 'p1', local(2026, 10, 21), 1)
+      invoke(db2, 'p2', local(2026, 10, 21), 2)
+      turn(ddb, 'p1', local(2026, 10, 21), 3)
+      turn(ddb, null, local(2026, 10, 21), 4)
+      turn(ddb, 'removed-project', local(2026, 10, 21), 5)
+      turn(ddb, null, local(2026, 10, 1), 100) // before the period
+      const since = local(2026, 10, 19, 0).toISOString()
+      expect(appWideSpendSince([{ db: db1, projectId: 'p1' }, { db: db2, projectId: 'p2' }], ddb, since)).toBe(15)
+      // A ledger that cannot be read adds nothing (fail-open).
+      expect(appWideSpendSince([{ db: db1, projectId: 'p1' }], { prepare: () => { throw new Error('closed') } } as unknown as ReturnType<typeof initDesktopDb>, since)).toBe(1)
+    } finally { db1.close(); db2.close(); ddb.close() }
+  })
+
+  it('shows mission spend in the Budget panel per provider and in the projection', () => {
+    const db = initDb(':memory:'); const ddb = initDesktopDb(':memory:')
+    try {
+      const now = local(2026, 10, 25)
+      invoke(db, 'p1', local(2026, 10, 24), 10)
+      turn(ddb, 'p1', local(2026, 10, 23), 2, { provider: 'codex', total_cost_usd_estimated: 1, num_turns: 3 })
+      turn(ddb, null, local(2026, 10, 23), 7)
+      const project = readSpendOverview([{ db, projectId: 'p1' }], now, pinnedAppLedger(ddb, 'p1'))
+      expect(project.spend.month.usd).toBe(12)
+      expect(project.spend.month.byProvider.find((p) => p.provider === 'codex')).toMatchObject({ usd: 2, estimatedUsd: 2, invocations: 1, turns: 3 })
+      expect(project.projection?.monthToDateUsd).toBe(12)
+      const appWide = readSpendOverview([{ db, projectId: 'p1' }], now, { db: ddb })
+      expect(appWide.spend.month.usd).toBe(19)
+    } finally { db.close(); ddb.close() }
   })
 })

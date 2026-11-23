@@ -1,10 +1,12 @@
 import { Fragment, memo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Check, X, RotateCw, ArrowRight, Repeat } from 'lucide-react'
+import { ChevronRight, RotateCw, ArrowRight, Repeat } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { NodeChip } from './loop-log-model'
 import { loopNodeIcon, LOOP_NODE_TEXT_ACCENT, LOOP_NODE_BORDER_ACCENT } from './loop-node-visuals'
-import { LiveDot } from '../../../../components/ui/live-dot'
+import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
+import { RunStateGlyph } from '../../../../components/ui/run-state/run-state-glyph'
+import { loopChipRunState } from '../../lib/loop-run-state'
 
 export interface LoopOverviewStripProps {
   chips: NodeChip[]
@@ -12,11 +14,15 @@ export interface LoopOverviewStripProps {
   iteration: { current: number; limit: number | null } | null
   onChipClick: (segmentKey: string) => void
   variant: 'page' | 'glass'
+  /** Detail view: show only the steps the run reached and count the rest. */
+  reachedOnly?: boolean
 }
 
-function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: LoopOverviewStripProps) {
+function LoopOverviewStripInner({ chips: allChips, iteration, onChipClick, variant, reachedOnly = false }: LoopOverviewStripProps) {
   const { t } = useTranslation('jobs')
-  if (chips.length === 0 && !iteration) return null
+  const chips = reachedOnly ? allChips.filter(chip => chip.state !== 'pending') : allChips
+  const notReached = allChips.length - chips.length
+  if (chips.length === 0 && !iteration && notReached === 0) return null
 
   return (
     <div
@@ -35,6 +41,7 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
         const label =
           chip.label ?? t(`loops:builder.nodes.${chip.kind}`, { defaultValue: chip.kind })
         const clickable = chip.latestSegmentKey != null
+        const runState = loopChipRunState(chip.state)
         return (
           <Fragment key={chip.key}>
             {i > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground shrink-0" />}
@@ -43,6 +50,7 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
               role="listitem"
               data-testid="loop-node-chip"
               data-state={chip.state}
+              data-run-state={runState}
               data-kind={chip.kind}
               data-decision={chip.decision}
               aria-label={`${label} — ${chip.state}`}
@@ -51,26 +59,26 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
               className={cn(
                 'relative flex items-center gap-1.5 shrink-0 rounded-full border bg-surface/40 px-2.5 py-1 text-caption transition-colors',
                 borderAccent,
-                chip.state === 'pending' && 'opacity-45 border-border/40',
+                chip.state === 'pending' && 'border-dashed border-border bg-transparent',
                 (chip.state === 'interrupted' || chip.state === 'paused') && 'border-dashed border-accent-warning/50',
                 clickable ? 'cursor-pointer hover:bg-surface/70' : 'cursor-default',
               )}
             >
               {chip.state === 'running' && (
-                <LiveDot tone="primary" size="xs" className="absolute -right-0.5 -top-0.5" aria-hidden />
+                <RunStateDot state="working" className="absolute -right-0.5 -top-0.5" />
               )}
               <Icon className={cn('w-3 h-3 shrink-0', textAccent)} />
               <span
                 className={cn(
-                  'max-w-[120px] truncate font-medium text-foreground',
+                  'max-w-[120px] truncate font-medium',
+                  chip.state === 'pending' ? 'text-muted-foreground' : 'text-foreground',
                   chip.state === 'running' && 'title-shimmer',
                 )}
               >
                 {label}
               </span>
               {chip.state === 'paused' && <span className="text-accent-warning">{t('loopExplorer.paused')}</span>}
-              {chip.state === 'ok' && <Check className="w-3 h-3 text-accent-success shrink-0" />}
-              {chip.state === 'failed' && <X className="w-3 h-3 text-destructive shrink-0" />}
+              {(runState === 'done' || runState === 'failed' || runState === 'paused') && <RunStateGlyph state={runState} size="xs" />}
               {chip.decision === 'continue' && (
                 <RotateCw className="w-3 h-3 text-accent-highlight shrink-0" />
               )}
@@ -81,6 +89,12 @@ function LoopOverviewStripInner({ chips, iteration, onChipClick, variant }: Loop
           </Fragment>
         )
       })}
+
+      {notReached > 0 && (
+        <span data-testid="loop-not-reached" className="shrink-0 pl-1 text-caption text-muted-foreground num">
+          {t('loopExplorer.notReached', { count: notReached })}
+        </span>
+      )}
 
       {iteration && (
         <span

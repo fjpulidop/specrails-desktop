@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { configurableImplementGraph } from './loop-implement-recipe'
 import {
   validateLoopGraph,
   effectivePieceOutcomes,
@@ -37,6 +38,13 @@ describe('loopNeedsTicket', () => {
 
   it('false for an undefined graph', () => {
     expect(loopNeedsTicket(undefined)).toBe(false)
+  })
+
+  it('true for a fork of the built-in Implement definition (it plans a new change from the ticket)', () => {
+    const fork = configurableImplementGraph()
+    expect(fork.nodes.some(n => /\{\{\s*spec\./.test(JSON.stringify(n.data ?? {})))).toBe(false)
+    expect(loopNeedsTicket(fork)).toBe(true)
+    expect(loopNeedsTicket({ ...graphWith({ prompt: 'Lint' }), config: { maxIterations: 1, timeoutMinutes: 1, change: 'none' } })).toBe(false)
   })
 })
 

@@ -182,24 +182,32 @@ function BrowserTitleBar() {
   return <div className="flex h-9 shrink-0 items-center justify-between border-b border-border surface-chrome px-2">
     <SidebarWindowButton side="left" />
     <span className="text-xs text-muted-foreground">Specrails</span>
-    {showRight ? <SidebarWindowButton side="right" /> : <span className="w-7" />}
+    {/* Same right cluster as the desktop title bar: the inbox, then the right sidebar. */}
+    <div className="flex items-center gap-1">
+      <InboxButton />
+      {showRight ? <SidebarWindowButton side="right" /> : <span className="w-7" />}
+    </div>
   </div>
 }
 
 function SidebarWindowButton({ side }: { side: 'left' | 'right' }) {
   const { t } = useTranslation('nav')
-  const { leftMode, rightMode, cycleLeftMode, cycleRightMode } = useSidebarPin()
+  const { leftMode, rightMode, cycleLeftMode, cycleRightMode, narrow, leftFlyoutOpen } = useSidebarPin()
   const mode = side === 'left' ? leftMode : rightMode
-  const key = mode === 'pinned-open' ? 'pinnedOpen' : mode === 'pinned-collapsed' ? 'pinnedCollapsed' : 'unpinned'
+  // Narrow window: the left button shows/hides the sidebar overlay (see SidebarPinContext).
+  const flyout = side === 'left' && narrow
+  const key = flyout ? (leftFlyoutOpen ? 'hideOverlay' : 'showOverlay') : mode === 'pinned-open' ? 'pinnedOpen' : mode === 'pinned-collapsed' ? 'pinnedCollapsed' : 'unpinned'
   const label = t(`sidebarPin.${side}.${key}`)
   const Icon = side === 'left' ? PanelLeft : PanelRight
-  const pinned = mode !== 'unpinned'
+  const pinned = flyout ? leftFlyoutOpen : mode !== 'unpinned'
   // ⌘B = left sidebar, ⌥⌘B = right sidebar (VS Code / Cursor convention).
   return (
     <button
       type="button"
       aria-label={label}
-      aria-pressed={pinned}
+      aria-pressed={flyout ? undefined : pinned}
+      aria-expanded={flyout ? leftFlyoutOpen : undefined}
+      data-sidebar-toggle={side}
       title={t('sidebarPin.withShortcut', { label, shortcut: keyboardLabel(side === 'left' ? '⌘B' : '⌥⌘B') })}
       onClick={side === 'left' ? cycleLeftMode : cycleRightMode}
       className={cn(

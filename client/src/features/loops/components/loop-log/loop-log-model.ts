@@ -24,7 +24,7 @@ import {
   mergeAssistantLines,
   applyDiffDetection,
   type FormattedLine,
-} from '../../../jobs/components/LogViewer'
+} from '../../../jobs/lib/log-lines'
 import { deriveFrameActivity } from '../../../browser/lib/frame-activity'
 
 // ─── Types ────────────────────────────────────────────────────────────────────

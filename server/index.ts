@@ -1,4 +1,9 @@
+import { installAppWorktreeProcessReaper, sweepSettledRunWorktrees } from './worktree-process-reaper'
+import { configureCoreChildRegistry, reapOrphanedCoreChildren } from './util/core-child-process'
 import { createDesktopUsageService } from './modules/subscription-usage/runtime/composition'
+import { createDesktopQuotaStore } from './modules/provider-quota/runtime/composition'
+import { bindRunAdmission, createDesktopRunAdmission } from './modules/capacity/runtime/composition'
+import { reportRateLimit } from './modules/provider-quota/runtime/quota-reports'
 // Note: the pkg-binary native-addon hijacks (better_sqlite3.node, node-pty, pty.node)
 // used to live here but had to move to an esbuild `banner.js` in scripts/build-sidecar.mjs
 // so they run BEFORE esbuild's top-of-bundle `require('node-pty')` statement.
@@ -15,9 +20,11 @@ import { ProjectRegistry } from './project-registry'
 import { createDesktopRouter } from './desktop-router'
 import { API_VERSION, API_VERSION_HEADER, apiVersionHeader } from './api-version'
 import { refreshDetection, getDetectedIdsSync } from './provider-detection'
+import { installProcessFaultHandlers } from './process-fault-handlers'
 import { setDetectedProvidersSupplier } from './provider-selection'
 import { getGlobalAllowSubagents, getGlobalSubagentRuntime, setProjectProvidersMirror } from './desktop-db'
 import { getProjectSettings } from './modules/project-settings/adapters/sqlite'
+import { projectEnvFileSecretValues } from './worktree-env-files'
 import { resolveSubagentPolicy } from './modules/agent-sessions'
 import { runLegacyMigrationSweep } from './legacy-migration'
 import { reseedStaleWorkspaces, isFrameworkAutoswapEnabled } from './framework-reseed'
@@ -38,10 +45,19 @@ import { shouldDeliverToSubscriber, parseSubscribeFrame } from './ws-routing'
 import { getTerminalManager } from './modules/terminals/runtime/terminal-manager'
 import { cleanupStaleShimDirs } from './terminal-shell-integration'
 import { isBrowserCaptureEnabled } from './feature-flags'
+import { startEventJournal } from './modules/events-journal'
 import { MobileGateway, createMobileAdminRouter, getMobileEventBus } from './mobile'
 import { McpServerManager, requireMcpAuth, createMcpAdminRouter, getMcpToken } from './mcp'
 import { AgentChatManager } from './modules/missions/runtime/agent-chat-manager'
 import { MissionCoreSessions } from './modules/missions/runtime/mission-core-sessions'
+import { MissionConnectors } from './modules/missions/runtime/mission-connectors-discovery'
+import { agentCwdPath } from './modules/missions/runtime/agent-cwd-manager'
+import { createDenialIngest, ensurePolicyHookScript, startDenialSpool } from './modules/agent-policy'
+import { ensureBrowseTool } from './modules/browser/runtime/run-browse-tool'
+import { resolveBundledChromiumExecutable } from './chromium-resolver'
+import { createTurnContinuity, type TurnContinuity } from './modules/continuity'
+import { createFileContinuityStore } from './modules/continuity/adapters/file-store'
+import { registerContinuityRoutes } from './modules/continuity/adapters/http'
 import { createFlowTurnContext } from './modules/intent/adapters/bindings'
 import { getAgentConversation } from './modules/agents/runtime/agent-store'
 import { SessionHostRegistry } from './modules/agent-sessions/runtime/session-host-registry'
@@ -80,7 +96,20 @@ import './providers'
 import { syncLocalAdapters } from './providers/local-adapter-registry'
 import { loadRuntimeProviders } from './modules/agent-runtime/runtime/agent-runtime-settings'
 import { resolveSpecrailsHome } from './util/specrails-home'
+import { configureSharedRuntimePackageCache, scheduleSharedRuntimePackageCollection } from './modules/agent-runtime/runtime/agent-runtime-package-schedule'
 import { acquireDataHomeLock, DataHomeInUseError } from './data-home-lock'
+import { logRejection } from './util/log-rejection'
+import { checkCoreCompat } from './core-compat'
+import { createLogRing, captureProcessOutput } from './modules/diagnostics/runtime/log-ring'
+import { createEventLoopProbe, operationTiming } from './modules/diagnostics/runtime/event-loop-probe'
+import { createDiagnostics } from './modules/diagnostics/adapters/runtime'
+
+// Recent server output for "Report a problem" (in memory, redacted on export),
+// and the event-loop stall probe (one idle 1 s timer; sampling only while busy).
+const serverLogRing = createLogRing()
+captureProcessOutput(serverLogRing)
+const eventLoopProbe = createEventLoopProbe()
+eventLoopProbe.start()
 // Local AI engines: every OpenAI-compatible connection in
 // ~/.specrails/runtime-providers.json becomes a registered adapter BEFORE the
 // first detection cycle (kill switch SPECRAILS_LOCAL_ENGINES=false ⇒ no-op).
@@ -172,6 +201,15 @@ try {
   process.exit(1)
 }
 
+// Core runtime/session children run in their own process group and are recorded
+// while they run. Reap the ones a crashed previous server left before anything
+// resumes: their pipes died with it, and a live orphan would hold its run's lease.
+configureCoreChildRegistry(path.join(PID_DIR, 'core-children'))
+{
+  const reaped = reapOrphanedCoreChildren({ log: (line) => console.log(line) })
+  if (reaped.length) console.log(`[core-children] startup sweep terminated ${reaped.length} orphaned Core process(es)`)
+}
+
 function removePidFile(): void {
   try {
     fs.unlinkSync(PID_FILE)
@@ -187,6 +225,8 @@ const app = express()
 // Host-header validation (H-08) — first barrier, anti DNS-rebinding.
 // Implementation in auth.ts (unit-tested there); index.ts is coverage-excluded.
 app.use(hostValidationMiddleware)
+// Names the request when its synchronous handler time causes an event-loop stall.
+app.use(operationTiming(eventLoopProbe))
 
 // ─── CORS — allow only localhost origins (CRIT-02) ────────────────────────────
 
@@ -267,7 +307,10 @@ app.use(
   requireMcpAuth,
   (req, res) => {
     if (_mcpManager) {
-      void _mcpManager.handleHttp(req, res)
+      void _mcpManager.handleHttp(req, res).catch((err: unknown) => {
+        console.error('[mcp] HTTP transport request failed:', err)
+        if (!res.headersSent) res.status(500).json({ jsonrpc: '2.0', error: { code: -32603, message: 'Internal error' }, id: null })
+      })
       return
     }
     res.status(503).json({ jsonrpc: '2.0', error: { code: -32000, message: 'MCP transport not ready' }, id: null })
@@ -364,8 +407,13 @@ function broadcast(msg: WsMessage): void {
 let _getProjectCount: () => number = () => 0
 /** Captured by the Super-mode bootstrap block so graceful shutdown can tear down every
  *  project's spawners (rail/chat children) instead of orphaning them. */
+/** When this server process started: the client lists runs paused by THIS restart. */
+const SERVER_BOOTED_AT = new Date().toISOString()
 let _usageService: ReturnType<typeof createDesktopUsageService> | null = null
+let _quotaStore: ReturnType<typeof createDesktopQuotaStore> | null = null
 let _registry: ProjectRegistry | null = null
+let _policyDenialSpool: { stop(): void } | null = null
+let _continuity: TurnContinuity | null = null
 /** The mobile companion gateway (off by default); torn down on shutdown. */
 let _mobileGateway: MobileGateway | null = null
 let _mcpManager: McpServerManager | null = null
@@ -476,7 +524,7 @@ server.on('upgrade', (request, socket, head) => {
           // explicitly instead of leaving a silent, frame-less socket open.
           try { ws.close(1000, 'session_closed') } catch { /* ignore */ }
         }
-      })
+      }).catch(logRejection('browser session attach'))
       ws.on('message', (data, isBinary) => {
         if (isBinary) return // browser inbound is JSON control only
         try {
@@ -485,21 +533,21 @@ server.on('upgrade', (request, socket, head) => {
             | { type: 'navigate'; action?: 'goto' | 'back' | 'forward' | 'reload'; url?: string }
             | { type: 'probe'; x: number; y: number }
           if (msg.type === 'input' && msg.event) {
-            void mgr.handleInput(sessionId, msg.event)
+            void mgr.handleInput(sessionId, msg.event).catch(logRejection('browser input'))
           } else if (msg.type === 'navigate') {
             // BUG-BROWSER-01: scheme-allowlist + SSRF guard for the WS navigate
             // path (mirrors REST /navigate). Only `goto` carries a user URL; the
             // history actions (back/forward/reload) replay already-vetted state.
             const action = msg.action ?? 'goto'
             if (action !== 'goto' || (typeof msg.url === 'string' && isNavigableUrl(msg.url))) {
-              void mgr.navigate(sessionId, action, msg.url)
+              void mgr.navigate(sessionId, action, msg.url).catch(logRejection('browser navigate'))
             }
           } else if (msg.type === 'probe' && Number.isFinite(msg.x) && Number.isFinite(msg.y) && msg.x >= 0 && msg.y >= 0) {
             // Hover-to-select: resolve the element under the cursor and reply with
             // its rect so the client can draw a highlight box.
             void mgr.probeElement(sessionId, { x: msg.x, y: msg.y }).then((probe) => {
               try { ws.send(JSON.stringify({ type: 'hover', rect: probe?.rect ?? null, selector: probe?.selector ?? null, path: probe?.path ?? null })) } catch { /* drop */ }
-            })
+            }).catch(logRejection('browser element probe'))
           }
         } catch { /* ignore malformed control */ }
       })
@@ -532,6 +580,8 @@ app.get('/api/health', (_req, res) => {
     apiVersion: API_VERSION,
     uptime: Math.floor(process.uptime()),
     projects: _getProjectCount(),
+    // Registered projects whose context has not loaded yet (background warm-up).
+    projectsWarming: _registry?.warmupStatus().pending ?? 0,
     mode: 'super',
   })
 })
@@ -548,6 +598,32 @@ app.get('/api/token', requireLoopback, (_req, res) => {
 })
 
 app.use('/api', requireAuth)
+
+/** Env values of the projects whose `worktreeEnvFiles` setting is on (bounded reads, never cached). */
+function optedInEnvFileValues(): string[] {
+  const values: string[] = []
+  for (const row of _registry?.listProjects() ?? []) {
+    try {
+      const context = _registry!.getContext(row.id)
+      if (context) values.push(...projectEnvFileSecretValues(context.project, getProjectSettings(context.db).worktreeEnvFiles))
+    } catch { /* an unreadable project adds nothing */ }
+  }
+  return values
+}
+
+// Crash notices, stall snapshot and the local "Report a problem" ZIP.
+app.use('/api/diagnostics', createDiagnostics({
+  logRing: serverLogRing,
+  probe: eventLoopProbe,
+  // Plus the env values of projects that copy their env files into runs (they can reach run logs).
+  knownSecrets: () => [loadOrGenerateToken(), hostControlToken, getMcpToken(), ...optedInEnvFileValues()],
+  versions: async () => {
+    const compat = await checkCoreCompat().catch(() => null)
+    return { app: compat?.desktopVersion ?? PKG_VERSION, core: compat?.coreVersion ?? null, api: API_VERSION, contractSchema: compat?.contractSchemaVersion ?? null }
+  },
+  desktopDb: () => _registry?.desktopDb,
+  projectCount: () => _registry?.listProjects().length ?? 0,
+}).router)
 
 // ─── WebSocket rate limiting helper (LOW-03) ──────────────────────────────────
 
@@ -595,6 +671,11 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
 
 // ─── Super-mode bootstrap ─────────────────────────────────────────────────────
 
+// Launches retain Core once per build in the app's own cache instead of copying
+// the package (~16k files) into every run's worktree on the event loop. Set
+// before any registry work so a resume after restart resolves the same pins.
+configureSharedRuntimePackageCache(path.join(resolveSpecrailsHome(), '.specrails', 'runtime-packages'))
+
 {
   const registry = new ProjectRegistry(broadcast, undefined, port)
   try {
@@ -604,8 +685,22 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     // offline. New background launches report the persistence error directly.
     console.error('[background-process] persistent history unavailable:', error)
   }
-  registry.loadAll()
+  // MCP v2 event journal: records state transitions from the broadcast bus so
+  // `specrails_wait` can block instead of polling (server/modules/events-journal).
+  startEventJournal(registry.desktopDb, getMobileEventBus())
+  // Projects load in the background (most recently used first) so the server
+  // listens at once; a project that is asked for before its turn loads on demand.
+  const warmupStarted = Date.now()
+  void registry.startWarmup().then(() => {
+    const { loaded } = registry.warmupStatus()
+    console.log(`[project-registry] ${loaded} project(s) loaded in ${Date.now() - warmupStarted} ms`)
+  }).catch(logRejection('project warm-up'))
   _registry = registry
+  // The shared launch cache keeps the current and recent Core builds and every one a
+  // run's pin still names; older builds are collected off the startup path.
+  scheduleSharedRuntimePackageCollection({ projectsRoot: path.join(resolveSpecrailsHome(), '.specrails', 'projects'), pipelineRoots: () => registry.listProjects().map(project => path.join(project.path, '.specrails', 'pipeline')) })
+  // Leftover test/preview servers of settled runs are reaped by worktree path.
+  installAppWorktreeProcessReaper(registry)
   _getProjectCount = () => registry.listProjects().length
 
   // ─── Bundled framework update channel (Phase 6) ─────────────────────────────
@@ -636,12 +731,14 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
       // Post-swap re-seed: refresh COPIED workspace files (instruction files,
       // Windows copy-fallback, Kimi skill links) for every workspace whose
       // recorded framework version ≠ current — also repairs missed swaps.
-      const reseedProjects = registry.listContexts().map((c) => ({
-        id: c.project.id,
-        slug: c.project.slug,
-        path: c.project.path,
-      }))
-      void reseedStaleWorkspaces(reseedProjects, check.version)
+      void registry.whenWarm().then(() => {
+        const reseedProjects = registry.listContexts().map((c) => ({
+          id: c.project.id,
+          slug: c.project.slug,
+          path: c.project.path,
+        }))
+        return reseedStaleWorkspaces(reseedProjects, check.version)
+      }).catch(logRejection('framework workspace reseed'))
     }
   } catch (err) {
     console.error('[framework-manager] startup versionCheck failed (non-fatal):', err)
@@ -657,7 +754,7 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   app.use('/otlp', requireLoopback, createTelemetryRouter(registry))
 
   // Run telemetry compaction at startup after registry is hydrated
-  runCompactionForAll(registry).catch((err) => {
+  registry.whenWarm().then(() => runCompactionForAll(registry)).catch((err) => {
     console.error('[telemetry-compactor] startup compaction error:', err)
   })
 
@@ -668,22 +765,27 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // trigger; window-focus and project-add refreshes ride the REST route.
   setDetectedProvidersSupplier(getDetectedIdsSync)
   setProjectProvidersMirror(getDetectedIdsSync)
-  refreshDetection()
+  // Deferred past module evaluation so the CLI probes (now async child
+  // processes) start after `listen` is queued; requests that arrive first
+  // await the same in-flight cycle via getDetectionSnapshot's coalescing.
+  setImmediate(() => { void refreshDetection()
     .then(({ snapshot }) => {
       // ─── Forced legacy migration (global-core-zero-friction) ────────────────
       // After the first detection lands, migrate repo-resident core installs to
       // the relocated workspace in the background — serialized, fail-open,
       // journaled. Kill switch: SPECRAILS_LEGACY_MIGRATION=false.
-      const projects = registry.listContexts().map((c) => ({
-        id: c.project.id,
-        slug: c.project.slug,
-        path: c.project.path,
-      }))
-      void runLegacyMigrationSweep(projects, { providers: snapshot.detected })
+      void registry.whenWarm().then(() => {
+        const projects = registry.listContexts().map((c) => ({
+          id: c.project.id,
+          slug: c.project.slug,
+          path: c.project.path,
+        }))
+        return runLegacyMigrationSweep(projects, { providers: snapshot.detected })
+      }).catch(logRejection('legacy migration sweep'))
     })
     .catch((err) => {
       console.error('[provider-detection] startup detection failed (non-fatal):', err)
-    })
+    }) })
 
   // ─── Mobile companion gateway (off by default; boot if previously enabled) ──
   // Second HTTPS+WSS listener in THIS process; the main server stays loopback.
@@ -736,17 +838,38 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   })
 
   const agentChatManager = new AgentChatManager(broadcast, registry.desktopDb, port, registry)
+  // provider-quota: continues the person scheduled at a usage-limit reset survive restarts.
+  agentChatManager.restoreLimitContinues()
   _agentChatManager = agentChatManager
+  // "Connectors in missions": each provider's own user-scope servers and account
+  // connectors, on by default; the app-wide deny-list turns them off per turn.
+  // Claude's account connectors are probed (`claude mcp list`) only when Settings asks.
+  const missionConnectors = new MissionConnectors({ db: registry.desktopDb })
+  agentChatManager.setConnectors(missionConnectors)
   // Core agent sessions (core-agent-sessions-host): one supervised Core host per
   // project scope; missions use it when SPECRAILS_CORE_SESSIONS allows and the
   // selected Core advertises `sessions`. Otherwise missions keep legacy runners.
+  // Provider quota (machine-wide): fed by Core sessions/runs, Desktop's own
+  // streams and the subscription reader (composed below, resolved lazily).
+  let quotaUsageService: ReturnType<typeof createDesktopUsageService> | null = null
+  const quotaStore = createDesktopQuotaStore({
+    desktopDb: registry.desktopDb,
+    usage: () => quotaUsageService,
+    announce: (message) => broadcast(message as unknown as WsMessage),
+  })
+  _quotaStore = quotaStore
+  // Run admission (machine-wide): a rail run over this machine's capacity starts
+  // queued and says what it waits for. SPECRAILS_RUN_ADMISSION=off starts every run at once.
+  bindRunAdmission(createDesktopRunAdmission({ announce: (message) => broadcast(message as unknown as WsMessage) }))
   const sessionHosts = new SessionHostRegistry({
+    onRateLimit: ({ driver, rateLimit, at }) => { reportRateLimit(driver ?? 'claude', rateLimit, 'session', at) },
     launcher: new CoreHostLauncher({
       host: { name: 'specrails-desktop', version: process.env.npm_package_version ?? 'unknown' },
       // A project scope's host follows that project's agent environment mode
       // (Core may launch any configured provider, so every adapter's names pass).
       env: (scope) => {
-        const context = registry.listContexts().find(item => item.project.slug === scope)
+        const row = registry.listProjects().find(item => item.slug === scope)
+        const context = row ? registry.getContext(row.id) : undefined
         return projectAgentSourceEnv(context?.db, providerEnvAllowlist(listAdapters()))
       },
     }),
@@ -786,9 +909,52 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     },
     // Agent actions audit: mission tool calls land in the pinned project's log.
     agentAudit: (projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null,
+    onPolicyDenial: (conversationId, denial) => agentChatManager.postPolicyDenialRow(conversationId, denial),
+    connectors: (providerId, options) => missionConnectors.planFor(providerId, options),
   })
   agentChatManager.setCoreSessions(missionCoreSessions)
   agentChatManager.setAgentAudit((projectId) => registry.getContext(projectId)?.agentAudit?.recorder ?? null)
+  // Restart continuity: turns the previous process left in flight become
+  // resume offers (never replayed without the person); every new mission turn
+  // leaves a durable marker until it settles.
+  _continuity = createTurnContinuity({
+    store: createFileContinuityStore(),
+    mission: (conversationId) => {
+      const conversation = getAgentConversation(registry.desktopDb, conversationId)
+      if (!conversation || conversation.deleted_at) return null
+      return { exists: true, archived: !!conversation.archivedAt, provider: conversation.provider, sessionId: conversation.session_id, turnActive: agentChatManager.isBusy(conversationId) }
+    },
+    runningRuns: () => registry.listContexts().flatMap((context) => {
+      try {
+        return (context.db.prepare("SELECT id FROM loop_runs WHERE status = 'running'").all() as Array<{ id: string }>).map((row) => ({ projectId: context.project.id, runId: row.id }))
+      } catch { return [] }
+    }),
+  })
+  const interruptedTurns = _continuity.recoverAtStartup()
+  if (interruptedTurns > 0) console.log(`[continuity] ${interruptedTurns} mission turn(s) were interrupted by the last stop; offering to resume them`)
+  const continuity = _continuity
+  agentChatManager.setTurnLifecycleObserver({
+    started: (conversationId) => {
+      const conversation = getAgentConversation(registry.desktopDb, conversationId)
+      continuity.turnStarted(conversationId, { provider: conversation?.provider ?? null, sessionId: conversation?.session_id ?? null })
+    },
+    settled: (conversationId, state) => continuity.turnSettled(conversationId, state),
+  })
+  // In-turn agent policy: write the hook script now (worktrees and the mission
+  // cwd reference it), then drain the hook's denial spool into the audit for
+  // runs whose transport does not carry tool results.
+  ensurePolicyHookScript()
+  // Run browser tool ($SPECRAILS_BROWSE): install now with Playwright's own Chromium, then again
+  // with the app's bundled Chromium once it is extracted (desktop mode only).
+  ensureBrowseTool()
+  void resolveBundledChromiumExecutable().then((chromium) => { if (chromium) ensureBrowseTool({ chromium }) }).catch(() => undefined)
+  _policyDenialSpool = startDenialSpool({
+    ingest: createDenialIngest({
+      missionCwd: agentCwdPath,
+      projects: () => registry.listContexts().map((context) => ({ db: context.db, audit: context.agentAudit })),
+      realpath: (p) => { try { return fs.realpathSync(p) } catch { return p } },
+    }),
+  })
   // Intent mode: an active Intent turns a mission turn into an Intent session turn. Missions
   // see only this port; the Intent state lives in each project's database.
   agentChatManager.setFlowTurnContext(createFlowTurnContext({
@@ -796,8 +962,8 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
     flowServiceFor: (projectId) => registry.getContext(projectId)?.flow ?? null,
     availability: () => flowAvailability(),
   }))
-  registry.onSettingsChanged((scope) => { void missionCoreSessions.refreshSubagentPolicy(scope) })
-  registry.onProjectRemoved(({ slug }) => { void sessionHosts.stop(slug) })
+  registry.onSettingsChanged((scope) => { void missionCoreSessions.refreshSubagentPolicy(scope).catch(logRejection('mission subagent policy refresh')) })
+  registry.onProjectRemoved(({ slug }) => { void sessionHosts.stop(slug).catch(logRejection('session host stop')) })
   // Publish the instance to the process-wide registry so the rails layer can
   // post PR-decision cards (safe-pr-review-flow). Left null when agent chat is
   // disabled — the rails callers are null-safe and simply skip the card.
@@ -831,11 +997,37 @@ function applyPtyWsRateLimiting(ws: WebSocket): void {
   // GET /api/projects, DELETE /api/projects/:id) are handled here, while
   // everything else under /api/projects/:projectId/* falls through to the
   // project router.
-  const usageService = createDesktopUsageService()
+  const usageService = createDesktopUsageService({
+    // A run-observed window refreshed a usage row: push it (the UI does not poll for it).
+    onChange: () => broadcast({ type: 'subscription_usage.updated', snapshot: usageService.snapshot() } as unknown as WsMessage),
+  })
   _usageService = usageService
+  quotaUsageService = usageService
   // Intent cost: subscription-plan turns have no marginal cost.
   registry.setProviderBilling((provider) => usageService.resolveBilling(provider))
-  app.use('/api', createDesktopRouter(registry, broadcast, usageService))
+  // Restart continuity (modules/continuity): resume offers and the update
+  // restart's "is anything running?" check.
+  const continuityRouter = express.Router()
+  registerContinuityRoutes(continuityRouter, {
+    continuity,
+    bootedAt: SERVER_BOOTED_AT,
+    missionTitle: (conversationId) => getAgentConversation(registry.desktopDb, conversationId)?.title ?? null,
+    activeWork: () => {
+      const live = agentChatManager.activeTurns()
+      const turning = new Set(live.turns.map((turn) => turn.conversationId))
+      const background = live.sessions.filter((session) => session.liveSubagents > 0 && !turning.has(session.conversationId)).length
+      let runs = 0
+      for (const context of registry.listContexts()) {
+        try {
+          runs += (context.db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE status = 'running'").get() as { n: number }).n
+          runs += (context.db.prepare("SELECT COUNT(*) AS n FROM loop_runs WHERE status = 'running'").get() as { n: number }).n
+        } catch { /* a project without those tables runs nothing */ }
+      }
+      return { missions: turning.size + background, runs }
+    },
+  })
+  app.use('/api', continuityRouter)
+  app.use('/api', createDesktopRouter(registry, broadcast, usageService, { missionConnectors, quotaStore }))
 
   // Per-project routes under /api/projects/:projectId/*
   app.use('/api/projects', createProjectRouter(registry))
@@ -915,10 +1107,20 @@ server.listen(port, '127.0.0.1', () => {
   writePidFile()
   // Milestone launch chains launch chunks over loopback REST, so a chain whose
   // chunk settled while the server was down can only replay once we listen.
-  for (const ctx of _registry?.listContexts() ?? []) {
-    void ctx.milestoneChains?.recoverOnStartup().catch((err: unknown) => {
-      console.error(`[milestone-chain] startup recovery failed for ${ctx.project.id}:`, err)
-    })
+  // Both wait for the background project warm-up so they cover every project.
+  const registry = _registry
+  if (registry) {
+    void registry.whenWarm().then(() => {
+      for (const ctx of registry.listContexts()) {
+        void ctx.milestoneChains?.recoverOnStartup().catch((err: unknown) => {
+          console.error(`[milestone-chain] startup recovery failed for ${ctx.project.id}:`, err)
+        })
+      }
+      // Startup recovery: processes left in the worktrees of runs that settled before the restart.
+      return sweepSettledRunWorktrees(registry).then((reaped) => {
+        if (reaped > 0) console.log(`[worktree-reaper] startup sweep terminated ${reaped} leftover processes`)
+      })
+    }).catch(logRejection('worktree leftover sweep'))
   }
   // Sweep stale shell-integration shim directories left behind by previous runs.
   try {
@@ -930,18 +1132,18 @@ server.listen(port, '127.0.0.1', () => {
     const augmented = diag.pathSegments.length - inheritedPathBeforeResolve
     const source = process.stdin.isTTY ? 'terminal' : 'gui'
     console.log(`[path-resolver] inherited=${inheritedPathBeforeResolve} augmented=${Math.max(0, augmented)} loginShell=${diag.loginShellStatus} source=${source}`)
-  })
+  }).catch(logRejection('login-shell PATH augmentation'))
   // Recover provider auth env (e.g. GEMINI_API_KEY) from the user's login shell
   // so a GUI-launched server doesn't force gemini onto its macOS-Keychain OAuth
   // path. Independent of the PATH probe above (which is skipped when the bundle
   // is active). Fire-and-forget; never logs secret values.
-  void augmentAuthEnvFromLoginShell()
+  void augmentAuthEnvFromLoginShell().catch(logRejection('login-shell auth env augmentation'))
 })
 
 // ─── Clean shutdown ───────────────────────────────────────────────────────────
 
 let shuttingDown = false
-async function shutdown(): Promise<void> {
+async function shutdown(exitCode = 0): Promise<void> {
   // Idempotent: the watchdog, SIGTERM and SIGINT can all race into here.
   if (shuttingDown) return
   shuttingDown = true
@@ -949,6 +1151,10 @@ async function shutdown(): Promise<void> {
   // keep-alive/WebSocket handlers can still resume while teardown runs; they
   // must not create work after their owning managers have been disposed.
   beginAppProcessQuiescence()
+  // Stamp in-flight mission turns with why the app stopped (quit / update)
+  // BEFORE the teardown interrupts them.
+  _continuity?.recordShutdown()
+  eventLoopProbe.stop()
   // Headroom lifecycle commands use their own direct process spawner. Close
   // that admission now, but leave the proxy alive until provider owners drain.
   _headroomManager?.beginShutdown()
@@ -959,6 +1165,9 @@ async function shutdown(): Promise<void> {
   // children have received their termination signal.
   await Promise.allSettled([
     Promise.resolve().then(() => _usageService?.dispose()),
+    Promise.resolve().then(() => _policyDenialSpool?.stop()),
+    Promise.resolve().then(() => _quotaStore?.dispose()),
+    Promise.resolve().then(() => bindRunAdmission(null)),
     Promise.resolve().then(() => _registry?.shutdown()),
     Promise.resolve().then(() => getTerminalManager().shutdown()),
     Promise.resolve().then(() => _mobileGateway?.stop()),
@@ -989,16 +1198,19 @@ async function shutdown(): Promise<void> {
     ;(server as unknown as { closeAllConnections?: () => void }).closeAllConnections?.()
   } catch { /* ignore */ }
   // Hard-exit fallback in case server.close() still hangs.
-  const forceExit = setTimeout(() => process.exit(0), 3000)
+  const forceExit = setTimeout(() => process.exit(exitCode), 3000)
   forceExit.unref?.()
   server.close(() => {
     clearTimeout(forceExit)
-    process.exit(0)
+    process.exit(exitCode)
   })
 }
 
 process.on('SIGTERM', () => { void shutdown() })
 process.on('SIGINT', () => { void shutdown() })
+// unhandledRejection: log with context and keep serving; uncaughtException:
+// log, then graceful shutdown with exit code 1 (policy: process-fault-handlers.ts).
+installProcessFaultHandlers({ shutdown })
 // Last-resort PID-file cleanup for paths that bypass shutdown() (hard crash,
 // uncaught exception). 'exit' handlers must be synchronous.
 process.on('exit', () => {

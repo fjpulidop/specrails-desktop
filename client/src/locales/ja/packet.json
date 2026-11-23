@@ -78,10 +78,13 @@
     }
   },
   "proof": {
-    "filesChanged": "{{files}} ファイル変更（+{{added}} / −{{removed}} 行）",
-    "testFilesChanged": "テストファイル {{count}} 件を変更",
+    "filesChanged_one": "{{files}} ファイル変更（+{{added}} / −{{removed}} 行）",
+    "filesChanged_other": "{{files}} ファイル変更（+{{added}} / −{{removed}} 行）",
+    "testFilesChanged_one": "テストファイル {{count}} 件を変更",
+    "testFilesChanged_other": "テストファイル {{count}} 件を変更",
     "noTestFilesChanged": "テストファイルの変更はありません。",
-    "commitsRecorded": "作業は {{branches}} 本のブランチに記録されました",
+    "commitsRecorded_one": "作業は {{branches}} 本のブランチに記録されました",
+    "commitsRecorded_other": "作業は {{branches}} 本のブランチに記録されました",
     "verificationPassed": "AI は検査に合格したと報告しました（{{count}}）",
     "verificationFailed": "AI は検査が失敗したと報告しました（{{count}}）",
     "noVerificationReported": "AI は検証を報告しませんでした。",
@@ -91,11 +94,15 @@
     "reviewerScoreUnavailable": "レビュアースコアは生成されませんでした。",
     "evidenceUnavailable": "証跡なし",
     "hostCommandPassed": "ランタイムが {{label}} を自ら実行しました: 終了コード {{exitCode}}（{{seconds}} 秒）",
+    "hostStaticCheckPassed": "ランタイムが {{label}} を自ら実行しましたが、ファイルの内容を読むだけでコードは実行しません: 終了コード {{exitCode}}（{{seconds}} 秒）",
     "hostCommandFailed": "ランタイムが {{label}} を自ら実行し、失敗しました: 終了コード {{exitCode}}（{{seconds}} 秒）",
     "acceptanceCheckPassed": "レビュアーのチェックに合格: {{name}}",
     "acceptanceCheckFailed": "レビュアーのチェックに失敗: {{name}}",
     "reviewerSummary": "AI レビュアーの要約:",
-    "reviewerFinding": "AI レビュアーの指摘:"
+    "reviewerFinding": "AI レビュアーの指摘:",
+    "earlierAttempts_one": "このチェックの以前の実行 {{count}} 件",
+    "earlierAttempts_other": "このチェックの以前の実行 {{count}} 件",
+    "earlierAttempt": "終了コード {{exitCode}}（{{seconds}} 秒）で失敗。その後の修正で成功しました"
   },
   "watch": {
     "humanReviewRecommended": "AI レビュアーは {{overall}}/100 と評価し、人による確認を推奨しています。",
@@ -128,6 +135,11 @@
   "planned": {
     "title": "予定していたアプローチ（スペックより）",
     "caveat": "依頼で提案された内容であり、AI が実際に行ったことの報告ではありません。上の事実が実際に変更された内容です。"
+  },
+  "delivered": {
+    "title": "変更内容",
+    "caveat": "納品された OpenSpec 提案より：エージェントが作成し、レビュアーが確認しました。",
+    "why": "理由"
   },
   "outcome": {
     "succeeded": "実装済み",
@@ -216,7 +228,8 @@
       "invariantsTouched": "影響を受ける不変条件",
       "untested": "テストされていないパス",
       "humanChecks": "人による確認",
-      "divergences": "仕様との相違"
+      "divergences": "仕様との相違",
+      "reviewNotes": "レビュアーのメモ（未対応）"
     },
     "userVisible": "ユーザーに見える",
     "invariantStatus": {
@@ -229,7 +242,17 @@
     "dropped_other": "{{count}} 件の項目が想定形式と一致しないためスキップしました。",
     "topRisk": "最大のリスク",
     "moreRisks_one": "他 {{count}} 件",
-    "moreRisks_other": "他 {{count}} 件"
+    "moreRisks_other": "他 {{count}} 件",
+    "reviewNotesCaveat": "レビュアーがこの実行の対象外とした指摘です。修正ラウンドは実行されていません。",
+    "noteKind": {
+      "advice": "助言",
+      "out-of-scope": "対象外",
+      "host-only-check": "手動確認",
+      "regenerated-lockfile": "再生成されたロックファイル",
+      "frozen-artifact": "凍結された成果物",
+      "withdrawn-criterion": "あなたが取り下げ",
+      "other": "メモ"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} 件のアクション",

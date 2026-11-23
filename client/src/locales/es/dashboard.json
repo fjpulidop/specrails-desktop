@@ -50,7 +50,8 @@
       "reopen": "Reabriendo…",
       "merge-local": "Integrando en local…",
       "recover-and-retry": "Creando el commit y reintentando el push del resultado conservado…",
-      "acknowledge-no-changes": "Marcando como hecho…"
+      "acknowledge-no-changes": "Marcando como hecho…",
+      "refresh-on-base": "Actualizándola sobre la nueva base…"
     },
     "readyForReview": "Listo para revisión",
     "openReview": "Revisar",
@@ -81,9 +82,9 @@
     "iteratingPr": "Actualizando PR",
     "prReady": "PR lista",
     "implementationFailed": "Implementación fallida",
-    "implementationFailedHint": "La ejecución de implementación ha fallado. Abre el log de la ejecución y descarta esta card antes de relanzar.",
+    "implementationFailedHint": "La ejecución se detuvo antes de tener nada que entregar. Abre su log para ver por qué.",
     "runStopped": "Detenida",
-    "runStoppedHint": "Detuviste esta ejecución antes de que entregara nada. Relánzala cuando quieras continuar o descarta esta tarjeta.",
+    "runStoppedHint": "Detuviste esta ejecución antes de entregar. Continuar la retoma donde se detuvo; o descarta esta tarjeta.",
     "prFailed": "PR fallida",
     "prFailedDetail": "PR fallida",
     "createDegraded": "No se pudo publicar la PR — {{detail}}. Reintenta cuando esté resuelto.",
@@ -138,9 +139,10 @@
     "actionFailed": "No se pudo aplicar la decisión de la PR",
     "mergedToast": "Merge de la PR completado — las specs han pasado a Hecho",
     "discardedToast": "PR descartada — las specs han vuelto a Specs",
-    "decisionPending": "Este rail tiene una decisión de PR pendiente — créala, publícala o descártala antes de relanzar",
+    "decisionPendingOnRail": "El rail {{rail}} tiene una entrega esperando tu revisión",
+    "decisionPendingAction": "Revísala primero (crea su PR, apruébala o descártala) o lanza estas specs en otro rail.",
     "discardConfirmTitle": "¿Descartar esta entrega?",
-    "discardConfirmBody": "La PR se cerrará sin eliminar su rama remota. Solo se eliminarán las ramas y los worktrees locales que pertenezcan a SpecRails y sigan en su commit registrado; cualquier recurso modificado se conservará y se mostrará un aviso. Las specs volverán al backlog de Specs. Los recursos locales eliminados no se pueden recuperar.",
+    "discardConfirmBody": "La PR se cerrará sin eliminar su rama remota. Solo se eliminarán las ramas y los worktrees locales que pertenezcan a Specrails y sigan en su commit registrado; cualquier recurso modificado se conservará y se mostrará un aviso. Las specs volverán al backlog de Specs. Los recursos locales eliminados no se pueden recuperar.",
     "implementationFailedDiscardTitle": "¿Descartar esta entrega fallida?",
     "implementationFailedDiscardBody": "Se cerrará la tarjeta y sus specs volverán a Specs. El trabajo local y las ramas se conservarán para su inspección. Solo se podrán eliminar los recursos cuya limpieza sea segura.",
     "dismissConfirmTitle": "¿Cerrar este seguimiento?",
@@ -160,9 +162,6 @@
     "cleanupIncomplete_other": "La limpieza está incompleta ({{count}} avisos)",
     "cleanupIncompleteHint": "Se han conservado datos de recuperación locales. Revisa estos detalles antes de eliminar nada manualmente.",
     "copyCleanupDetails": "Copiar detalles de recuperación",
-    "safetyArchiveTitle": "Archivo de seguridad ({{count}})",
-    "safetyArchiveHint": "Se han conservado archivos temporales del espacio de trabajo fuera de la PR como medida de precaución. Puedes revisarlos o eliminarlos manualmente.",
-    "copySafetyArchive": "Copiar rutas",
     "unit": {
       "failed": "implementación fallida",
       "blocked": "entrega bloqueada",
@@ -184,10 +183,13 @@
     "relaunchSent": "Relanzando el rail",
     "relaunchFailed": "No se pudo relanzar el rail",
     "recheckRecoveryConfirmTechnical": "Specrails volverá a examinar en este clon el worktree, la rama, las refs, los reflogs y los objetos Git huérfanos pertenecientes a la entrega de {{branch}}. Si demuestra un único resultado, podrá confirmar los cambios aislados y reintentar el push exacto. No tocará la carpeta principal del proyecto.",
-    "fixCi": "Arreglar CI / Conflictos",
+    "fixCi": "Arreglar CI / conflictos",
     "fixCiTooltip": "Esperar a los checks, arreglar fallos y conflictos y subir a esta PR hasta dejarla en verde",
     "fixCiStarted": "Vigilancia del CI iniciada",
-    "fixCiFailed": "No se pudo iniciar el loop de CI"
+    "fixCiFailed": "No se pudo iniciar el loop de CI",
+    "continue": "Continuar",
+    "continueHint": "Conserva todo y sigue desde donde la ejecución falló o se detuvo, en el mismo worktree.",
+    "implementationFailedDiscardTooltip": "Cierra esta card y devuelve sus specs a Specs. El log de la ejecución sigue disponible."
   },
   "railsBoard": {
     "title": "Rails",
@@ -199,6 +201,14 @@
     "summary": {
       "running_one": "{{count}} en ejecución",
       "running_other": "{{count}} en ejecución",
+      "needsInput_one": "{{count}} te necesita",
+      "needsInput_other": "{{count}} te necesitan",
+      "blocked_one": "{{count}} bloqueado",
+      "blocked_other": "{{count}} bloqueados",
+      "paused_one": "{{count}} en pausa",
+      "paused_other": "{{count}} en pausa",
+      "waiting_one": "{{count}} esperando para empezar",
+      "waiting_other": "{{count}} esperando para empezar",
       "ready_one": "{{count}} listo",
       "ready_other": "{{count}} listos",
       "failed_one": "{{count}} fallido",
@@ -266,6 +276,7 @@
     "worktreesNeedsReview": "{{count}} a revisar",
     "execSteps": "{{count}} pasos",
     "execLines": "{{count}} líneas",
+    "execHeld": "en espera",
     "recommended": "Recomendado",
     "recommendedOption": "{{label}} · recomendado",
     "loopDescriptions": {
@@ -282,7 +293,8 @@
     "status": {
       "idle": "Inactivo",
       "running": "En ejecución",
-      "failed": "Fallido"
+      "failed": "Fallido",
+      "paused": "En pausa"
     },
     "deleteMenuItem": "Eliminar rail",
     "deleteConfirm": {
@@ -334,5 +346,45 @@
   "board": {
     "pageTitle": "{{project}}: tablero",
     "pageTitleBare": "Tablero"
+  },
+  "mergePreview": {
+    "conflictsWithBase_one": "Choca con {{base}} en {{files}}",
+    "conflictsWithBase_other": "Choca con {{base}} en {{count}} archivos: {{files}}",
+    "collidesWithRail": "Choca con el Rail {{rail}} en {{files}}",
+    "alreadyMerged": "Ya está en {{base}}",
+    "clean": "Entra limpio en {{base}} tal como está ahora",
+    "unknown": "Vista previa de la fusión no disponible (hace falta Git 2.38 o posterior, o una referencia ya no existe)",
+    "baseMoved_one": "{{base}} avanzó {{count}} commit desde que se creó esta rama",
+    "baseMoved_other": "{{base}} avanzó {{count}} commits desde que se creó esta rama",
+    "moreFiles": "y {{count}} más",
+    "title": "Vista previa de la fusión"
+  },
+  "safetyArchive": {
+    "title_one": "Se guardó {{count}} archivo que no entró en la PR",
+    "title_other": "Se guardaron {{count}} archivos que no entraron en la PR",
+    "hint": "Specrails no pudo confirmar que fueran suyos, así que los apartó en vez de borrarlos.",
+    "toastHint": "Revísalos o elimínalos desde Detalles.",
+    "delete": "Eliminar",
+    "dismiss": "Descartar",
+    "details": "Detalles",
+    "close": "Cerrar",
+    "copyPath": "Copiar ruta",
+    "copied": "Copiada",
+    "revealFinder": "Mostrar en Finder",
+    "revealFolder": "Mostrar en la carpeta",
+    "filesLabel": "Archivos guardados",
+    "link": "enlace",
+    "moreFiles_one": "y {{count}} archivo más",
+    "moreFiles_other": "y {{count}} archivos más",
+    "confirmTitle_one": "¿Eliminar {{count}} archivo guardado?",
+    "confirmTitle_other": "¿Eliminar {{count}} archivos guardados?",
+    "confirmDescription_one": "Se borrará la carpeta {{folder}} con {{count}} archivo ({{size}}). No se puede deshacer.",
+    "confirmDescription_other": "Se borrará la carpeta {{folder}} con {{count}} archivos ({{size}}). No se puede deshacer.",
+    "confirmDescriptionMany_one": "Se borrarán {{folders}} carpetas con {{count}} archivo ({{size}}). No se puede deshacer.",
+    "confirmDescriptionMany_other": "Se borrarán {{folders}} carpetas con {{count}} archivos ({{size}}). No se puede deshacer.",
+    "deleteFailed_one": "No se pudo eliminar {{count}} carpeta.",
+    "deleteFailed_other": "No se pudieron eliminar {{count}} carpetas.",
+    "goneTitle": "No queda nada por revisar",
+    "gone": "Estos archivos ya se eliminaron o descartaste el aviso."
   }
 }

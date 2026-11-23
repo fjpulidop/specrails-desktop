@@ -38,6 +38,15 @@ projection (an estimate, labelled) and the what-if pricer ([WhatIfPanel](compone
 cent arithmetic live in [lib/budget.ts](lib/budget.ts). A provider that is not positively metered (`isMeteredBilled`)
 shows turns and plan limits instead of dollars, and nothing dollar-shaped renders while the billing mode is unknown.
 `?panel=budget` scrolls to the panel (the inbox's Raise cap and the launch forecast use `openBudgetPanel()`).
+The spend it shows (and the caps enforce) includes mission and Intent turns: the turns pinned to the project for a
+project's caps, every turn for the app-wide ones.
+
+## All-projects analytics
+
+[DesktopAnalyticsPage](pages/DesktopAnalyticsPage.tsx) counts app-ledger turns in every figure (KPIs, coverage,
+timeline, per-project rows). Turns of no loaded project (Home missions, Blueprint / Builder chats) form one
+"Home & Blueprint" row (`kind: 'app'`, agent turns instead of jobs). The category split reuses the project page's
+categories, colours (`useCategoryColors`) and estimated hatching.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/analytics`.
 For moves, update imports and mocks together, then run client coverage and typecheck.

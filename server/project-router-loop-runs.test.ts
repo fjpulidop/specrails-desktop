@@ -2,12 +2,20 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import express, { Router, type Express } from 'express'
 import request from 'supertest'
 import { initDesktopDb } from './desktop-db'
-import { initDb, type DbInstance } from './db'
+import { createJob, initDb, type DbInstance } from './db'
 import { createLoopRun } from './modules/loops/runtime/loop-runs-store'
 import { createLoop, publishLoop } from './modules/loops/runtime/loops-store'
+import { readRetainedBudgetPause, saveRetainedBudgetPause } from './modules/loops/runtime/loop-budget-pauses'
 import { registerLoopRunRoutes } from './project-router-loop-runs'
+import { readLimitPause, saveLimitPause } from './modules/loops/runtime/loop-limit-pauses'
 import type { ProjectRoutesDeps } from './project-router-helpers'
 import type { LoopGraph } from './modules/loops/runtime/loop-graph'
+
+const settled = vi.hoisted(() => ({ offer: null as unknown }))
+vi.mock('./modules/loops/runtime/loop-provider-switch-settled', async () => ({
+  ...await vi.importActual<object>('./modules/loops/runtime/loop-provider-switch-settled'),
+  settledProviderSwitch: vi.fn(async () => settled.offer),
+}))
 
 function graphWith(prompt: string): LoopGraph {
   return {
@@ -347,6 +355,26 @@ describe('loop runs — daily budget guard (rail-loop-budget-guard)', () => {
     }
   })
 
+  it('a run a restart retained while parked at its per-run cap answers the cap before it resumes', async () => {
+    // After a restart nothing resident holds the pause: only its durable record says it waits on its cap.
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'capped', projectId: 'p1', loopId: 'loop-1', ticketIds: [], provider: 'claude', model: 'haiku', iterationLimit: 3, startedAt: '2026-10-21T08:00:00Z' })
+    db.prepare("UPDATE loop_runs SET status='paused', restart_reason='restart', total_cost_usd=0.606, run_cap_usd=0.4 WHERE id='capped'").run()
+    saveRetainedBudgetPause(db, 'capped')
+    const app = express(); app.use(express.json()); const router = Router()
+    registerLoopRunRoutes({ router, ctx: () => ({ db, desktopDb, project: { id: 'p1', slug: 's1', path: '/repo' }, loopRunManager: { budgetPause: () => null, limitPause: () => null }, dailyBudgetRejection: () => null, onLoopRunFinished: vi.fn() }) } as unknown as ProjectRoutesDeps)
+    app.use('/api/projects', router)
+    const refused = await request(app).post('/api/projects/p1/loop-runs/capped/resume').send({})
+    expect(refused.status).toBe(409)
+    expect(refused.body).toMatchObject({ error: 'daily_budget_exceeded', period: 'run', budgetUsd: 0.4, spentUsd: 0.606 })
+    expect(readRetainedBudgetPause(db, 'capped')).toBe(true)
+    // Raising the cap below what it spent still refuses; raising it above lets the resume through.
+    expect((await request(app).post('/api/projects/p1/loop-runs/capped/resume').send({ runCapUsd: 0.5 })).status).toBe(409)
+    const raised = await request(app).post('/api/projects/p1/loop-runs/capped/resume').send({ runCapUsd: 3 })
+    expect(raised.body).not.toMatchObject({ period: 'run' })
+    expect(db.prepare("SELECT run_cap_usd FROM loop_runs WHERE id='capped'").get()).toEqual({ run_cap_usd: 3 })
+  })
+
   it('a run paused at its per-run cap answers 409 with the run period until the person chooses', async () => {
     const runRejection = { ...rejection, period: 'run', resetsAt: null }
     const resumeBudgetPause = vi.fn().mockReturnValue({ status: 'over_budget', rejection: runRejection })
@@ -417,5 +445,228 @@ describe('project-router launch forecast (read-only)', () => {
     expect(res.body.time).toMatchObject({ p25Ms: 120_000, p75Ms: 240_000, sampleCount: 5 })
     expect(res.body.cost).toEqual({ lowUsd: 2, highUsd: 4, sampleCount: 5 })
     expect(res.body.budget).toEqual(budget)
+  })
+})
+
+describe('usage-limit pause controls (provider-quota)', () => {
+  const limit = { providerId: 'claude', resumeAt: '2099-01-01T00:00:00.000Z', autoResume: true, message: 'limit', pausedAt: '2026-11-18T10:00:00.000Z', switchable: true }
+  function limitApp(live: typeof limit | null) {
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'run-1', projectId: 'p1', loopId: 'loop', iterationLimit: 3, startedAt: '2026-11-18T10:00:00Z' })
+    db.prepare("UPDATE loop_runs SET status='paused', restart_reason='limit_paused' WHERE id='run-1'").run()
+    const resolveLimitPause = vi.fn().mockReturnValue(true)
+    const app = buildApp({ provider: 'claude', providers: ['claude', 'codex'] }, {
+      db,
+      loopRunManager: { run: vi.fn(), cancel: vi.fn(), limitPause: vi.fn(() => live), resolveLimitPause, budgetPause: () => null },
+    })
+    return { app, db, resolveLimitPause }
+  }
+
+  it('resumes now, toggles the automatic resume and switches only to a provider that does not share the quota', async () => {
+    const { app, resolveLimitPause } = limitApp(limit)
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'resume' })).status).toBe(202)
+    expect(resolveLimitPause).toHaveBeenLastCalledWith('run-1', { action: 'resume' })
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'auto', enabled: false })).status).toBe(200)
+    expect(resolveLimitPause).toHaveBeenLastCalledWith('run-1', { action: 'auto', enabled: false })
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'switch', provider: 'claude' })).body.error).toBe('shares_quota')
+    const switched = await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'switch', provider: 'codex' })
+    expect(switched.status).toBe(202)
+    expect(resolveLimitPause).toHaveBeenLastCalledWith('run-1', expect.objectContaining({ action: 'switch', provider: 'codex' }))
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'nope' })).status).toBe(400)
+    // The regular Resume (inbox, run card) answers a live limit pause too.
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/resume').send({})).status).toBe(202)
+  })
+
+  it('edits the persisted pause of a run retained over a restart and refuses runs that are not limit-paused', async () => {
+    const { app, db } = limitApp(null)
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'auto', enabled: true })).status).toBe(409)
+    saveLimitPause(db, 'run-1', limit)
+    const res = await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'auto', enabled: false })
+    expect(res.status).toBe(200)
+    expect(res.body.limit).toMatchObject({ autoResume: false })
+    expect(readLimitPause(db, 'run-1')?.autoResume).toBe(false)
+    expect((await request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'switch', provider: 'codex' })).body.error).toBe('switch_unavailable')
+  })
+})
+
+describe('continuing a limit-paused Core run on another provider (Core routeOverrides)', () => {
+  const core = { providerId: 'codex', resumeAt: '2099-01-01T00:00:00.000Z', autoResume: true, message: 'codex usage limit reached', pausedAt: '2026-11-18T10:00:00.000Z', switchable: true,
+    switchRoles: ['developer', 'fixer'], switchTargets: [{ provider: 'claude', model: 'sonnet', effort: 'medium' }] }
+  function coreApp(live: typeof core | null) {
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'run-1', projectId: 'p1', loopId: 'loop', iterationLimit: 3, startedAt: '2026-11-18T10:00:00Z' })
+    db.prepare("UPDATE loop_runs SET status='paused', restart_reason='limit_paused' WHERE id='run-1'").run()
+    const resolveLimitPause = vi.fn().mockReturnValue(true)
+    const app = buildApp({ provider: 'codex', providers: ['claude', 'codex', 'gemini'] }, {
+      db, loopRunManager: { run: vi.fn(), cancel: vi.fn(), limitPause: vi.fn(() => live), resolveLimitPause, budgetPause: () => null },
+    })
+    return { app, db, resolveLimitPause }
+  }
+  const post = (app: ReturnType<typeof coreApp>['app'], body: object) => request(app).post('/api/projects/p1/loop-runs/run-1/limit').send({ action: 'switch', ...body })
+
+  it('validates the provider, model and effort server-side before the run continues', async () => {
+    const { app, resolveLimitPause } = coreApp(core)
+    // Never the exhausted provider (or one sharing its quota), nor one the card did not offer.
+    expect((await post(app, { provider: 'codex', model: 'gpt-6-sol' })).body.error).toBe('shares_quota')
+    expect((await post(app, { provider: 'gemini', model: 'gemini-3.5-flash' })).body.error).toBe('invalid_provider')
+    expect((await post(app, { provider: 'claude', model: 'gpt-6-sol' })).body.error).toBe('invalid_model')
+    expect((await post(app, { provider: 'claude', model: 'haiku', effort: 'ultra' })).body.error).toBe('invalid_effort')
+    expect((await post(app, { provider: 'claude', model: 'haiku', effort: 'low', remember: 'yes' })).body.error).toBe('invalid_remember')
+    expect(resolveLimitPause).not.toHaveBeenCalled()
+    const switched = await post(app, { provider: 'claude', model: 'haiku', effort: 'low', remember: true })
+    expect(switched.status).toBe(202)
+    expect(switched.body).toMatchObject({ provider: 'claude', model: 'haiku', effort: 'low' })
+    expect(resolveLimitPause).toHaveBeenLastCalledWith('run-1', { action: 'switch', provider: 'claude', model: 'haiku', effort: 'low', remember: true })
+    // The model defaults to the offered one.
+    await post(app, { provider: 'claude' })
+    expect(resolveLimitPause).toHaveBeenLastCalledWith('run-1', { action: 'switch', provider: 'claude', model: 'sonnet' })
+  })
+
+  it('refuses a switch when the run offered none (an older Core)', async () => {
+    const { app, resolveLimitPause } = coreApp({ ...core, switchable: false })
+    expect((await post(app, { provider: 'claude', model: 'haiku' })).body.error).toBe('switch_unavailable')
+    expect(resolveLimitPause).not.toHaveBeenCalled()
+  })
+})
+
+describe('resuming a run a Desktop restart interrupted', () => {
+  it('authorizes recovery of the cut-off step when a limit pause retained over a restart resumes', async () => {
+    const { limitResumeOptions } = await import('./project-router-loop-runs')
+    expect(limitResumeOptions({ status: 'paused', restart_reason: 'restart' })).toEqual({ restartResume: true })
+    expect(limitResumeOptions({ status: 'paused', restart_reason: 'limit_paused' })).toEqual({ restartResume: false })
+    expect(limitResumeOptions(undefined)).toEqual({ restartResume: false })
+  })
+  it('treats the empty-handed Resume of a restart-paused run as the explicit recovery of its interrupted steps', async () => {
+    const { isRestartResume, restartRecoveryControls } = await import('./project-router-loop-runs')
+    const interrupted = { status: 'paused', restart_reason: 'restart' }
+    expect(isRestartResume(interrupted, {})).toBe(true)
+    expect(restartRecoveryControls({}, [{ attemptId: 'a1' }, { attemptId: 'a2' }])).toEqual({ recover: ['a1', 'a2'] })
+    // Nothing interrupted mid-write: the body stays as it was.
+    expect(restartRecoveryControls({}, [])).toEqual({})
+  })
+  it('leaves answers, explicit recovery and other pauses alone', async () => {
+    const { isRestartResume } = await import('./project-router-loop-runs')
+    expect(isRestartResume({ status: 'paused', restart_reason: 'restart' }, { answer: 'yes', interruptId: 'i1' })).toBe(false)
+    expect(isRestartResume({ status: 'paused', restart_reason: 'restart' }, { recover: [] })).toBe(false)
+    expect(isRestartResume({ status: 'paused', restart_reason: 'budget_paused' }, {})).toBe(false)
+    expect(isRestartResume({ status: 'completed', restart_reason: null }, {})).toBe(false)
+  })
+})
+
+describe('resuming right after a restart', () => {
+  it('waits for the killed Core child lease to expire, bounded, and never for a run alive in this process', async () => {
+    const { staleLeaseWaitMs, STALE_LEASE_MAX_WAIT_MS } = await import('./project-router-loop-runs')
+    expect(staleLeaseWaitMs({ active: true, expiresAt: 10_000 }, 4_000, false)).toBe(6_250)
+    expect(staleLeaseWaitMs({ active: true, expiresAt: 10_000 }, 4_000, true)).toBe(0)
+    expect(staleLeaseWaitMs({ active: false, expiresAt: 10_000 }, 4_000, false)).toBe(0)
+    expect(staleLeaseWaitMs(null, 4_000, false)).toBe(0)
+    expect(staleLeaseWaitMs({ active: true, expiresAt: 4_000 + STALE_LEASE_MAX_WAIT_MS + 10_000 }, 4_000, false)).toBe(0)
+  })
+})
+
+describe('continuing a run that settled on a usage limit on another provider', () => {
+  const offer = { providerId: 'codex', roles: ['developer', 'fixer'], targets: [{ provider: 'claude', model: 'sonnet', effort: 'medium' }], via: 'fork' }
+  function settledApp() {
+    process.env.SPECRAILS_LOOPS_SECTION = '1'
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'run-1', projectId: 'p1', loopId: 'loop', iterationLimit: 3, startedAt: '2026-11-18T10:00:00Z' })
+    db.prepare("UPDATE loop_runs SET status='completed', final_outcome='failure', engine_version=2 WHERE id='run-1'").run()
+    return buildApp({ provider: 'codex', providers: ['claude', 'codex', 'gemini'] }, { db })
+  }
+  const post = (app: Express, body: object) => request(app).post('/api/projects/p1/loop-runs/run-1/remedy').send(body)
+
+  it('offers the switch with the run\'s attempts and checks the choice against that offer', async () => {
+    settled.offer = offer
+    const app = settledApp()
+    expect((await request(app).get('/api/projects/p1/loop-runs/run-1/attempts')).body).toMatchObject({ continuable: true, providerSwitch: offer })
+    // Never the exhausted provider, nor one the run did not offer, nor a model or effort outside the catalog.
+    expect((await post(app, { remedy: 'continue', switch: { provider: 'codex', model: 'gpt-6-sol' } })).body.error).toBe('shares_quota')
+    expect((await post(app, { remedy: 'continue', switch: { provider: 'gemini', model: 'gemini-3.5-flash' } })).body.error).toBe('invalid_provider')
+    expect((await post(app, { remedy: 'continue', switch: { provider: 'claude', model: 'gpt-6-sol' } })).body.error).toBe('invalid_model')
+    expect((await post(app, { remedy: 'continue', switch: { provider: 'claude', model: 'haiku', effort: 'ultra' } })).body.error).toBe('invalid_effort')
+    expect((await post(app, { remedy: 'continue', switch: { provider: 'claude', temperature: 1 } })).body.error).toBe('invalid_switch')
+    expect((await post(app, { remedy: 'continue-to-review', switch: { provider: 'claude' } })).body.error).toBe('invalid_switch')
+    // A valid choice goes on to Continue (here the run has no Core state to fork from).
+    const valid = await post(app, { remedy: 'continue', switch: { provider: 'claude', model: 'haiku', effort: 'low' } })
+    expect(valid.body.error).not.toMatch(/switch|provider|model|effort/)
+  })
+
+  it('is not continuable once its saved Core state is gone, and Continue says to launch again', async () => {
+    settled.offer = offer
+    process.env.SPECRAILS_LOOPS_SECTION = '1'
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'run-1', projectId: 'p1', loopId: 'loop', iterationLimit: 3, startedAt: '2026-11-18T10:00:00Z' })
+    db.prepare("UPDATE loop_runs SET status='completed', final_outcome='failure', engine_version=2, run_request_json=?, runtime_metadata_json=? WHERE id='run-1'")
+      .run(JSON.stringify({ runId: 'run-1', projectId: 'p1', loopId: 'loop' }), JSON.stringify({ source: 'definition', contextPath: '/nonexistent/worktree/.specrails/pipeline/run-1/desktop-context.json' }))
+    const app = buildApp({ provider: 'codex', providers: ['claude', 'codex', 'gemini'] }, { db })
+    const attempts = (await request(app).get('/api/projects/p1/loop-runs/run-1/attempts')).body
+    expect(attempts).toMatchObject({ continuable: false, providerSwitch: null })
+    const refused = await post(app, { remedy: 'continue' })
+    expect(refused.status).toBe(409)
+    expect(refused.body.error).toBe('runtime_state_gone')
+  })
+
+  it('refuses a switch the run does not offer (no limit, an older Core, nothing else installed)', async () => {
+    settled.offer = null
+    const app = settledApp()
+    expect((await request(app).get('/api/projects/p1/loop-runs/run-1/attempts')).body.providerSwitch).toBeNull()
+    expect((await post(app, { remedy: 'continue', switch: { provider: 'claude', model: 'haiku' } })).body).toMatchObject({ error: 'switch_unavailable' })
+  })
+})
+
+describe('loop runs — the person\'s Pause', () => {
+  function pauseApp(manager: Record<string, unknown>, engineVersion = 2) {
+    const db = initDb(':memory:')
+    createLoopRun(db, { id: 'r1', projectId: 'p1', loopId: 'implement', ticketIds: [], provider: 'claude', model: 'haiku', iterationLimit: 3, startedAt: '2026-11-21T08:00:00Z' })
+    db.prepare('UPDATE loop_runs SET engine_version=? WHERE id=?').run(engineVersion, 'r1')
+    const app = express(); app.use(express.json()); const router = Router()
+    registerLoopRunRoutes({ router, ctx: () => ({ db, desktopDb, project: { id: 'p1', slug: 's1', path: '/repo' }, loopRunManager: manager, dailyBudgetRejection: () => null, onLoopRunFinished: vi.fn() }) } as unknown as ProjectRoutesDeps)
+    app.use('/api/projects', router)
+    return { app, db }
+  }
+
+  it('reads the pause control of one run (the rail toggle), the same value Job detail reports', async () => {
+    const userPauseControl = vi.fn().mockReturnValue('pause')
+    const { app, db } = pauseApp({ userPauseControl })
+    createJob(db, { id: 'r1', command: 'loop:implement', started_at: '2026-11-21T08:00:00Z', owner: 'loop' })
+    expect((await request(app).get('/api/projects/p1/loop-runs/r1/pause-control')).body).toEqual({ loopRunId: 'r1', pauseControl: 'pause' })
+    userPauseControl.mockReturnValue('pausing')
+    expect((await request(app).get('/api/projects/p1/loop-runs/r1/pause-control')).body.pauseControl).toBe('pausing')
+    // No resident task (held over a restart): a pause by you still offers Resume through its hold.
+    userPauseControl.mockReturnValue(null)
+    db.prepare("UPDATE loop_runs SET status='paused', restart_reason='user_paused' WHERE id='r1'").run()
+    expect((await request(app).get('/api/projects/p1/loop-runs/r1/pause-control')).body.pauseControl).toBe('resume')
+    db.prepare("UPDATE jobs SET status='completed' WHERE id='r1'").run()
+    expect((await request(app).get('/api/projects/p1/loop-runs/r1/pause-control')).body).toEqual({ loopRunId: 'r1', pauseControl: null })
+    expect((await request(app).get('/api/projects/p1/loop-runs/nope/pause-control')).status).toBe(404)
+  })
+
+  it('requests a pause at the next step boundary and answers 202 pausing', async () => {
+    const requestUserPause = vi.fn().mockResolvedValue({ status: 'pausing', requestId: 'desktop-user-pause:r1:1:abc' })
+    const res = await request(pauseApp({ requestUserPause }).app).post('/api/projects/p1/loop-runs/r1/pause').send({})
+    expect(res.status).toBe(202)
+    expect(res.body).toEqual({ loopRunId: 'r1', pausing: true, requestId: 'desktop-user-pause:r1:1:abc' })
+    expect(requestUserPause).toHaveBeenCalledWith('r1')
+  })
+
+  it('409s a run that cannot pause: a legacy run, an older Core, a held or settled run', async () => {
+    expect((await request(pauseApp({ requestUserPause: vi.fn() }, 1).app).post('/api/projects/p1/loop-runs/r1/pause').send({})).body).toMatchObject({ error: 'pause_unsupported' })
+    for (const [status, error] of [['unsupported', 'pause_unsupported'], ['held', 'pause_held'], ['not_running', 'pause_not_running']] as const) {
+      const res = await request(pauseApp({ requestUserPause: vi.fn().mockResolvedValue({ status }) }).app).post('/api/projects/p1/loop-runs/r1/pause').send({})
+      expect(res.status).toBe(409)
+      expect(res.body.error).toBe(error)
+    }
+    expect((await request(pauseApp({ requestUserPause: vi.fn().mockRejectedValue(new Error('Core did not acknowledge')) }).app).post('/api/projects/p1/loop-runs/r1/pause').send({})).body)
+      .toEqual({ error: 'pause_rejected', detail: 'Core did not acknowledge' })
+  })
+
+  it('resumes a resident run the person paused in place', async () => {
+    const resumeUserPause = vi.fn().mockReturnValue(true)
+    const beginDefinitionResume = vi.fn()
+    const res = await request(pauseApp({ budgetPause: () => null, resumeUserPause, beginDefinitionResume }).app).post('/api/projects/p1/loop-runs/r1/resume').send({})
+    expect(res.status).toBe(202)
+    expect(res.body).toEqual({ loopRunId: 'r1', resumed: true })
+    expect(resumeUserPause).toHaveBeenCalledWith('r1')
+    expect(beginDefinitionResume).not.toHaveBeenCalled()
   })
 })

@@ -16,7 +16,9 @@ import {
 import { writeBlueprintPair, readBlueprint } from './blueprint-render'
 import { mutateStore } from '../../specs/runtime/ticket-store'
 import { createPrDelivery, transitionDecision, toPrDeliverySnapshot, getPrDelivery, type PrDeliverySnapshot } from '../../delivery/runtime/rail-pr-store'
-import { createLoopRun } from '../../loops/runtime/loop-runs-store'
+import { createLoopRun, pauseLoopRun } from '../../loops/runtime/loop-runs-store'
+import { markUserPaused } from '../../loops/runtime/loop-user-pauses'
+import type { RunHold } from '../../loops/runtime/loop-run-hold'
 import { setRailName, setRailTickets } from '../../delivery/runtime/rails-store'
 import { workspacePathFor } from '../../../workspace-manager'
 import type { Blueprint } from './blueprint-types'
@@ -129,7 +131,16 @@ describe('deriveMilestoneProgress — counts and state', () => {
     expect(m1.state).toBe('running')
     expect(m1.chain).toEqual(chain)
     const paused = { ...chain, status: 'paused' as const }
-    expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [paused] })[0].state).toBe('committed')
+    // A chain that owns the milestone but stopped is `paused`, never "ready to launch".
+    expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [paused] })[0].state).toBe('paused')
+    const checkpoint = { ...chain, status: 'awaiting_approval' as const }
+    expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [checkpoint] })[0].state).toBe('paused')
+    // Every spec on review but the chain still integrating / rebuilding the last one: running, not delivered.
+    const reviewed = tickets.map((t) => ({ ...t, status: 'on_review' }))
+    expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets: reviewed, chains: [chain] })[0].state).toBe('running')
+    expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets: reviewed, chains: [] })[0].state).toBe('delivered')
+    const cancelled = { ...chain, status: 'cancelled' as const }
+    expect(deriveMilestoneProgress({ ...base, blueprint: blueprint(), tickets, chains: [cancelled] })[0].state).toBe('committed')
   })
 
   it('ignores tickets of other milestones and malformed labels', () => {
@@ -197,6 +208,72 @@ describe('deriveMilestoneProgress — rails', () => {
     expect(m1.rails[0].delivery?.id).toBe('d7')
     expect(m1.rails[1]).toMatchObject({ name: 'M1 · 2', active: true, runId: 'r2', chunkIndex: 2, startedAt: '2026-09-04T11:00:00.000Z' })
     expect(m1.rails[1].delivery?.id).toBe('d5')
+  })
+
+  it('a held run keeps its rail active and carries the hold; a working run has none', () => {
+    const paused: RunHold = { kind: 'paused', step: 'developer', since: '2026-09-04T11:07:26.000Z', byYou: true }
+    const [m1] = deriveMilestoneProgress({
+      ...base, blueprint: blueprint(), tickets: [ticket(1, 'in_progress'), ticket(2, 'in_progress')],
+      activeRuns: [
+        { runId: 'r1', railIndex: 1, ticketIds: [1], startedAt: '2026-09-04T11:00:00.000Z', hold: paused },
+        { runId: 'r2', railIndex: 2, ticketIds: [2], startedAt: '2026-09-04T11:00:00.000Z' },
+      ],
+    })
+    expect(m1.rails[0]).toMatchObject({ active: true, runId: 'r1', hold: paused })
+    expect(m1.rails[1]).toMatchObject({ active: true, runId: 'r2', hold: null })
+    // One rail still works: the milestone is in progress.
+    expect(m1.state).toBe('running')
+  })
+
+  it('every live rail paused by the person reads paused; any other hold keeps it running', () => {
+    const at = '2026-09-04T11:00:00.000Z'
+    const derive = (hold: RunHold) => deriveMilestoneProgress({
+      ...base, blueprint: blueprint(), tickets: [ticket(1, 'on_review'), ticket(2, 'in_progress'), ticket(3, 'todo')],
+      activeRuns: [{ runId: 'r', railIndex: 3, ticketIds: [2], startedAt: at, hold }],
+    })[0]
+    expect(derive({ kind: 'paused', step: null, since: at, byYou: true }).state).toBe('paused')
+    for (const kind of ['question', 'approval', 'budget', 'provider_limit', 'restart', 'interrupted', 'queued', 'paused'] as const) {
+      expect(derive({ kind, step: null, since: at }).state).toBe('running')
+    }
+  })
+
+  it('each rail names its engine: the chain\'s launch record, else the live run\'s row', () => {
+    const claude = { provider: 'claude', model: 'sonnet', reasoningEffort: null }
+    const codex = { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: 'high' }
+    const chain: MilestoneChainSnapshot = {
+      id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, nextChunk: 2, totalChunks: 3, retryChunk: null,
+      currentRailIndex: 5, headBranch: null, autoAdvance: true, createdAt: 'x', updatedAt: 'x',
+      launched: [{ chunk: 1, railIndex: 7, ticketIds: [1], runIds: ['r1'], deliveryId: 'd7', engine: claude }, { chunk: 2, railIndex: 5, ticketIds: [2], runIds: ['r2'], deliveryId: null, engine: codex }],
+    }
+    const [m1] = deriveMilestoneProgress({
+      ...base, blueprint: blueprint(), chains: [chain], tickets: [ticket(1, 'on_review'), ticket(2, 'in_progress'), ticket(3, 'in_progress')],
+      deliveries: [delivery({ id: 'd7', railIndex: 7, ticketIds: [1], decision: 'on_review' })],
+      activeRuns: [
+        { runId: 'r2', railIndex: 5, ticketIds: [2], startedAt: null, engine: { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: null } },
+        { runId: 'manual', railIndex: 9, ticketIds: [3], startedAt: null, engine: claude },
+      ],
+    })
+    expect(m1.rails.map((r) => [r.railIndex, r.engine])).toEqual([[7, claude], [5, codex], [9, claude]])
+  })
+
+  it('a rail held during its conflict refresh reads held, on the engine it was launched on', () => {
+    const claude = { provider: 'claude', model: 'sonnet', reasoningEffort: 'high' }
+    const budget: RunHold = { kind: 'budget', step: 'verify', since: '2026-09-04T11:07:26.000Z' }
+    // The chain refreshed the conflicted delivery d7 on its base: the re-verification fork-1 joined rail 7's launch record.
+    const chain: MilestoneChainSnapshot = {
+      id: 'c1', milestoneN: 1, mode: 'sequential', status: 'running', pauseReason: null, nextChunk: 1, totalChunks: 2, retryChunk: null,
+      currentRailIndex: 7, headBranch: null, autoAdvance: true, createdAt: 'x', updatedAt: 'x',
+      launched: [{ chunk: 1, railIndex: 7, ticketIds: [1], runIds: ['r1', 'fork-1'], deliveryId: 'd7', engine: claude }],
+    }
+    const [m1] = deriveMilestoneProgress({
+      ...base, blueprint: blueprint(), chains: [chain], tickets: [ticket(1, 'in_progress'), ticket(2, 'todo')],
+      deliveries: [delivery({ id: 'd7', railIndex: 7, ticketIds: [1], decision: 'building' })],
+      // Its row only knows provider/model; the launch record keeps the effort.
+      activeRuns: [{ runId: 'fork-1', railIndex: 7, ticketIds: [1], startedAt: null, hold: budget, engine: { provider: 'claude', model: 'sonnet', reasoningEffort: null } }],
+    })
+    expect(m1.rails).toHaveLength(1)
+    expect(m1.rails[0]).toMatchObject({ railIndex: 7, active: true, runId: 'fork-1', hold: budget, engine: claude, chunkIndex: 1 })
+    expect(m1.state).toBe('running')
   })
 
   it('a rail carrying no milestone ticket is not listed', () => {
@@ -289,6 +366,60 @@ describe('readMilestoneProgress / markMilestoneDone (real rows)', () => {
     expect(snap.progress[0].rails.map((r) => [r.railIndex, r.runId])).toEqual([[4, 'run-db'], [6, 'job-9']])
   })
 
+  it('each live run carries its shared hold: paused by you (durable), a question, the budget, a usage limit, capacity, a restart', () => {
+    const ws = workspacePathFor(project.slug)
+    fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+    writeBlueprintPair(ws, blueprint())
+    const ticketsPath = path.join(project.path, 't.json')
+    const ids = [1, 2, 3, 4, 5, 6, 7, 8]
+    mutateStore(ticketsPath, (s) => {
+      for (const id of ids) s.tickets[String(id)] = { id, title: 't', description: '', status: 'in_progress', priority: 'medium', labels: ['M1'], assignee: null, prerequisites: [], metadata: {}, created_at: 'x', updated_at: 'x' } as never
+    })
+    for (const id of ids) createLoopRun(db, { id: `run-${id}`, projectId: project.id, loopId: 'l', railIndex: id, ticketIds: [id], iterationLimit: 1, startedAt: '2026-09-04T12:00:00.000Z' })
+    // 1: the person's Pause, persisted (survives a restart: no live manager needed).
+    pauseLoopRun(db, 'run-1', undefined, 'user_paused')
+    markUserPaused(db, 'run-1', 'req-1', '2026-09-04T12:07:26.000Z')
+    const live: Record<string, { budget: boolean; limit: null | { providerId: string; message: string; resumeAt: string | null; pausedAt: string; autoResume: boolean }; pending: Array<{ kind: string }> }> = {
+      'run-2': { budget: false, limit: null, pending: [{ kind: 'question' }] },
+      'run-3': { budget: false, limit: null, pending: [{ kind: 'approval' }] },
+      'run-4': { budget: true, limit: null, pending: [] },
+      'run-5': { budget: false, limit: { providerId: 'claude', message: 'limit', resumeAt: '2026-09-04T15:00:00.000Z', pausedAt: '2026-09-04T12:10:00.000Z', autoResume: true }, pending: [] },
+    }
+    const snap = readMilestoneProgress({
+      ...src(ticketsPath),
+      holdSources: () => ({
+        livePause: (id) => (live[id] as never) ?? null,
+        restartPending: new Set(['run-7']),
+        queued: (id) => id === 'run-6' ? { waitingFor: 'run_slots', since: '2026-09-04T12:00:01.000Z', position: 2 } : null,
+      }),
+    })!
+    const hold = (railIndex: number) => snap.progress[0].rails.find((r) => r.railIndex === railIndex)!.hold
+    expect(hold(1)).toMatchObject({ kind: 'paused', byYou: true })
+    expect(hold(2)).toMatchObject({ kind: 'question' })
+    expect(hold(3)).toMatchObject({ kind: 'approval' })
+    expect(hold(4)).toMatchObject({ kind: 'budget' })
+    expect(hold(5)).toMatchObject({ kind: 'provider_limit', resumeAt: '2026-09-04T15:00:00.000Z' })
+    expect(hold(6)).toMatchObject({ kind: 'queued', waitingFor: 'run_slots', position: 2 })
+    expect(hold(7)).toMatchObject({ kind: 'restart' })
+    expect(hold(8)).toBeNull()
+    expect(snap.progress[0].rails.every((r) => r.active)).toBe(true)
+  })
+
+  it('a paused row reads held even without the live engine (the reported "En ejecución" while paused)', () => {
+    const ws = workspacePathFor(project.slug)
+    fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
+    writeBlueprintPair(ws, blueprint())
+    const ticketsPath = path.join(project.path, 't.json')
+    mutateStore(ticketsPath, (s) => {
+      s.tickets['7'] = { id: 7, title: 't', description: '', status: 'in_progress', priority: 'medium', labels: ['M1'], assignee: null, prerequisites: [], metadata: {}, created_at: 'x', updated_at: 'x' } as never
+    })
+    createLoopRun(db, { id: 'run-7', projectId: project.id, loopId: 'l', railIndex: 3, ticketIds: [7], iterationLimit: 1, startedAt: '2026-09-04T12:00:00.000Z' })
+    pauseLoopRun(db, 'run-7', undefined, 'user_paused')
+    const snap = readMilestoneProgress({ ...src(ticketsPath), railLoopRuns: new Map([['run-7', { railIndex: 3, ticketIds: [7] }]]) })!
+    expect(snap.progress[0].rails[0]).toMatchObject({ active: true, runId: 'run-7', hold: { kind: 'paused', byYou: true } })
+    expect(snap.progress[0].state).toBe('paused')
+  })
+
   it('an unreadable ticket store degrades to zero tickets, never throws', () => {
     const ws = workspacePathFor(project.slug)
     fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
@@ -327,6 +458,20 @@ describe('MilestoneProgressBroadcaster', () => {
     return { b, sent, persistDone }
   }
 
+  it('a Pause / Resume of a rail run re-broadcasts the progress so the row flips without a reload', () => {
+    let state: MilestoneProgress['state'] = 'running'
+    const read = vi.fn(() => ({ blueprint: blueprint(), progress: [progress(state)] }))
+    const { b, sent } = make(read)
+    state = 'paused'
+    b.observe({ type: 'loop.run_paused', projectId: 'p1', loopRunId: 'r', railIndex: 3, reason: 'Paused by you', ticketIds: [7] } as unknown as WsMessage)
+    vi.advanceTimersByTime(100)
+    state = 'running'
+    b.observe({ type: 'loop.run_resumed', projectId: 'p1', loopRunId: 'r', railIndex: 3, ticketIds: [7] } as unknown as WsMessage)
+    vi.advanceTimersByTime(100)
+    const states = sent.filter((m) => m.type === 'blueprint.milestone_progress').map((m) => (m as unknown as { progress: MilestoneProgress[] }).progress[0].state)
+    expect(states).toEqual(['paused', 'running'])
+  })
+
   it('coalesces a burst of triggers into ONE debounced broadcast', () => {
     const read = vi.fn(() => ({ blueprint: blueprint(), progress: [progress('running')] }))
     const { b, sent } = make(read)
@@ -352,6 +497,10 @@ describe('MilestoneProgressBroadcaster', () => {
     expect(read).not.toHaveBeenCalled()
     expect(sent).toHaveLength(0)
     expect(MILESTONE_PROGRESS_TRIGGERS.has('blueprint.milestone_progress')).toBe(false)
+    // A run's hold moving (Pause, Resume, a question, a limit, capacity) refreshes the rail rows.
+    for (const type of ['loop.run_paused', 'loop.run_resumed', 'loop.pause_requested', 'loop.pause_request_ended', 'loop.run_queued', 'loop.run_queue', 'loop.limit_pause', 'loop.run_started']) {
+      expect(MILESTONE_PROGRESS_TRIGGERS.has(type)).toBe(true)
+    }
   })
 
   it('remembers a blueprint-less project as absent until invalidated', () => {

@@ -51,6 +51,17 @@ describe('normalizeReviewBrief', () => {
     expect(out.dropped).toBe(6)
   })
 
+  it('drops human checks that only ask the person to read git state the change set answers', () => {
+    // submod: "Run `git status --porcelain -- libs/mid` … I could not run git in this read-only review session."
+    const out = normalizeReviewBrief({ humanChecks: [
+      'Run `git status --porcelain -- libs/mid` and `git diff --quiet -- libs/mid` in the ticket-1 worktree to confirm the submodules are untouched. I could not run git in this read-only review session.',
+      'Run `git -C ticket-2 diff --stat` and confirm only src/lib.rs changed',
+      'On the iPhone Simulator, open the temperature screen and confirm it shows 100 °C for 212 °F',
+    ] })!
+    expect(out.brief.humanChecks).toEqual(['On the iPhone Simulator, open the temperature screen and confirm it shows 100 °C for 212 °F'])
+    expect(out.dropped).toBe(2)
+  })
+
   it('caps risks at five and returns null for non-objects', () => {
     const risks = Array.from({ length: 8 }, (_, i) => ({ severity: 'low', whatToLookAt: `r${i}` }))
     expect(normalizeReviewBrief({ risks })!.brief.risks).toHaveLength(5)
@@ -86,6 +97,14 @@ describe('reviewBriefFromReviewerOutput', () => {
   it('reads brief and briefDiagnostic', () => {
     expect(reviewBriefFromReviewerOutput({ approved: true, score: 80, brief: FULL_BRIEF })).toMatchObject({ source: 'definition', approved: true, score: 80 })
     expect(reviewBriefFromReviewerOutput({ briefDiagnostic: 'dropped' })).toMatchObject({ brief: null, diagnostic: 'dropped' })
+  })
+  it('keeps Core review triage notes, even on a review without a brief, and merges them into the packet section', () => {
+    const notes = [{ kind: 'advice', issue: 'Consider naming the value.', reason: 'marked as advice' }, { kind: 'out-of-scope', issue: 'Add a flag later.' }, { kind: 'advice' }, 'junk']
+    const record = reviewBriefFromReviewerOutput({ approved: true, score: 88, issues: [] }, 'definition', notes)
+    expect(record).toMatchObject({ brief: null, notes: [{ kind: 'advice', issue: 'Consider naming the value.', reason: 'marked as advice' }, { kind: 'out-of-scope', issue: 'Add a flag later.', reason: null }] })
+    expect(reviewBriefFromReviewerOutput({ approved: true, score: 88 }, 'definition', [])).toBeNull()
+    expect(buildWhatToLookAt([{ ticketId: 4, reviewBrief: record }])).toMatchObject({ reviewNotes: [{ ticketId: 4, kind: 'advice' }, { ticketId: 4, kind: 'out-of-scope' }], humanChecks: [] })
+    expect(buildWhatToLookAt([{ ticketId: 4, reviewBrief: reviewBriefFromReviewerOutput({ approved: true, brief: {} }) }])).toBeNull()
   })
 })
 

@@ -13,6 +13,9 @@ const TICKET_CMD = /\{\{\s*cmd:(implement|batch|freestyle)\b/
 
 export function loopNeedsTicket(graph: LoopGraph | undefined): boolean {
   if (!graph) return false
+  // A Core definition that opens a new OpenSpec change plans it from the ticket's
+  // requirements (a fork of the built-in Implement loop): it needs the rail's ticket.
+  if (graph.config?.change === 'new') return true
   for (const node of graph.nodes) {
     if (node.type === 'core' && ['implementation', 'implementation-step'].includes(String(node.data?.kind))) return true
     const text = [node.data?.prompt, node.data?.command, node.data?.goal, node.type === 'core' ? JSON.stringify(node.data?.params ?? {}) : '']

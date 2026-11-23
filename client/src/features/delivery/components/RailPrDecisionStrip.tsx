@@ -1,5 +1,7 @@
 import { localizeStatusDetail } from '../../../lib/pr-status-detail'
-import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
+import { runStateLook, type RunState } from '../../../components/ui/run-state/run-state'
+import { deliveryLook } from '../lib/delivery-run-state'
 import { getApiBase } from '../../../lib/api'
 import { FEATURE_PR_CI_CARD } from '../../../lib/feature-flags'
 import { postPrCiLaunch, prCiFixable, usePrCiAvailability } from '../lib/pr-ci'
@@ -12,7 +14,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { FEATURE_REVIEW_PACKET } from '../../../lib/feature-flags'
 import { toast } from 'sonner'
-import { GitPullRequest, GitMerge, ExternalLink, Loader2, AlertTriangle, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, Play, FolderOpen, MessageSquareWarning, MoreHorizontal, CircleStop } from 'lucide-react'
+import { GitPullRequest, GitMerge, ExternalLink, Loader2, Eye, GitBranch, ScrollText, CheckCircle2, RotateCcw, Play, FolderOpen, MoreHorizontal, type LucideIcon } from 'lucide-react'
 import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
 import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../../../types'
@@ -22,8 +24,15 @@ import { isTauri, revealItemInDir } from '../../../lib/tauri-shell'
 import { DeliveryArrival } from '../../../components/brand/DeliveryArrival'
 import { RepositoryDeliveries } from './RepositoryDeliveries'
 import { TopRiskLine } from './TopRiskLine'
+import { MergePreviewLine } from './MergePreviewLine'
 import { FLOW_SPEC_LOOP_ID, LoopChip, useLoopLabel } from './LoopChip'
 import { useRuntimeRuns } from '../../jobs/components/job-run/useRuntimeRuns'
+import { useContinueRemedies } from '../../recovery/hooks/useContinueRemedies'
+import { useAttemptChain } from '../../recovery/hooks/useAttemptChain'
+import { useRunDiagnosis } from '../../recovery/hooks/useRunDiagnosis'
+import { useDiagnosisText } from '../../recovery/components/FailureDiagnosisCard'
+import type { FailureDiagnosis } from '../../recovery/lib/failure-diagnosis'
+import { SafetyArchiveNotice } from './SafetyArchiveNotice'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { useStackedHeadDeliveryIds } from '../../builder/hooks/useMilestoneProgress'
 
@@ -96,8 +105,17 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   const implementationFailedStrip = d === 'implementation_failed' && presentation.implementationFailed && decision.statusCode !== 'review_changes_requested'
   const runtimeRuns = useRuntimeRuns(stripProjectId, { jobId: failedRunId ?? undefined, enabled: implementationFailedStrip && !!failedRunId })
   const failedRun = runtimeRuns.runs.find((run) => run.runId === failedRunId) ?? null
+  // The reason the run stopped, in the run window's own words (its failure card's headline).
+  const failureDiagnosis = useRunDiagnosis(stripProjectId, failedRunId, implementationFailedStrip && !runStopped && !!failedRunId, decision.statusCode)
   const canResume = failedRun !== null && failedRun.canResume && !failedRun.active
   const relaunchBlocked = failedRun !== null && (failedRun.active || failedRun.status === 'running' || failedRun.status === 'paused')
+  // A settled definition run continues where it failed or stopped, keeping its work (never a relaunch
+  // from the base). The runtime list omits settled runs, so the run's own record says whether it can.
+  const continuity = useAttemptChain(stripProjectId, implementationFailedStrip ? failedRunId : null, decision.statusCode)
+  const continuable = !canResume && !relaunchBlocked && decision.loopId !== FLOW_SPEC_LOOP_ID
+    && (failedRun ? failedRun.engineVersion === 2 && !failedRun.forkSuccessor : continuity.continuable)
+  const continueRemedies = useContinueRemedies(stripProjectId, continuable ? failedRunId : null, null, { enabled: implementationFailedStrip && continuable })
+  const continueRun = continueRemedies.continue ?? null
   // An Intent session → Spec run relaunches from its Intent (mission card): the rail relaunch refuses that loop.
   const flowSpecRun = decision.loopId === FLOW_SPEC_LOOP_ID
   const loopLabel = useLoopLabel(decision.loopId, decision.loopName)
@@ -109,6 +127,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     (decision.decision === 'on_review' && decision.statusCode === 'ready_for_review') ||
     (decision.decision === 'pr_ready' && decision.statusCode === 'pr_ready') ||
     (decision.decision === 'pr_draft' && decision.statusCode === 'pr_draft_ready') ||
+    (decision.decision === 'implementation_failed' && decision.statusCode === 'implementation_failed') ||
     runStopped
   const statusLabel = isKnownPrDeliveryStatusCode(decision.statusCode) && !statusRepeatsPill
     ? t(`common:prDeliveryStatus.${decision.statusCode}`)
@@ -377,12 +396,29 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     compact ? 'px-2 py-1 text-label' : 'px-2.5 py-1 text-label'
   }`
   const iconCls = compact ? 'w-2.5 h-2.5' : 'w-3 h-3'
+  /** A state pill in the run-state vocabulary: the state's tone, and its glyph —
+   *  or the object's (an open PR, a branch) in that tone. Running is the info lamp. */
+  const statePill = (
+    state: RunState,
+    label: React.ReactNode,
+    opts: { objectIcon?: LucideIcon | null; title?: string; hint?: string | null; testId?: string } = {},
+  ) => {
+    const look = runStateLook(state)
+    const Icon = opts.objectIcon ?? look.icon
+    return (
+      <span className={`${pillBase} ${look.text} ${look.border}`} title={opts.title} data-testid={opts.testId} data-run-state={state}>
+        {Icon ? <Icon className={iconCls} aria-hidden /> : <RunStateDot state={state} />}
+        {label}
+        {opts.hint ? <span className="sr-only"> ({opts.hint})</span> : null}
+      </span>
+    )
+  }
   const spinner = <Loader2 className={`${iconCls} animate-spin`} aria-hidden />
   const busy = inFlight !== null || checkingOut || relaunching || runtimeRuns.busy !== null || decision.operation != null
   // A later milestone chunk was stacked on this delivery (premium-milestone-
   // progress): discarding it pauses the chain — say so before the click.
   const isStackedHead = stackedHeads.has(decision.prDeliveryId)
-  const discardTitle = d === 'implementation_failed' ? t('railPr.implementationFailedHint') : t('railPr.discardTooltip')
+  const discardTitle = d === 'implementation_failed' ? t('railPr.implementationFailedDiscardTooltip') : t('railPr.discardTooltip')
 
   const plainLinkChip = decision.prUrl ? (
     <a
@@ -589,7 +625,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     return { failed, blocked, label: t(failed ? 'railPr.unit.failed' : blocked ? 'railPr.unit.blocked' : noChanges ? 'railPr.unit.noChanges' : 'railPr.unit.succeeded') }
   }
   const unitSummary = (decision.units ?? []).map((unit) => `#${unit.ticketId} · ${unitState(unit).label}`).join('\n')
-  const unitEvidence = (decision.units ?? []).flatMap((unit) => {
+  // A failed implementation's one unit only repeats the pill: per-unit evidence speaks there when several specs share it.
+  const unitEvidence = d === 'implementation_failed' && (decision.units ?? []).length < 2 ? [] : (decision.units ?? []).flatMap((unit) => {
     const { failed, blocked, label } = unitState(unit)
     if (!failed && !blocked) return []
     return [(
@@ -597,11 +634,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         key={`${unit.ticketId}-${unit.runId ?? unit.branch}`}
         data-testid="rail-pr-unit-evidence"
         title={unit.failureCode ?? unit.branch}
-        className={`${pillBase} ${
-          failed
-            ? 'border-destructive/30 bg-destructive/10 text-destructive'
-            : 'border-accent-warning/30 bg-accent-warning/10 text-accent-warning'
-        }`}
+        data-run-state={failed ? 'failed' : 'blocked'}
+        className={`${pillBase} ${runStateLook(failed ? 'failed' : 'blocked').text} ${runStateLook(failed ? 'failed' : 'blocked').border}`}
       >
         #{unit.ticketId} · {label}
       </span>
@@ -764,14 +798,10 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   let actions: React.ReactNode = null
   // The pill's explanation, readable without hovering (the tooltip keeps it too).
   let detailLine: string | null = null
+  let reasonDiagnosis: FailureDiagnosis | null = null
 
   if (existingPrIteration) {
-    pill = (
-      <span className={`${pillBase} border-accent-info/30 bg-accent-info/10 text-accent-info`}>
-        <LiveDot tone="info" size="xs" aria-hidden />
-        {t('railPr.iteratingPr')}
-      </span>
-    )
+    pill = statePill('working', t('railPr.iteratingPr'))
     actions = (
       <>
         {linkChip}
@@ -779,20 +809,11 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       </>
     )
   } else if (presentation.noChanges) {
-    pill = (
-      <span className={`${pillBase} border-accent-success/30 bg-accent-success/10 text-accent-success`}>
-        <CheckCircle2 className={iconCls} aria-hidden />
-        {t('railPr.noChanges')}
-      </span>
-    )
+    pill = statePill(deliveryLook('no_changes').state, t('railPr.noChanges'))
     actions = <>{decision.prUrl ? linkChip : null}{presentation.continuation ? dismissBtn : <>{acknowledgeNoChangesBtn}{refineBtn}</>}</>
   } else if (presentation.partial && !presentation.deliveryBlocked && !presentation.retryablePush && !presentation.retryablePrCreation && !presentation.closed) {
-    pill = (
-      <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`}>
-        <AlertTriangle className={iconCls} aria-hidden />
-        {t('railPr.partial', { succeeded: presentation.succeededCount, total: presentation.totalCount })}
-      </span>
-    )
+    // Some repositories delivered, others did not: blocked until they do.
+    pill = statePill('blocked', t('railPr.partial', { succeeded: presentation.succeededCount, total: presentation.totalCount }))
     if (d === 'pr_draft' && decision.prUrl) {
       actions = (
         <>
@@ -822,12 +843,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       actions = <>{linkChip}{secondary(true, false)}</>
     }
   } else if (presentation.deliveryBlocked) {
-    pill = (
-      <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`} title={decision.statusDetail ?? undefined}>
-        <AlertTriangle className={iconCls} aria-hidden />
-        {t('railPr.deliveryBlocked')}
-      </span>
-    )
+    pill = statePill('blocked', t('railPr.deliveryBlocked'), { title: decision.statusDetail ?? undefined })
     actions = <>
       {linkChip}
       {inspectLocalResultBtn}
@@ -837,12 +853,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
         : discardBtn}
     </>
   } else if (presentation.retryablePush) {
-    pill = (
-      <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`} title={decision.statusDetail ?? undefined}>
-        <AlertTriangle className={iconCls} aria-hidden />
-        {t('railPr.updateFailed')}
-      </span>
-    )
+    pill = statePill('blocked', t('railPr.updateFailed'), { title: decision.statusDetail ?? undefined })
     actions = (
       <>
         {linkChip}
@@ -851,16 +862,12 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       </>
     )
   } else if (presentation.retryablePrCreation) {
-    pill = (
-      <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`} title={decision.statusDetail ?? undefined}>
-        <AlertTriangle className={iconCls} aria-hidden />
-        {presentation.localOnly
-          ? t('railPr.localOnly')
-          : decision.prState === 'pushed'
-            ? t('railPr.branchPushed')
-            : t('railPr.prFailed')}
-      </span>
-    )
+    // A retryable PR creation: blocked, not a failure.
+    pill = statePill('blocked', presentation.localOnly
+      ? t('railPr.localOnly')
+      : decision.prState === 'pushed'
+        ? t('railPr.branchPushed')
+        : t('railPr.prFailed'), { title: decision.statusDetail ?? undefined })
     actions = (
       <>
         {actionButton('create-pr', d, t('railPr.retryPr'), 'rail-pr-create')}
@@ -868,12 +875,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       </>
     )
   } else if (presentation.closed) {
-    pill = (
-      <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`}>
-        <AlertTriangle className={iconCls} aria-hidden />
-        {t('railPr.prClosed')}
-      </span>
-    )
+    // Closed without merging: stopped (it can be reopened).
+    pill = statePill(deliveryLook('pr_closed').state, t('railPr.prClosed'), { objectIcon: deliveryLook('pr_closed').objectIcon })
     actions = (
       <>
         {linkChip}
@@ -882,12 +885,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       </>
     )
   } else if (d === 'on_review') {
-    pill = (
-      <span className={`${pillBase} border-accent-review/30 bg-accent-review/10 text-accent-review`}>
-        <Eye className={iconCls} aria-hidden />
-        {t('railPr.readyForReview')}
-      </span>
-    )
+    pill = statePill(deliveryLook('on_review').state, t('railPr.readyForReview'), { objectIcon: deliveryLook('on_review').objectIcon })
     actions = (
       <>
         {reviewPacketBtn}
@@ -896,12 +894,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       </>
     )
   } else if (d === 'pr_draft' && decision.prUrl) {
-    pill = (
-      <span className={`${pillBase} border-accent-info/30 bg-accent-info/10 text-accent-info`}>
-        <GitPullRequest className={iconCls} aria-hidden />
-        {t('railPr.draftPr')}
-      </span>
-    )
+    pill = statePill(deliveryLook('pr_draft').state, t('railPr.draftPr'), { objectIcon: deliveryLook('pr_draft').objectIcon })
     actions = (
       <>
         {linkChip}
@@ -913,12 +906,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
   } else if (d === 'pr_draft') {
     // Degraded delivery: branch pushed (or kept local) but no PR exists — the
     // only ways forward are retrying the failed stage or discarding.
-    pill = (
-      <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`} title={t('railPr.branchPushedHint')}>
-        <AlertTriangle className={iconCls} aria-hidden />
-        {presentation.localOnly ? t('railPr.localOnly') : t('railPr.branchPushed')}
-      <span className="sr-only"> ({t('railPr.branchPushedHint')})</span></span>
-    )
+    pill = statePill('blocked', presentation.localOnly ? t('railPr.localOnly') : t('railPr.branchPushed'), { title: t('railPr.branchPushedHint'), hint: t('railPr.branchPushedHint') })
     actions = (
       <>
         {actionButton('create-pr', 'pr_draft', t('railPr.retryPr'), 'rail-pr-create', t('railPr.createPrTooltip', { base: decision.baseBranch }))}
@@ -926,12 +914,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       </>
     )
   } else if (d === 'pr_ready') {
-    pill = (
-      <span className={`${pillBase} border-accent-success/30 bg-accent-success/10 text-accent-success`}>
-        <GitMerge className={iconCls} aria-hidden />
-        {t('railPr.prReady')}
-      </span>
-    )
+    // The open PR waits for the person's decision: review, never the merge glyph.
+    pill = statePill(deliveryLook('pr_ready').state, t('railPr.prReady'), { objectIcon: deliveryLook('pr_ready').objectIcon })
     actions = (
       <>
         {linkChip}
@@ -941,12 +925,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       </>
     )
   } else if (d === 'pr_failed') {
-    pill = (
-      <span className={`${pillBase} border-destructive/30 bg-destructive/10 text-destructive`}>
-        <AlertTriangle className={iconCls} aria-hidden />
-        {t('railPr.prFailed')}
-      </span>
-    )
+    pill = statePill(deliveryLook('pr_failed').state, t('railPr.prFailed'))
     actions = (
       <>
         {linkChip}
@@ -958,31 +937,31 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
     // Intent → Spec still needs changes: its Intent worktree is kept for "Back to
     // Intent" / "Relaunch" on the mission card — never discarded from here.
     detailLine = decision.statusDetail ? null : t('railPr.reviewChangesRequestedHint')
-    pill = (
-      <span className={`${pillBase} border-accent-warning/30 bg-accent-warning/10 text-accent-warning`} title={decision.statusDetail ?? t('railPr.reviewChangesRequestedHint')} data-testid="rail-pr-review-changes">
-        <MessageSquareWarning className={iconCls} aria-hidden />
-        {t('railPr.reviewChangesRequested')}
-      {(decision.statusDetail ?? t('railPr.reviewChangesRequestedHint')) ? <span className="sr-only"> ({decision.statusDetail ?? t('railPr.reviewChangesRequestedHint')})</span> : null}</span>
-    )
+    const changes = deliveryLook(d, 'changes')
+    pill = statePill(changes.state, t('railPr.reviewChangesRequested'), {
+      objectIcon: changes.objectIcon,
+      title: decision.statusDetail ?? t('railPr.reviewChangesRequestedHint'),
+      hint: decision.statusDetail ?? t('railPr.reviewChangesRequestedHint'),
+      testId: 'rail-pr-review-changes',
+    })
     actions = null
   } else if (d === 'implementation_failed' && presentation.implementationFailed) {
     const hint = t(runStopped ? 'railPr.runStoppedHint' : 'railPr.implementationFailedHint')
-    detailLine = hint
-    pill = runStopped ? (
-      <span className={`${pillBase} border-border/60 bg-surface/60 text-muted-foreground`} title={hint} data-testid="rail-pr-run-stopped">
-        <CircleStop className={iconCls} aria-hidden />
-        {t('railPr.runStopped')}
-      <span className="sr-only"> ({hint})</span></span>
-    ) : (
-      <span className={`${pillBase} border-destructive/30 bg-destructive/10 text-destructive`} title={hint}>
-        <AlertTriangle className={iconCls} aria-hidden />
-        {t('railPr.implementationFailed')}
-      <span className="sr-only"> ({hint})</span></span>
-    )
+    // One headline (the pill), one reason (the run's diagnosis when known), one set of actions.
+    detailLine = runStopped || !failureDiagnosis ? hint : null
+    reasonDiagnosis = runStopped ? null : failureDiagnosis
+    pill = runStopped
+      ? statePill(deliveryLook(d, 'stopped').state, t('railPr.runStopped'), { title: hint, hint, testId: 'rail-pr-run-stopped' })
+      : statePill(deliveryLook('implementation_failed').state, t('railPr.implementationFailed'), { title: hint, hint })
     actions = (
       <>
-        {/* One primary: resume the run when it can be, else run the attempt again (never for a continuation or an Intent session run). */}
-        {canResume ? (
+        {/* One primary: continue a settled run, resume a paused one, else run the attempt again (never for a continuation or an Intent session run). */}
+        {continueRun ? (
+          <button type="button" data-testid="rail-pr-continue" disabled={busy || continueRun.busy || continueRun.disabled} title={t('railPr.continueHint')} onClick={(event) => { event.stopPropagation(); continueRun.run() }} className={primaryBtn}>
+            {continueRun.busy ? spinner : <Play className={iconCls} aria-hidden />}
+            {t('railPr.continue')}
+          </button>
+        ) : canResume ? (
           <button type="button" data-testid="rail-pr-resume" disabled={busy} onClick={(event) => { event.stopPropagation(); void runtimeRuns.act(failedRun, 'resume') }} className={primaryBtn}>
             {runtimeRuns.busy !== null ? spinner : <Play className={iconCls} aria-hidden />}
             {t('railPr.resume')}
@@ -1052,7 +1031,9 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       {actions}
       <HelpHint topic="prDecision" />
       {detailLine && <p className="basis-full text-caption text-muted-foreground" data-testid="rail-pr-detail-line">{detailLine}</p>}
-      {decision.deliverySha && (
+      {reasonDiagnosis && <FailureReasonLine diagnosis={reasonDiagnosis} />}
+      {/* A failed implementation delivered nothing: its recorded commit is the base it started from. */}
+      {decision.deliverySha && d !== 'implementation_failed' && (
         <span
           className={`${pillBase} ${decision.deliveryOutcome === 'delivered' ? 'border-accent-success/30 bg-accent-success/10 text-accent-success' : 'border-border/60 bg-surface/60 text-muted-foreground'} font-mono`}
           data-testid="rail-pr-delivery-sha"
@@ -1065,6 +1046,8 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       {menuRendered ? null : runLogChips}
       {unitEvidence}
       {!compact && d !== 'building' ? <TopRiskLine summary={decision.riskSummary} className="basis-full" /> : null}
+      {/* Conflicts with the current base / sibling deliveries, base lead (merge-tree, no checkout). */}
+      <MergePreviewLine deliveryId={decision.prDeliveryId} className="basis-full" />
       {statusLabel && (
         <span className={`${pillBase} border-border/60 bg-surface/60 text-muted-foreground`} data-testid="rail-pr-status-code">
           {statusLabel}
@@ -1106,20 +1089,7 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       )}
 
       {presentation.safetyArchives.length > 0 && (
-        <details
-          className={`basis-full rounded-md border border-accent-info/25 bg-accent-info/5 text-muted-foreground ${compact ? 'px-1.5 py-1 text-caption' : 'px-2 py-1.5 text-caption'}`}
-          data-testid="rail-pr-safety-archives"
-        >
-          <summary className="cursor-pointer font-medium text-accent-info">
-            {t('railPr.safetyArchiveTitle', { count: presentation.safetyArchives.length })}
-          </summary>
-          <p className="mt-1">{t('railPr.safetyArchiveHint')}</p>
-          <ul className="mt-1 space-y-0.5 font-mono text-[0.9em] text-muted-foreground">
-            {presentation.safetyArchives.map((archive) => (
-              <li key={archive} className="break-all">{archive}</li>
-            ))}
-          </ul>
-        </details>
+        <SafetyArchiveNotice projectId={stripProjectId} paths={presentation.safetyArchives} compact={compact} testId="rail-pr-safety-archives" />
       )}
 
       {/* Merge-local confirmation — it writes merge commits into the user's
@@ -1229,4 +1199,10 @@ export function RailPrDecisionStrip({ decision, density, act, checkout }: RailPr
       </ConfirmDialog>
     </div>
   )
+}
+
+/** A failed run's reason on the rail card: the run window's failure headline, once. */
+function FailureReasonLine({ diagnosis }: { diagnosis: FailureDiagnosis }) {
+  const { headline } = useDiagnosisText(diagnosis)
+  return <p className="basis-full text-caption text-muted-foreground" data-testid="rail-pr-failure-reason">{headline}</p>
 }

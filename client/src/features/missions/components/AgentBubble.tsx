@@ -7,6 +7,7 @@ import { RailMark } from '../../../components/brand/RailMark'
 import { keyboardLabel } from '../../../lib/keyboard-label'
 import { BuilderHalo } from '../../builder/components/project-builder/BuilderHalo'
 import { LiveDot } from '../../../components/ui/live-dot'
+import { avoidTop, bubbleAvoidRects, subscribeBubbleAvoid } from '../../../lib/bubble-avoid'
 
 // Persisted bubble position, stored as the distance from the bottom-right
 // corner so a shrinking window keeps it anchored to the corner it was dropped
@@ -74,7 +75,23 @@ export function AgentBubble() {
   const isStreaming = useIsStreaming()
   const [hovered, setHovered] = useState(false)
   const [corner, setCorner] = useState<Corner>(() => clampCorner(readStored() ?? DEFAULT_CORNER))
-  const pos = toPos(corner)
+  // A surface docked at the bottom of the page (a run's pause card, question or composer) lifts the
+  // bubble just above it while it is on screen; the remembered corner does not change.
+  const [liftedTop, setLiftedTop] = useState<number | null>(null)
+  const draggingRef = useRef(false)
+  useEffect(() => {
+    const update = () => {
+      if (draggingRef.current) return
+      const base = toPos(corner)
+      const top = avoidTop({ left: base.left, top: base.top, size: BUBBLE }, bubbleAvoidRects(), CHROME_TOP)
+      setLiftedTop(top === base.top ? null : top)
+    }
+    update()
+    const unsubscribe = subscribeBubbleAvoid(update)
+    window.addEventListener('resize', update)
+    return () => { unsubscribe(); window.removeEventListener('resize', update) }
+  }, [corner])
+  const pos = liftedTop === null ? toPos(corner) : { ...toPos(corner), top: liftedTop }
 
   // motion transform offset applied ON TOP of left/top; rebased to 0 after each drag.
   const x = useMotionValue(0)
@@ -145,12 +162,13 @@ export function AgentBubble() {
       dragMomentum={false}
       dragElastic={0}
       style={{ position: 'fixed', ...anchorStyle, x, y }}
-      onDragStart={() => { draggedRef.current = true }}
+      onDragStart={() => { draggedRef.current = true; draggingRef.current = true }}
       onDragEnd={() => {
         const next = clampCorner(toCorner({ left: pos.left + x.get(), top: pos.top + y.get() }))
         // Rebase: commit to left/top and reset the transform so nothing jumps.
         x.set(0)
         y.set(0)
+        draggingRef.current = false
         setCorner(next)
         persist(next)
         // Let the click that fires right after the drag be swallowed, then re-arm.
@@ -163,7 +181,7 @@ export function AgentBubble() {
       whileHover={{ scale: 1.06 }}
       whileTap={{ scale: 0.94 }}
       whileDrag={{ scale: 1.1, cursor: 'grabbing' }}
-      className={`z-[60] flex h-14 items-center gap-2 rounded-full${anchorRight ? ' flex-row-reverse' : ''} border border-border/60 bg-card px-3 shadow-2xl cursor-grab`}
+      className={`z-[60] flex h-14 items-center motion-safe:transition-[top] motion-safe:duration-200 gap-2 rounded-full${anchorRight ? ' flex-row-reverse' : ''} border border-border/60 bg-card px-3 shadow-2xl cursor-grab`}
     >
       <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-accent-primary/15">
         <BuilderHalo

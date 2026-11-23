@@ -5,7 +5,7 @@ import { ExploreSpecShell } from '../ExploreSpecShell'
 import { SharedWebSocketContext } from '../../../../../hooks/useSharedWebSocket'
 
 // Regression coverage for the Continue-Editing-a-draft flow: a draft opened
-// via Continue Editing must be PUBLISHABLE (flip draft → real spec) from the
+// via Continue editing must be PUBLISHABLE (flip draft → real spec) from the
 // primary commit button, while a live spec keeps the in-place PATCH behaviour.
 
 const mockStartWithMessage = vi.fn().mockResolvedValue('conv-pd')
@@ -119,7 +119,7 @@ type EditTicket = {
   status?: 'draft' | 'todo' | 'in_progress' | 'done' | 'cancelled'
 }
 
-describe('ExploreSpecShell — publish vs update on Continue Editing', () => {
+describe('ExploreSpecShell — publish vs update on Continue editing', () => {
   let onClose: ReturnType<typeof vi.fn>
   let onTicketCreated: ReturnType<typeof vi.fn>
   let originalFetch: typeof fetch
@@ -170,7 +170,7 @@ describe('ExploreSpecShell — publish vs update on Continue Editing', () => {
     return fetchMock
   }
 
-  it('draft edit: button reads "Update Spec" but commit still flips the draft via from-draft', async () => {
+  it('draft edit: button reads "Update spec" but commit still flips the draft via from-draft', async () => {
     const fetchMock = renderShell({
       id: 42,
       title: 'Saved draft',
@@ -182,10 +182,10 @@ describe('ExploreSpecShell — publish vs update on Continue Editing', () => {
     })
 
     const createBtn = await screen.findByTestId('explore-spec-create')
-    // Editing an existing spec (draft included) reads "Update Spec" — the COMMIT
+    // Editing an existing spec (draft included) reads "Update spec" — the COMMIT
     // BEHAVIOUR (publish via from-draft) is unchanged, only the label.
-    expect(createBtn).toHaveTextContent('Update Spec')
-    expect(createBtn).not.toHaveTextContent('Create Spec')
+    expect(createBtn).toHaveTextContent('Update spec')
+    expect(createBtn).not.toHaveTextContent('Create spec')
 
     fireEvent.click(createBtn)
 
@@ -211,7 +211,7 @@ describe('ExploreSpecShell — publish vs update on Continue Editing', () => {
     await waitFor(() => expect(onTicketCreated).toHaveBeenCalled())
   })
 
-  it('live spec edit (status=todo): button reads "Update Spec" and commit PATCHes in place', async () => {
+  it('live spec edit (status=todo): button reads "Update spec" and commit PATCHes in place', async () => {
     const fetchMock = renderShell({
       id: 7,
       title: 'Live spec',
@@ -223,7 +223,7 @@ describe('ExploreSpecShell — publish vs update on Continue Editing', () => {
     })
 
     const createBtn = await screen.findByTestId('explore-spec-create')
-    expect(createBtn).toHaveTextContent('Update Spec')
+    expect(createBtn).toHaveTextContent('Update spec')
 
     fireEvent.click(createBtn)
 
@@ -237,7 +237,7 @@ describe('ExploreSpecShell — publish vs update on Continue Editing', () => {
     expect(fromDraft).toBeUndefined()
   })
 
-  it('draft edit still exposes Save as Draft to keep it a draft', async () => {
+  it('draft edit still exposes Save as draft to keep it a draft', async () => {
     renderShell({
       id: 42,
       title: 'Saved draft',

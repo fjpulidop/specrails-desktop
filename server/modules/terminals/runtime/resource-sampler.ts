@@ -73,6 +73,19 @@ export function createProcessTableReader(platform: NodeJS.Platform = process.pla
   return platform === 'win32' ? createWindowsProcessTableReader() : readPosixProcessTable
 }
 
+/** Shares one table between callers: a result younger than `ttlMs` is reused and concurrent calls join the
+ * in-flight read. Used where one request reads the table (the app-wide Resources view). */
+export function cacheProcessTableReader(read: ProcessTableReader, now: () => number = Date.now, ttlMs = 500): ProcessTableReader {
+  let cached: { at: number; samples: ProcessSample[] | null } | null = null
+  let inFlight: Promise<ProcessSample[] | null> | null = null
+  return () => {
+    if (cached && now() - cached.at < ttlMs) return Promise.resolve(cached.samples)
+    if (inFlight) return inFlight
+    inFlight = read().then((samples) => { cached = { at: now(), samples }; return samples }).finally(() => { inFlight = null })
+    return inFlight
+  }
+}
+
 /** Total size of regular files under `dir`, without following symlinks. Portable, used where `du` is absent. */
 export async function walkDiskUsage(dir: string): Promise<number> {
   let total = 0

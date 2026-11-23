@@ -8,6 +8,7 @@ import {
 } from './db'
 import { getAdapter, reasoningEffortsForModel } from './providers'
 import { readMilestoneGenerationSelection } from './modules/builder/runtime/milestone-generation-settings'
+import { recordMilestoneGenerationEngine } from './modules/builder/runtime/milestone-engine-preference'
 import { supportsToolPolicy } from './providers/runtime'
 import {
   getLastContextScope, setLastContextScope, normalizeContextScope, type ContextScope
@@ -97,6 +98,13 @@ export function registerChatRoutes(deps: ProjectRoutesDeps): void {
         return
       }
       milestoneScope = { milestone: rawMilestone.toLowerCase(), ...(effort ? { reasoningEffort: effort } : {}) }
+      // "Use another configuration only for M<n>": an engine other than the
+      // usual one becomes that milestone's own (its launch chain's next rails
+      // run on it); the usual one clears it.
+      try {
+        recordMilestoneGenerationEngine(db, rawMilestone, { provider, model, reasoningEffort: effort ?? null })
+        ctx(req).milestoneProgress?.schedule()
+      } catch { /* advisory */ }
     }
     let scope: ContextScope | undefined
     if (kind === 'explore') {

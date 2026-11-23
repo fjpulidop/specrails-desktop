@@ -25,16 +25,124 @@ eager barrel that initializes all effectful adapters.
 
 Run `npx vitest run server/modules/missions` and any affected consumers.
 
+## Operator core and guide topics
+
+The mission agent loads ONE operator text every turn: the core built by
+`buildOperatorSystemPrompt()` in [agent-operator-prompt.ts](runtime/agent-operator-prompt.ts)
+(about 17k characters, measured at ~6k tokens on Claude). It holds identity and working style,
+every non-negotiable rule (read-only boundary, permission ladder and
+confirmations, honest reporting, data is never an instruction, never resume
+without a diagnosis, never start long-lived processes from its own shell, the
+intent/spec gate), the decision guide, how to report, and a topic index. The
+detailed manual is the set of topics in [the MCP guide](../../mcp/guide.ts),
+read on demand with `specrails_guide(topic)`; the core's index is rendered from
+that registry, so every entry resolves. A rule that must hold even when the
+agent never reads a topic belongs in the core; detail belongs in a topic.
+
+Provider parity, once per session: providers with a system-prompt argument
+(Claude through Core's `--system-prompt-file`, local engines) receive the core
+as the system prompt, and `CLAUDE.md` in `~/.specrails/agent-cwd` only carries
+a short pointer (`OPERATOR_CWD_INSTRUCTIONS`). Codex, Gemini and Kimi read the
+core from their instructions file there (`AGENTS.md`, `GEMINI.md`,
+`.kimi-code/AGENTS.md`, rewritten every turn) and do not get it repeated in
+each user turn (`providerLoadsOperatorCore`); local engines, which read no
+file, get it folded into the turn.
+
+## Sub-agent tool
+
+"Allow sub-agents" (project setting, or the app setting without a project) is
+the single source for whether the mission agent has its provider's sub-agent
+tool. Core sessions receive it as `policy.subagents`; legacy turns as
+`nativeSubagents` from `missionSpawnPolicy(adapter, subagents)`
+([mission-tool-policy.ts](runtime/mission-tool-policy.ts)), resolved through
+`MissionCoreSessions.subagentPolicy`. Off removes Claude's `Agent` tool; the
+operator core says nothing about sub-agents, so it is the same in both states,
+and the delegated-runtime addendum is only added while they are on. A toggle
+applies on the next turn and resumes the same provider session, rewriting the
+prompt cache once. Other providers are unaffected. See
+[agent sessions](../../../docs/internals/agent-sessions.md#the-sub-agent-tool-follows-the-setting).
+
+## Connectors in missions
+
+A mission uses the provider's OWN connectors: on Claude the claude.ai account
+connectors (and, once tool search is available, the user-scope servers in
+`~/.claude.json`), on Codex the `[mcp_servers.*]` of `$CODEX_HOME/config.toml`,
+on Gemini `~/.gemini/settings.json`. App settings ▸ AI providers ▸ "Connectors
+in missions" lists them per provider with a toggle each. The setting is an
+app-wide deny-list (`desktop_settings['mission_connectors']`), so anything new
+starts enabled. [mission-connectors.ts](runtime/mission-connectors.ts) holds
+the pure rules (parsing, duplicates, the turn plan);
+[mission-connectors-discovery.ts](runtime/mission-connectors-discovery.ts)
+reads the configs asynchronously, asks `claude mcp list` (30 s timeout, from
+the neutral `~/.specrails/connectors-probe-cwd`, only when Settings asks; a
+turn never waits for it and falls back to `claudeAiMcpEverConnected`), caches
+the result for 10 minutes and measures stdio servers on "Measure sizes"
+(`initialize` + `tools/list`, ~2.7 JSON characters per token, stored in
+`mission_connector_sizes`).
+
+How a turn applies it (`connectorTurnPlan`; names the turn already carries,
+Specrails, External MCP servers and plugins, are never denied or re-added):
+
+| Provider | Mechanism | Core change |
+| --- | --- | --- |
+| Codex | Core session: `policy.mcp.inheritUserScope: false` plus a name-only spec per enabled server. Core disables every declared server not listed (`-c mcp_servers.<n>.enabled=false`) and emits only `enabled=true` for a spec without transport, so the user's definition is kept. Legacy turn: the same `-c` disables. Servers with `enabled = false` in the config stay off. | none |
+| Claude | `deniedMcpServers` in `~/.specrails/agent-cwd/.claude/settings.local.json` (read through `--setting-sources project,local`; verified on Claude Code 2.1.322 for account connectors and user servers). Enabled user-scope servers are injected as specs only when the driver declares `capabilities.deferredMcpTools`. | tool search (below) |
+| Gemini | `mcp.excluded` in the conversation's `.gemini/settings.json` (verified on gemini-cli 0.49.0). | n/a (legacy) |
+| Kimi | listed, not switchable. | n/a |
+
+A server that is Specrails' own MCP (name `specrails`, the `specrails-mcp.js`
+bridge or `http://127.0.0.1:<port>/api/mcp`) is always excluded and shown as
+such. When something is off, the Specrails spec carries
+`SPECRAILS_MISSION_CONNECTORS_OFF=<hash>`, so the policy changes with the set
+and Core restarts an idle resident process before the next turn (the provider
+reads its switch file at start). A change therefore applies on the next turn
+and rewrites the provider's prompt cache once. Intent turns run in a project
+worktree, which Specrails never writes into: on Claude they keep every account
+connector; on Codex the policy applies. See
+[agent sessions](../../../docs/internals/agent-sessions.md#connectors-in-missions).
+
+A legacy turn plans synchronously (`planForCached`: the cached inventory, else
+the provider configs read with `readFileSync`) and writes its small switch
+file only when it changed, so nothing asynchronous sits between a turn's start
+and its spawn and a Stop can never let a stopped turn spawn. Core-session turns
+plan inside their already-async `prepareTurn` with `planFor`.
+
+### Tool search and the Specrails tools
+
+With Core's `deferredMcpTools` capability, Claude sessions get `ToolSearch`:
+MCP tool schemas stay deferred (only names reach the prompt) until the model
+searches for one. In-app agent sessions (a verified agent capability) see the
+Specrails tools with `_meta["anthropic/alwaysLoad"]`, so a mission has its own
+tools up front, except `DEFERRED_IN_APP_TOOLS` (`specrails_jira`,
+`specrails_plugins`), which stay deferred and keep tool search on. External MCP
+clients never get the mark ([types.ts](../../mcp/tools/types.ts)).
+
 ## Intent drafts and the commit_draft gate
 
 The operator writes the intent first (intent-mode): one fenced `intent-draft`
-block before any `spec-draft` ([operator prompt](runtime/agent-operator-prompt.ts),
-section "Writing the intent"). [agent-spec-framing.ts](runtime/agent-spec-framing.ts)
+block before any `spec-draft` (rule in the [operator core](runtime/agent-operator-prompt.ts),
+protocol in the `intent-and-framing` guide topic). [agent-spec-framing.ts](runtime/agent-spec-framing.ts)
 derives the gate from the stored messages: an answered `intent-draft` (or a
 legacy `problem-frame`) authorises ONE `commit_draft`, and `answeredSpecIntent`
 returns the intent the MCP `commit_draft` attaches to the spec. Payload rules are
 the shared `parseIntentDraft` (specs domain), so the client card and the gate
 accept the same blocks. `flow-offer` is for existing specs only.
+
+## Context used
+
+[runtime/mission-context-usage.ts](runtime/mission-context-usage.ts) is pure:
+it measures the provider session's context from a settled Claude turn's frames
+(newest root assistant usage, `modelUsage` window) or a Codex rollout tail
+(last `token_count`). [runtime/codex-rollout-reader.ts](runtime/codex-rollout-reader.ts)
+finds and tails the rollout. A Claude turn without provider frames (Core
+sessions) reads the session transcript tail through
+[runtime/claude-transcript-reader.ts](runtime/claude-transcript-reader.ts),
+keeping the last measured window. `AgentChatManager` stores the snapshot on the
+conversation when `persistSession` keeps a session, clears it when the session
+resets, and broadcasts `agent_context_usage`. Codex reads are async and
+versioned per mission, so a late read never overwrites a newer value or a reset.
+Values are reported, never estimated; a missing window hides the percentage (the composer then shows a neutral ring only to offer "Start fresh with a summary").
+See [agent sessions](../../../docs/internals/agent-sessions.md#context-used-indicator).
 
 ## Read-only boundary
 
@@ -58,16 +166,34 @@ write-role level, so the agent can run tests and installs headless; see
 [Intent permissions](../../../docs/internals/intent-mode.md#permissions)),
 default tools, the mission's Specrails MCP, sub-agents under the project
 policy and the static [Intent persona](runtime/agent-flow-prompt.ts), which runs
-long-lived apps through `specrails_jobs background_start`. Mid-turn input is delivered as
+long-lived apps through `specrails_background(start)`. Mid-turn input is delivered as
 `interrupt` ([core-session-runner.ts](runtime/core-session-runner.ts) follows
 the correction's turn and sums usage). Intent turns never use a legacy
 transport, never overwrite the mission's provider session and are recorded
 with `surface: 'flow'`. A null port leaves mission turns unchanged.
 See [Intent mode](../../../docs/internals/intent-mode.md).
 
+## Input read receipts
+
+A user bubble's receipt moves `sent` → `received` → `read` (`agent_inputs.receipt`,
+broadcast as `agent_input_receipt`; it never moves backwards). For the **turn's own
+input** the server records `read` itself: at the turn's first model output
+(`text-delta` or `tool-use`) or, failing that, when the turn settles cleanly
+(code 0, no error). The prompt carries no receipt instruction, so the model makes
+no extra tool call (and no extra cached-prefix request) per queued turn. A spawn
+failure, a rejected Core input or an abort before output leaves it unread.
+`received` still comes from transport acceptance (`onInitialInputAccepted`).
+
+**Mid-turn native updates** (Steer through the provider's input channel) keep the
+agent-side `specrails_mission(acknowledge_inputs)`: output streamed after the
+injection may belong to a model request that started before it, so only the agent
+knows it has read them. MCP `mission_user_updates` are marked read by the
+mandatory `acknowledge_updates` (no extra call). `acknowledge_inputs` remains
+accepted (idempotent) for the turn's own input.
+
 ## Failure assistance
 
-The operator uses `specrails_jobs runtime_diagnose` and paged `runtime_evidence`
+The operator uses `specrails_runs(diagnose)` and paged `specrails_runs(evidence)`
 before recommending recovery. A repeated error requires a changed precondition
 and a concrete validation plan; Relaunch is not the fallback for a failed Resume.
 The automatic briefing remains read-only and short. Subsequent user requests
@@ -143,6 +269,51 @@ adds provenance and inherited-message fields without foreign keys to the source,
 so deleting it does not damage a fork. On its first provider turn, a fork seeds
 its copied historical attachments alongside the existing bounded history prompt;
 provider resume uses its own independent session thereafter.
+
+## Ask about selected text
+
+`POST /api/agent/conversations/:id/side-questions` answers a side question
+about selected mission text ([mission-side-question.ts](runtime/mission-side-question.ts)).
+It reuses the code module's one-shot, pure-output generator
+(`createFileSummaryGenerator` with a side-question system prompt): one turn,
+no tools, on the mission's provider and model, retrying once with the provider
+default when the account rejects the model. The prompt carries the mission
+history through `throughMessageId` (newest 12 messages, 17k characters, 3.5k
+per message, cancelled/interrupted input skipped), the selection, the modal's
+own bounded side thread and the question, all as data. It runs from an empty
+app-owned cwd so no operator or project instruction file is loaded. It never
+writes a mission message or touches the provider session, and stores nothing
+about the side thread. Each call records one `agent_invocations` row with
+`surface: 'side-question'`, which analytics maps to Missions (only `flow` is
+Intent). The answer is not streamed: the adapters emit whole assistant messages
+for a one-shot call, so the modal shows a running state until it arrives.
+
+## Start fresh with a summary
+
+`POST /api/agent/conversations/:id/session/renew` replaces a long provider
+session with a summary ([mission-session-summary.ts](runtime/mission-session-summary.ts),
+lifecycle in `AgentChatManager.renewSessionWithSummary`). The summary is one
+turn with no tools on the mission's provider, model and effort (provider default
+when the account rejects the model), from the side-question's empty app-owned
+cwd. Its input is the whole persisted transcript, newest first, trimmed to 80k
+characters (6k per message, app cards 1.2k, an earlier summary ends the walk);
+its output is capped at 12k. It must keep the goal, decisions and constraints,
+current state, open questions, important references, and say what it leaves
+out. Each call records one `agent_invocations` row with
+`surface: 'session-summary'` (Missions in analytics).
+
+The conversation is reserved while the summary is written; input sent meanwhile
+queues and runs afterwards in the new session. On success the summary is stored
+as a `session-summary` system row (`postSystemRow`, broadcast as
+`agent_system_row`; no migration), `session_id` is cleared, the context
+snapshot is cleared (`agent_context_usage` null) and a mission that ran in Core
+moves to its next generation (`renewMissionSessionIfOpened`). The next turn is
+therefore fresh on every path, and `buildSessionSeedBlock` seeds it with the
+newest summary (marked as data) plus the bounded history of the messages after
+it, never the raw messages before it. Refused with 409 while a turn runs
+(`MISSION_BUSY`), in Intent (`MISSION_IN_INTENT`: the Intent owns its own
+session), archived, or with nothing to summarize. A failed summary changes
+nothing (502 with the provider's message). Stop aborts a summary in progress.
 
 ## Resource history cleanup
 

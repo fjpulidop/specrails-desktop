@@ -7,6 +7,7 @@ import { createBackgroundProcessControl, type BackgroundProcessControl } from '.
 import { windowsSpawnEnv } from './util/win-spawn'
 import { BackgroundProcessStore, BACKGROUND_HISTORY_MAX_LINES, BACKGROUND_HISTORY_RETENTION_MS } from './modules/terminals/runtime/background-process-store'
 import { spawnWindowsBackgroundBootstrap, type WindowsBackgroundBootstrap } from './modules/terminals/runtime/background-windows-bootstrap'
+import { withRunPortEnv } from './modules/terminals/runtime/run-port-leases'
 
 /** Fire-and-forget children not already owned by a long-lived provider manager. */
 const byProject = new Map<string, Set<ChildProcess>>()
@@ -313,9 +314,11 @@ export function startBackgroundProcess(
   if (persistenceError) flushBackgroundProcessPersistence()
   const startedAt = Date.now()
   const windowsBootstrap = process.platform === 'win32' ? spawnWindowsBackgroundBootstrap(command, cwd) : undefined
+  // A dev server started inside a run worktree (an Intent app) gets that worktree's port block.
+  const runPortEnv = withRunPortEnv(process.env, cwd)
   const child = windowsBootstrap?.child ?? spawn(command, {
     cwd, shell: true, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
-    ...(process.platform === 'win32' ? { env: windowsSpawnEnv(), windowsHide: true } : {}),
+    ...(process.platform === 'win32' ? { env: windowsSpawnEnv(runPortEnv), windowsHide: true } : runPortEnv !== process.env ? { env: runPortEnv } : {}),
   })
   if (!child.pid) {
     // spawn emits error asynchronously even when it returns no pid.

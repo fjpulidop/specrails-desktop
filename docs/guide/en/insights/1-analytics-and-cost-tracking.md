@@ -6,53 +6,55 @@ Open it from the right sidebar (it's labelled **Analytics**). Everything you see
 
 ## What counts as spend
 
-Specrails tags every AI run with a *surface*: the part of the app that spent it. The main surfaces each get a consistent colour and a filter chip, so you can spot them at a glance:
+Every AI call in the project counts: pipeline jobs and loop steps, spec writing, file summaries, side chats, failure diagnosis, and the missions and Intent turns you run with the agent while it is pinned to this project. Missions on Home (no project pinned) belong to no project and are not counted here.
 
-- **Job** — a queued pipeline job (Architect → Developer → Reviewer → Ship), including Freestyle runs.
-- **Loop** — each AI step of a loop run. Rails run as loops by default, so most rail spend lands here.
-- **Quick spec** — a spec generated through the fast Add Spec path.
-- **Explore spec** — an Explore conversation where you shape a spec by chatting.
-- **AI edit** — an AI-assisted refine on an agent or file.
-- **SMASH** — splitting an epic spec into smaller specs.
-- **File summary** — the plain-language summaries and file stories that power the Code explorer.
+Each call is tagged with the *surface* that spent it, and every surface belongs to one of five **categories** that say *why* the money was spent:
 
-Smaller surfaces are tracked as well, without a chip of their own: the chat sidebar, the OpenSpec spec launcher, spec proposals, Agent Studio and the legacy setup chat. Missions pinned to the project count toward its spend too. Nothing that runs an AI CLI is left out, so the totals reflect all of the project's AI activity.
+- **Implementation** — building specs with rails, loops and jobs.
+- **Missions** — talking to the agent and Intent mode (mission turns, Intent turns and the Intent spec rewrite).
+- **Specs** — writing and refining specs: Quick and Explore specs, refine, split, the spec launcher, proposals and triage.
+- **Code** — explaining the code: file summaries and file stories.
+- **Support** — setup, diagnosis and side chats: failure analysis, setup, Agent Studio and the chat sidebar.
 
 ## Reading the dashboard
 
-The page is built from a handful of blocks, top to bottom:
+The page reads top to bottom as *how much → on what and why → when → with which models → the individual calls*.
 
-### The burn meter (Hero)
+### How much (Hero)
 
-The big number at the top is your total spend for the selected period, with a **vs prev** delta so you can tell at a glance whether you're trending up or down compared to the previous window. If you've only just started using a project, the empty state tells you when tracking began ("Tracking started YYYY-MM-DD") — there's no historical backfill, so the meter only knows about runs that happened while you were on this version.
+The big number at the top is your total spend for the selected period, with a **vs prev** delta so you can tell at a glance whether you're trending up or down compared to the previous window. When every engine is on a subscription plan, the figure is labelled an *API-equivalent estimate*: what the calls would cost at API prices, not money that was charged. If you've only just started using a project, the empty state tells you when tracking began.
+
+### Where the money went
+
+One row per category with its cost, its share of the total, the number of calls and tokens, and a one-line reason. The hatched part of a bar is estimated cost (engines that don't report cost natively). Open a category to see the surfaces it is made of, and click one to filter the whole page to it. The Missions category also lists your costliest conversations.
 
 ### Daily timeline
 
-A stacked bar chart of spend per day, broken down by surface. Days with no activity are shown as zero rather than skipped, so the shape of your week is honest. This is the fastest way to see *when* a costly batch ran.
+A stacked bar chart of spend per day, broken down by surface, with missions in their own colour. Days with no activity are shown as zero rather than skipped. This is the fastest way to see *when* a costly batch ran.
 
-### Quick vs Explore
+### Spend limits
 
-A side-by-side card comparing your two spec-creation styles. If you've run fewer than five Explore sessions, it shows a gentle call-to-action instead of misleading averages — small samples don't make for trustworthy comparisons.
+Your daily, weekly, monthly and per-run caps, the month-end projection and the what-if re-pricing (see below).
 
-### By model
+### Engines and models
 
-Your top models by spend (up to ten). Click any model to filter the whole dashboard down to just that model — handy when you want to know how much a particular high-end model is really costing you.
-
-### Cost vs turns scatter
-
-Each point is one invocation, plotting cost against the number of turns. Outliers — the expensive, many-turn runs — jump right out. (The scatter shows your most recent 500 points to stay responsive.)
+Spend per engine (on projects with more than one) and your top models by spend. Click any model to filter the whole dashboard down to just that model.
 
 ### Top specs
 
-Your ten most expensive specs across *all* surfaces combined, so a spec that cost a little in Explore and a lot in a job shows its true total. Deleted specs and unattributed runs get their own buckets so nothing silently vanishes from the totals.
+Your ten most expensive specs across *all* surfaces combined, so a spec that cost a little in Explore and a lot in a job shows its true total. Mission turns carry no spec, so they are not listed here.
 
 ### Raw invocations table
 
-The ground truth: one row per invocation. This block has its own secondary filters that only affect the table, so you can drill in without disturbing the charts above.
+The ground truth: one row per call. The **Why** column shows the surface and its category; mission and Intent rows show the conversation they belong to. This block has its own secondary filters that only affect the table.
+
+### More breakdowns
+
+Collapsed by default: time to decision and merge, loop economics, the cost vs turns scatter and the Quick vs Explore comparison.
 
 ## Filtering
 
-The sticky header at the top carries the two primary filters — **period** and **surface** — and both are saved into the page URL. That means you can bookmark or share a filtered view ("last 30 days, jobs only") and it'll reopen exactly as you left it. The raw table's filters are separate and stay local to that block.
+The sticky header carries the primary filters — **period**, **category** and (on multi-engine projects) **engine** — and all of them are saved into the page URL, so you can bookmark or share a filtered view ("last 30 days, missions only"). Hover a category chip to see what it covers. A single surface can be selected from the *Where the money went* card (or `?surface=` in the URL); a removable chip in the header shows it. The raw table's filters are separate and stay local to that block.
 
 A note on accuracy: failed and aborted runs are kept out of *cost averages* (they'd skew the per-run numbers) but they still count toward your total run count and failure rate. So the averages stay clean while the reliability picture stays complete.
 
@@ -64,16 +66,20 @@ You don't have to come to the Analytics page to see what a spec cost. Open any s
 
 Click it and you land on the Analytics page already filtered to that spec. It's the quickest path from "what did this feature cost me?" to the full breakdown.
 
+## All projects {#all-projects}
+
+For the picture across every project, open **Analytics** from the left sidebar or the command palette. It shows total cost, jobs and success rate, the cost over time and one row per project, and it uses the same five categories and colours as the project page. Mission and Intent turns count in every figure. Turns that belong to no loaded project, such as missions on Home and Blueprint or Builder chats, are grouped in one **Home & Blueprint** row, counted in agent turns instead of jobs. Estimated cost is marked with `~`, as on the project page.
+
 ## Exporting your data
 
 When you need the numbers outside the app — a spreadsheet, a finance report, your own analysis — use the **Export** dropdown. It offers four formats:
 
-- **Summary CSV** — a multi-section file with totals, the daily timeline, by-surface, by-model, and top specs.
+- **Summary CSV** — a multi-section file with totals, the daily timeline, by-category, by-surface, by-model, and top specs.
 - **Summary JSON** — the same summary, structured.
 - **Raw CSV** — every invocation row (up to 10,000; it notes if it had to truncate).
 - **Raw JSON** — the same raw rows, structured.
 
-Exports respect whatever period and surface filters you currently have applied, and files are named so they sort sensibly: `<project>-analytics-<period>-<date>.csv`. The button is disabled when there's nothing to export, and you'll get a clear error toast if a download fails.
+Exports respect whatever period, category and surface filters you currently have applied, and files are named so they sort sensibly: `<project>-analytics-<period>-<date>.csv`. The button is disabled when there's nothing to export, and you'll get a clear error toast if a download fails.
 
 ## Staying live
 
@@ -83,10 +89,10 @@ You don't need to refresh. When a new invocation is recorded anywhere in the pro
 
 Set a daily limit to cap what a day can cost. Every cap, daily, weekly, monthly and per-run, is edited in one place: **Analytics → Spend limits**. **Settings → Advanced** and **Project settings → Spend limits** only show the current daily cap, with an **Open Spend limits** button that takes you there.
 
-When the day's recorded spend reaches a limit, the queue pauses itself, rails and loop runs refuse to launch with *Daily limit reached*, and a loop run already in progress parks between steps, paused at the limit. Raise or clear the limit, or wait for the daily reset, and then resume.
+When the day's recorded spend reaches a limit, the queue pauses itself, rails and loop runs refuse to launch with *Daily limit reached*, and a loop run already in progress parks between steps, paused at the limit. Raise or clear the limit, or wait for the daily reset, and then resume. A loop run held only by the daily limit resumes by itself when the day resets (local midnight for a project limit, UTC midnight for the app-wide one), once there is capacity, and says so in its log; that includes a run held over midnight while the app was closed, which resumes when the app starts. A run you paused, or one its own per-run cap (or a weekly or monthly cap) still holds, keeps waiting for you. Turn it off in **Settings → Advanced → Resume runs held by the daily limit when the day resets**.
 
-The project limit counts your local day; the app-wide limit counts the UTC day. The per-job cost alert is a separate setting.
+Both limits count your local day, and both include mission spend: a project's limit counts the turns pinned to that project, the app-wide limit counts every turn. "Today" means your local day everywhere in the app, in the status bar, Analytics and the limits. The per-job cost alert is a separate setting.
 
-**Weekly, monthly and per-run caps.** Longer caps work the same way. Open **Analytics → Spend limits** to set a **weekly** and a **monthly** cap, per project and for the whole app, and a **per-run soft cap** (*pause and ask at $X*). Weeks start on Monday and months on the 1st, in your local time. A weekly or monthly cap pauses queues, refuses launches and parks running loops exactly like the daily limit; raise or clear it there, or wait for the reset. When a run's own reported cost reaches the per-run cap it pauses, and **Resume** asks whether to continue without the cap or raise it. Reaching any cap also adds a **Raise cap** item to the inbox.
+**Weekly, monthly and per-run caps.** Longer caps work the same way. Open **Analytics → Spend limits** to set a **weekly** and a **monthly** cap, per project and for the whole app, and a **per-run soft cap** (*pause and ask at $X*). Weeks start on Monday and months on the 1st, in your local time. A weekly or monthly cap pauses queues, refuses launches and parks running loops exactly like the daily limit; raise or clear it there, or wait for the reset. A step that has started cannot be stopped, so the per-run cap is checked **before each AI step**, against what that step usually costs: what it cost earlier in the same run, else the median of its recent runs in the project on the same model, else an estimate of a typical step of its kind from the price list. When the next step would not fit, the run pauses before it and says so (*Paused before Developer: it usually costs about $0.45, and $0.12 of the $0.40 per-run limit is left*); **Resume** then offers to **run this step once** (the cap applies again after it), continue without the cap, or raise it. A run whose own reported cost reaches the cap pauses the same way. These are estimates: a step that costs far more than usual can still pass the cap. Reaching any cap also adds a **Raise cap** item to the inbox.
 
 The Spend limits panel shows today, this week and this month against each cap. Its month-end **projection** is an estimate (the average of the last 14 completed days times the days left, plus what you have spent), never added to billed spend. **What-if** re-prices the last 30 days of recorded token usage on another model with the app's price list, and says *No pricing* for a model it has no price for. On a subscription plan there is no dollar cost per use, so the panel shows turns and plan limits instead of dollars.

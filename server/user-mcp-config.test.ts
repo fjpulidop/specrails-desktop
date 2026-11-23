@@ -6,7 +6,10 @@ import {
   readUserClaudeMcpServers,
   writeUserMcpConfig,
   buildUserMcpArgs,
+  buildCodexReservedMcpArgs,
+  codexDefinesReservedServer,
 } from './user-mcp-config'
+import { mkdirSync } from 'node:fs'
 
 describe('user-mcp-config', () => {
   let home: string
@@ -91,6 +94,55 @@ describe('user-mcp-config', () => {
         projects: { '/repos/app': { allowedTools: [] } },
       })
       expect(readUserClaudeMcpServers('/repos/app', home)).toEqual({ u: { command: 'u' } })
+    })
+
+    it('never returns the reserved specrails entry (the person\'s unrestricted external bridge), in either scope', () => {
+      writeClaudeConfig({
+        mcpServers: { specrails: { command: 'node', args: ['specrails-mcp.js'] }, u: { command: 'u' } },
+        projects: { '/repos/app': { mcpServers: { specrails: { command: 'node' }, l: { command: 'l' } } } },
+      })
+      expect(readUserClaudeMcpServers('/repos/app', home)).toEqual({ u: { command: 'u' }, l: { command: 'l' } })
+    })
+
+    it('buildUserMcpArgs injects nothing when specrails is the only approved server', () => {
+      writeClaudeConfig({ mcpServers: { specrails: { command: 'node' } } })
+      expect(buildUserMcpArgs({ adapterId: 'claude', projectPath: '/repos/app', slug: 'app', homeDir: home, baseDir: base })).toEqual([])
+    })
+  })
+
+  describe('buildCodexReservedMcpArgs', () => {
+    function writeCodexConfig(text: string): void {
+      mkdirSync(join(home, '.codex'), { recursive: true })
+      writeFileSync(join(home, '.codex', 'config.toml'), text, 'utf-8')
+    }
+
+    it('switches off a [mcp_servers.specrails] table for codex turns', () => {
+      writeCodexConfig('model = "o3"\n\n[mcp_servers.specrails]\ncommand = "node"\nargs = ["x.js"]\n')
+      expect(buildCodexReservedMcpArgs({ adapterId: 'codex', homeDir: home, env: {} })).toEqual(['-c', 'mcp_servers.specrails.enabled=false'])
+    })
+
+    it('honours CODEX_HOME', () => {
+      const codexHome = join(home, 'alt')
+      mkdirSync(codexHome, { recursive: true })
+      writeFileSync(join(codexHome, 'config.toml'), '[mcp_servers."specrails"]\ncommand = "node"\n', 'utf-8')
+      expect(buildCodexReservedMcpArgs({ adapterId: 'codex', homeDir: home, env: { CODEX_HOME: codexHome } })).toEqual(['-c', 'mcp_servers.specrails.enabled=false'])
+    })
+
+    it('adds nothing when no specrails server is defined (a partial table would break codex startup)', () => {
+      writeCodexConfig('[mcp_servers.other]\ncommand = "x"\n[mcp_servers.specrails-docs]\ncommand = "y"\n')
+      expect(buildCodexReservedMcpArgs({ adapterId: 'codex', homeDir: home, env: {} })).toEqual([])
+      expect(buildCodexReservedMcpArgs({ adapterId: 'codex', homeDir: join(home, 'missing'), env: {} })).toEqual([])
+    })
+
+    it('is codex-only', () => {
+      writeCodexConfig('[mcp_servers.specrails]\ncommand = "node"\n')
+      expect(buildCodexReservedMcpArgs({ adapterId: 'claude', homeDir: home, env: {} })).toEqual([])
+    })
+
+    it('detects dotted and [mcp_servers] inline definitions', () => {
+      expect(codexDefinesReservedServer('mcp_servers.specrails.command = "node"\n')).toBe(true)
+      expect(codexDefinesReservedServer('[mcp_servers]\nspecrails = { command = "node" }\n')).toBe(true)
+      expect(codexDefinesReservedServer('[profiles.x]\nspecrails = 1\n')).toBe(false)
     })
   })
 

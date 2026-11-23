@@ -78,6 +78,33 @@ describe('AgentWorkspaceSidebar', () => {
     expect(screen.getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'false')
   })
 
+  it('a floating (unpinned) rail collapses once a section is chosen, until the pointer leaves', () => {
+    localStorage.setItem('specrails-desktop:sidebar-mode:right', 'unpinned')
+    render(<AgentWorkspaceSidebar />)
+    const rail = screen.getByRole('complementary', { name: 'On workspace' })
+    const panel = screen.getByTestId('workspace-sidebar-panel')
+    fireEvent.mouseEnter(rail)
+    fireEvent.focus(rail)
+    expect(panel).not.toHaveAttribute('inert')
+    fireEvent.click(screen.getByRole('button', { name: 'Specs' }))
+    expect(toggleSpecsPane).toHaveBeenCalledTimes(1)
+    expect(panel).toHaveAttribute('inert')
+    // Still over the rail / focus events: it does not pop back over the section.
+    fireEvent.focus(rail)
+    expect(panel).toHaveAttribute('inert')
+    // Leaving and coming back re-arms the hover expansion.
+    fireEvent.mouseLeave(rail)
+    fireEvent.focus(rail)
+    expect(panel).not.toHaveAttribute('inert')
+  })
+
+  it('a docked (pinned) rail stays open when a section is chosen', () => {
+    localStorage.setItem('specrails-desktop:sidebar-mode:right', 'pinned-open')
+    render(<AgentWorkspaceSidebar />)
+    fireEvent.click(screen.getByRole('button', { name: 'Specs' }))
+    expect(screen.getByTestId('workspace-sidebar-panel')).not.toHaveAttribute('inert')
+  })
+
   it('hides workspace tools completely when the sidebar is closed', () => {
     render(<AgentWorkspaceSidebar />)
     expect(screen.queryByRole('button', { name: 'Jobs' })).not.toBeInTheDocument()

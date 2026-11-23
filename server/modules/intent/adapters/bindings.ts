@@ -18,6 +18,7 @@ import {
 } from '../../../worktree-manager'
 import { OVERLAY_MANIFEST, applyWorktreeOverlay } from '../../../worktree-overlay'
 import { linkNodeModulesIntoWorktree } from '../../../worktree-node-modules'
+import { reapWorktreeLeftovers } from '../../terminals/runtime/worktree-process-reaper'
 import type { WsMessage } from '../../../types'
 import { getAgentConversation, listAgentMessages } from '../../agents/runtime/agent-store'
 import { getProjectRepositories } from '../../../project-repositories'
@@ -47,11 +48,12 @@ import { openAddenda, readSpecAddenda } from '../../specs/runtime/spec-addenda-c
 import { getRails } from '../../delivery/runtime/rails-store'
 import { getActivePrDeliveryByRail } from '../../delivery/runtime/rail-pr-store'
 import {
-  FLOW_SPEC_LOOP_ID, IntentConflictError, IntentLaunchRejectedError, IntentUnavailableError, IntentValidationError, buildFlowSummary, buildOriginalSpecComment, currentDerivedChange, firstErrorLine, isOpenSpecChangeId, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, FLOW_UNEXPLAINED_FILES_CAP, transition,
-  type DerivedChangeText, type IntentRunFailure, type IntentSession, type IntentSpecSnapshot,
+  FLOW_SPEC_LOOP_ID, IntentConflictError, IntentLaunchRejectedError, IntentUnavailableError, IntentValidationError, buildAcceptedScope, buildFlowSummary, buildOriginalSpecComment, currentDerivedChange, firstErrorLine, isOpenSpecChangeId, flowCoreSessionId, inFlowWindow, nextFlowCoreSessionId, FLOW_UNEXPLAINED_FILES_CAP, transition,
+  type DerivedChangeText, type IntentRunFailure, type IntentSession, type IntentSpecSnapshot, type IntentTranscriptMessage,
 } from '../domain'
 import type { Clock, IntentDiffFile, IntentLaunchOptions, IntentEffectsStore, IntentPorts, IntentProcesses, IntentProviderBilling, IntentProviderCost, IntentPublication, IntentRepository, IntentSpecBlocker, IntentTickets, WorktreeReservation } from '../ports'
 import type { IntentService } from '../application'
+import { clipOnLineBoundary } from '../../../util/diff-prompt-budget'
 
 /** What Intent needs from the mission agent host (implemented by AgentChatManager). */
 export interface IntentAgentHost {
@@ -72,7 +74,7 @@ export interface IntentAgentHost {
 /** The automatic first turn of a seeded Intent: the agent starts from the intent
  * or spec it received instead of waiting for the person. */
 export const FLOW_OPENING_TURN_TEXT = 'Entered Intent: begin from the intent above. In at most 3 short lines say which outcome you aim for first and the smallest step towards it, then start working in this worktree. If an open question blocks that step, ask it as an `options` block and wait; otherwise do not ask for permission.'
-export const FLOW_RETURN_TURN_TEXT = 'Back to Intent: the Intent → Spec run came back with the findings above. In at most 2 short lines say what you will fix, then start fixing it in this worktree. If a finding leaves a genuine decision to me (for example removing behaviour nobody asked for versus recording it as a requirement), offer it as an `options` block before editing and wait for my answer.'
+export const FLOW_RETURN_TURN_TEXT = 'Back to Intent: the Intent → Spec run came back with the findings above. In at most 2 short lines say what you will fix, then start fixing it in this worktree. Keep everything I asked for or we decided in this Intent, even when a finding asks to revert it or the original intent said otherwise; fix its quality and tests instead. If a finding names a change you cannot trace to my requests or our decisions, or you are unsure, offer the choice as an `options` block before editing (keep it and record it as a requirement, or revert it) and wait for my answer.'
 
 /** The automatic turn after an Intent session → Spec run failed outright and came back on its own. */
 export const FLOW_FAILURE_RETURN_TURN_TEXT = 'Back to Intent: the Intent → Spec run failed with the error above and the worktree came back to this Intent intact. In at most 2 short lines tell me what failed in plain words and what you will do. If the cause is in this worktree, fix it here; if it is outside it (a tool version, the environment, credentials), tell me exactly what to change instead of working around it.'
@@ -446,6 +448,7 @@ export function createFlowWorktrees(
           branch = head.code === 0 && head.stdout.trim() !== 'HEAD' ? head.stdout.trim() : null
         }
         if (mounted) {
+          await reapWorktreeLeftovers({ worktreePaths: [target], reason: 'intent-worktree-removed' })
           await removeWorktree(git, { repoDir: repo, worktreePath: target, branch: branch ?? '', deleteBranch: Boolean(branch), force: true })
         } else if (branch) {
           // The mount is gone but the Intent-created branch may remain.
@@ -812,6 +815,21 @@ export function createFlowPorts(deps: IntentBindingDeps): IntentPorts {
   }
 }
 
+/** What the hand-off freezes from the Intent conversation for the Intent → Spec run. */
+export interface IntentHandOffContext {
+  /** Bounded conversation summary Core's derive-change reads. */
+  summary: string
+  /** The accepted scope every step receives with the spec ('' when none). */
+  acceptedScope?: string
+}
+
+function handOffContext(session: IntentSession, summarize?: (session: IntentSession) => string | IntentHandOffContext): { summary: string; acceptedScope?: string } {
+  let context: string | IntentHandOffContext
+  try { context = summarize?.(session) ?? '' } catch { return { summary: '' } }
+  if (typeof context === 'string') return { summary: context }
+  return { summary: context.summary, ...(context.acceptedScope ? { acceptedScope: context.acceptedScope } : {}) }
+}
+
 /**
  * The rails launch route's view of Intent (delivery never imports this module).
  * `adopt` and `release` run inside delivery's SQLite transaction on the same
@@ -819,13 +837,13 @@ export function createFlowPorts(deps: IntentBindingDeps): IntentPorts {
  */
 export function createFlowHandOffAuthority(
   repository: IntentRepository, clock: Clock = systemClock, onChanged?: (session: IntentSession) => void,
-  summarize?: (session: IntentSession) => string,
+  summarize?: (session: IntentSession) => string | IntentHandOffContext,
 ): IntentHandOffAuthority {
   return {
     resolve(flowId) {
       const session = repository.get(flowId)
       if (!session || session.step !== 'handoff:launch' || !session.worktreePath || !session.branch || !session.headSha || session.ticketId === null) {
-        throw new IntentHandOffNotReadyError('This Intent is not waiting for a rail launch; end it from the Intent bar')
+        throw new IntentHandOffNotReadyError('This Intent is not waiting for a rail launch; end it with Hand off (the Intent bar, or specrails_missions intent_hand_off)')
       }
       return {
         flowId,
@@ -839,7 +857,7 @@ export function createFlowHandOffAuthority(
         // A re-derivation updates the Intent's own change in place (null ⇒ named after the spec).
         changeId: currentDerivedChange(session),
         // A summary failure never blocks the hand-off: Core derives from the diff alone.
-        summary: (() => { try { return summarize?.(session) ?? '' } catch { return '' } })(),
+        ...handOffContext(session, summarize),
         adopt(adoption) {
           const current = repository.get(flowId)
           if (!current) throw new IntentHandOffNotReadyError('The Intent disappeared during the hand-off')
@@ -934,15 +952,28 @@ const TEXT_CAP = 64 * 1024
  * agent reply and the recorded decisions. Message times (SQLite) and Intent times
  * (ISO) are compared as instants, never as strings.
  */
-export function flowConversationSummary(desktopDb: ProjectContext['desktopDb'], input: { conversationId: string; idea: string | null; from: string; to: string | null; intent?: string | null }): string {
-  const messages = listAgentMessages(desktopDb, input.conversationId)
+function flowTranscript(desktopDb: ProjectContext['desktopDb'], input: { conversationId: string; from: string; to: string | null }): IntentTranscriptMessage[] {
+  return listAgentMessages(desktopDb, input.conversationId)
     .filter((message) => inFlowWindow(message.created_at, input.from, input.to))
     .map((message) => ({
       role: message.role,
       content: message.content,
+      at: message.created_at,
       ...(message.context_refs.some((ref) => ref.kind === FAILURE_BRIEFING_REF_KIND) ? { automated: true } : {}),
     }))
-  return buildFlowSummary({ idea: input.idea, messages, intent: input.intent ?? null })
+}
+
+export function flowConversationSummary(desktopDb: ProjectContext['desktopDb'], input: { conversationId: string; idea: string | null; from: string; to: string | null; intent?: string | null }): string {
+  return buildFlowSummary({ idea: input.idea, messages: flowTranscript(desktopDb, input), intent: input.intent ?? null })
+}
+
+/**
+ * The accepted scope an Intent → Spec run carries to every step: the intent's
+ * constraints and what the person asked for and decided in the Intent
+ * conversation, with provenance ('' when nothing was recorded).
+ */
+export function flowAcceptedScope(desktopDb: ProjectContext['desktopDb'], input: { conversationId: string; from: string; to: string | null; constraints?: readonly string[] }): string {
+  return buildAcceptedScope({ constraints: input.constraints ?? [], messages: flowTranscript(desktopDb, input) })
 }
 
 /** Strip OpenSpec's `YYYY-MM-DD-` archive prefix. */
@@ -983,7 +1014,8 @@ export async function readDerivedChange(git: GitRunner, repo: string, input: { r
     changeName: chosen?.[1].name ?? input.changeName,
     proposal: await show(chosen?.[1].files.get('proposal')),
     design: await show(chosen?.[1].files.get('design')),
-    diffstat: stat.code === 0 ? stat.stdout.slice(0, 8000) : null,
+    // Whole lines only: a stat cut mid-line misnames a file.
+    diffstat: stat.code === 0 ? clipOnLineBoundary(stat.stdout, 8000) : null,
   }
 }
 

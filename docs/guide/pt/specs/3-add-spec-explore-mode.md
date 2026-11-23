@@ -43,7 +43,7 @@ Se quiser um controlo mais fino, clique em **Ajuste fino** para alternar manualm
 
 - **Criar Spec** — promove o rascunho ao vivo a uma spec a sério com estado **Por fazer**. (Quando está a editar uma spec existente, este botão passa a dizer **Atualizar Spec** e atualiza essa spec no próprio lugar.)
 - **Rever →** — abre uma sobreposição de revisão que mostra a spec proposta em comparação com a baseline antes de confirmar, para não haver surpresas.
-- **Guardar como rascunho** — persiste a conversa como um ticket de rascunho para que a possa retomar mais tarde. Disponível assim que tiver enviado pelo menos uma mensagem. Veja abaixo.
+- **Guardar como rascunho** — persiste a conversa como uma spec de rascunho para que a possa retomar mais tarde. Disponível assim que tiver enviado pelo menos uma mensagem. Veja abaixo.
 - **Minimizar** — estaciona a conversa como um chip na doca de chats minimizados, no canto inferior esquerdo. Clique no chip a qualquer momento para voltar diretamente à conversa — nada se perde.
 - **Descartar** — deita a conversa fora (pede confirmação primeiro).
 
@@ -65,4 +65,4 @@ Se o seu projeto tiver mais do que um fornecedor de IA instalado, um seletor de 
 
 - [Rascunhos e o Contract Layer](drafts-and-contract-layer.md) — guardar trabalho em curso e enriquecer specs para o pipeline.
 - [Adicionar Spec — modo Quick](add-spec-quick-mode.md) — quando a ideia já está clara.
-- [Executar pipelines](running-pipelines.md) — implemente a sua spec assim que estiver pronta.
+- [Executar pipelines](../pipeline/rails-and-jobs) — implemente a sua spec assim que estiver pronta.

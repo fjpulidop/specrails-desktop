@@ -61,6 +61,8 @@ Jedes Mal, wenn du Play drückst, wird der rail-Lauf zu einem **Job**. Die wicht
 
 Du willst alles auf einmal starten? Der Button **Alle starten** im Rails-Header startet jede startbereite Spur in einem Rutsch — nach einer einzigen Bestätigung, die die Gesamtkosten einordnet (N rails × KI-Ausgaben). Leere, bereits laufende oder auf eine PR-Entscheidung wartende rails werden übersprungen und in einem kompakten Zusammenfassungs-Toast gemeldet. Der eingebaute Agent hat dieselbe Fähigkeit über `specrails_rails(launch_all)` — und legt eine frische rail an, wenn keine freie Spur existiert.
 
+Solange der Dialog **Launch all** offen ist, bereitet Specrails im Hintergrund bereits bis zu drei Worktrees vor, sodass die Rails nach deiner Bestätigung schneller starten; ein Start ohne vorbereiteten Worktree befüllt ihn, während er fetcht. Dein Git-Hook `post-checkout` läuft weiterhin genau einmal pro neuem Worktree. Schließt du den Dialog ohne Start, wird das Vorbereitete verworfen.
+
 Projekte ohne Git haben keine Worktree-Isolation und keine PR-Fortsetzung. Sie können trotzdem laufen, aber die Rail schreibt direkt in den gemeinsamen Projektordner und das Ergebnis wird manuell über das Spec-Board akzeptiert oder zurückgenommen.
 
 Es gibt keinen globalen Regler für die Parallelität. Die einzige automatische Bremse ist budgetbasiert: Wenn du ein Tagesbudget gesetzt hast (pro Projekt oder app-weit), pausiert die Queue von selbst, sobald die Ausgaben des Tages das Limit erreichen.
@@ -105,6 +107,17 @@ Die Spanne ist die mittlere Hälfte deines eigenen Verlaufs: das 25. bis 75. Per
 
 Der Dollarbetrag erscheint nur, wenn bekannt ist, dass die Engine nach Verbrauch abrechnet (zum Beispiel mit einem API-Schlüssel). Bei einem Abo-Tarif oder solange die Abrechnungsart noch nicht bekannt ist, wird nur die Zeit angezeigt. Enthält die Rail mehrere Specs, gilt die Spanne für eine Spec und sagt das mit *(pro Spec)*. Könnten die heutigen Ausgaben plus das obere Ende der Spanne dein Tagesbudget erreichen, ergänzt die Zeile *Könnte am Budget pausieren* mit einem Link zu den Budgeteinstellungen. Ist das heutige Budget bereits aufgebraucht, bittet Starten zuerst um Bestätigung, weil der Lauf bis zum Zurücksetzen pausieren würde.
 
+
+## Nutzungslimits {#usage-limits}
+
+Abonnements begrenzen, wie viel du in einem 5-Stunden- und einem Wochenfenster nutzen kannst. Die App liest dieses Limit beim Anbieter mit, während deine Läufe arbeiten, und kennt so den genauen Reset-Zeitpunkt eines Fensters, statt ihn aus dem Text des Anbieters zu raten.
+
+- **Statusleiste.** Die Nutzungsanzeige zeigt den Anbieter, der seinem Limit am nächsten ist; sie wird bei 80 % eines Fensters gelb und bei 90 % rot und nennt dabei den Anbieter. Einstellungen ▸ Abonnementnutzung zeigt dieselben Zahlen. Lehnt der Anbieter Anfragen ab, steht dort *Limit · Reset 15:00*, und eine Benachrichtigung sagt es einmal (Kategorie **Ausgabenlimits** unter Einstellungen ▸ Benachrichtigungen).
+- **Prüfungen vor dem Start.** **Alle starten** prüft in ein, zwei Sekunden: freien Speicher dort, wo die Worktrees liegen (unter 1 GB wird nicht gestartet, unter 5 GB gewarnt), ob jede Engine und GitHub angemeldet sind und wie viel Kontingent übrig ist. N Rails in ein Fenster ab 80 % oder in ein abgelehntes zu starten zeigt eine Warnung mit der Reset-Zeit. Eine fehlgeschlagene Prüfung blockiert den Start, bis du sie behebst.
+- **Am Limit pausiert.** Erreicht ein Lauf das Limit, pausiert er statt fehlzuschlagen. Er setzt beim Reset von selbst fort und wiederholt den abgelehnten Schritt. Schalte das für einen Lauf mit **Nicht von selbst fortsetzen** ab, setze ihn sofort mit **Jetzt fortsetzen** fort oder, bei einem Loop, dessen Schritte die App ausführt, **Jetzt mit** einem anderen Anbieter **fortsetzen**; der neue Anbieter erhält das bisher Erledigte als Kontext, nie als Anweisungen. Die Pause übersteht einen Neustart. Ein Lauf startet nie, während der Computer schläft: Er wartet, bis dieser zwei Minuten wach ist.
+- **Missionen.** Ein Missionszug, der das Limit erreicht, hinterlässt eine Karte mit der Reset-Zeit. Er setzt nie von selbst fort: Wähle **Um 15:00 fortsetzen** oder **Jetzt mit** einem anderen Anbieter **fortsetzen**.
+
+Nach drei Ablehnungen in Folge stoppt der Lauf mit der Meldung des Anbieters, wie bisher.
 
 ## Wie es weitergeht
 

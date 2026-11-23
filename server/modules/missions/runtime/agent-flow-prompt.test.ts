@@ -23,7 +23,7 @@ describe('Intent persona prompt', () => {
   it('verifies its own work with the shell and runs long-lived apps only through Specrails background processes', () => {
     expect(FLOW_SYSTEM_PROMPT).toContain('run the typecheck, the linter and the tests yourself')
     expect(FLOW_SYSTEM_PROMPT).toContain('## Running the app')
-    expect(FLOW_SYSTEM_PROMPT).toContain('ALWAYS runs through the Specrails MCP tool `specrails_jobs` with action `background_start`')
+    expect(FLOW_SYSTEM_PROMPT).toContain('ALWAYS runs through the Specrails MCP tool `specrails_background` with action `start`')
     expect(FLOW_SYSTEM_PROMPT).toContain('never start it from your own shell')
     // Offered first through the option chips, then started with confirmed:true.
     expect(FLOW_SYSTEM_PROMPT).toContain('["Start the app", "Start and expose on the local network", "Not now"]')
@@ -32,7 +32,7 @@ describe('Intent persona prompt', () => {
     expect(FLOW_SYSTEM_PROMPT).toContain('anyone on that network can reach it')
     expect(FLOW_SYSTEM_PROMPT).toContain('`vite --host`')
     expect(FLOW_SYSTEM_PROMPT).toContain('give the user each address from `appUrls` as a clickable markdown link')
-    expect(FLOW_SYSTEM_PROMPT).toContain('`background_kill`')
+    expect(FLOW_SYSTEM_PROMPT).toContain('`specrails_background(kill)`')
     // The worktree rule stays.
     expect(FLOW_SYSTEM_PROMPT).toContain('Never edit, create or delete files outside the worktree')
     expect(FLOW_SYSTEM_PROMPT.indexOf('## Running the app')).toBeLessThan(FLOW_SYSTEM_PROMPT.indexOf('## Choices'))
@@ -53,5 +53,9 @@ describe('intent-mode: ending the Intent', () => {
     expect(prompt).toContain('## Ending the Intent')
     expect(prompt).toContain('a spec agreed here in chat with no file changed is a valid hand-off')
     expect(prompt).toContain('never write a file into the worktree just to "enable" it')
+    // From an MCP client there is no Intent strip: the agent names the MCP action, never a button.
+    expect(prompt).toContain('`Surface: MCP client`')
+    expect(prompt).toContain('`specrails_missions` action `intent_hand_off`')
+    expect(prompt).toContain('never a button')
   })
 })

@@ -6,7 +6,7 @@ export { recoverJobUsage } from './application/recover-job-usage'
 export { sanitizeRecoveredResult, type JobUsage } from './domain/usage'
 export type { UsageRecoveryPorts, DurableUsageRow, NormalizedRecoveryUsage } from './ports'
 export { enforceDailyBudgets, evaluateDailyBudgets, type BudgetSnapshot, type BudgetEnforcementPorts, type BudgetEvaluationPorts } from './application/enforce-budget'
-export { dailyBudgetRejection, dailyBudgetResetsAt, isDailyBudgetExceeded, localDayStartIso, type DailyBudgetBreach, type DailyBudgetRejection, type DailyBudgetScope } from './domain/daily-budget'
+export { dailyBudgetRejection, dailyBudgetResetsAt, isDailyBudgetExceeded, localDayStartIso, type DailyBudgetBreach, type DailyBudgetRejection, type DailyBudgetScope, type NextStepEstimate } from './domain/daily-budget'
 export {
   AGENT_ENV_BASE_ALLOWLIST,
   AGENT_ENV_SPECRAILS_ALLOWLIST,
@@ -19,7 +19,7 @@ export {
   type AgentEnvMode,
 } from './domain/agent-env'
 export {
-  CAP_PERIODS, TRAILING_DAYS, capHeadroomCents, capRejection, effectiveRunCap, firstExhaustedCap, fromCents, isCapExceeded, isRunCapCrossed,
+  CAP_PERIODS, TRAILING_DAYS, capHeadroomCents, capRejection, effectiveRunCap, firstExhaustedCap, fromCents, isCapExceeded, isRunCapCrossed, isRunCapReached, runCapAheadUsd,
   localDayKey, periodEnd, periodResetsAtIso, periodStart, periodStartIso, projectMonthEnd, runCapRejection, tightestCap, toCents,
-  type BudgetPeriod, type CapPeriod, type CapStatus, type DailySpendPoint, type MonthProjection,
+  type BudgetPeriod, type CapPeriod, type CapStatus, type DailySpendPoint, type MonthProjection, type RunTurnCosts,
 } from './domain/spend-caps'

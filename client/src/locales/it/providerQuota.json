@@ -1,0 +1,109 @@
+{
+  "statusBar": {
+    "rejected": "limite raggiunto",
+    "rejectedUntil": "limite · si azzera {{time}}"
+  },
+  "window": {
+    "fiveHour": "di 5 ore",
+    "weekly": "settimanale",
+    "default": "d'uso"
+  },
+  "attention": {
+    "warningTitle": "Uso di {{provider}} al {{percent}}%",
+    "warningBody": "{{provider}} ha usato il {{percent}}% del suo limite {{window}}. Le nuove run potrebbero mettersi in pausa al limite.",
+    "rejectedTitle": "Limite d'uso di {{provider}} raggiunto",
+    "rejectedBody": "{{provider}} rifiuta le richieste fino alle {{time}}. Le run in pausa al limite riprendono allora da sole.",
+    "rejectedBodyNoReset": "{{provider}} rifiuta le richieste finché il suo limite non si azzera."
+  },
+  "preflight": {
+    "label": "Controlli prima del lancio",
+    "checking": "Controllo in corso…",
+    "recheck": "Controlla di nuovo",
+    "disk": {
+      "ok": "{{free}} liberi",
+      "warn": "Solo {{free}} liberi",
+      "fail": "Solo {{free}} liberi",
+      "failHint": "Libera spazio dove sono conservati i worktree, poi controlla di nuovo.",
+      "unknown": "Spazio su disco sconosciuto"
+    },
+    "provider": {
+      "signed-in": "{{provider}} con accesso",
+      "signed-out": "{{provider}} senza accesso",
+      "missing": "{{provider}} non installato",
+      "unknown": "Accesso a {{provider}} sconosciuto",
+      "signedOutHint": "Accedi a {{provider}} prima di avviare."
+    },
+    "github": {
+      "signed-in": "GitHub con accesso",
+      "signed-out": "GitHub senza accesso",
+      "missing": "GitHub CLI non installata",
+      "unknown": "Accesso a GitHub sconosciuto",
+      "signedOutHint": "Le pull request non si apriranno. Accedi con gh auth login.",
+      "missingHint": "Le pull request non si apriranno. Installa la GitHub CLI per aprirle."
+    },
+    "quota": {
+      "ok": "{{provider}} {{percent}}% usato",
+      "warning": "{{provider}} {{percent}}% usato",
+      "critical": "{{provider}} {{percent}}% usato",
+      "rejected": "{{provider}} al limite",
+      "rejectedUntil": "{{provider}} al limite fino a {{time}}",
+      "unknown": "Uso di {{provider}} sconosciuto",
+      "nearLimitHint": "Le esecuzioni possono fermarsi al limite. Riprendono da sole dopo l’azzeramento.",
+      "rejectedHint": "Le esecuzioni avviate ora attendono e partono dopo l’azzeramento.",
+      "rejectedNoResetHint": "Non ha detto quando si azzera il limite. Le esecuzioni attendono fino ad allora."
+    },
+    "headless": {
+      "ok": "Le finestre di {{framework}} restano nascoste durante le esecuzioni",
+      "warn": "Le finestre {{framework}} possono aprirsi durante le esecuzioni",
+      "warnHint": "Per tenerle nascoste, fai rispettare SPECRAILS_HEADLESS al launcher e ai test del progetto."
+    },
+    "blocking": "Risolvi il controllo non superato prima del lancio.",
+    "quotaWarning_one": "{{provider}} ha usato il {{percent}}% del suo limite {{window}}. Lanciare {{count}} rail può metterlo in pausa al limite; poi riprende da solo dopo l'azzeramento.",
+    "quotaWarning_other": "{{provider}} ha usato il {{percent}}% del suo limite {{window}}. Lanciare {{count}} rail può metterli in pausa al limite; poi riprendono da soli dopo l'azzeramento.",
+    "quotaRejected_one": "{{provider}} rifiuta le richieste fino alle {{time}}. Il rail aspetterà e inizierà a lavorare dopo l'azzeramento.",
+    "quotaRejected_other": "{{provider}} rifiuta le richieste fino alle {{time}}. I rail aspetteranno e inizieranno a lavorare dopo l'azzeramento.",
+    "quotaRejectedNoReset": "{{provider}} rifiuta le richieste in questo momento e non ha detto quando si azzera il limite."
+  },
+  "pause": {
+    "title": "In pausa al limite d'uso di {{provider}}",
+    "resumesAt": "Riprende da sola alle {{time}} (tra {{in}}).",
+    "resumesAtPassed": "Riprende da sola appena il computer è sveglio.",
+    "resetsAt": "Il limite si azzera alle {{time}}. La ripresa automatica è disattivata.",
+    "noReset": "{{provider}} non ha detto quando si azzera il limite.",
+    "resumeNow": "Riprendi ora",
+    "autoOn": "Riprendi alle {{time}}",
+    "autoOff": "Non riprendere da sola",
+    "continueWith": "Continua ora con {{provider}}",
+    "failed": "Impossibile aggiornare la run in pausa: {{detail}}",
+    "switch": {
+      "title": "Continua ora con un altro provider",
+      "provider": "Provider",
+      "model": "Modello",
+      "effort": "Sforzo di ragionamento",
+      "consequence": "Vale per il resto di questa esecuzione: il passaggio interrotto e tutti i passaggi successivi che usavano {{from}} passano a {{provider}}. Il lavoro già presente nel worktree viene mantenuto. La conversazione del passaggio non passa da un provider all'altro, quindi il passaggio riparte con una nuova sessione.",
+      "settingsKept": "Le impostazioni del progetto non cambiano.",
+      "settingsUpdated": "Anche le impostazioni degli agenti del progetto assegneranno d'ora in poi questi ruoli a {{provider}}.",
+      "remember": "Ricorda per questo progetto",
+      "resume": "Riprendi con {{provider}}"
+    }
+  },
+  "mission": {
+    "title": "Limite d'uso di {{provider}} raggiunto",
+    "body": "{{provider}} rifiuta le richieste fino alle {{time}}.",
+    "bodyNoReset": "{{provider}} rifiuta le richieste finché il suo limite non si azzera.",
+    "continueAt": "Continua alle {{time}}",
+    "scheduled": "Continua da sola alle {{time}}.",
+    "cancel": "Annulla",
+    "continueWith": "Continua ora con {{provider}}",
+    "continuePrompt": "Continua da dove l'agente precedente si è fermato al suo limite d'uso. Verifica cosa è già stato fatto prima di ripetere un passaggio.",
+    "failed": "Impossibile programmare la missione: {{detail}}"
+  },
+  "settledSwitch": {
+    "title": "Continua con un altro provider",
+    "consequence": "Il tentativo successivo riprende da dove si è fermato questo, e ogni passo che usava {{from}} viene eseguito su {{provider}} per il resto dell'esecuzione. Il lavoro già presente nel worktree viene mantenuto; il passo riparte con una nuova sessione perché la sua conversazione non passa da un provider all'altro.",
+    "consequenceFrom": "Il tentativo successivo riprende dal passo {{step}}, e ogni passo che usava {{from}} viene eseguito su {{provider}} per il resto dell'esecuzione. Il lavoro già presente nel worktree viene mantenuto; il passo riparte con una nuova sessione perché la sua conversazione non passa da un provider all'altro.",
+    "resume": "Continua con {{provider}}",
+    "continuing": "Si continua con {{provider}}",
+    "failed": "Impossibile continuare con {{provider}}"
+  }
+}

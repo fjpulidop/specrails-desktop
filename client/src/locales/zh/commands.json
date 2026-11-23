@@ -6,6 +6,7 @@
     "noResults": "未找到结果。",
     "activeBadge": "当前",
     "groups": {
+      "jumpBackIn": "继续",
       "projects": "项目",
       "missions": "任务",
       "spec": "Spec",
@@ -25,7 +26,7 @@
       "desktopAnalytics": "Desktop 分析",
       "projectAnalytics": "项目分析",
       "activityFeed": "活动流",
-      "desktopSettings": "Desktop 设置",
+      "desktopSettings": "设置",
       "docs": "文档",
       "replayTour": "重新播放导览"
     },
@@ -68,7 +69,7 @@
       "switchTheme": "切换主题",
       "switchToMission": "切换到任务模式",
       "switchToBoard": "切换到看板模式",
-      "openAppSettings": "打开应用设置",
+      "openAppSettings": "打开设置",
       "openProjectSettings": "打开项目设置",
       "switchProject": "切换项目",
       "runLoop": "运行 Loop",
@@ -94,7 +95,7 @@
         "themeTitle": "主题",
         "themePlaceholder": "选择主题...",
         "noThemes": "没有可用的主题。",
-        "appSettingsTitle": "应用设置",
+        "appSettingsTitle": "设置",
         "projectSettingsTitle": "项目设置",
         "sectionPlaceholder": "选择分区...",
         "noSections": "没有分区。",
@@ -149,7 +150,11 @@
       "copyPrDescriptionN": "复制 #{{id}} 的 PR 描述",
       "exportHandoff": "导出交接",
       "copyPrDescription": "复制 PR 描述",
-      "moveFocusedSpec": "移动聚焦的规格…"
+      "moveFocusedSpec": "移动聚焦的规格…",
+      "openLiveBoard": "打开实时看板",
+      "openLiveBoardKeywords": "看板, 实时, 运行, 进行中, 所有项目, 任务, 状态",
+      "toggleKeepAwake": "保持电脑唤醒（开 / 关）",
+      "toggleKeepAwakeKeywords": "保持唤醒, 防止睡眠, 睡眠"
     },
     "scopes": {
       "remove": "移除范围",
@@ -212,7 +217,7 @@
       }
     },
     "settings": {
-      "appScope": "Desktop 设置",
+      "appScope": "设置",
       "projectScope": "项目设置",
       "entries": {
         "theme": {
@@ -247,6 +252,10 @@
           "label": "子代理（Desktop）",
           "keywords": "子代理, subagents, 原生, 委派, 并行"
         },
+        "missionConnectors": {
+          "label": "任务中的连接器",
+          "keywords": "连接器, mcp, claude.ai, codex, 服务器, google drive, 工具"
+        },
         "mobileCompanion": {
           "label": "移动伴侣应用",
           "keywords": "移动, 手机, 伴侣, 配对, 二维码, ipad, 远程, mobile, companion"
@@ -258,6 +267,10 @@
         "budgetAlerts": {
           "label": "每日预算与成本提醒",
           "keywords": "预算, 每日, 成本, 花费, 限额, 提醒, 金额, budget"
+        },
+        "resumeOnDailyReset": {
+          "label": "每日重置时恢复运行",
+          "keywords": "预算, 每日, 重置, 午夜, 恢复, 暂停, 运行, 自动"
         },
         "notifications": {
           "label": "系统通知",
@@ -282,6 +295,10 @@
         "about": {
           "label": "Desktop 信息",
           "keywords": "关于, 信息, 端口, 数据库, 版本, about"
+        },
+        "reportProblem": {
+          "label": "报告问题",
+          "keywords": "报告, 问题, 错误, 崩溃, 日志, 诊断, zip, 支持"
         },
         "repositories": {
           "label": "仓库",
@@ -350,9 +367,30 @@
         "reduceMotion": {
           "label": "减少动态效果",
           "keywords": "减少动态效果, 动画, 无障碍, 前庭, 平静, 过渡, motion"
+        },
+        "retainedWorktrees": {
+          "label": "磁盘上保留的运行工作树",
+          "keywords": "存储, 磁盘, 工作树, worktree, 清理, 空间, 分支, 移除"
+        },
+        "safetyArchives": {
+          "label": "保留在 PR 之外的文件",
+          "keywords": "存储, 磁盘, 安全存档, 保留的文件, 隔离, 清理, 删除"
+        },
+        "autoContinue": {
+          "label": "自动继续失败的运行",
+          "keywords": "继续, 重试, 失败的运行, 自动, 恢复"
+        },
+        "machineInstalls": {
+          "label": "已记住的安装",
+          "keywords": "安装, brew, 全机, 工具, 批准, 撤销"
+        },
+        "envFiles": {
+          "label": "运行中的环境文件",
+          "keywords": "env 文件, .env, dotenv, APP_KEY, 密钥, 环境, 工作树"
         }
       }
-    }
+    },
+    "jumpAttempt": "第 {{number}} 次尝试"
   },
   "toasts": {
     "queued": "{{name}} 已加入队列",
@@ -403,6 +441,7 @@
       "navigateProjectPageWithAgents": "导航到项目页面（仪表盘/任务/分析/Agent/设置）",
       "navigateProjectPage": "导航到项目页面（仪表盘/任务/分析/设置）",
       "switchProject": "按位置切换项目",
+      "paletteJumpBackIn": "在 ⌘K 面板打开时打开“继续”中的一行",
       "goDashboard": "前往仪表盘",
       "goActivity": "前往活动 / 任务",
       "goAnalytics": "前往分析",
@@ -424,7 +463,12 @@
       "boardSelectClick": "看板:点击切换规格,Shift+点击选择范围",
       "boardSelectColumn": "看板:选择该列中的所有规格",
       "boardClearSelection": "看板:取消选择",
-      "boardMove": "看板:移动当前聚焦的规格(状态或 Rail)"
+      "boardMove": "看板:移动当前聚焦的规格(状态或 Rail)",
+      "openLiveBoard": "打开实时看板（所有项目的每次运行）",
+      "splitFocusPane": "切换到下一个 / 上一个任务窗格",
+      "splitMaximize": "最大化或恢复当前任务窗格",
+      "splitEqualize": "平分任务窗格",
+      "splitClose": "关闭当前任务窗格"
     },
     "searchLabel": "搜索快捷键和指南",
     "searchPlaceholder": "搜索快捷键和指南…",
@@ -440,7 +484,9 @@
       "downloading": "正在下载更新",
       "installing": "正在安装更新",
       "ready": "更新已就绪",
-      "error": "更新失败"
+      "error": "更新失败",
+      "busy": "仍有工作在运行",
+      "waiting": "等待重启"
     },
     "desc": {
       "available": "Specrails 新版本已可安装。",
@@ -448,12 +494,15 @@
       "progress": "{{percent}}% · {{downloaded}} / {{total}}",
       "installing": "正在验证签名并完成…",
       "ready": "重启以启动版本 {{version}}。",
-      "errorFallback": "无法完成更新。请重试。"
+      "errorFallback": "无法完成更新。请重试。",
+      "busy": "现在重启会停止 {{what}}。",
+      "waiting": "没有任何工作运行时将重启 · {{what}}"
     },
     "pill": {
       "downloading": "下载中",
       "installing": "安装中",
-      "ready": "已就绪"
+      "ready": "已就绪",
+      "waiting": "等待中"
     },
     "actions": {
       "restart": "重启",
@@ -461,7 +510,10 @@
       "update": "更新",
       "installing": "安装中…",
       "tryAgain": "重试",
-      "dismiss": "忽略"
+      "dismiss": "忽略",
+      "whenIdle": "在没有工作运行时安装",
+      "restartNow": "立即重启",
+      "cancelWait": "取消"
     },
     "mockReady": "模拟更新已就绪 — 已跳过重启",
     "errors": {
@@ -470,6 +522,17 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "{{count}} 个任务轮次",
+      "missions_other": "{{count}} 个任务轮次",
+      "runs_one": "{{count}} 个运行",
+      "runs_other": "{{count}} 个运行",
+      "something": "正在进行的工作"
+    },
+    "chip": {
+      "text": "更新",
+      "label": "Specrails {{version}} 可用。查看更新"
     }
   },
   "notifications": {
@@ -483,8 +546,43 @@
     "jobStuckStopped": "已停止运行",
     "jobStuckStopFailed": "无法停止运行",
     "providerLimit": "已达到提供商用量限额",
-    "providerLimitBody": "{{provider}} 拒绝了请求：已达到用量限额 — {{resetsAt}} 重置。运行已停止；重置后重新启动或使用“恢复并重试”。",
-    "providerLimitBodyNoReset": "{{provider}} 拒绝了请求：已达到用量限额。运行已停止；限额重置后重新启动。"
+    "providerLimitBody": "{{provider}} 拒绝了请求：已达到用量限额 — {{resetsAt}} 重置。运行已暂停，重置后会自动恢复；也可以现在改用其他提供商继续。",
+    "providerLimitBodyNoReset": "{{provider}} 拒绝了请求：已达到用量限额。运行已暂停；限额重置后恢复，或现在改用其他提供商继续。",
+    "attention": {
+      "open": "打开",
+      "openInbox": "打开收件箱",
+      "actions": {
+        "answer": "回答",
+        "review": "评审",
+        "view": "查看",
+        "open": "打开"
+      },
+      "single": {
+        "question": "{{subject}} 正在等待你的回答",
+        "approval": "{{subject}} 需要你的批准",
+        "review": "{{subject}} 已可评审",
+        "stopped": "{{subject}} 已停止",
+        "stuck": "{{subject}}：运行没有进展",
+        "paused": "{{subject}} 因达到限额已暂停",
+        "pausedByYou": "{{subject}} 已暂停（由你暂停）",
+        "held": "{{subject}} 已暂停",
+        "done": "{{subject}} 已完成",
+        "generic": "{{subject}} 需要你处理"
+      },
+      "pending_one": "{{count}} 项待处理",
+      "pending_other": "{{count}} 项待处理",
+      "breakdown": "待处理：{{list}}",
+      "group": {
+        "question_one": "{{count}} 个问题",
+        "question_other": "{{count}} 个问题",
+        "approval_one": "{{count}} 项批准",
+        "approval_other": "{{count}} 项批准",
+        "review_one": "{{count}} 项评审",
+        "review_other": "{{count}} 项评审"
+      },
+      "missionReplied": "{{title}} 已回复",
+      "untitledMission": "你的任务"
+    }
   },
   "templates": {
     "emptyState": {

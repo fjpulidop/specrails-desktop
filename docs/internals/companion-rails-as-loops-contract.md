@@ -4,7 +4,7 @@
 
 # Current status (verified against code 2026-10-21) — read first
 
-The body below is the original gap analysis from 2026-06-25. **Every desktop-side
+The body below is the original gap analysis from 2026-06-25. Its `rails-router.ts:<line>` references predate the split of that router into `rails-*-http.ts` and `rail-launch-*.ts`; search the named function instead. **Every desktop-side
 change it requested (Phase 0, sections 4.1–4.5) has shipped.** Where the body says
 "today", "dropped" or "stripped", it describes the pre-fix state. Current behaviour:
 

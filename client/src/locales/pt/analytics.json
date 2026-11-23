@@ -13,7 +13,10 @@
     "agentStudio": "Agent Studio",
     "setup": "Configuração",
     "triage": "Triagem",
-    "flow": "Intent"
+    "flow": "Spec de Intent",
+    "failureAnalysis": "Análise de falhas",
+    "mission": "Missões",
+    "intent": "Turnos de Intent"
   },
   "periods": {
     "d7": "7d",
@@ -37,7 +40,13 @@
     "modelChip": "Modelo: {{model}}",
     "clearModelFilter": "Limpar filtro de modelo",
     "localEngine": "local",
-    "moreBreakdowns": "Mais detalhamentos"
+    "moreBreakdowns": "Mais detalhamentos",
+    "categoryFilterAria": "Filtrar por categoria",
+    "surfaceChip": "Superfície: {{surface}}",
+    "clearSurfaceFilter": "Limpar filtro de superfície",
+    "ticketChipLabel": "spec #{{id}}",
+    "allEngines": "Todos os motores",
+    "period": "Período"
   },
   "hero": {
     "spending": "Gastos",
@@ -64,7 +73,15 @@
     "segmentTitle": "{{label}}: {{value}}",
     "legendBilled": "Faturado",
     "legendEstimated": "Estimado",
-    "apiEquivalent": "Estimativa equivalente em API"
+    "apiEquivalent": "Estimativa equivalente em API",
+    "statInvocations": "Invocações",
+    "statTokens": "Tokens",
+    "statBilledEstimated": "Faturado · Est.",
+    "statEstimated": "Estimado",
+    "withoutCost_one": "{{count}} de {{total}} execuções sem dados de custo.",
+    "withoutCost_other": "{{count}} de {{total}} execuções sem dados de custo.",
+    "withoutUsage_one": "{{count}} de {{total}} execuções sem uso de tokens.",
+    "withoutUsage_other": "{{count}} de {{total}} execuções sem uso de tokens."
   },
   "providerCard": {
     "title": "Por fornecedor",
@@ -110,7 +127,7 @@
     "costPartiallyUnavailableTooltip": "Apenas o subtotal conhecido; algumas execuções deste modelo não têm telemetria de custo."
   },
   "scatter": {
-    "title": "Custo vs Turnos",
+    "title": "Custo vs turnos",
     "empty": "Sem invocações para representar.",
     "turnsLabel": "turnos",
     "costLabel": "custo",
@@ -164,7 +181,9 @@
     "sortLabel": "Ordenar",
     "sortRecency": "Recente",
     "sortCost": "Custo",
-    "costUnknownLocalTooltip": "Custo desconhecido (motor local). Adicione tarifas à conexão para ver uma estimativa."
+    "costUnknownLocalTooltip": "Custo desconhecido (motor local). Adicione tarifas à conexão para ver uma estimativa.",
+    "colWhy": "Motivo",
+    "missionConversation": "Conversa de missão {{id}}"
   },
   "export": {
     "summaryCsv": "CSV de resumo",
@@ -205,7 +224,11 @@
     "costUnavailable": "Foram registadas invocações, mas a telemetria de custo está indisponível.",
     "costUnavailableShort": "indisponível",
     "costPartiallyUnavailable_one": "Subtotal de custo conhecido; invocações sem custo: {{count}}.",
-    "costPartiallyUnavailable_other": "Subtotal de custo conhecido; invocações sem custo: {{count}}."
+    "costPartiallyUnavailable_other": "Subtotal de custo conhecido; invocações sem custo: {{count}}.",
+    "homeAndBlueprint": "Início e Blueprint",
+    "homeAndBlueprintHint": "Turnos do agente sem projeto carregado: missões do Início e conversas de Blueprint / Builder.",
+    "agentTurns_one": "{{count}} turno do agente",
+    "agentTurns_other": "{{count}} turnos do agente"
   },
   "windowLabels": {
     "7d": "Últimos 7 dias",
@@ -214,14 +237,45 @@
     "all": "Todo o período",
     "custom": "Intervalo personalizado"
   },
-  "agentMissions": {
-    "title": "Missões do agente",
-    "subtitle": "Turnos do Agent Chat afixados a este projeto",
-    "vsPrev": "vs período anterior",
-    "turnsAndTokens": "{{turns}} turnos · {{tokens}} tokens",
+  "categories": {
+    "implementation": {
+      "label": "Implementação",
+      "why": "Construir specs com rails, loops e jobs"
+    },
+    "missions": {
+      "label": "Missões",
+      "why": "Conversar com o agente e modo Intent"
+    },
+    "specs": {
+      "label": "Specs",
+      "why": "Escrever e refinar specs"
+    },
+    "code": {
+      "label": "Código",
+      "why": "Explicar o código"
+    },
+    "support": {
+      "label": "Suporte",
+      "why": "Configuração, diagnóstico e chats laterais"
+    }
+  },
+  "breakdown": {
+    "title": "Para onde foi o dinheiro",
+    "empty": "Nenhuma atividade de IA neste período.",
+    "share": "{{pct}}% do gasto",
+    "invocations_one": "{{count}} chamada",
+    "invocations_other": "{{count}} chamadas",
+    "tokens": "{{tokens}} tokens",
+    "unpriced_one": "{{count}} sem dados de custo",
+    "unpriced_other": "{{count}} sem dados de custo",
+    "costUnavailable": "custo indisponível",
+    "surfaceFilter": "Mostrar só {{surface}}",
+    "topConversations": "Principais conversas",
     "untitled": "Missão sem título",
-    "estimatedNote": "Inclui custos estimados",
-    "flowShare": "Dos quais Intent: {{cost}} · {{turns}} turnos"
+    "turns_one": "{{count}} turno",
+    "turns_other": "{{count}} turnos",
+    "noActivity": "Sem atividade: {{categories}}",
+    "filterCategory": "Mostrar só {{category}}"
   },
   "legacyUsage": {
     "title": "Uso de workflows anteriores",
@@ -362,6 +416,8 @@
       "session": "sessão",
       "weekly": "semanal"
     },
-    "capsMetered": "Limites em dólares (provedores por uso)"
+    "capsMetered": "Limites em dólares (provedores por uso)",
+    "planLimits": "Limites do plano",
+    "turnsUnit": "turnos"
   }
 }

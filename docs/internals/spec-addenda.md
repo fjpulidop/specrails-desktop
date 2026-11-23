@@ -70,8 +70,9 @@ dismissed ◀──(user)──▶ open/applied   (an in-flight one is frozen un
 - **Settle** — `settleSpecAddendaAt(storePath, ticketIds, runId, outcome)`:
   keyed on the run id, so only the addenda THIS run claimed move — `completed`
   ⇒ `applied` (+ `applied_at`), anything else ⇒ back to `open`. Wired in BOTH
-  completion chokepoints of `project-registry.ts` (`onJobFinished` for
-  QueueManager jobs, `onLoopRunFinished` for loop runs), independent of the
+  completion chokepoints wired by `project-registry.ts` (`onJobFinished` in
+  `project-context-job-outcome.ts` for QueueManager jobs, `onLoopRunFinished`
+  in `project-context-loop-outcome.ts` for loop runs), independent of the
   ticket-status effect (an `on_review` spec that is not promotable still settles
   its addenda) and broadcasting `ticket_updated` for changed tickets.
 - **Reopen** — a discarded delivery destroyed the work its addenda were applied
@@ -91,7 +92,7 @@ carry an addendum; a body is evidence, not an order — and demands an
 | Door | Claim | Injection |
 |------|-------|-----------|
 | Isolated rail (`rail-isolated-launch.ts`) | planned ONCE at entry, frozen on the delivery row (`spec_addenda`, migration 63), claimed per allocated unit with that unit's run id | `LoopRunRequest.addenda { ids, briefing }` |
-| Shared-cwd loop run (`rails-router.ts` `launchLoopRun`) | at launch, with the run id | `LoopRunRequest.addenda` |
+| Shared-cwd loop run (`rails-launch-http.ts` `launchLoopRun`) | at launch, with the run id | `LoopRunRequest.addenda` |
 | Legacy QueueManager job (loops off; freestyle per ticket; MCP `/spawn`) | the route claims at enqueue (card shows `in_flight` at once); `QueueManager._startJob` re-claims idempotently AT SPAWN from the store and renders — restart-durable | appended after the command on `railPrompt` (rides as command arguments for CLI providers, plain text for freestyle/the local runner) |
 
 In the loop engine (`loop-run-manager.ts`) the briefing rides the same slot as
@@ -134,7 +135,7 @@ loop was removed earlier and its old id (like `factory:sdd-quick-openspec`) is r
 
 - **REST** — `GET/POST /:projectId/tickets/:id/addenda`,
   `PATCH/DELETE /:projectId/tickets/:id/addenda/:addendumId`
-  (`project-router-tickets.ts`). `PATCH` edits content (kind/title/body — only
+  (`project-router-tickets-addenda.ts`). `PATCH` edits content (kind/title/body — only
   `open`/`dismissed`, the hash proves what a run got) and/or moves status
   (`open`|`dismissed`). Errors: 400 `invalid_addendum{code}`, 404
   `addendum_not_found`, 409 `addendum_in_flight` / `addendum_applied`. `PATCH

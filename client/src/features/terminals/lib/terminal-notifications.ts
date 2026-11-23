@@ -1,4 +1,4 @@
-import { isTauri } from '../../../lib/tauri-shell'
+import { showNativeNotification } from '../../../lib/attention/native-notify'
 import i18n from '../../../lib/i18n'
 
 interface NotifyArgs {
@@ -29,24 +29,8 @@ export async function notifyCommandFinished(sessionId: string, args: NotifyArgs)
     elapsed: formatElapsed(args.elapsedMs),
   })
 
-  if (isTauri()) {
-    try {
-      const { invoke } = await import('@tauri-apps/api/core')
-      await invoke('desktop_notify', { title, body })
-    } catch { /* Notification policy must never interrupt the terminal. */ }
-    return
-  }
-
-  // Browser fallback.
-  try {
-    if (typeof Notification === 'undefined') return
-    if (Notification.permission === 'default') {
-      const perm = await Notification.requestPermission().catch(() => 'denied')
-      if (perm !== 'granted') return
-    }
-    if (Notification.permission !== 'granted') return
-    new Notification(title, { body })
-  } catch { /* ignore */ }
+  // The app's one OS-notification path (host command in the desktop app, Web API in a browser).
+  await showNativeNotification({ title, body, tag: `specrails-terminal:${sessionId}` })
 }
 
 function truncate(s: string, n: number): string {

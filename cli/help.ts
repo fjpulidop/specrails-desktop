@@ -47,6 +47,8 @@ ${bold('Usage:')}
   specrails-desktop --status                     Print manager status and exit
   specrails-desktop --jobs                       Print recent job history and exit
   specrails-desktop start|stop|add|remove|list  Manage the server
+  specrails-desktop mcp connect --client claude  Connect Claude Code or Codex (see: mcp help)
+  specrails-desktop mcp doctor                   Diagnose the MCP connection, with fixes
   specrails-desktop --project <name|path>        Override project (default: current directory)
   specrails-desktop --port <n>                   Override default port (${DEFAULT_PORT})
   specrails-desktop --version, -v               Print version and exit

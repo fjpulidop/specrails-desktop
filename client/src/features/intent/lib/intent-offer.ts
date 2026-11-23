@@ -1,6 +1,6 @@
 // ─── flow-offer protocol + display helpers (pure) ─────────────────────────────
 // The operator emits ONE fenced ```flow-offer block (see
-// server/modules/missions/runtime/agent-operator-prompt.ts FLOW_OFFER_SECTION):
+// server/mcp/guide.ts FLOW_OFFER_SECTION, topic explore-or-delegate):
 // { idea, reason, title?, repositoryId?, ticketId? }. `ticketId`: the offer is
 // about an EXISTING spec (idea = its title); Intent then works on that spec.
 // Intent and Implement never compete: older offers carried `recommended: 'flow' | 'implement'`, which still parses

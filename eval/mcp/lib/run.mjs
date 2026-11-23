@@ -1,0 +1,224 @@
+// Orchestrates one eval run: isolated instance → tool probes → scenarios
+// (seed, conversation with the simulated person, HTTP checker, server-side
+// metrics) → optional load probe → JSON + Markdown report.
+import fs from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import path from 'node:path'
+import { assertEvalTarget } from './isolation.mjs'
+import { bootInstance, EVAL_DIR } from './instance.mjs'
+import { connectMcp, proxyCommand } from './mcp-client.mjs'
+import { prepareClientHome, runTurn, mergeUsage, authProblem, dialogAnswer, DEFAULT_MODELS } from './clients.mjs'
+import { decisionMetrics, pairCalls, parseLog, scenarioMetrics } from './metrics.mjs'
+import { formAnswer, isKeyboardReply, menuOf, nextReply } from './person.mjs'
+import { selectScenarios, pendingReason, promptOf, TOOL_PROBES } from './scenarios.mjs'
+import { passed } from './checks.mjs'
+import { tokenCounter } from './tokens.mjs'
+import { buildReport, renderMarkdown } from './report.mjs'
+import { runProbe } from './probe.mjs'
+import { seedManyProjects } from './seed.mjs'
+import { quotaWindows } from '../../../scripts/benchmark/lib/quota.mjs'
+
+/** Ids of the registered projects (null when the route does not answer). */
+export async function projectIds(api) {
+  const res = await api.get('/projects').catch(() => null)
+  const rows = res?.data?.projects ?? res?.data
+  return Array.isArray(rows) ? rows.map(p => p.id) : null
+}
+
+/** Whether the instance still holds a provider quota refusal (GET /provider-quota). */
+export async function quotaRefused(api) {
+  const res = await api.get('/provider-quota').catch(() => null)
+  return (res?.data?.providers ?? []).some(p => p?.level === 'rejected')
+}
+
+/** Drop the persisted quota refusals of a STOPPED, harness-owned instance (its desktop.sqlite). */
+export function clearQuotaRefusals(home) {
+  if (!fs.existsSync(path.join(home, '.eval-mcp-home'))) throw new Error(`Refusing to edit ${home}: it was not created by the eval harness`)
+  const db = path.join(home, '.specrails', 'desktop.sqlite')
+  const out = spawnSync('sqlite3', [db, "DELETE FROM desktop_settings WHERE key = 'provider_quota_refusals_v1';"], { encoding: 'utf8' })
+  if (out.status !== 0) throw new Error(`clearing the quota refusals: ${(out.stderr || out.error?.message || '').slice(0, 200)}`)
+}
+
+const stamp = (d = new Date()) => d.toISOString().replace(/[:.]/g, '-').slice(0, 19)
+
+/** Which needed v2 tools answer (anything but `not_implemented`) on this instance. */
+export async function probeTools(mcp) {
+  const available = {}
+  for (const [tool, args] of Object.entries(TOOL_PROBES)) {
+    if (!mcp.tools.some(t => t.name === tool)) { available[tool] = false; continue }
+    const res = await mcp.call(tool, args).catch(() => null)
+    // A stub answers not_implemented; a v1 action still served through the legacy bridge carries a deprecation warning.
+    available[tool] = Boolean(res) && res.envelope?.error?.code !== 'not_implemented' && !(res.envelope?.warnings ?? []).some(w => /deprecated/i.test(w))
+  }
+  available['cli:mcp-connect'] = fs.existsSync(path.join(EVAL_DIR, '..', '..', 'cli', 'mcp-connect.ts'))
+  return available
+}
+
+/** Claude's short (5-hour) window, read through the isolated app's own usage reader. */
+export async function claudeWindow(api) {
+  await api.post('/subscription-usage/refresh', { providerId: 'claude' }).catch(() => null)
+  // The refresh is asynchronous (and slower right after a fresh boot): read until it lands.
+  for (let i = 0; i < 12; i++) {
+    const usage = (await api.get('/subscription-usage').catch(() => null))?.data
+    const short = quotaWindows(usage).filter(w => w.provider === 'claude' && !w.weekly)
+    if (short.length) return Math.max(...short.map(w => w.usedPercent))
+    await new Promise(r => setTimeout(r, 1500))
+  }
+  return null
+}
+
+export async function runEval(o, { log = console.log } = {}) {
+  const target = assertEvalTarget({ home: o.home, port: o.port, clientPort: o.clientPort })
+  const startedAt = new Date().toISOString()
+  const runDir = path.join(o.workDir, 'runs', `${stamp()}-${o.client}${o.v1 ? '-v1' : ''}`)
+  fs.mkdirSync(runDir, { recursive: true })
+  const model = o.model ?? DEFAULT_MODELS[o.client] ?? null
+  const tokens = await tokenCounter()
+  const boot = fresh => bootInstance({ home: target.home, port: target.port, clientPort: target.clientPort, workDir: o.workDir, v2: !o.v1, coreDir: o.coreDir, fresh, log })
+  let instance = await boot(o.fresh)
+  const quota = []
+  const rows = []
+  let probe = null
+  let spent = 0
+  try {
+    // Tool availability is a v2 property; the v1 baseline runs the scenarios v2 can run.
+    let prober = await connectMcp(proxyCommand({ logFile: path.join(runDir, 'probe.mcp.jsonl'), home: target.home, port: target.port, label: 'probe' }))
+    const v2Instance = !o.v1
+    const available = v2Instance ? await probeTools(prober) : Object.fromEntries(Object.keys(TOOL_PROBES).map(t => [t, !['specrails_blueprint', 'specrails_missions', 'specrails_insights', 'specrails_settings', 'specrails_providers', 'specrails_integrations', 'specrails_system'].includes(t)]))
+    // Projects an earlier run left registered (not the reusable 100-project fleet) would crowd this run's inbox.
+    if (!o.keepProjects) {
+      const res = await instance.api.get('/projects').catch(() => null)
+      const stale = (res?.data?.projects ?? res?.data ?? []).filter(p => !/^fleet-\d+$/.test(String(p.name ?? '')))
+      for (const p of stale) await instance.api.call('DELETE', `/projects/${p.id}`).catch(() => null)
+      if (stale.length) log(`unregistered ${stale.length} project(s) an earlier run left (--keep-projects keeps them)`)
+    }
+    log(`tools: ${Object.entries(available).map(([t, ok]) => `${t.replace('specrails_', '')}${ok ? '' : ' (pending)'}`).join(', ')}`)
+    // Seeds may drive the app through MCP too (the probe connection: its calls never count as the scenario's).
+    const ctxBase = { api: instance.api, workDir: o.workDir, fleetSize: o.fleet, engineLog: instance.engineLog, mcp: prober, evalHome: target.home, coreDir: o.coreDir, log }
+    for (const scenario of selectScenarios(o.scenario)) {
+      for (let n = 1; n <= o.repeat; n++) {
+        const row = { id: scenario.id, title: scenario.title, clientName: o.client, model, mode: o.v1 ? 'v1' : 'v2', lang: scenario.lang ?? 'en', repeatIndex: o.repeat > 1 ? n : 0, referenceCalls: scenario.referenceCalls, referenceLogical: scenario.referenceLogical ?? scenario.referenceCalls, status: 'pending', reason: null }
+        rows.push(row)
+        const pending = pendingReason(scenario, available, { client: o.client }) ?? (scenario.fleet && !o.fleet ? '100-project seed disabled (--fleet 0)' : null)
+        if (pending) { row.reason = pending; log(`${scenario.id}: pending — ${pending}`); continue }
+        if (o.client !== 'replay') {
+          if (spent >= o.maxCostUsd) { row.status = 'skipped'; row.reason = `client cost cap $${o.maxCostUsd} reached`; continue }
+          if (o.client === 'claude' && !o.noQuotaGuard) {
+            const used = await claudeWindow(instance.api)
+            quota.push({ at: new Date().toISOString(), used, reason: used === null ? 'claude 5-hour window unknown' : `claude 5-hour window ${used}%` })
+            if (used === null || used >= o.stopAtWindow) { row.status = 'skipped'; row.reason = used === null ? 'Claude 5-hour window unknown (pass --no-quota-guard to run anyway)' : `Claude 5-hour window at ${used}% (stop at ${o.stopAtWindow}%)`; log(`${scenario.id}: ${row.reason}`); continue }
+          }
+        }
+        const tag = `${Date.now().toString(36).slice(-5)}${n}`
+        const t0 = Date.now()
+        let facts = null
+        const before = new Set((await projectIds(instance.api)) ?? [])
+        try {
+          log(`${scenario.id}: seeding`)
+          if (scenario.fleet && !ctxBase.fleet) ctxBase.fleet = await seedManyProjects(instance.api, o.workDir, o.fleet)
+          facts = await scenario.seed({ ...ctxBase, tag })
+          const logFile = path.join(runDir, `${scenario.id}-${n}.mcp.jsonl`)
+          const proxy = proxyCommand({ logFile, home: target.home, port: target.port, label: scenario.id })
+          const conversation = o.client === 'replay'
+            ? await replayConversation(scenario, facts, proxy)
+            : await agentConversation({ o, model, scenario, facts, proxy, dir: path.join(runDir, 'clients', `${scenario.id}-${n}`), root: o.workDir })
+          row.client = conversation.client
+          row.turns = conversation.turns
+          spent += conversation.client?.costUsd ?? 0
+          if (conversation.authError) { row.status = 'error'; row.reason = `client not signed in${o.auth === 'session' ? ' (session auth)' : ' inside its temp home'}: ${conversation.authError}`; log(`${scenario.id}: ${row.reason}`); continue }
+          await new Promise(r => setTimeout(r, 2000)) // let settled effects land before the HTTP check
+          const records = fs.existsSync(logFile) ? parseLog(fs.readFileSync(logFile, 'utf8')) : []
+          const { calls } = pairCalls(records)
+          row.metrics = scenarioMetrics(records, tokens, { v1: o.v1 })
+          row.metrics.decisions = decisionMetrics(calls, conversation.person ?? {}, isKeyboardReply, { formsShown: o.client !== 'codex' })
+          row.assertions = o.v1 ? [] : await scenario.check({ api: instance.api, facts, calls, metrics: row.metrics, finalText: o.client === 'replay' ? null : conversation.finalText })
+          row.status = o.v1 ? 'baseline' : passed(row.assertions) ? 'pass' : 'fail'
+          row.finalText = conversation.finalText?.slice(0, 1500) ?? null
+          log(`${scenario.id}: ${row.status} (${row.metrics.calls} calls, ${row.metrics.errors} errors${row.client?.costUsd ? `, $${row.client.costUsd.toFixed(4)}` : ''})`)
+        } catch (error) {
+          row.status = 'error'
+          row.reason = String(error?.message ?? error).slice(0, 300)
+          log(`${scenario.id}: error — ${row.reason}`)
+        } finally {
+          row.wallMs = Date.now() - t0
+          if (scenario.teardown && facts) await scenario.teardown(facts).catch(error => log(`${scenario.id}: teardown — ${String(error?.message ?? error).slice(0, 200)}`))
+          // A scenario's projects (and their held or failed runs) must not show up in the next one's inbox.
+          const fleet = new Set((ctxBase.fleet ?? []).map(p => p.id))
+          for (const id of (await projectIds(instance.api)) ?? []) if (!before.has(id) && !fleet.has(id)) await instance.api.call('DELETE', `/projects/${id}`).catch(() => null)
+          // A scenario must not leave the next one a refused provider (S4's scripted limit): restart without it.
+          if (!instance.reused && await quotaRefused(instance.api)) {
+            log(`${scenario.id}: a provider quota refusal outlived the scenario; restarting the instance without it`)
+            await prober.close().catch(() => {})
+            await instance.stop()
+            clearQuotaRefusals(target.home)
+            instance = await boot(false)
+            prober = await connectMcp(proxyCommand({ logFile: path.join(runDir, 'probe.mcp.jsonl'), home: target.home, port: target.port, label: 'probe' }))
+            Object.assign(ctxBase, { api: instance.api, mcp: prober, engineLog: instance.engineLog })
+          }
+        }
+      }
+    }
+    if (o.probe) {
+      log('probe: seeding and measuring')
+      const projects = ctxBase.fleet ?? (o.fleet ? await seedManyProjects(instance.api, o.workDir, o.fleet) : [])
+      probe = await runProbe({ mcp: prober, api: instance.api, workDir: o.workDir, projects: projects.length ? projects : [], tag: `probe-${Date.now().toString(36).slice(-4)}` })
+      log(`probe: p95 read ${probe.p95ReadMs} ms, wait wake ${probe.waitWakeMs} ms`)
+    }
+    await prober.close()
+  } finally {
+    if (!o.keepServer && !instance.reused) await instance.stop()
+  }
+  const baseline = o.baseline ? JSON.parse(fs.readFileSync(o.baseline, 'utf8')).rows ?? [] : []
+  const report = buildReport({ startedAt, finishedAt: new Date().toISOString(), options: { client: o.client, model, auth: o.auth ?? 'temp', effort: o.client === 'codex' && o.auth === 'session' ? (o.effort ?? 'low') : (o.effort ?? null), scenario: o.scenario, repeat: o.repeat, v1: o.v1, fleet: o.fleet, port: target.port }, rows, baseline, probe, quota })
+  const out = o.out ?? path.join(EVAL_DIR, 'results')
+  fs.mkdirSync(out, { recursive: true })
+  const base = path.join(out, `${startedAt.slice(0, 10)}-${o.client}${o.v1 ? '-v1' : ''}-${stamp().slice(11)}`)
+  fs.writeFileSync(`${base}.json`, JSON.stringify(report, null, 2) + '\n')
+  fs.writeFileSync(`${base}.md`, renderMarkdown(report))
+  log(`report: ${base}.md`)
+  return { report, files: [`${base}.json`, `${base}.md`] }
+}
+
+async function replayConversation(scenario, facts, proxy) {
+  // The replay's person answers the server's choice forms from the keyboard (an option id, or their one free-text
+  // answer); confirmations stay on the token flow (the reference confirms with the token, as before).
+  const mcp = await connectMcp(proxy, { onElicit: params => formAnswer(scenario.person, params) })
+  try { await scenario.reference(mcp, facts) } finally { await mcp.close() }
+  return { client: null, turns: 0, finalText: null }
+}
+
+async function agentConversation({ o, model, scenario, facts, proxy, dir, root }) {
+  // Claude Code can show the server's in-call confirmation dialog; the simulated person answers it (--no-dialog: chat only).
+  const dialog = o.client === 'claude' && !o.noDialog ? dialogAnswer(scenario.person) : null
+  const prepared = prepareClientHome({ client: o.client, dir, root, proxy, auth: o.auth ?? 'temp', effort: o.effort ?? 'low', dialog, person: scenario.person })
+  let usage = { input: null, output: null, cacheRead: null, cacheWrite: null, costUsd: null }
+  let prompt = promptOf(scenario, facts)
+  let session = null
+  let finalText = ''
+  let used = 0
+  let wrote = 0
+  let turns = 0
+  const asked = []
+  const replies = []
+  for (; turns < 6; turns++) {
+    const turn = await runTurn({ client: o.client, binary: o.clientBin, model, prompt, session, prepared, timeoutMs: o.turnTimeoutS * 1000, budgetUsd: o.client === 'claude' && o.maxCostUsd ? o.maxCostUsd : null })
+    // Keep each turn's raw client stream next to the MCP log (where the tokens and the time went).
+    try { fs.writeFileSync(path.join(dir, `turn-${turns + 1}.jsonl`), turn.stdout ?? '') } catch { /* best effort */ }
+    const auth = authProblem(turn)
+    if (auth && !turn.parsed.toolUses) return { client: { tokens: usage, costUsd: usage.costUsd }, turns: turns + 1, finalText: turn.parsed.text, authError: auth }
+    usage = mergeUsage(o.client, usage, { ...turn.parsed.tokens, costUsd: turn.parsed.costUsd })
+    session = turn.parsed.session ?? session
+    finalText = turn.parsed.text || finalText
+    const records = fs.existsSync(proxy.args[proxy.args.indexOf('--log') + 1]) ? parseLog(fs.readFileSync(proxy.args[proxy.args.indexOf('--log') + 1], 'utf8')) : []
+    const lastText = turn.parsed.text || ''
+    const reply = session ? nextReply(scenario.person, { calls: pairCalls(records).calls, lastText, used, wrote }) : null
+    // A turn that waits for the person is a decision point: did it reach them as a menu?
+    if (reply) asked.push({ turn: turns + 1, menu: menuOf(lastText).length >= 2 })
+    if (!reply) { turns++; break }
+    used++
+    replies.push(reply)
+    if (!isKeyboardReply(reply)) wrote++
+    prompt = reply
+  }
+  return { client: { tokens: { input: usage.input, output: usage.output, cacheRead: usage.cacheRead, cacheWrite: usage.cacheWrite }, costUsd: usage.costUsd }, turns, finalText, person: { asked, replies } }
+}

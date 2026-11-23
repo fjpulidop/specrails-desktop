@@ -78,10 +78,13 @@
     }
   },
   "proof": {
-    "filesChanged": "{{files}} archivos cambiados (+{{added}} / −{{removed}} líneas)",
-    "testFilesChanged": "Se cambiaron {{count}} archivos de test",
+    "filesChanged_one": "{{files}} archivo cambiado (+{{added}} / −{{removed}} líneas)",
+    "filesChanged_other": "{{files}} archivos cambiados (+{{added}} / −{{removed}} líneas)",
+    "testFilesChanged_one": "Se cambió {{count}} archivo de test",
+    "testFilesChanged_other": "Se cambiaron {{count}} archivos de test",
     "noTestFilesChanged": "No se cambió ningún archivo de test.",
-    "commitsRecorded": "El trabajo se registró en {{branches}} rama(s)",
+    "commitsRecorded_one": "El trabajo se registró en {{branches}} rama",
+    "commitsRecorded_other": "El trabajo se registró en {{branches}} ramas",
     "verificationPassed": "La IA informó de que sus comprobaciones pasaron ({{count}})",
     "verificationFailed": "La IA informó de que sus comprobaciones FALLARON ({{count}})",
     "noVerificationReported": "La IA no informó de ninguna verificación.",
@@ -91,11 +94,15 @@
     "reviewerScoreUnavailable": "No se generó puntuación del revisor.",
     "evidenceUnavailable": "sin evidencia",
     "hostCommandPassed": "El runtime ejecutó {{label}} por sí mismo: código de salida {{exitCode}} ({{seconds}} s)",
+    "hostStaticCheckPassed": "El runtime ejecutó {{label}} por sí mismo, pero solo lee el contenido de archivos y no ejecuta el código: código de salida {{exitCode}} ({{seconds}} s)",
     "hostCommandFailed": "El runtime ejecutó {{label}} por sí mismo y FALLÓ: código de salida {{exitCode}} ({{seconds}} s)",
     "acceptanceCheckPassed": "Comprobación del revisor superada: {{name}}",
     "acceptanceCheckFailed": "Comprobación del revisor FALLIDA: {{name}}",
     "reviewerSummary": "Resumen del revisor IA:",
-    "reviewerFinding": "El revisor IA señaló:"
+    "reviewerFinding": "El revisor IA señaló:",
+    "earlierAttempts_one": "{{count}} ejecución anterior de esta comprobación",
+    "earlierAttempts_other": "{{count}} ejecuciones anteriores de esta comprobación",
+    "earlierAttempt": "Falló con código de salida {{exitCode}} ({{seconds}} s), antes de la corrección que la hizo pasar"
   },
   "watch": {
     "humanReviewRecommended": "El revisor IA puntuó esto {{overall}}/100 y recomienda que lo mire una persona.",
@@ -128,6 +135,11 @@
   "planned": {
     "title": "Enfoque previsto (según la spec)",
     "caveat": "Lo que proponía la petición, no un informe de lo que hizo la IA. Los hechos de arriba son lo que cambió de verdad."
+  },
+  "delivered": {
+    "title": "Qué cambió",
+    "caveat": "De la propuesta OpenSpec entregada: escrita por el agente y revisada por el revisor.",
+    "why": "Por qué"
   },
   "outcome": {
     "succeeded": "Implementado",
@@ -216,7 +228,8 @@
       "invariantsTouched": "Invariantes afectados",
       "untested": "Rutas sin test",
       "humanChecks": "Comprobaciones humanas",
-      "divergences": "Divergencias con la spec"
+      "divergences": "Divergencias con la spec",
+      "reviewNotes": "Notas del revisor, sin aplicar"
     },
     "userVisible": "Visible para usuarios",
     "invariantStatus": {
@@ -229,7 +242,17 @@
     "dropped_other": "{{count}} entradas del resumen no tenían el formato esperado y se omitieron.",
     "topRisk": "Riesgo principal",
     "moreRisks_one": "+{{count}} más",
-    "moreRisks_other": "+{{count}} más"
+    "moreRisks_other": "+{{count}} más",
+    "reviewNotesCaveat": "Hallazgos que el revisor marcó como fuera de esta ejecución. Ninguna ronda de corrección actuó sobre ellos.",
+    "noteKind": {
+      "advice": "Consejo",
+      "out-of-scope": "Fuera de alcance",
+      "host-only-check": "Comprobación manual",
+      "regenerated-lockfile": "Lockfile regenerado",
+      "frozen-artifact": "Artefacto congelado",
+      "withdrawn-criterion": "Retirado por ti",
+      "other": "Nota"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} acción",

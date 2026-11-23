@@ -78,10 +78,13 @@
     }
   },
   "proof": {
-    "filesChanged": "{{files}} fichiers modifiés (+{{added}} / −{{removed}} lignes)",
-    "testFilesChanged": "{{count}} fichiers de test modifiés",
+    "filesChanged_one": "{{files}} fichier modifié (+{{added}} / −{{removed}} lignes)",
+    "filesChanged_other": "{{files}} fichiers modifiés (+{{added}} / −{{removed}} lignes)",
+    "testFilesChanged_one": "{{count}} fichier de test modifié",
+    "testFilesChanged_other": "{{count}} fichiers de test modifiés",
     "noTestFilesChanged": "Aucun fichier de test modifié.",
-    "commitsRecorded": "Le travail a été enregistré sur {{branches}} branche(s)",
+    "commitsRecorded_one": "Le travail a été enregistré sur {{branches}} branche",
+    "commitsRecorded_other": "Le travail a été enregistré sur {{branches}} branches",
     "verificationPassed": "L'IA a rapporté que ses vérifications ont réussi ({{count}})",
     "verificationFailed": "L'IA a rapporté que ses vérifications ont ÉCHOUÉ ({{count}})",
     "noVerificationReported": "L'IA n'a rapporté aucune vérification.",
@@ -91,11 +94,15 @@
     "reviewerScoreUnavailable": "Aucun score de relecteur produit.",
     "evidenceUnavailable": "preuves indisponibles",
     "hostCommandPassed": "Le runtime a exécuté {{label}} lui-même : code de sortie {{exitCode}} ({{seconds}} s)",
+    "hostStaticCheckPassed": "Le runtime a exécuté {{label}} lui-même, mais cette vérification lit seulement le contenu de fichiers et n'exécute pas le code : code de sortie {{exitCode}} ({{seconds}} s)",
     "hostCommandFailed": "Le runtime a exécuté {{label}} lui-même et cela a ÉCHOUÉ : code de sortie {{exitCode}} ({{seconds}} s)",
     "acceptanceCheckPassed": "Vérification du relecteur réussie : {{name}}",
     "acceptanceCheckFailed": "Vérification du relecteur ÉCHOUÉE : {{name}}",
     "reviewerSummary": "Résumé du relecteur IA :",
-    "reviewerFinding": "Le relecteur IA a noté :"
+    "reviewerFinding": "Le relecteur IA a noté :",
+    "earlierAttempts_one": "{{count}} exécution précédente de cette vérification",
+    "earlierAttempts_other": "{{count}} exécutions précédentes de cette vérification",
+    "earlierAttempt": "Échec avec le code de sortie {{exitCode}} ({{seconds}} s), avant la correction qui l’a fait réussir"
   },
   "watch": {
     "humanReviewRecommended": "Le relecteur IA a noté {{overall}}/100 et recommande une relecture humaine.",
@@ -128,6 +135,11 @@
   "planned": {
     "title": "Approche prévue (d'après la spec)",
     "caveat": "Ce que la demande proposait — pas un compte rendu de ce que l'IA a fait. Les faits ci-dessus sont ce qui a réellement changé."
+  },
+  "delivered": {
+    "title": "Ce qui a changé",
+    "caveat": "D'après la proposition OpenSpec livrée : rédigée par l'agent et vérifiée par le relecteur.",
+    "why": "Pourquoi"
   },
   "outcome": {
     "succeeded": "Implémenté",
@@ -216,7 +228,8 @@
       "invariantsTouched": "Invariants touchés",
       "untested": "Chemins non testés",
       "humanChecks": "Vérifications humaines",
-      "divergences": "Écarts avec la spec"
+      "divergences": "Écarts avec la spec",
+      "reviewNotes": "Notes du relecteur, non traitées"
     },
     "userVisible": "Visible par les utilisateurs",
     "invariantStatus": {
@@ -229,7 +242,17 @@
     "dropped_other": "{{count}} entrées de la note ne respectaient pas le format attendu et ont été ignorées.",
     "topRisk": "Risque principal",
     "moreRisks_one": "+{{count}} autre",
-    "moreRisks_other": "+{{count}} autres"
+    "moreRisks_other": "+{{count}} autres",
+    "reviewNotesCaveat": "Constats que le relecteur a marqués comme hors de cette exécution. Aucune ronde de correction ne les a traités.",
+    "noteKind": {
+      "advice": "Conseil",
+      "out-of-scope": "Hors périmètre",
+      "host-only-check": "Vérification manuelle",
+      "regenerated-lockfile": "Fichier de verrouillage régénéré",
+      "frozen-artifact": "Artefact figé",
+      "withdrawn-criterion": "Retiré par vous",
+      "other": "Note"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} action",

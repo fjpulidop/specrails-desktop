@@ -44,3 +44,12 @@ C'est le bundle à récupérer quand vous voulez comprendre une exécution déli
 ## Le désactiver
 
 Remettez l'interrupteur en position désactivée à tout moment. Les nouveaux jobs cessent d'enregistrer immédiatement. Tout ce qui a déjà été capturé reste sur le disque jusqu'à sa compaction ou jusqu'à ce que vous supprimiez le projet — rien n'est envoyé où que ce soit ni perdu à votre insu.
+
+
+## Preuves d'achèvement
+
+L'historique des loops enregistre un résultat final indépendamment de la télémétrie facultative du fournisseur.
+Il sépare l'exécution du processus de l'acceptation et de la livraison par Core, et distingue
+les étapes, les évaluations du décideur et les tours d'agent. Les durées et tentatives de phase proviennent
+du journal de Core ; aucun coût par phase n'est déduit du total. Avec les anciens runtimes,
+les preuves d'acceptation restent indisponibles.

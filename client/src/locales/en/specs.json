@@ -13,12 +13,15 @@
     "untitledSpec": "Untitled spec",
     "doneHeading": "Done · {{count}}",
     "clearFilters": "Clear filters",
-    "emptyNoSearchMatch": "No specs match \"{{query}}\""
+    "emptyNoSearchMatch": "No specs match \"{{query}}\"",
+    "emptyAllOnRails": "Every spec is on a rail",
+    "emptyAllOnRailsHint_one": "{{count}} spec is in the Rails column.",
+    "emptyAllOnRailsHint_other": "{{count}} specs are in the Rails column."
   },
   "status": {
     "todo": "Todo",
-    "inProgress": "In Progress",
-    "onReview": "On Review",
+    "inProgress": "In progress",
+    "onReview": "On review",
     "onReviewHint": "Implemented — a draft PR is awaiting your review decision",
     "done": "Done",
     "cancelled": "Cancelled"
@@ -52,7 +55,7 @@
     "deleteSpec": "Delete spec #{{id}}",
     "ticketFallbackLabel": "Spec #{{id}}",
     "dependsOn": "Depends on {{count}}",
-    "continueEditing": "Continue Editing",
+    "continueEditing": "Continue editing",
     "continueEditingTitle": "Continue editing this spec",
     "moveToRail": "Move to rail"
   },
@@ -117,7 +120,7 @@
       "default": "Default",
       "ticketId": "Spec #",
       "priority": "Priority",
-      "jiraKey": "Jira Ticket #"
+      "jiraKey": "Jira ticket #"
     }
   },
   "viewTier": {

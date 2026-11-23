@@ -21,6 +21,16 @@ const tool = (name: string, input: Record<string, unknown>) =>
   ev('assistant', { type: 'assistant', message: { content: [{ type: 'tool_use', name, input }] } })
 
 describe('NarratedProgress', () => {
+  it('lamps the live station as working (info, pulsing) and finished stations as done', () => {
+    const { container } = render(<NarratedProgress events={[step(1, 'initialize-corrections'), stepEnd(1), step(2, 'mystery-step')]} settled={false} />)
+    const live = container.querySelector('[data-run-state="working"]')
+    expect(live).toBeInTheDocument()
+    expect(live!.querySelector('[data-live-ring]')).toBeInTheDocument()
+    expect(live!.querySelector('.bg-accent-info')).toBeInTheDocument()
+    expect(container.querySelector('.bg-accent-primary')).toBeNull()
+    expect(container.querySelector('[data-run-state="done"] .bg-accent-success')).toBeInTheDocument()
+  })
+
   it('shows repository labels beside separate activity groups in mission mode', () => {
     const events = ['Front', 'Back'].map(name => ev('agent-event', { role: 'developer', repositories: [{ id: name, name }], event: { kind: 'tool-start', tool: 'Read', detail: 'src/app.ts' } }))
     render(<NarratedProgress events={events} settled={false} variant="glass" />)

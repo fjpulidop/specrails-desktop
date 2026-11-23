@@ -11,8 +11,14 @@ import { AGENT_CAPABILITY_HEADER } from '../modules/missions/runtime/agent-tier'
 import { setDesktopSetting } from '../desktop-db'
 import { buildToolSpecs } from './tools/catalog'
 import { registerTieredTool, type McpToolContext } from './tools/types'
-import { registerResources } from './resources'
+import { registerResources, registerResourceSubscriptions } from './resources'
+import { registerPrompts } from './prompts'
+import { registerV2Prompts } from './v2/prompts'
+import { registerV2GuideResources } from './v2/guide'
 import { verifyAgentCapability, onAgentCapabilityRevoked } from './agent-capability'
+import { isMcpV2Enabled, registerV2Surface, V2_INSTRUCTIONS, v2Catalog } from './v2'
+import { textModeFor } from './v2/core/envelope'
+import { confirmationKey, elicitsForms } from './v2/core/confirm'
 
 export interface McpServerManagerDeps {
   registry: ProjectRegistry
@@ -45,6 +51,8 @@ interface McpSession {
   capabilityHash: string | null
   timer?: ReturnType<typeof setTimeout>
   unsubscribe?: () => void
+  /** Stops this session's resource-update notifications. */
+  dispose: () => void
   closed: boolean
 }
 
@@ -106,6 +114,7 @@ export class McpServerManager {
     session.closed = true
     if (session.timer) clearTimeout(session.timer)
     session.unsubscribe?.()
+    session.dispose()
     this._pending.delete(session)
     if (session.transport.sessionId) this._sessions.delete(session.transport.sessionId)
   }
@@ -116,27 +125,69 @@ export class McpServerManager {
     session.timer.unref?.()
   }
 
+  /** The version this server reports at `initialize`. */
+  get version(): string {
+    return this._version
+  }
+
   status(): McpServerStatus {
     return {
       enabled: this.isEnabledSetting(),
       running: this.isEnabledSetting(),
       activeSessions: this._sessions.size,
-      toolCount: this._toolCount,
+      // Advertised to an external client: the v2 catalog while `mcp_v2` is on (the default).
+      toolCount: isMcpV2Enabled(this._ctx.desktopDb) ? v2Catalog().tools.length : this._toolCount,
     }
   }
 
-  /** Build a fresh McpServer with the full tool + resource catalog registered. */
-  private buildServer(): McpServer {
+  /**
+   * Build a fresh McpServer with the full tool, resource and prompt catalog
+   * registered. An external session with `mcp_v2` on (the default) gets the v2
+   * catalog, the v1 tools as hidden aliases and the server instructions; with
+   * it off, exactly the v1 catalog. An in-app (first-party) turn always gets the
+   * v1 catalog, loaded up front: the mission and Intent prompts, the operator
+   * guide topics and the permission ladder name v1 tools (`specrails_guide`,
+   * `specrails_background`, `specrails_git`, …), and a client only calls tools
+   * it was listed.
+   */
+  private buildServer(options: { inApp?: boolean; protocolVersion?: string } = {}): { server: McpServer; dispose: () => void } {
+    const v2 = options.inApp !== true && isMcpV2Enabled(this._ctx.desktopDb)
     const server = new McpServer(
       { name: 'specrails-desktop', version: this._version },
-      { capabilities: { logging: {}, tools: {}, resources: {} } },
+      { capabilities: { logging: {}, tools: {}, resources: { subscribe: true, listChanged: true }, prompts: {} }, ...(v2 ? { instructions: V2_INSTRUCTIONS } : {}) },
     )
-    const context = { ...this._ctx, sessionState: { activeProjectId: null } }
-    for (const spec of buildToolSpecs()) {
-      registerTieredTool(server, context, spec)
+    // Confirmations bind to the client, not to this connection (see `confirmationKey`); in-app turns keep a per-connection key.
+    const connectionKey = randomUUID()
+    const inApp = options.inApp === true
+    const sessionState = v2
+      ? {
+          activeProjectId: null,
+          get sessionKey() { return inApp ? connectionKey : confirmationKey(server.server.getClientVersion(), connectionKey) },
+          // Form elicitation (an empty `elicitation: {}` is form mode too); in-app turns confirm through their own cards.
+          elicitation: () => !inApp && elicitsForms(server.server.getClientCapabilities()),
+        }
+      : { activeProjectId: null }
+    const context = { ...this._ctx, sessionState }
+    const specs = buildToolSpecs()
+    // One subscription set per session, shared by the v1 bus and the v2 journal.
+    const subscriptions = registerResourceSubscriptions(server, context)
+    let disposeV2 = () => {}
+    if (v2) {
+      disposeV2 = registerV2Surface(server, context, specs, { inApp: options.inApp === true, textMode: textModeFor(options.protocolVersion), resources: subscriptions }).dispose
+    } else {
+      for (const spec of specs) {
+        registerTieredTool(server, context, spec, { alwaysLoad: options.inApp === true })
+      }
     }
-    registerResources(server, context)
-    return server
+    registerResources(server, context, specs)
+    if (v2) {
+      registerV2Prompts(server)
+      registerV2GuideResources(server)
+    } else {
+      registerPrompts(server)
+    }
+    const dispose = () => { disposeV2(); subscriptions() }
+    return { server, dispose }
   }
 
   /**
@@ -185,7 +236,9 @@ export class McpServerManager {
             res.status(400).json(jsonRpcError('Missing mcp-session-id and body is not an initialize request.'))
             return
           }
-          const server = this.buildServer()
+          // A verified in-app agent capability: the session is a Specrails turn.
+          const protocolVersion = (req.body as { params?: { protocolVersion?: unknown } }).params?.protocolVersion
+          const { server, dispose } = this.buildServer({ inApp: capability !== null && capability !== undefined, protocolVersion: typeof protocolVersion === 'string' ? protocolVersion : undefined })
           const transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
             onsessioninitialized: (sid: string) => {
@@ -193,7 +246,7 @@ export class McpServerManager {
               this._sessions.set(sid, created)
             },
           })
-          const created: McpSession = { transport, server, capabilityHash, closed: false }
+          const created: McpSession = { transport, server, capabilityHash, dispose, closed: false }
           session = created
           this._pending.add(created)
           transport.onclose = () => { this.forgetSession(created) }

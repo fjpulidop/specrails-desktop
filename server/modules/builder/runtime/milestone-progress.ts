@@ -27,12 +27,17 @@ import {
 } from '../../delivery/runtime/rail-pr-store'
 import { getRails } from '../../delivery/runtime/rails-store'
 import { getLoopRun, listActiveLoopRuns } from '../../loops/runtime/loop-runs-store'
+import { readRunHolds, type RunHold, type RunHoldSources } from '../../loops/runtime/loop-run-hold'
+import type { ChainPlan } from './milestone-chain-reconcile'
+import type { MilestoneEngine, ResolvedMilestoneEngine } from './milestone-engine-preference'
 import { resolveProjectExecution } from '../../../workspace-resolution'
 import { workspacePathFor } from '../../../workspace-manager'
 
 // ─── Model ───────────────────────────────────────────────────────────────────
 
-export type MilestoneState = 'planned' | 'committed' | 'running' | 'delivered' | 'done'
+/** `paused` = a chain owns the milestone but stopped (a pause or a wave
+ *  checkpoint): not "ready to launch", not running. */
+export type MilestoneState = 'planned' | 'committed' | 'running' | 'paused' | 'delivered' | 'done'
 
 export interface MilestoneCounts {
   total: number
@@ -49,8 +54,12 @@ export interface MilestoneRail {
   name: string | null
   /** Milestone tickets this rail carries (run or delivery). */
   ticketIds: number[]
-  /** True while a run is live on the rail. */
+  /** True while a run is live on the rail (working OR held: see `hold`). */
   active: boolean
+  /** Why the live run is not working right now (the shared run hold: paused by
+   *  you, a question, the budget, a usage limit, a restart, waiting for
+   *  capacity…); null while it genuinely works or when the rail is not active. */
+  hold: RunHold | null
   /** The live run id (loop run or queue job) when `active`. */
   runId: string | null
   /** Run start (ISO) when active; the delivery's creation time otherwise. */
@@ -59,6 +68,8 @@ export interface MilestoneRail {
   delivery: PrDeliverySnapshot | null
   /** 1-based chunk ordinal when the rail was launched by a milestone chain. */
   chunkIndex: number | null
+  /** The engine the rail's run uses (its chain launch record, else the live run's row); null when unknown. */
+  engine: MilestoneEngine | null
 }
 
 /** `awaiting_approval` = a wave checkpoint: the last chunk delivered fine and
@@ -72,6 +83,8 @@ export interface MilestoneChainLaunched {
   ticketIds: number[]
   runIds: string[]
   deliveryId: string | null
+  /** The engine this rail was launched on (null/absent: the rail's defaults, or a launch before engines were recorded). */
+  engine?: MilestoneEngine | null
 }
 
 /** Chain snapshot as surfaced to clients (the store row's public projection). */
@@ -87,9 +100,22 @@ export interface MilestoneChainSnapshot {
   totalChunks: number
   currentRailIndex: number | null
   headBranch: string | null
+  /** 0-based chunk a paused chain stopped on because it FAILED (Resume can
+   *  continue it from the failed step or relaunch it), else null. */
+  retryChunk: number | null
   launched: MilestoneChainLaunched[]
   createdAt: string
   updatedAt: string
+  /** Reconciled against the live rows (tickets, deliveries, runs — manual ones
+   *  included): the next action and the offers every surface renders. Absent
+   *  on a projection made without the chain manager (e.g. the discard hook);
+   *  the manager re-emits with it. */
+  plan?: ChainPlan | null
+  /** The engine the chain's NEXT rail launches on, resolved now (the
+   *  milestone's own configuration, else the current usual one, else the
+   *  Launch choice); null = the rails' defaults. Absent on a
+   *  projection made without the chain manager. */
+  nextEngine?: ResolvedMilestoneEngine | null
 }
 
 export interface MilestoneProgress {
@@ -107,6 +133,8 @@ export interface ProgressTicket {
   id: number
   status: string
   labels: string[]
+  /** Spec title (the chain's offers name the spec they act on). */
+  title?: string | null
   /** Spec ids that must be delivered first (launch ordering only). */
   prerequisites?: number[]
   /** Planner-assigned position (launch ordering tie-break). */
@@ -118,6 +146,16 @@ export interface ProgressActiveRun {
   railIndex: number
   ticketIds: number[]
   startedAt: string | null
+  /** The run's hold (loop-run-hold); null/absent while it works. */
+  hold?: RunHold | null
+  /** The run's provider/model from its row (effort unknown ⇒ null). */
+  engine?: MilestoneEngine | null
+}
+
+/** Every live rail of the milestone is held by the person's own Pause. */
+export function railsPausedByYou(rails: ReadonlyArray<Pick<MilestoneRail, 'active' | 'hold'>>): boolean {
+  const live = rails.filter((r) => r.active)
+  return live.length > 0 && live.every((r) => r.hold?.kind === 'paused' && r.hold.byYou === true)
 }
 
 export interface ProgressRailInfo {
@@ -177,7 +215,14 @@ export function deriveMilestoneProgress(input: DeriveMilestoneProgressInput): Mi
 
     const chain = input.chains.find((c) => c.milestoneN === n) ?? null
     const chunkByRail = new Map<number, number>()
-    for (const l of chain?.launched ?? []) chunkByRail.set(l.railIndex, l.chunk)
+    const engineByRail = new Map<number, MilestoneEngine>()
+    const engineByRun = new Map<string, MilestoneEngine>()
+    for (const l of chain?.launched ?? []) {
+      chunkByRail.set(l.railIndex, l.chunk)
+      if (l.engine) engineByRail.set(l.railIndex, l.engine)
+      else engineByRail.delete(l.railIndex)
+      for (const id of l.runIds) if (l.engine) engineByRun.set(id, l.engine)
+    }
 
     const rails = new Map<number, MilestoneRail>()
     for (const run of input.activeRuns) {
@@ -188,10 +233,12 @@ export function deriveMilestoneProgress(input: DeriveMilestoneProgressInput): Mi
         name: railNames.get(run.railIndex) ?? null,
         ticketIds: carried,
         active: true,
+        hold: run.hold ?? null,
         runId: run.runId,
         startedAt: run.startedAt,
         delivery: null,
         chunkIndex: chunkByRail.get(run.railIndex) ?? null,
+        engine: engineByRun.get(run.runId) ?? run.engine ?? null,
       })
     }
     for (const d of deliveries) {
@@ -208,10 +255,12 @@ export function deriveMilestoneProgress(input: DeriveMilestoneProgressInput): Mi
         name: railNames.get(d.railIndex) ?? null,
         ticketIds: carried,
         active: false,
+        hold: null,
         runId: null,
         startedAt: d.createdAt,
         delivery: d,
         chunkIndex: chunkByRail.get(d.railIndex) ?? null,
+        engine: engineByRail.get(d.railIndex) ?? null,
       })
     }
     const railList = [...rails.values()].sort((a, b) => {
@@ -221,12 +270,22 @@ export function deriveMilestoneProgress(input: DeriveMilestoneProgressInput): Mi
     })
 
     const chainLive = chain !== null && (chain.status === 'running' || chain.status === 'waiting')
+    // A chain still driving the milestone (running, or stopped on a pause /
+    // checkpoint) outranks "delivered": its last spec may be on review only
+    // until the chain integrates or rebuilds it.
+    const chainStopped = chain !== null && (chain.status === 'paused' || chain.status === 'awaiting_approval')
+    // Every live rail paused by the person (Pause): the milestone reads paused,
+    // the same "adopt and wait" the chain reconciliation does — it never
+    // resumes on its own, only the person's Resume continues it.
+    const pausedByYou = railsPausedByYou(railList)
     const state: MilestoneState =
       counts.total > 0 && counts.done === counts.total ? 'done'
-        : counts.total > 0 && counts.todo + counts.inProgress === 0 && counts.onReview > 0 ? 'delivered'
-          : counts.inProgress > 0 || chainLive ? 'running'
-            : counts.total > 0 ? 'committed'
-              : m.status
+        : pausedByYou ? 'paused'
+        : counts.inProgress > 0 || chainLive ? 'running'
+          : chainStopped ? 'paused'
+            : counts.total > 0 && counts.todo === 0 && counts.onReview > 0 ? 'delivered'
+              : counts.total > 0 ? 'committed'
+                : m.status
 
     return {
       id: m.id,
@@ -259,6 +318,9 @@ export interface MilestoneProgressSource {
   railLoopRuns?: Map<string, { railIndex: number; ticketIds: number[] }>
   /** Active launch chains (wired by the chain manager; absent ⇒ none). */
   chains?: () => MilestoneChainSnapshot[]
+  /** What the live loop engine knows about held runs (`runHoldSources`);
+   *  absent ⇒ only the durable rows (a paused row still reads paused). */
+  holdSources?: () => RunHoldSources
 }
 
 export interface MilestoneProgressSnapshot {
@@ -274,6 +336,10 @@ function parseTicketIds(raw: string | undefined): number[] {
   } catch {
     return []
   }
+}
+
+function runEngine(row: { provider?: string | null; model?: string | null } | undefined): MilestoneEngine | null {
+  return row?.provider && row.model ? { provider: row.provider, model: row.model, reasoningEffort: null } : null
 }
 
 /** Read every durable source and derive; null when the project has no blueprint. */
@@ -302,8 +368,13 @@ export function readMilestoneProgress(src: MilestoneProgressSource): MilestonePr
   for (const [runId, meta] of src.railLoopRuns?.entries() ?? []) {
     seenRuns.add(runId)
     let startedAt: string | null = null
-    try { startedAt = getLoopRun(src.db, runId)?.started_at ?? null } catch { /* fall through */ }
-    activeRuns.push({ runId, railIndex: meta.railIndex, ticketIds: meta.ticketIds, startedAt })
+    let engine: MilestoneEngine | null = null
+    try {
+      const row = getLoopRun(src.db, runId)
+      startedAt = row?.started_at ?? null
+      engine = runEngine(row)
+    } catch { /* fall through */ }
+    activeRuns.push({ runId, railIndex: meta.railIndex, ticketIds: meta.ticketIds, startedAt, engine })
   }
   try {
     for (const run of listActiveLoopRuns(src.db, src.projectId)) {
@@ -315,9 +386,14 @@ export function readMilestoneProgress(src: MilestoneProgressSource): MilestonePr
         railIndex: run.rail_index,
         ticketIds: ids.length > 0 ? ids : run.ticket_id != null ? [run.ticket_id] : [],
         startedAt: run.started_at ?? null,
+        engine: runEngine(run),
       })
     }
   } catch { /* DB unavailable ⇒ in-memory maps only */ }
+  try {
+    const holds = readRunHolds(src.db, activeRuns.map((r) => r.runId), src.holdSources?.() ?? {})
+    for (const run of activeRuns) run.hold = holds.get(run.runId) ?? null
+  } catch { /* advisory: a run without a readable hold reads as working */ }
   for (const [jobId, meta] of src.railJobs?.entries() ?? []) {
     if (seenRuns.has(jobId)) continue
     activeRuns.push({ runId: jobId, railIndex: meta.railIndex, ticketIds: meta.ticketIds, startedAt: null })
@@ -365,6 +441,17 @@ export const MILESTONE_PROGRESS_TRIGGERS: ReadonlySet<string> = new Set([
   'rail.job_stopped',
   'loop.run_completed',
   'loop.run_stopped',
+  // A run's hold changes (paused by you / a question / the budget / a usage
+  // limit, resumed, queued for capacity, started): the rail row flips live.
+  'loop.run_started',
+  'loop.run_paused',
+  'loop.run_resumed',
+  'loop.run_queued',
+  'loop.run_queue',
+  'loop.pause_requested',
+  'loop.pause_request_ended',
+  'loop.limit_pause',
+  'loop.provider_limit',
   'milestone.chain_changed',
 ])
 

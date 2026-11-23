@@ -9,6 +9,8 @@ import type { CoreNodeKind, LoopGraph, LoopNode } from './loop-graph'
  *        │fail             │fail                               │false
  *        └→ one repair     └──────────→ findings ←─────────────┘
  *           visit                          │
+ *                       scope gate ─unrequested change→ scope-decision (the person decides)
+ *                                          │
  *                       correction budget (2 rounds) ─exhausted→ changes-requested
  *                                          │
  *                       fixer (developer, fixer stance, WRITE) ─no change→ changes-requested
@@ -42,6 +44,12 @@ export const FLOW_CORRECTION_ROUNDS = 2
 export const FLOW_CHANGES_REQUESTED_END = 'changes-requested'
 /** Its completion reason (Core's reference text; Desktop recognises the end by its node id, not this text). */
 export const FLOW_CHANGES_REQUESTED_REASON = 'Intent → Spec: the reviewer requested changes that {{run.correctionRounds}} correction round(s) did not resolve. Latest findings: {{run.latestFindings}}'
+/** The terminal of a review that found changes no request or decision of the Intent supports: the PERSON decides (keep as a requirement, or revert), never the fixer. */
+export const FLOW_SCOPE_DECISION_END = 'scope-decision'
+/** Its completion reason (Core's reference text). */
+export const FLOW_SCOPE_DECISION_REASON = 'Intent → Spec: the review found changes that no request or decision of the Intent session supports; the person decides whether to keep them as requirements or revert them. Latest findings: {{run.latestFindings}}'
+/** Issue prefix of a change no request or decision supports (the Intent module's `UNREQUESTED_CHANGE_PREFIX`; a test pins the equality). */
+export const FLOW_UNREQUESTED_PREFIX = 'Unrequested change:'
 
 /** OpenSpec change names: kebab-case, at most 64 characters (Core's `changeId`). */
 export const FLOW_CHANGE_ID_MAX = 64
@@ -85,12 +93,14 @@ export function flowChangeId(title: string | null | undefined, holder: (id: stri
 const REVIEW_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['approved', 'summary', 'issues', 'score'],
+  required: ['approved', 'summary', 'issues', 'score', 'unrequested'],
   properties: {
     approved: { type: 'boolean' },
     summary: { type: 'string' },
     issues: { type: 'array', maxItems: 100, items: { type: 'string' } },
     score: { type: 'number', minimum: 0, maximum: 100 },
+    // Changes no request or decision of the Intent supports: the person decides, so they end the run without a correction round.
+    unrequested: { type: 'array', maxItems: 100, items: { type: 'string' } },
   },
 }
 
@@ -126,13 +136,18 @@ export function flowSpecGraph(): LoopGraph {
       'Derivation coverage measured by Core (every changed file must appear in design.md "## Blast radius"): {{outputs.derive.derivation}}.',
       'Treat EVERY file in unexplainedFiles as an issue. Inspect the real code and the host verification evidence: {{outputs.check}}.',
       'Every issue must be actionable by a fixer (code or tests) or by the deriver (artifacts): name the file and what must change.',
-      'Return approved, summary, issues (empty when none) and score (0-100).',
+      'Scope: what the person asked for or decided during the Intent session (the accepted scope that comes with the spec, the conversation summary, the `Decision:` lines) IS requested, even where it departs from the intent\'s original constraints: a later request supersedes an earlier constraint it contradicts.',
+      'Never ask to revert, remove or restore that behaviour; judge its correctness, tests, accessibility and how faithfully the artifacts describe it. When the artifacts call it out of scope or keep a superseded constraint as a Non-Goal, the issue is for the deriver: describe it as a requirement.',
+      `A change that no request or decision supports is not yours to revert: list it in unrequested AND as an issue starting with "${FLOW_UNREQUESTED_PREFIX}", naming the file and the behaviour. The person decides whether to keep it as a requirement or revert it.`,
+      'Return approved, summary, issues (empty when none), score (0-100) and unrequested (empty when none).',
     ].join(' '),
     structuredOutput: REVIEW_SCHEMA,
     sessionContinuity: 'none',
   }, { next: 'review-policy', invalid: 'failed', failed: 'failed' })
-  node('review-policy', 'Review acceptance policy', 'condition', { expr: '$outputs.review.structured.approved == true' }, { true: 'archive', false: 'review-findings' })
-  node('review-findings', 'Capture review findings', 'assign', { set: { latestFindings: '{{outputs.review.structured}}' } }, { next: 'correction-budget', failed: 'failed' }, 720)
+  node('review-policy', 'Review acceptance policy', 'condition', { expr: '$outputs.review.structured.approved == true && !exists($outputs.review.structured.unrequested.0)' }, { true: 'archive', false: 'review-findings' })
+  node('review-findings', 'Capture review findings', 'assign', { set: { latestFindings: '{{outputs.review.structured}}' } }, { next: 'scope-gate', failed: 'failed' }, 720)
+  // A change nobody asked for is the person's call: no fixer round may revert (or bless) it.
+  node('scope-gate', 'Ask the person about unrequested changes', 'condition', { expr: 'exists($outputs.review.structured.unrequested.0)' }, { true: FLOW_SCOPE_DECISION_END, false: 'correction-budget' }, 720)
   node('correction-budget', 'Check the correction budget', 'condition', { expr: '$vars.correctionRounds < $vars.correctionLimit' }, { true: 'begin-correction', false: FLOW_CHANGES_REQUESTED_END }, 720)
   node('begin-correction', 'Count correction round', 'assign', { increment: { correctionRounds: 1 }, set: { derivationRepairs: 0 } }, { next: 'fix', failed: 'failed' }, 720)
   node('fix', 'Fixer', 'role-turn', {
@@ -145,7 +160,7 @@ export function flowSpecGraph(): LoopGraph {
       'Tag every test that demonstrates an ADDED or MODIFIED requirement of the change\'s delta specs with `[spec:<capability>/<requirement-slug>]` in its title.',
       'Never expand scope: no new features, effects, options or behaviour.',
       'Do not edit anything under openspec/: Core re-derives proposal, design, specs and tasks from the code after your turn, so a finding about the artifacts needs no code change.',
-      'Revert code only when a finding says the behaviour was unrequested AND contradicts a stated Non-Goal.',
+      'Never revert, remove or restore behaviour: what the person asked for or decided in the Intent session is requested scope, and whether to keep a change nobody asked for is the person\'s decision, not yours. List a finding that asks for a revert under incomplete with that reason.',
       'Return summary and incomplete (each finding you could not resolve, with the reason).',
     ].join(' '),
     structuredOutput: FIX_SCHEMA,
@@ -158,6 +173,7 @@ export function flowSpecGraph(): LoopGraph {
     { id: 'done', type: 'end', position: { x: 0, y: nodes.length * 140 }, data: { outcome: 'success', requiresVerified: true } },
     { id: 'failed', type: 'end', position: { x: 360, y: nodes.length * 140 }, data: { outcome: 'failure' } },
     { id: FLOW_CHANGES_REQUESTED_END, type: 'end', position: { x: 720, y: nodes.length * 140 }, data: { outcome: 'failure', reason: FLOW_CHANGES_REQUESTED_REASON } },
+    { id: FLOW_SCOPE_DECISION_END, type: 'end', position: { x: 1080, y: nodes.length * 140 }, data: { outcome: 'failure', reason: FLOW_SCOPE_DECISION_REASON } },
   )
   edges.unshift({ id: 'e-start', source: 'start', target: 'init' })
   return {

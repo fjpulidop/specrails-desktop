@@ -257,10 +257,10 @@ function nextSteps(topic: SupportTopic): string[] {
       ]
     case 'rails_jobs':
       return [
-        'Read specrails_jobs runtime_diagnose for the failed job before recommending recovery; inspect runtime_evidence and original-worktree scope, not just the error label.',
+        'Read specrails_runs(diagnose) for the failed job before recommending recovery; inspect specrails_runs(evidence) and original-worktree scope, not just the error label.',
         'If a step fails repeatedly, identify the prerequisite or artifact that must change and validate the smallest repair before retrying. canResume is not proof a retry will work. Relaunch is only justified by evidence that the original run cannot continue safely.',
         'Use specrails_recovery inspect/read_file/diff, then a hash-guarded patch and registered check for authorized small repairs in the original worktree. Read history and preserve operationId on uncertain transport.',
-        'Preserve completed implementation. Use runtime_settle for a succeeded run awaiting delivery; name unsupported repair capabilities instead of proposing a fresh implementation.',
+        'Preserve completed implementation. Use specrails_runs(settle) for a succeeded run awaiting delivery; name unsupported repair capabilities instead of proposing a fresh implementation.',
         'For a failed or stuck job, inspect the Job Detail logs and report the real failure.',
         'Do not relaunch or stop anything without confirmation and the required permission level.',
       ]

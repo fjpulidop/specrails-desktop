@@ -317,7 +317,8 @@
       "reopen": "Réouverture…",
       "merge-local": "Intégration locale…",
       "recover-and-retry": "Création du commit et nouvelle tentative d’envoi du résultat préservé…",
-      "acknowledge-no-changes": "Marquage comme terminé…"
+      "acknowledge-no-changes": "Marquage comme terminé…",
+      "refresh-on-base": "Mise à jour sur la nouvelle base…"
     },
     "markDone": "Marquer comme terminées",
     "refine": "Affiner",
@@ -346,7 +347,7 @@
       "building": "Implémentation dans un worktree isolé…",
       "buildingInPlace": "Implémentation dans le dossier du projet…",
       "buildingExistingPr": "Application des changements sur une PR existante…",
-      "paused": "Décision humaine requise",
+      "paused": "En pause",
       "on_review": "Implémentation prête pour la revue",
       "pr_draft": "PR en brouillon créée",
       "pr_draft_degraded": "Livraison de la PR incomplète",
@@ -410,7 +411,7 @@
     "confirmDiscard": "Confirmer l'abandon ?",
     "mergedNote": "Fusionnée. Les specs sont passées à Terminé",
     "discardedNote": "Abandonnée. Les specs sont revenues dans le backlog",
-    "implementationFailedNote": "Le run d’implémentation a échoué avant de produire quelque chose de livrable. Ouvrez le journal du run pour inspecter l’échec, puis abandonnez cette carte avant de relancer.",
+    "implementationFailedNote": "Le run s’est arrêté avant d’avoir quoi que ce soit à livrer. Ouvrez son journal pour voir pourquoi.",
     "dismiss": "Fermer le suivi",
     "discardLocalResult": "Supprimer le résultat local",
     "retryPush": "Réessayer le push",
@@ -428,8 +429,6 @@
     "retryPushNote": "L’implémentation a réussi et les modifications sont en sécurité localement. Réessayez uniquement le push.",
     "cleanupIncomplete_one": "Nettoyage incomplet ({{count}} avertissement)",
     "cleanupIncomplete_other": "Nettoyage incomplet ({{count}} avertissements)",
-    "safetyArchiveTitle": "Archive de sécurité ({{count}})",
-    "safetyArchiveHint": "Des fichiers temporaires de l’espace de travail ont été conservés hors de la PR par précaution. Vous pouvez les examiner ou les supprimer manuellement.",
     "confirm": {
       "recoverAndRetryTitle": "Créer le commit et envoyer le résultat préservé ?",
       "recoverAndRetryBody": "Specrails utilisera uniquement le worktree isolé ou la branche enregistrée compatible avec une avance rapide pour {{branch}}. Si nécessaire, il créera un commit avec les fichiers livrables, puis enverra ce commit exact uniquement si la PR est toujours ouverte sur les branches source et cible attendues. Le dossier principal de votre projet et ses modifications non validées resteront intacts.",
@@ -442,7 +441,7 @@
       "mergeLocalTitle": "Intégrer localement ?",
       "mergeLocalBody": "Les branches livrées seront fusionnées dans {{base}} localement. Les modifications existantes sont préservées ; les modifications qui se chevauchent peuvent nécessiter une résolution avant l’intégration.",
       "freshDiscardTitle": "Supprimer cette livraison ?",
-      "freshDiscardBody": "La PR sera fermée sans supprimer sa branche distante. Seuls les branches locales et les worktrees appartenant à SpecRails et toujours positionnés sur leur commit enregistré seront supprimés ; tout élément modifié sera conservé avec un avertissement. Les specs retourneront dans le backlog. Les ressources locales supprimées ne peuvent pas être récupérées.",
+      "freshDiscardBody": "La PR sera fermée sans supprimer sa branche distante. Seuls les branches locales et les worktrees appartenant à Specrails et toujours positionnés sur leur commit enregistré seront supprimés ; tout élément modifié sera conservé avec un avertissement. Les specs retourneront dans le backlog. Les ressources locales supprimées ne peuvent pas être récupérées.",
       "implementationFailedDiscardTitle": "Abandonner cette livraison en échec ?",
       "implementationFailedDiscardBody": "La carte sera fermée et ses specs retourneront dans le backlog. Le travail local et les branches seront conservés pour inspection. Seules les ressources dont le nettoyage est prouvé sûr pourront être supprimées.",
       "dismissTitle": "Fermer ce suivi ?",
@@ -544,7 +543,11 @@
       "failing_pr": "{{pr}} : checks en échec : {{checks}}"
     },
     "ciBuildingHint": "Attend les checks, corrige les échecs du code et pousse sur la même PR. Les échecs qui ne viennent pas du code sont signalés, pas relancés.",
-    "runStoppedNote": "Vous avez arrêté cette exécution avant toute livraison. Relancez-la quand vous voulez continuer."
+    "runStoppedNote": "Vous avez arrêté cette exécution avant sa livraison. Continuer la reprend là où elle s'est arrêtée, dans le même worktree.",
+    "runStoppedNoteNoContinue": "Vous avez arrêté cette exécution avant sa livraison. Son travail reste dans son worktree.",
+    "continue": "Continuer",
+    "startOver": "Recommencer",
+    "startOverHint": "Une nouvelle exécution depuis la base ; le travail de cette tentative reste dans l'ancien worktree."
   },
   "specDraft": {
     "heading": "Brouillon de spec",
@@ -815,7 +818,8 @@
       "feature_unavailable": "Intent n’est pas disponible",
       "daily_budget_exceeded": "Budget quotidien atteint : rien n’a été lancé.",
       "review_wip_limit_reached": "Limite de revue atteinte : rien n’a été lancé.",
-      "repository_has_no_commits": "Ce dépôt n’a encore aucun commit. Faites un premier commit pour que Specrails puisse créer une copie isolée du projet."
+      "repository_has_no_commits": "Ce dépôt n’a encore aucun commit. Faites un premier commit pour que Specrails puisse créer une copie isolée du projet.",
+      "launch_preflight_blocked": "Corrigez la vérification en échec avant de lancer."
     },
     "stub": {
       "launched": "Lancé → Rail {{rail}}",
@@ -934,7 +938,26 @@
     "add": "Ajouter une conversation en vue partagée",
     "close": "Fermer la vue partagée",
     "loadFailed": "Impossible de charger cette conversation.",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "openRight": "Ouvrir à droite",
+    "openBelow": "Ouvrir en dessous",
+    "layoutMenu": "Diviser et organiser les panneaux",
+    "splitRight": "Diviser à droite",
+    "splitDown": "Diviser en bas",
+    "moveLeft": "Déplacer à gauche",
+    "moveRight": "Déplacer à droite",
+    "moveUp": "Déplacer en haut",
+    "moveDown": "Déplacer en bas",
+    "swap": "Échanger avec",
+    "maximize": "Agrandir le panneau",
+    "restore": "Restaurer la disposition",
+    "equalize": "Égaliser les panneaux",
+    "closePane": "Fermer le panneau",
+    "noMissions": "Aucune autre mission à ouvrir",
+    "noRoom": "Pas assez de place pour cette disposition",
+    "stacks": "Empilé",
+    "resize": "Redimensionner {{first}} et {{second}}",
+    "panes": "Missions ouvertes"
   },
   "runtimeSelector": {
     "label": "Modèle et effort",
@@ -1389,7 +1412,7 @@
     "paused": "En pause, en attente de votre part",
     "pausedReason": "En pause : {{reason}}",
     "decision": {
-      "approval": "En attente de votre approbation",
+      "approval": "Attention requise",
       "changes": "Le relecteur a demandé des modifications",
       "on_review": "Prêt pour votre relecture",
       "pr_draft": "PR brouillon prête à publier",
@@ -1434,7 +1457,7 @@
     "announce": {
       "settled": "{{run}} est terminé",
       "shown": "Affichage de {{run}} : {{state}}",
-      "needsYou": "{{run}} a besoin de vous"
+      "needsYou": "{{run}} requiert votre attention"
     },
     "event": {
       "launched": "Lancé sur {{run}}",
@@ -1452,7 +1475,7 @@
       "discarded": "{{run}} a été abandonné",
       "changes": "{{run}} : le relecteur a demandé des modifications"
     },
-    "needsYou": "vous attend",
+    "needsYou": "requiert votre attention",
     "opensCard": "Ouvre la carte de l’exécution pour y confirmer",
     "open": {
       "decision": "Ouvrir la décision",
@@ -1537,11 +1560,7 @@
     "greeting": "Que faut-il livrer ensuite dans {{project}} ?",
     "greetingNoProject": "Que faut-il livrer ensuite ?",
     "statusTodo_one": "{{count}} à faire",
-    "statusTodo_other": "{{count}} à faire",
-    "statusReview_one": "{{count}} en attente de revue",
-    "statusReview_other": "{{count}} en attente de revue",
-    "statusRunning_one": "{{count}} en cours",
-    "statusRunning_other": "{{count}} en cours"
+    "statusTodo_other": "{{count}} à faire"
   },
   "prCi": {
     "title": "Surveiller et corriger la CI de la PR {{pr}}",
@@ -1568,7 +1587,7 @@
     "startFailed": "La boucle de CI n’a pas pu démarrer.",
     "dismissFailed": "Impossible d’enregistrer votre choix. Réessayez.",
     "startedToast": "Surveillance de la CI démarrée sur le rail {{index}}",
-    "fixCi": "Corriger CI / Conflits",
+    "fixCi": "Corriger CI / conflits",
     "fixCiTooltip": "Attendre les checks, corriger les échecs et les conflits et pousser dans cette PR jusqu’à ce qu’elle soit verte",
     "step": {
       "checks": "En attente de la CI",
@@ -1586,7 +1605,7 @@
     "noCiMany": "Les PR {{pr}} n’ont pas de checks de CI",
     "needsAttentionMany": "Les PR {{pr}} sont poussées ; leur CI n'est pas encore verte",
     "dismissedMany": "Surveillance de la CI des PR {{pr}} non démarrée.",
-    "retry": "Corriger CI / Conflits à nouveau",
+    "retry": "Corriger CI / conflits à nouveau",
     "openLog": "Voir le journal"
   },
   "missionResources": {
@@ -1620,5 +1639,68 @@
     "history": "Historique",
     "peakValue": "Pic {{value}}",
     "historyHint": "Un point toutes les 3 s pendant que la mission travaillait. Survolez une ligne pour voir l'heure et la valeur."
+  },
+  "contextUsage": {
+    "open": "Contexte utilisé : {{percent}} %",
+    "title": "Contexte",
+    "description": "Le taux de remplissage du contexte de la session fournisseur de cette mission, tel que signalé par le fournisseur.",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}} %",
+    "model": "Modèle",
+    "sourceResponse": "Mesuré à partir de la dernière réponse",
+    "sourceSessionFile": "Lu depuis la session {{provider}}",
+    "compacted": "Le fournisseur a compacté le contexte pendant le dernier tour.",
+    "highNote": "Le fournisseur compacte le contexte automatiquement lorsqu'il est plein. Démarrer une nouvelle session avec un résumé peut aussi aider.",
+    "openUnknown": "Contexte : part de la fenêtre inconnue",
+    "tokensUsedOnly": "{{used}} tokens utilisés",
+    "windowUnknown": "Le fournisseur n’a pas indiqué la fenêtre de contexte : la part utilisée est inconnue.",
+    "usageUnknown": "L’utilisation du contexte est inconnue juste après sa compaction par le fournisseur."
+  },
+  "sessionRenew": {
+    "action": "Repartir de zéro avec un résumé",
+    "hint": "Rédige un résumé de cette mission ; votre prochain message démarre une nouvelle session qui ne connaît que ce résumé.",
+    "confirmBody": "Specrails va rédiger un résumé de cette mission (objectif, décisions, état actuel, prochaines étapes). Votre prochain message démarrera une nouvelle session du fournisseur qui ne connaît que ce résumé. La conversation reste dans l’historique.",
+    "confirm": "Repartir de zéro",
+    "cancel": "Annuler",
+    "running": "Rédaction du résumé…",
+    "retry": "Réessayer",
+    "blockedBusy": "Disponible à la fin du tour en cours.",
+    "blockedMode": "Indisponible dans ce mode : il utilise sa propre session.",
+    "marker": "Session renouvelée · résumé",
+    "markerDetail": "Ce que sait la nouvelle session",
+    "showSummary": "Afficher le résumé",
+    "hideSummary": "Masquer le résumé",
+    "basedOn": "Basé sur toute la conversation",
+    "basedOnPartial": "Basé sur les {{included}} derniers messages sur {{total}}",
+    "errors": {
+      "MISSION_BUSY": "Attendez la fin du tour en cours, puis réessayez.",
+      "MISSION_IN_INTENT": "Cette mission est en Intent, qui utilise sa propre session. Quittez Intent pour démarrer une nouvelle session.",
+      "MISSION_ARCHIVED": "Restaurez cette mission archivée avant de démarrer une nouvelle session.",
+      "NOTHING_TO_SUMMARIZE": "Il n’y a pas encore de conversation à résumer.",
+      "RENEWAL_CANCELLED": "La nouvelle session a été annulée.",
+      "generic": "Le résumé n’a pas pu être rédigé.",
+      "SHUTTING_DOWN": "Specrails a redémarré pendant la rédaction du résumé. Rien n’a changé ; réessayez."
+    }
+  },
+  "ask": {
+    "menu": "Poser une question",
+    "title": "Poser une question",
+    "description": "Une conversation à part sur le texte sélectionné, avec le contexte précédent de cette mission. La mission n'est pas modifiée.",
+    "selection": "Texte sélectionné",
+    "showAll": "Tout afficher",
+    "showLess": "Afficher moins",
+    "thread": "Conversation à part",
+    "running": "Réflexion…",
+    "failed": "Impossible d'obtenir une réponse. Réessayez.",
+    "retry": "Réessayer",
+    "inputLabel": "Question sur le texte sélectionné",
+    "placeholder": "Posez une question ou appuyez sur Entrée pour une explication · non enregistré",
+    "placeholderFollowUp": "Posez une autre question · non enregistré",
+    "send": "Demander",
+    "footer": "Réponse de {{model}} · fermer efface cette conversation",
+    "footerPending": "Utilise {{model}} · fermer efface cette conversation",
+    "answer": "Réponse",
+    "defaultQuestion": "Explique ce que cela signifie dans ce contexte.",
+    "providerDefault": "modèle par défaut de {{provider}}"
   }
 }

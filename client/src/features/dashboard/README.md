@@ -17,6 +17,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [delivery](../delivery/README.md)
 - [integrations](../integrations/README.md)
 - [loops](../loops/README.md)
+- [provider-quota](../provider-quota/README.md)
 - [providers](../providers/README.md)
 - [rails](../rails/README.md)
 - [settings](../settings/README.md)
@@ -30,3 +31,14 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/dashboard`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+## Board structure
+
+[DashboardPage](pages/DashboardPage.tsx) composes the board from focused hooks in [hooks/](hooks/):
+rails state ([useBoardRails](hooks/useBoardRails.ts)), server sync ([useRailServerSync](hooks/useRailServerSync.ts)),
+WebSocket events ([useRailWsEvents](hooks/useRailWsEvents.ts)), rail CRUD and configuration
+([useRailCrud](hooks/useRailCrud.ts), [useRailConfigHandlers](hooks/useRailConfigHandlers.ts)), spec columns and moves
+([useBoardSpecColumns](hooks/useBoardSpecColumns.ts), [useRailTicketMoves](hooks/useRailTicketMoves.ts)), drag and drop
+([useBoardDnd](hooks/useBoardDnd.ts)), view preferences, launch ([useRailLaunch](hooks/useRailLaunch.ts)) and the command
+palette entries ([useBoardPalette](hooks/useBoardPalette.ts)). Pure rail helpers live in [lib/board-rails.ts](lib/board-rails.ts).
+Keep new board behaviour in the hook that owns that state instead of growing the page.

@@ -1,11 +1,11 @@
 {
-  "title": "Needs you",
-  "subtitle_one": "{{count}} item is waiting for you",
-  "subtitle_other": "{{count}} items are waiting for you",
-  "subtitleEmpty": "Nothing is waiting for you",
+  "title": "Needs attention",
+  "subtitle_one": "{{count}} pending item",
+  "subtitle_other": "{{count}} pending items",
+  "subtitleEmpty": "You are all caught up",
   "loading": "Checking your projects…",
   "empty": {
-    "title": "Nothing needs you",
+    "title": "Nothing pending",
     "description": "Reviews, questions and failures from every project show up here as they happen."
   },
   "error": {
@@ -15,13 +15,15 @@
   },
   "kinds": {
     "review": "Review ready",
-    "question": "Waiting for your answer",
+    "question": "Awaiting your response",
     "failed": "Failed",
     "blocked": "Blocked",
     "budget": "Paused: spend limit reached",
     "jira": "Jira sync failed",
     "failedNoCause": "Stopped before delivery",
-    "capReached": "Spend limit reached"
+    "capReached": "Work paused",
+    "chain": "Milestone paused",
+    "chainCheckpoint": "Milestone waiting for your go"
   },
   "actions": {
     "open": "Open",
@@ -29,28 +31,27 @@
     "answer": "Answer",
     "resume": "Resume",
     "retry": "Retry",
-    "raiseCap": "Raise limit"
+    "raiseCap": "Raise limit",
+    "resumeChain": "Resume",
+    "continueChain": "Continue",
+    "openMission": "Open mission"
   },
   "working": "Working…",
   "rowLabel": "{{action}}: {{title}}",
   "snooze": {
-    "label": "Snooze",
-    "hour": "1 hour",
-    "tomorrow": "Until tomorrow",
-    "cancel": "Cancel"
+    "hour": "Snooze 1 hour",
+    "tomorrow": "Snooze until tomorrow"
   },
-  "snoozeItem": "Snooze {{title}}",
-  "snoozeFor": "Snooze {{title}} for",
   "done": "Done",
-  "doneItem": "Mark {{title}} as done",
+  "more": "More actions for {{title}}",
   "age": {
     "now": "just now",
     "ago": "{{age}} ago"
   },
   "button": {
-    "withCount_one": "Inbox, {{count}} item needs you",
-    "withCount_other": "Inbox, {{count}} items need you",
-    "empty": "Inbox, nothing needs you",
+    "withCount_one": "Inbox, {{count}} pending item",
+    "withCount_other": "Inbox, {{count}} pending items",
+    "empty": "Inbox, nothing pending",
     "title": "{{label}} ({{shortcut}})"
   },
   "toast": {
@@ -63,7 +64,12 @@
     "snoozed": "Snoozed until {{when}}",
     "undo": "Undo",
     "stillOverBudget_week": "Still over the weekly limit",
-    "stillOverBudget_month": "Still over the monthly limit"
+    "stillOverBudget_month": "Still over the monthly limit",
+    "muted": "Notifications from {{project}} muted",
+    "unmuted": "Notifications from {{project}} on",
+    "muteFailed": "Couldn't change the project's notifications",
+    "chainResumed": "Milestone resumed",
+    "chainResumeFailed": "Couldn't resume the milestone"
   },
   "cap": {
     "title": {
@@ -80,5 +86,38 @@
     },
     "detail": "{{spent}} of {{budget}} spent"
   },
-  "stale": "Couldn't refresh — showing the last list."
+  "stale": "Couldn't refresh — showing the last list.",
+  "unseen": "New",
+  "markRead": "Mark as read",
+  "markUnread": "Mark as unread",
+  "mute": {
+    "mute": "Mute notifications from {{project}}",
+    "unmute": "Turn notifications from {{project}} back on"
+  },
+  "attempt": "attempt {{number}}",
+  "chain": {
+    "title": "Milestone {{n}}",
+    "progress": "Rail {{done}} of {{total}} done",
+    "reason": {
+      "chunk_failed": "A rail failed",
+      "chunk_stalled": "A rail stalled",
+      "chunk_stopped": "A rail was stopped",
+      "provider_limit": "The provider's usage limit was reached",
+      "head_missing": "The branch to build on is missing",
+      "head_discarded": "The branch to build on was discarded",
+      "run_lost": "A rail's run was lost",
+      "rail_limit_reached": "No free rail",
+      "launch_rejected": "A rail couldn't start",
+      "integration_failed": "Integrating the last rail needs you",
+      "paused": "Paused"
+    }
+  },
+  "missionCard": {
+    "railLaunch": "Launch proposal",
+    "flowOffer": "Intent or implement?",
+    "prCiOffer": "Fix the failing CI?"
+  },
+  "card": {
+    "pr": "PR #{{number}}"
+  }
 }

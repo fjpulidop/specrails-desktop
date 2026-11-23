@@ -1,0 +1,41 @@
+{
+  "report": {
+    "open": "Report a problem…",
+    "title": "Report a problem",
+    "description": "Saves a ZIP with recent logs and settings on this computer. Nothing is uploaded: you decide whether to share it.",
+    "building": "Collecting logs…",
+    "buildFailed": "The report could not be built: {{error}}",
+    "retry": "Try again",
+    "fileListLabel": "Files in the report",
+    "redactionNote": "Tokens, keys, passwords and credentials are replaced with *** or [REDACTED], and your home folder is shown as ~. Review the files before you share them.",
+    "save": "Save ZIP…",
+    "saving": "Saving…",
+    "saved": "Report saved",
+    "savedBody": "{{name}} is on your computer. Share it only with someone helping you.",
+    "saveFailed": "The report could not be saved.",
+    "expired": "This preview expired. Build it again.",
+    "rebuild": "Rebuild",
+    "aboutDescription": "Save a ZIP with redacted logs to share with someone helping you. Nothing is uploaded."
+  },
+  "banner": {
+    "label": "Local server recovery",
+    "restarted": "The local server stopped unexpectedly at {{time}} ({{cause}}) and Specrails restarted it. Work that was running may have been interrupted.",
+    "restartedMany_one": "The local server stopped unexpectedly {{count}} time since {{time}} and Specrails restarted it. Work that was running may have been interrupted.",
+    "restartedMany_other": "The local server stopped unexpectedly {{count}} times since {{time}} and Specrails restarted it. Work that was running may have been interrupted.",
+    "stopped": "The local server stopped unexpectedly at {{time}} ({{cause}}). Specrails stopped restarting it after {{count}} attempts in a minute.",
+    "exitCode": "exit code {{code}}",
+    "signal": "signal {{signal}}",
+    "unknownCause": "unknown cause",
+    "report": "Report a problem",
+    "dismiss": "Dismiss"
+  },
+  "restarting": "The local server stopped. Restarting it…",
+  "responsiveness": {
+    "title": "Responsiveness",
+    "none": "No slowdowns since {{time}}",
+    "summary_one": "{{count}} slowdown · longest {{duration}}",
+    "summary_other": "{{count}} slowdowns · longest {{duration}}",
+    "last": "Last at {{time}}: the app took {{duration}} to respond",
+    "hint": "A slowdown is a moment of {{threshold}} or more when the app could not respond."
+  }
+}

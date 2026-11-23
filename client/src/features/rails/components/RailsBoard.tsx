@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { Layers, Plus, Rocket } from 'lucide-react'
 import { RailRow } from './RailRow'
 import { MAX_RAILS, railIdFromIndex, railIndexFromId } from '../lib/rail-id'
+import { HELD_SUMMARY_STATES, railRunState, type HeldSummaryState } from '../lib/rail-run-state'
 import type { RailMode, RailStatus } from './RailControls'
 import type { ReasoningEffort } from '../../agents/components/RailEffortSelector'
 import type { LocalTicket, RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../../../types'
@@ -24,7 +25,8 @@ import {
   toolbarButtonClass,
 } from '../../../components/ui/board-toolbar'
 import { useElementWidth } from '../../../hooks/useElementWidth'
-import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
+import type { RunState } from '../../../components/ui/run-state/run-state'
 
 export const RAIL_SORT_PREFIX = '__rail:'
 export function railSortId(railId: string) { return `${RAIL_SORT_PREFIX}${railId}` }
@@ -157,10 +159,13 @@ function SortableRailWrapper({ railId, children }: { railId: string; children: (
 }
 
 /** One live-summary entry in the Rails context row. */
-function SummaryItem({ dot, label, testId, pulse = false }: { dot: string; label: string; testId: string; pulse?: boolean }) {
+/** The summary's words for each held state (`railsBoard.summary.*`). */
+const HELD_SUMMARY_KEY = { 'needs-input': 'needsInput', blocked: 'blocked', paused: 'paused', queued: 'waiting' } as const satisfies Record<HeldSummaryState, string>
+
+function SummaryItem({ state, label, testId }: { state: RunState; label: string; testId: string }) {
   return (
     <span data-testid={testId} className="inline-flex items-center gap-1.5 whitespace-nowrap text-foreground">
-      <LiveDot size="xs" dotClassName={dot} pulsing={pulse} aria-hidden />
+      <RunStateDot state={state} />
       {label}
     </span>
   )
@@ -194,7 +199,17 @@ export const RAILS_COMPACT_THRESHOLD_PX = 320
 
 export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railPrDecisions, onPrDecision, onPrCheckout, providers, onModeChange, onProfileChange, onEngineChange, onLoopModelChange, loopAvailable, onLoopChange, onEffortChange, onTargetPrChange, onWorkspaceSelectionChange, onToggle, onTicketClick, onAddRail, onDeleteRail, onRenameRail, onTicketMoveToSpecs, onLaunchAll, launchAllCount, launchAllHeld = 0, reviewWip }: RailsBoardProps) {
   const { t } = useTranslation('dashboard')
-  const running = rails.filter((r) => r.status === 'running').length
+  // A held run (your pause, a limit, a question) is not running: the summary counts it apart, by
+  // what its hold means (a provider limit is blocked, a question needs you, a pause is paused).
+  const heldState = (rail: RailState, pos: number): HeldSummaryState | null => {
+    const metric = railMetrics?.[railIndexFromId(rail.id) ?? pos]
+    if (rail.status !== 'running' || metric?.heldSince == null) return null
+    const state = railRunState('running', metric.holdKind ?? 'paused')
+    return (HELD_SUMMARY_STATES as readonly string[]).includes(state) ? state as HeldSummaryState : 'paused'
+  }
+  const heldStates = rails.map((r, pos) => heldState(r, pos))
+  const heldCounts = HELD_SUMMARY_STATES.map((state) => [state, heldStates.filter((s) => s === state).length] as const).filter(([, count]) => count > 0)
+  const running = rails.filter((r, pos) => r.status === 'running' && heldStates[pos] === null).length
   const failed = rails.filter((r) => r.status === 'failed').length
   const ready = launchAllCount ?? 0
   const atLimit = rails.length >= MAX_RAILS
@@ -286,7 +301,7 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
                 data-testid="rails-launch-all"
                 aria-label={iconOnly ? t('railsBoard.launchAll') : undefined}
                 className={launchEnabled
-                  ? 'inline-flex items-center gap-1.5 h-8 px-3 shrink-0 rounded-md text-xs font-semibold whitespace-nowrap bg-accent-success text-background hover:bg-accent-success/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background'
+                  ? 'inline-flex items-center gap-1.5 h-8 px-3 shrink-0 rounded-md text-xs font-semibold whitespace-nowrap bg-primary text-primary-foreground hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background'
                   : toolbarButtonClass}
               >
                 <Rocket className="w-3.5 h-3.5" aria-hidden />
@@ -304,13 +319,16 @@ export function RailsBoard({ rails, ticketMap, railWorktrees, railMetrics, railP
             className="flex items-center gap-3 min-w-0 overflow-hidden text-xs text-muted-foreground tabular-nums"
           >
             {running > 0 && (
-              <SummaryItem dot="bg-accent-success" label={t('railsBoard.summary.running', { count: running })} testId="rails-summary-running" pulse />
+              <SummaryItem state="working" label={t('railsBoard.summary.running', { count: running })} testId="rails-summary-running" />
             )}
+            {heldCounts.map(([state, count]) => (
+              <SummaryItem key={state} state={state} label={t(`railsBoard.summary.${HELD_SUMMARY_KEY[state]}`, { count })} testId={`rails-summary-${state}`} />
+            ))}
             {ready > 0 && (
-              <SummaryItem dot="bg-accent-primary" label={t('railsBoard.summary.ready', { count: ready })} testId="rails-summary-ready" />
+              <SummaryItem state="queued" label={t('railsBoard.summary.ready', { count: ready })} testId="rails-summary-ready" />
             )}
             {failed > 0 && (
-              <SummaryItem dot="bg-destructive" label={t('railsBoard.summary.failed', { count: failed })} testId="rails-summary-failed" />
+              <SummaryItem state="failed" label={t('railsBoard.summary.failed', { count: failed })} testId="rails-summary-failed" />
             )}
             <span data-testid="rails-summary-total" className="whitespace-nowrap">
               {t('railsBoard.summary.total', { count: rails.length })}

@@ -14,7 +14,6 @@
     "failed": "Le job s'est terminé avec un code de sortie non nul",
     "canceled": "Le job a été annulé manuellement",
     "queued": "Le job attend dans la file",
-    "queuedToRun": "Le job attend de s'exécuter",
     "zombie": "Le job a été arrêté automatiquement après une inactivité prolongée",
     "skipped": "Le job a été ignoré car un job parent du pipeline a échoué"
   },
@@ -168,18 +167,30 @@
     "cancelJob": "Annuler le job",
     "stopRun": "Arrêter l'exécution",
     "stopRunConfirmTitle": "Arrêter cette exécution ?",
-    "stopRunConfirmDescription": "L'exécution de la boucle s'arrêtera à la prochaine limite d'étape. Cette action est irréversible.",
+    "stopRunConfirmDescription": "Elle s’arrête à l’étape suivante et se clôt. Vous pourrez la poursuivre plus tard dans une nouvelle tentative qui conserve le travail.",
     "toast": {
       "cancelSignalSent": "Signal d'annulation envoyé",
       "cancelSignalSentDescription": "Le job s'arrêtera au prochain point sûr",
-      "stopSignalSent": "Signal d'arrêt envoyé",
-      "stopSignalSentDescription": "L'exécution s'arrêtera à la prochaine limite d'étape",
+      "stopSignalSent": "Arrêt de l’exécution",
+      "stopSignalSentDescription": "Elle s’arrête à l’étape suivante et se clôt. Vous pourrez la poursuivre plus tard dans une nouvelle tentative qui conserve le travail.",
       "cancelFailed": "Échec de l'annulation",
-      "networkError": "Erreur réseau"
+      "networkError": "Erreur réseau",
+      "pauseRequested": "Mise en pause de l’exécution",
+      "pauseRequestedDescription": "Elle se met en pause après l’étape en cours. Reprendre poursuit cette même exécution.",
+      "pauseFailed": "Impossible de mettre l’exécution en pause",
+      "pauseUnsupported": "Le moteur de cette exécution ne peut pas se mettre en pause en cours de route. Arrêtez-la plutôt : vous pourrez la poursuivre plus tard.",
+      "resumed": "Exécution reprise",
+      "resumedDescription": "Elle reprend là où elle s’était mise en pause.",
+      "resumeFailed": "Impossible de reprendre l’exécution"
     },
     "title": "Tâche {{kind}} · #{{id}}",
     "titleLoop": "Exécution de boucle · #{{id}}",
-    "titleGeneric": "Tâche · #{{id}}"
+    "titleGeneric": "Tâche · #{{id}}",
+    "pauseRun": "Mettre en pause",
+    "pausing": "Mise en pause…",
+    "resumeRun": "Reprendre",
+    "pauseRunTooltip": "Mettre en pause après l’étape en cours. Rien n’est perdu : Reprendre poursuit cette même exécution.",
+    "pausingTooltip": "L’étape en cours se termine, puis l’exécution se met en pause."
   },
   "comparison": {
     "title": "Comparaison de jobs",
@@ -253,7 +264,8 @@
       "networkError": "Erreur réseau"
     },
     "emptyCta": "Ouvrir le tableau des specs",
-    "loading": "Chargement des jobs…"
+    "loading": "Chargement des jobs…",
+    "attempt": "Tentative {{number}}"
   },
   "activeJob": {
     "none": "Aucun job actif",
@@ -284,12 +296,13 @@
     "copyCommand": "Copier",
     "interrupted": "Interrompue",
     "waiting": "En attente de la prochaine étape…",
+    "notStarted": "Aucune étape n'a encore été exécutée.",
     "stepMapAria": "Carte des étapes de la boucle",
     "stalled": "Bloquée",
     "stalledIdle_one": "Aucune sortie du fournisseur pendant {{count}} minute — l'app a arrêté cette tentative",
     "stalledIdle_other": "Aucune sortie du fournisseur pendant {{count}} minutes — l'app a arrêté cette tentative",
     "providerLimit": "Limite du fournisseur",
-    "providerLimitHint": "Le fournisseur a répondu par un avis de limite d'utilisation ; l'app a arrêté l'exécution au lieu de boucler.",
+    "providerLimitHint": "Le fournisseur a répondu par un avis de limite d'utilisation ; l'app a mis l'exécution en pause à la limite au lieu de boucler.",
     "paused": "En pause",
     "runtimeGraph": "Graphe d’exécution",
     "graphFullscreen": "Plein écran",
@@ -310,8 +323,39 @@
     "repeatFromHere": "Reprendre à partir d’ici",
     "forkFailed": "Impossible de créer l’exécution liée",
     "forkPending": "Réessayez l’étape sélectionnée initialement pour terminer la bifurcation en attente.",
-    "forkCreated": "Exécution liée créée. Ouvrez-la et reprenez au point sélectionné.",
-    "openFork": "Ouvrir l’exécution liée"
+    "forkCreated": "Exécution liée créée et reprise depuis l'étape choisie.",
+    "forkResumeFailed": "Exécution liée créée, mais elle n'a pas pu reprendre seule ({{detail}}). Ouvrez-la et reprenez-la.",
+    "openFork": "Ouvrir l’exécution liée",
+    "graphFollow": "Suivre l’exécution",
+    "graphFitAll": "Tout afficher",
+    "graphLegend": "Légende du graphe",
+    "graphAttempt": "Tentative {{n}}",
+    "graphAttempts_one": "{{count}} tentative",
+    "graphAttempts_other": "{{count}} tentatives",
+    "graphTrace": "Trace",
+    "graphPathOnly": "Seulement le chemin suivi",
+    "notReached": "{{count}} non atteintes",
+    "graphOutcome": {
+      "next": "Suivant",
+      "true": "Oui",
+      "false": "Non",
+      "pass": "Réussi",
+      "fail": "Non réussi",
+      "failed": "Échec",
+      "invalid": "Invalide",
+      "blocked": "Bloqué",
+      "continue": "Continuer",
+      "stop": "Arrêter",
+      "approved": "Approuvé",
+      "rejected": "Rejeté",
+      "timeout": "Délai dépassé",
+      "error": "Erreur",
+      "done": "Terminé",
+      "skipped": "Ignoré",
+      "retry": "Réessayer",
+      "answered": "Répondu",
+      "declined": "Refusé"
+    }
   },
   "logViewer": {
     "loading": "Chargement des logs…",
@@ -364,14 +408,15 @@
       "running": "En cours",
       "skipped": "Ignoré",
       "passed": "Réussi",
-      "unavailable": "Indisponible"
+      "unavailable": "Indisponible",
+      "unverified": "Non vérifiée"
     }
   },
   "runHeader": {
     "details": "Détails",
     "phaseActivity": "{{phase}} · {{activity}}",
     "liveReported": "Rapporté par le fournisseur jusqu'ici ; les chiffres définitifs arrivent à la fin du job.",
-    "questionPending": "Répondre à la question"
+    "questionPending": "Répondre"
   },
   "runDetail": {
     "failure": "Causes de l’échec",
@@ -379,6 +424,72 @@
     "graph": "Graphe d’exécution",
     "detail": "Détail du journal",
     "navigation": "Détail de l’exécution",
-    "sections": "Sections du journal"
+    "sections": "Sections du journal",
+    "stopped": "Continuer"
+  },
+  "held": {
+    "label": {
+      "restart": "En pause",
+      "interrupted": "Interrompu",
+      "provider_limit": "Limite d’utilisation",
+      "budget": "Limite de dépenses",
+      "question": "Attention requise",
+      "approval": "Attention requise",
+      "paused": "En pause",
+      "queued": "En file d'attente",
+      "pausedByYou": "Mise en pause par vous"
+    },
+    "tooltip": {
+      "restart": "L’app a redémarré pendant que cette exécution travaillait. Rien ne s’exécute tant que vous ne la reprenez pas.",
+      "interrupted": "Une étape s’est arrêtée avant la fin. Rien ne s’exécute tant que vous ne la reprenez pas.",
+      "provider_limit": "La limite d’utilisation du fournisseur est atteinte. L’exécution attend sa réinitialisation.",
+      "budget": "La limite de dépenses est atteinte. Rien ne s’exécute tant que vous ne la reprenez pas.",
+      "question": "L’exécution vous a posé une question et attend votre réponse.",
+      "approval": "L’exécution attend votre approbation pour continuer.",
+      "paused": "Rien ne s’exécute tant que vous ne la reprenez pas.",
+      "queued": "Lancé, en attente de capacité. Il démarre tout seul dès qu'il y a de la place.",
+      "pausedByYou": "Vous avez mis cette exécution en pause. Elle n’occupe aucun créneau d’exécution, et rien ne s’exécute tant que vous ne la reprenez pas."
+    },
+    "reason": {
+      "restart": "L’app a redémarré pendant l’étape {{step}}.",
+      "restartNoStep": "L’app a redémarré pendant que l’exécution travaillait.",
+      "interrupted": "L’étape {{step}} s’est arrêtée avant la fin.",
+      "interruptedNoStep": "Une étape s’est arrêtée avant la fin.",
+      "provider_limit": "En attente de la réinitialisation de la limite d’utilisation du fournisseur.",
+      "budget": "La limite de dépenses est atteinte.",
+      "question": "En attente de votre réponse.",
+      "approval": "En attente de votre approbation.",
+      "paused": "Rien ne s’exécute tant que vous ne la reprenez pas.",
+      "queued": "En attente de capacité avant de démarrer.",
+      "pausedByYou": "Mise en pause par vous. Rien ne s’exécute tant que vous ne la reprenez pas."
+    },
+    "stoppedTime": "Temps de travail jusqu’à l’arrêt",
+    "cancelRun": "Annuler l’exécution",
+    "cancelRunConfirmTitle": "Annuler cette exécution en pause ?",
+    "cancelRunConfirmDescription": "Elle se termine comme arrêtée et plus rien ne s’exécute. Ses modifications restent dans son worktree, et vous pourrez encore la reprendre plus tard depuis la fenêtre de l’exécution.",
+    "keepPaused": "La laisser en pause",
+    "queue": {
+      "run_slots": "En attente d'une place libre : cette machine travaille déjà sur autant d'exécutions que possible.",
+      "project_slots": "En attente des autres exécutions de ce projet : il exécute déjà autant de rails à la fois que permis.",
+      "provider_slots": "En attente des autres exécutions de ce fournisseur d'IA : il exécute déjà autant de rails à la fois que permis.",
+      "cpu": "En attente du processeur : la machine est saturée, une exécution de plus ralentirait toutes les autres.",
+      "memory": "En attente de mémoire libre avant de démarrer.",
+      "provider_quota": "En attente de la fenêtre d'utilisation du fournisseur : elle ne pourrait pas terminer une exécution de plus maintenant.",
+      "other": "En attente de capacité avant de démarrer.",
+      "position": "Position {{position}} dans la file ; il démarre tout seul."
+    }
+  },
+  "budgetPause": {
+    "beforeFirstStep": "Elle s'est arrêtée avant sa première étape : rien n'a encore été exécuté.",
+    "beforeStep": "Elle s'est arrêtée avant {{step}}.",
+    "betweenSteps": "Elle s'est arrêtée entre deux étapes.",
+    "titleShared": "Exécution en pause à une limite de dépenses",
+    "limit": "Limite",
+    "spent": "Dépensé",
+    "left": "Restant",
+    "nextStep": "Étape suivante",
+    "about": "environ {{usd}}",
+    "nextStepNote": "{{step}}, une estimation",
+    "failed": "Impossible de poursuivre l'exécution"
   }
 }

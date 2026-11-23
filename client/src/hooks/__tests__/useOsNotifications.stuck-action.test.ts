@@ -30,14 +30,22 @@ vi.mock('sonner', () => ({
   },
 }))
 
-import { useOsNotifications, setOsNotificationPrefs } from '../useOsNotifications'
+const store = vi.hoisted(() => ({ prefs: null as unknown }))
+vi.mock('../../lib/attention/attention-prefs-store', () => ({ attentionPrefsStore: { ready: async () => store.prefs } }))
+
+import { useOsNotifications } from '../useOsNotifications'
+import { createAttentionCenter, type AttentionCenter } from '../../lib/attention/attention-center'
+import { DEFAULT_ATTENTION_PREFS, type AttentionPrefs } from '../../lib/attention/attention-policy'
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(MemoryRouter, null, children)
 }
 
-function send(msg: Record<string, unknown>) {
+let prefs: AttentionPrefs
+let center: AttentionCenter
+async function send(msg: Record<string, unknown>) {
   act(() => { capturedHandler?.(msg) })
+  await act(async () => { for (let i = 0; i < 5; i += 1) await Promise.resolve() })
 }
 
 describe('useOsNotifications — job.stuck "Stop run" action', () => {
@@ -49,12 +57,15 @@ describe('useOsNotifications — job.stuck "Stop run" action', () => {
     // No OS Notification API at all: the in-app toast must still fire.
     Object.defineProperty(window, 'Notification', { value: undefined, writable: true, configurable: true })
     vi.stubGlobal('fetch', fetchMock)
+    prefs = structuredClone(DEFAULT_ATTENTION_PREFS)
+    store.prefs = prefs
+    center = createAttentionCenter({ prefs: async () => prefs, focus: async () => ({ appFocused: true, label: 'main' }), notify: async () => false, toast: vi.fn() })
   })
   afterEach(() => { vi.unstubAllGlobals() })
 
-  it('shows a warning toast with a Stop run action when the server advertises `stop`', () => {
-    renderHook(() => useOsNotifications({ projectsById: new Map([['p1', 'Acme']]) }), { wrapper })
-    send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-1', stepKey: 's', staleMs: 12 * 60_000, actions: ['stop'] })
+  it('shows a warning toast with a Stop run action when the server advertises `stop`', async () => {
+    renderHook(() => useOsNotifications({ center, projectsById: new Map([['p1', 'Acme']]) }), { wrapper })
+    await send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-1', stepKey: 's', staleMs: 12 * 60_000, actions: ['stop'] })
     expect(toastWarning).toHaveBeenCalledTimes(1)
     const [title, opts] = toastWarning.mock.calls[0] as [string, { id: string; description: string; action: { label: string; onClick: () => void } }]
     expect(title).toBe('Run seems stuck')
@@ -66,35 +77,41 @@ describe('useOsNotifications — job.stuck "Stop run" action', () => {
 
   it('the action POSTs the existing cancel route for that project/run and confirms', async () => {
     fetchMock.mockResolvedValue({ ok: true })
-    renderHook(() => useOsNotifications(), { wrapper })
-    send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-1', stepKey: 's', staleMs: 60_000, actions: ['stop'] })
+    renderHook(() => useOsNotifications({ center }), { wrapper })
+    await send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-1', stepKey: 's', staleMs: 60_000, actions: ['stop'] })
     const opts = toastWarning.mock.calls[0][1] as { action: { onClick: () => void } }
     await act(async () => { opts.action.onClick() })
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/p1/jobs/run-1/cancel', { method: 'POST' })
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/api\/projects\/p1\/jobs\/run-1\/cancel$/), { method: 'POST' })
     expect(toastSuccess).toHaveBeenCalledWith('Run stopped', expect.objectContaining({ id: 'job-stuck:run-1' }))
   })
 
   it('a failed cancel reports honestly', async () => {
     fetchMock.mockResolvedValue({ ok: false, status: 409 })
-    renderHook(() => useOsNotifications(), { wrapper })
-    send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-1', stepKey: 's', staleMs: 60_000, actions: ['stop'] })
+    renderHook(() => useOsNotifications({ center }), { wrapper })
+    await send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-1', stepKey: 's', staleMs: 60_000, actions: ['stop'] })
     const opts = toastWarning.mock.calls[0][1] as { action: { onClick: () => void } }
     await act(async () => { opts.action.onClick() })
     expect(toastError).toHaveBeenCalledWith('Could not stop the run', expect.anything())
   })
 
-  it('no toast without a project id or without the `stop` action (legacy message shape)', () => {
-    renderHook(() => useOsNotifications(), { wrapper })
-    send({ type: 'job.stuck', jobId: 'run-1', stepKey: 's', staleMs: 60_000, actions: ['stop'] })
-    send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-2', stepKey: 's', staleMs: 60_000 })
-    send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-3', stepKey: 's', staleMs: 60_000, actions: 'stop' })
+  it('no toast without a project id or without the `stop` action (legacy message shape)', async () => {
+    renderHook(() => useOsNotifications({ center }), { wrapper })
+    await send({ type: 'job.stuck', jobId: 'run-1', stepKey: 's', staleMs: 60_000, actions: ['stop'] })
+    await send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-2', stepKey: 's', staleMs: 60_000 })
+    await send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-3', stepKey: 's', staleMs: 60_000, actions: 'stop' })
     expect(toastWarning).not.toHaveBeenCalled()
   })
 
-  it('respects the notification preferences', () => {
-    setOsNotificationPrefs({ enabled: false, filter: 'all' })
-    renderHook(() => useOsNotifications(), { wrapper })
-    send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-1', stepKey: 's', staleMs: 60_000, actions: ['stop'] })
+  it('respects the notification preferences (off, failures off, project muted)', async () => {
+    prefs.enabled = false
+    renderHook(() => useOsNotifications({ center }), { wrapper })
+    await send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-1', stepKey: 's', staleMs: 60_000, actions: ['stop'] })
+    prefs.enabled = true
+    prefs.categories.failed = false
+    await send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-2', stepKey: 's', staleMs: 60_000, actions: ['stop'] })
+    prefs.categories.failed = true
+    prefs.mutedProjects = ['p1']
+    await send({ type: 'job.stuck', projectId: 'p1', jobId: 'run-3', stepKey: 's', staleMs: 60_000, actions: ['stop'] })
     expect(toastWarning).not.toHaveBeenCalled()
   })
 })

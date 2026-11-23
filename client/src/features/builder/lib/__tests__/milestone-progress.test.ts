@@ -12,6 +12,11 @@ import {
   milestoneLabelFor,
   type MilestoneProgress,
   chainAtCheckpoint,
+  chainHeldRail,
+  railElapsedMs,
+  railHoldAction,
+  railHoldKey,
+  chainNextEngine,
 } from '../milestone-progress'
 
 function m(over: Partial<MilestoneProgress> = {}): MilestoneProgress {
@@ -110,8 +115,88 @@ describe('milestone-progress (client model)', () => {
   it('coerceChain keeps only well-formed launched entries', () => {
     const chain = coerceChain({ id: 'c', milestoneN: 1, mode: 'parallel', status: 'paused', pauseReason: 'chunk_failed', nextChunk: 1, totalChunks: 2, currentRailIndex: 2, headBranch: 'feat/1', launched: [{ chunk: 1, railIndex: 2, ticketIds: [1, 'x'], runIds: ['r', 2], deliveryId: 'd' }, { chunk: 'no' }], updatedAt: 'now' })
     expect(chain).toMatchObject({ id: 'c', mode: 'parallel', status: 'paused', pauseReason: 'chunk_failed', totalChunks: 2, headBranch: 'feat/1' })
-    expect(chain?.launched).toEqual([{ chunk: 1, railIndex: 2, ticketIds: [1], runIds: ['r'], deliveryId: 'd' }])
+    expect(chain?.launched).toEqual([{ chunk: 1, railIndex: 2, ticketIds: [1], runIds: ['r'], deliveryId: 'd', engine: null }])
     expect(coerceChain(null)).toBeNull()
     expect(coerceChain({ id: 'c', status: 'nope' })).toBeNull()
+  })
+})
+
+describe('coerceChainPlan / primaryChainOffer', () => {
+  it('keeps known offers in order, defaults `from`, drops malformed entries', async () => {
+    const { coerceChain, primaryChainOffer, chainOfferKey, chainOfferParams } = await import('../milestone-progress')
+    const chain = coerceChain({
+      id: 'c1', status: 'paused', launched: [],
+      plan: {
+        offers: [
+          { kind: 'resume_failed_step', from: 'failed_step', ticketId: 6, title: 'Add the offline computer opponent', runId: 'fork-1' },
+          { kind: 'retry_from_start', from: 'start', ticketId: 6 },
+          { kind: 'bogus', ticketId: 1 },
+          { kind: 'next', from: 'weird', ticketId: 7 },
+        ],
+        specs: [{ ticketId: 6, state: 'failed', title: null }, { ticketId: 7, state: 'nope' }],
+        settled: 2, total: 5, pausedTicketId: 6, pausedSpecSettled: false,
+      },
+    })!
+    expect(chain.plan!.offers.map((o) => [o.kind, o.from])).toEqual([['resume_failed_step', 'failed_step'], ['retry_from_start', 'start'], ['next', 'recommended']])
+    expect(chain.plan!.specs).toEqual([{ ticketId: 6, state: 'failed', title: null }])
+    const primary = primaryChainOffer(chain)!
+    expect(chainOfferKey(primary)).toBe('resume_failed_step:6:fork-1')
+    expect(chainOfferParams(primary, chain.plan)).toMatchObject({ spec: '#6', specTitle: '#6 Add the offline computer opponent', paused: '#6' })
+    expect(coerceChain({ id: 'c2', status: 'running' })!.plan).toBeNull()
+    expect(primaryChainOffer(null)).toBeNull()
+  })
+})
+
+describe('held rails', () => {
+  const started = '2026-11-21T14:52:45.000Z'
+  it('coerces a rail hold (only on an active rail) and keeps byYou only for a pause', () => {
+    const [m] = coerceMilestoneProgress([{ id: 'm1', n: 1, rails: [
+      { railIndex: 3, active: true, runId: 'r', startedAt: started, hold: { kind: 'paused', since: '2026-11-21T15:00:11.000Z', byYou: true, step: 'developer' } },
+      { railIndex: 4, active: true, runId: 'q', hold: { kind: 'question', since: 'nope', byYou: true } },
+      { railIndex: 5, active: true, runId: 'w', hold: { kind: 'bogus' } },
+      { railIndex: 6, active: false, hold: { kind: 'paused' } },
+    ] }])
+    expect(m.rails.map((r) => r.hold)).toEqual([
+      { kind: 'paused', since: '2026-11-21T15:00:11.000Z', byYou: true },
+      { kind: 'question', since: null },
+      null,
+      null,
+    ])
+  })
+
+  it('keys, actions and the frozen elapsed', () => {
+    expect(railHoldKey({ kind: 'paused', since: null, byYou: true })).toBe('pausedByYou')
+    expect(railHoldKey({ kind: 'paused', since: null })).toBe('paused')
+    expect(railHoldAction({ kind: 'paused', since: null, byYou: true })).toBe('resume')
+    expect(railHoldAction({ kind: 'question', since: null })).toBe('answer')
+    expect(railHoldAction({ kind: 'provider_limit', since: null })).toBeNull()
+    const now = Date.parse(started) + 3_600_000
+    expect(railElapsedMs({ active: true, startedAt: started, hold: null }, now)).toBe(3_600_000)
+    expect(railElapsedMs({ active: true, startedAt: started, hold: { kind: 'paused', since: '2026-11-21T15:00:11.000Z', byYou: true } }, now)).toBe(446_000)
+    expect(railElapsedMs({ active: true, startedAt: started, hold: { kind: 'paused', since: null } }, now)).toBeNull()
+  })
+
+  it('chainHeldRail finds the held rail a live chain waits on, falling back to the plan', () => {
+    const chain = coerceChain({ id: 'c', status: 'running', nextChunk: 3, totalChunks: 5, plan: { action: { kind: 'resume_run', ticketId: 7, runId: 'r', pauseKind: 'user' }, offers: [], specs: [] } })!
+    const rail = { railIndex: 3, name: null, ticketIds: [7], active: true, runId: 'r', startedAt: started, delivery: null, chunkIndex: 3, hold: { kind: 'question' as const, since: null } }
+    expect(chainHeldRail(chain, [rail])).toMatchObject({ key: 'question', runId: 'r', chunk: 3 })
+    expect(chainHeldRail(chain, [])).toMatchObject({ key: 'pausedByYou', rail: null, chunk: 3 })
+    expect(chainHeldRail({ ...chain, plan: { ...chain.plan!, action: { kind: 'adopt_run', ticketId: 7, runId: 'r', pauseKind: null } } }, [{ ...rail, hold: null }])).toBeNull()
+    expect(chainHeldRail({ ...chain, status: 'paused' }, [rail])).toBeNull()
+  })
+})
+
+describe('engines', () => {
+  it('coerces launched engines and the next-rail engine; chainNextEngine flags a change', () => {
+    const chain = coerceChain({
+      id: 'c', status: 'running', nextChunk: 3, totalChunks: 5,
+      launched: [{ chunk: 2, railIndex: 3, ticketIds: [7], runIds: ['r'], deliveryId: null, engine: { provider: 'claude', model: 'sonnet', reasoningEffort: null } }],
+      nextEngine: { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: 'high', source: 'usual' },
+    })!
+    expect(chain.launched[0].engine).toEqual({ provider: 'claude', model: 'sonnet', reasoningEffort: null })
+    expect(chain.nextEngine).toEqual({ provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: 'high', source: 'usual' })
+    expect(chainNextEngine(chain)).toEqual({ engine: { provider: 'codex', model: 'gpt-6.2-sol', reasoningEffort: 'high' }, source: 'usual', changed: true })
+    expect(chainNextEngine({ ...chain, status: 'completed' })).toBeNull()
+    expect(coerceChain({ id: 'c', status: 'running', nextEngine: { provider: 'codex' } })!.nextEngine).toBeNull()
   })
 })

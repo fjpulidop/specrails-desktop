@@ -7,15 +7,18 @@
  * fake executors in `loop-run-manager.test.ts`.
  */
 import { compileLoopToDefinition } from './loop-definition'
+import { gitInvocationEnv } from '../../../util/git-invocation'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
 import { supportedEngines } from '../../agent-runtime/runtime/agent-runtime-engines'
 import { readCoreCompletion } from '../../../core-completion'
 import { checkCoreCompletion, prepareCoreExecution } from '../../../core-execution'
-import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, readFrozenRuntimeHost } from '../../agent-runtime/runtime/agent-runtime-bridge'
+import { runAgentRuntimeInvocation, runAgentRuntimeControl, runtimeChangeName, readFrozenRuntimeHost, retainedRuntimeSupportsPause, retainedRuntimeSupportsRouteOverrides } from '../../agent-runtime/runtime/agent-runtime-bridge'
 import { buildCodexPluginArgs } from '../../../plugins/codex-spawn'
 import { spawn, execFileSync } from 'node:child_process'
+import { lstat, readFile, readlink } from 'node:fs/promises'
+import { runBounded } from '../../../util/bounded-exec'
 import { createHash } from 'node:crypto'
-import { existsSync, lstatSync, readFileSync, readdirSync, readlinkSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { treeKillSafe as treeKill, windowsSpawnEnv } from '../../../util/win-spawn'
 import { getAdapter } from '../../../providers'
@@ -45,6 +48,7 @@ import {
 } from '../../../providers/runtime'
 import { seedChangeId, type LoopExecutors, type ShellResult } from './loop-run-manager'
 import { bundledLoopShellInvocation } from './loop-shell-invocation'
+import { runPortLeases, withRunPortEnv } from '../../terminals/runtime/run-port-leases'
 
 // Per-step wall-clock caps so a single hung step can't block the engine's
 // overall deadline check (which only runs between nodes).
@@ -133,8 +137,17 @@ function aiStepEnv(env: NodeJS.ProcessEnv, repoDir: string | undefined, manifest
   const base = { ...env, ...(repoDir ? { SPECRAILS_REPO_DIR: repoDir } : {}), ...(manifest ? { SPECRAILS_EXECUTION_MANIFEST: JSON.stringify(manifest), SPECRAILS_REPOSITORIES: JSON.stringify(manifest.repositories.map((repo) => ({ id: repo.repositoryId, name: repo.name, path: repo.worktreePath }))) } : {}) }
   // Deterministic repo map (zero-AI) so the pipeline's exploration phase
   // starts oriented instead of spending its first turns on `ls`/`find`.
-  const withMap = injectRepoMapEnv(base, repoDir)
+  // A run worktree's leased port block (PORT + SPECRAILS_RUN_PORT*), so parallel
+  // rails never fight over :3000. Non-run paths get nothing.
+  const withMap = withRunPortEnv(injectRepoMapEnv(base, repoDir), repoDir)
   return manifest || isRailPrDeliveryEnabled() ? { ...withMap, SPECRAILS_GIT_AUTO: 'false' } : withMap
+}
+
+/** The frozen Core host scope plus the run's port block: the lease outlives a restart, so a
+ *  resumed run keeps the ports its first segment used. */
+function frozenHost(contextPath: string, baseEnv: NodeJS.ProcessEnv, runId: string): { cwd: string; env: NodeJS.ProcessEnv } {
+  const host = readFrozenRuntimeHost(contextPath, baseEnv, runId)
+  return { ...host, env: withRunPortEnv(host.env, host.env.SPECRAILS_REPO_DIR ?? host.cwd) }
 }
 
 function programmaticStepEnv(env: NodeJS.ProcessEnv, repoDir?: string, manifest?: RunExecutionManifest): NodeJS.ProcessEnv {
@@ -182,7 +195,8 @@ export function flowChangeHolder(cwd: string, baseSha: string | null, id: string
     if (!existsSync(join(changes, id))) return 'free'
     if (!baseSha) return 'taken'
     // Present at the Intent base: someone else's change. Absent there: this Intent's own earlier derivation.
-    execFileSync('git', ['cat-file', '-e', `${baseSha}:openspec/changes/${id}`], { cwd, stdio: 'ignore', timeout: 5_000, windowsHide: true })
+    const catFile = ['cat-file', '-e', `${baseSha}:openspec/changes/${id}`]
+    execFileSync('git', catFile, { cwd, env: gitInvocationEnv(undefined, catFile), stdio: 'ignore', timeout: 5_000, windowsHide: true })
     return 'taken'
   } catch {
     return existsSync(join(changes, id)) ? 'own' : 'free'
@@ -274,11 +288,17 @@ export function createLoopExecutors(
   return {
     ...(opts.environmentNotice ? { environmentNotice: opts.environmentNotice } : {}),
     async cancelDefinition({ runId, contextPath, requestId }) {
-      const host = readFrozenRuntimeHost(contextPath, resolveEnv(), runId)
+      const host = frozenHost(contextPath, resolveEnv(), runId)
       await runAgentRuntimeControl({ kind: 'cancel', runId, contextPath, requestId, ...host })
     },
+    async supportsRouteOverrides({ runId, contextPath }) {
+      try { return await retainedRuntimeSupportsRouteOverrides({ runId, contextPath, ...frozenHost(contextPath, resolveEnv(), runId) }) } catch { return false }
+    },
+    async supportsPause({ runId, contextPath }) {
+      try { return await retainedRuntimeSupportsPause({ runId, contextPath, ...frozenHost(contextPath, resolveEnv(), runId) }) } catch { return false }
+    },
     async pauseDefinition({ runId, contextPath, requestId, reason }) {
-      const host = readFrozenRuntimeHost(contextPath, resolveEnv(), runId)
+      const host = frozenHost(contextPath, resolveEnv(), runId)
       const paused = await runAgentRuntimeControl({ kind: 'pause', runId, contextPath, requestId, reason, ...host })
       return { outcome: paused.outcome }
     },
@@ -304,10 +324,18 @@ export function createLoopExecutors(
     },
     async runDefinition(input) {
       const { request, runId } = input
+      // Lease (probing for free ports) before the first spawn; env builders below read it synchronously.
+      await runPortLeases.ensure(request.repoDir ?? request.cwd)
       if (input.resume) {
         const contextPath = input.contextPath ?? runtimeContextPath(request.cwd,runId,resolveEnv())
-        const host = readFrozenRuntimeHost(contextPath,resolveEnv(),runId)
-        const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,approve:input.approve,recover:input.recover,interruptId:input.interruptId,hostResult:input.hostResult,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
+        const host = frozenHost(contextPath,resolveEnv(),runId)
+        // Intent -> Spec: a fork (Relaunch) resumes in a NEW pipeline directory
+        // that Core's fork does not seed with the conversation summary; without
+        // it the forked deriver worked from the diff alone and lost the
+        // Intent's decisions. Restore it from the frozen request (never over an
+        // existing file).
+        if (request.flowDerivation) writeFlowSummary(dirname(contextPath), request.flowDerivation.summary)
+        const result = await runAgentRuntimeInvocation({contextPath,...host,engineVersion:2,resume:true,answer:input.answer,optionId:input.optionId,approve:input.approve,reject:input.reject,reason:input.reason,recover:input.recover,interruptId:input.interruptId,hostResult:input.hostResult,routeOverrides:input.routeOverrides,onLine:input.onLine,onRuntimeEvent:input.onRuntimeEvent,onSpawn:input.onSpawn,timeoutMs:input.timeoutMs})
         return {...result,runtimeStatus:result.runtimeStatus ?? 'failed'}
       }
       // Intent -> Spec derives ONE change for code that already exists: it is named
@@ -318,7 +346,10 @@ export function createLoopExecutors(
       const delta = seeded && (seeded.source === 'addenda' || seeded.source === 'revision')
         ? `DELTA OPENSPEC TARGET: ${seeded.id}. Use ONLY openspec/changes/${seeded.id}/; create it if missing. Inspect the current branch before planning. For delivered work, plan and implement ONLY the attached addenda or delivery change request, preserving existing behavior outside the delta. For work not yet implemented, implement the full spec together with its addenda. Map each requested change to acceptance checks. Do not redo or archive the original proposal. Report each addendum id with concrete files and test evidence.`
         : undefined
-      const briefing = [delta, request.constants?.REVISION_REQUEST, request.followUp?.briefing, request.addenda?.briefing].filter(Boolean).join('\n\n')
+      // Intent -> Spec: the accepted scope rides the spec and every step, so a
+      // request made during the Intent is never judged against the intent's
+      // superseded constraints.
+      const briefing = [delta, request.constants?.REVISION_REQUEST, request.followUp?.briefing, request.addenda?.briefing, request.flowDerivation?.acceptedScope?.trim()].filter(Boolean).join('\n\n')
       const spec = request.spec && briefing ? { ...request.spec, description: [request.spec.description, briefing].filter(Boolean).join('\n\n'), ...(request.spec.tickets ? { tickets: request.spec.tickets.map(ticket => ({...ticket,description:[ticket.description,briefing].filter(Boolean).join('\n\n')})) } : {}) } : request.spec
       const env = { ...programmaticStepEnv(resolveEnv(), request.repoDir, request.executionManifest), SPECRAILS_GIT_AUTO: 'false' }
       const core = prepareCoreExecution({ run: { runId, projectId: request.projectId, repositoryId: request.repositoryId, spec, goal: request.spec?.title ?? request.loopName }, cwd: request.cwd, repoDir: request.repoDir, manifest: request.executionManifest, env, sourcePath: request.executionManifest ? undefined : opts.sourcePath?.(), workspacePaths: request.executionManifest ? undefined : opts.workspacePaths?.(), selectedWorkspacePaths: request.workspacePaths,
@@ -331,7 +362,7 @@ export function createLoopExecutors(
         projectRuntime: opts.projectRuntime?.(),
         loopConfig: request.graph.config.agents,
         change: seeded?.id ?? runtimeChangeName(runId),
-        resume: input.resume, answer: input.answer, approve: input.approve, interruptId: input.interruptId,
+        resume: input.resume, answer: input.answer, optionId: input.optionId, approve: input.approve, reject: input.reject, reason: input.reason, interruptId: input.interruptId,
         defaultProvider: request.provider, providerOverride: request.runtimeProviderOverride ?? (request.graph.config.agents ? { provider: request.provider, model: request.model, effort: request.effort } : undefined),
         ...(!request.graph.config.agents && request.graph.config.legacyDeciderRole ? { workflowRoleBindings: {
           [request.graph.config.legacyDeciderRole]: {
@@ -360,15 +391,24 @@ export function createLoopExecutors(
     // alone stay identical while a fixer keeps improving the same files.
     // Two identical fingerprints
     // across consecutive Decider 'continue' verdicts ⇒ the loop changed nothing
-    // ⇒ abort `stalled`. Synchronous + best-effort: any git failure (no repo,
-    // detached, etc.) returns null so the guard simply stays off. Never throws.
-    repoStateHash(dir: string): string | null {
+    // ⇒ abort `stalled`. Async bounded git children (the sync version stalled
+    // the event loop for the whole capture on large trees) + best-effort: any
+    // git failure (no repo, detached, timeout, output over the buffer cap)
+    // resolves null so the guard simply stays off. Never rejects.
+    async repoStateHash(dir: string): Promise<string | null> {
       try {
-        const opt = { cwd: dir, encoding: 'utf-8' as const, timeout: 5_000, stdio: ['ignore', 'pipe', 'ignore'] as ('ignore' | 'pipe')[] }
-        const head = execFileSync('git', ['rev-parse', 'HEAD'], opt).trim()
+        // Same limits as the former execFileSync calls: 5 s each, the 1 MiB
+        // default buffer, 16 MiB for the binary diffs; an overflow fails the
+        // sample exactly like ENOBUFS did.
+        const git = async (args: string[], maxBuffer = 1024 * 1024): Promise<string> => {
+          const res = await runBounded('git', args, { cwd: dir, timeoutMs: 5_000, maxBuffer })
+          if (res.error || res.timedOut || res.code !== 0 || res.stdoutTruncated) throw new Error(`git ${args[0]} failed`)
+          return res.stdout
+        }
+        const head = (await git(['rev-parse', 'HEAD'])).trim()
         // `-z` NUL-delimited + include untracked so a brand-new file counts as
         // a change; stable ordering makes the hash deterministic per tree state.
-        const porcelain = execFileSync('git', ['status', '--porcelain', '-z', '--untracked-files=all'], opt)
+        const porcelain = await git(['status', '--porcelain', '-z', '--untracked-files=all'])
         const hash = createHash('sha256').update(head).update('\0').update(porcelain)
         // Separate index/worktree diffs preserve staged-only changes and staged
         // content subsequently edited back to HEAD. Binary patches include
@@ -376,16 +416,16 @@ export function createLoopExecutors(
         for (const args of [
           ['diff', '--no-ext-diff', '--no-textconv', '--binary', '--'],
           ['diff', '--cached', '--no-ext-diff', '--no-textconv', '--binary', '--'],
-        ]) hash.update('\0').update(execFileSync('git', args, { ...opt, maxBuffer: 16 * 1024 * 1024 }))
-        const untracked = execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], opt)
+        ]) hash.update('\0').update(await git(args, 16 * 1024 * 1024))
+        const untracked = await git(['ls-files', '--others', '--exclude-standard', '-z'])
         for (const relative of untracked.split('\0').filter(Boolean).sort()) {
           const file = resolve(dir, relative)
-          const stat = lstatSync(file)
+          const stat = await lstat(file)
           hash.update('\0').update(relative).update('\0').update(String(stat.mode))
           // Never follow a symlink outside the worktree. If an unreadable file
           // or a racing delete defeats the snapshot, disable this sample.
-          if (stat.isSymbolicLink()) hash.update(readlinkSync(file))
-          else if (stat.isFile()) hash.update(readFileSync(file))
+          if (stat.isSymbolicLink()) hash.update(await readlink(file))
+          else if (stat.isFile()) hash.update(await readFile(file))
         }
         return hash.digest('hex')
       } catch {
@@ -394,6 +434,7 @@ export function createLoopExecutors(
     },
     async runAiStep({ runtimeProviderOverride, coreRun, prompt, sessionId, provider, model, effort, profileName, cwd, repoDir, executionManifest, onLine, onRawLine, onSpawn, aiStepTimeoutMs, idleTimeoutMs }) {
       const adapter = getAdapter(provider)
+      await runPortLeases.ensure(repoDir ?? cwd)
       // First iteration spawns headless (rail-job); subsequent iterations resume
       // the session so the agent keeps prior context across iterations.
       const action = sessionId ? 'chat-resume' : 'rail-job'
@@ -672,7 +713,8 @@ export function createLoopExecutors(
     },
 
     async runShell({ command, cwd, repoDir, onLine, onSpawn, timeoutMs }) {
-      const env = resolveEnv([])
+      await runPortLeases.ensure(repoDir ?? cwd)
+      const env = withRunPortEnv(resolveEnv([]), repoDir ?? cwd)
       return runShellCommand(command, repoDir ?? cwd, repoDir ? { ...env, SPECRAILS_REPO_DIR: repoDir } : env, timeoutMs ?? SHELL_TIMEOUT_MS, onLine, onSpawn)
     },
 

@@ -78,4 +78,4 @@ No siempre. Para una spec pequeña y autocontenida, la IA puede implementarla bi
 
 - [Añadir spec — Modo Explore](add-spec-explore-mode.md): de donde salen los borradores.
 - [Añadir spec — Modo Quick](add-spec-quick-mode.md): el interruptor de Contract Layer en el modo Quick.
-- [Ejecutar pipelines](running-pipelines.md): implementa una spec una vez esté lista.
+- [Ejecutar pipelines](../pipeline/rails-and-jobs): implementa una spec una vez esté lista.

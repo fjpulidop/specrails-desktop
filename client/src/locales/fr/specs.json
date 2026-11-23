@@ -13,7 +13,10 @@
     "untitledSpec": "Spec sans titre",
     "doneHeading": "Terminées · {{count}}",
     "clearFilters": "Effacer les filtres",
-    "emptyNoSearchMatch": "Aucune spec ne correspond à « {{query}} »"
+    "emptyNoSearchMatch": "Aucune spec ne correspond à « {{query}} »",
+    "emptyAllOnRails": "Toutes les specs sont sur un rail",
+    "emptyAllOnRailsHint_one": "{{count}} spec est dans la colonne Rails.",
+    "emptyAllOnRailsHint_other": "{{count}} specs sont dans la colonne Rails."
   },
   "status": {
     "todo": "À faire",

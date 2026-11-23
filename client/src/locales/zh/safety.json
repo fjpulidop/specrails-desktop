@@ -1,0 +1,53 @@
+{
+  "policy": {
+    "blocked": "已被 Specrails 策略阻止",
+    "rules": {
+      "git-force-push": "强制推送",
+      "git-push-protected": "推送到集成分支",
+      "git-push-delete": "删除远程分支",
+      "git-reset-hard": "在运行分支之外执行 git reset --hard",
+      "git-branch-delete": "删除分支",
+      "gh-pr-merge": "合并拉取请求",
+      "rm-outside-run": "在运行目录之外删除",
+      "secret-access": "访问凭据",
+      "policy-tamper": "修改策略文件",
+      "machine-install": "全机安装",
+      "policy-error": "无法验证的高风险命令"
+    }
+  },
+  "resume": {
+    "title": "从中断处继续",
+    "description": {
+      "quit": "Specrails 在这些工作运行时被关闭。",
+      "update": "Specrails 在这些工作运行时为安装更新而重启。",
+      "crash": "Specrails 在这些工作运行时意外停止。",
+      "mixed": "Specrails 在这些工作运行时停止。"
+    },
+    "selectAll": "全选",
+    "missions_one": "{{count}} 个任务在轮次中途",
+    "missions_other": "{{count}} 个任务在轮次中途",
+    "runs_one": "重启暂停了 {{count}} 个运行",
+    "runs_other": "重启暂停了 {{count}} 个运行",
+    "untitled": "未命名任务",
+    "trigger": {
+      "quit": "应用已关闭",
+      "update": "已安装更新",
+      "crash": "意外停止"
+    },
+    "startedAt": "轮次开始于 {{time}}",
+    "runPaused": "因重启而暂停",
+    "failed": "无法继续。请重试或打开它。",
+    "nothingAutomatic": "不会自动继续任何内容。任务会继续其自身的会话；运行使用其常规的“继续”。",
+    "progress": "正在继续第 {{done}} 个，共 {{total}} 个",
+    "notNow": "暂不",
+    "resume_one": "继续 {{count}} 个",
+    "resume_other": "继续 {{count}} 个",
+    "resumed_one": "已继续 {{count}} 项",
+    "resumed_other": "已继续 {{count}} 项",
+    "prompt": {
+      "quit": "在你处理我上一个请求时 Specrails 被关闭了。请从中断处继续：先检查当前状态，不要重复已经完成的工作。",
+      "update": "在你处理我上一个请求时 Specrails 为安装更新而重启。请从中断处继续：先检查当前状态，不要重复已经完成的工作。",
+      "crash": "在你处理我上一个请求时 Specrails 意外停止。请从中断处继续：先检查当前状态，不要重复已经完成的工作。"
+    }
+  }
+}

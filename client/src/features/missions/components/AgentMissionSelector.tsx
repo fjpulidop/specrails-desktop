@@ -7,7 +7,7 @@ import { useMissionSessions } from '../context/MissionSessionsContext'
 import { useAgentChat } from '../context/AgentChatContext'
 import { useQueuedCounts, useStreamingConversationIds } from '../hooks/useAgentLive'
 import type { AgentConversation } from '../lib/agent-api'
-import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
 
 import { notifyError } from '../../../lib/notify-error'
 /** Search only earns its row once the list is big enough to need it. */
@@ -389,10 +389,10 @@ function MissionRow({
         {compactRelativeTime(conversation.updated_at)}
       </span>
       {streaming && (
-        <LiveDot
-          size="xs"
+        <RunStateDot
+          state="working"
           data-testid={`mission-live-${conversation.id}`}
-          aria-label={t('mission.working')}
+          label={t('mission.working')}
         />
       )}
       {queuedCount > 0 && (

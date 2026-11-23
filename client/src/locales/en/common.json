@@ -57,7 +57,29 @@
     "failed": "Failed",
     "canceled": "Canceled",
     "draft": "Draft",
-    "onReview": "On Review"
+    "onReview": "On review"
+  },
+  "runState": {
+    "queued": "Queued",
+    "working": "Running",
+    "needs-input": "Needs input",
+    "review": "Ready for review",
+    "paused": "Paused",
+    "blocked": "Blocked",
+    "failed": "Failed",
+    "done": "Done",
+    "stopped": "Stopped",
+    "hint": {
+      "queued": "Waiting to start",
+      "working": "Work is in progress",
+      "needs-input": "An agent is waiting for your answer",
+      "review": "A result is waiting for your decision",
+      "paused": "Paused: resume it to continue",
+      "blocked": "Can't continue until something outside it changes",
+      "failed": "Ended with an error",
+      "done": "Finished successfully",
+      "stopped": "Ended without finishing: cancelled, skipped or superseded"
+    }
   },
   "prDeliveryStatus": {
     "implementation_running": "Implementation running",
@@ -179,6 +201,7 @@
     "stillExceeded": "The daily limit is still reached.",
     "exceededRun": "Per-run limit reached ({{spent}} of {{budget}}). The run is paused.",
     "pausedRun": "Paused at the per-run limit ({{spent}} of {{budget}}). Continue without it or raise it.",
+    "pausedRunNext": "Paused before {{step}}: it usually costs about {{next}}, and {{left}} of the {{budget}} per-run limit is left ({{spent}} spent). Run it once, continue without the limit or raise it.",
     "actionRun": "Continue without the limit, or raise it, then resume.",
     "exceededProject_week": "Project weekly limit reached ({{spent}} of {{budget}}). Nothing was launched.",
     "exceededProject_month": "Project monthly limit reached ({{spent}} of {{budget}}). Nothing was launched.",
@@ -198,6 +221,7 @@
       "title": "Run paused at its limit",
       "raise": "Raise limit and continue",
       "continue": "Continue without limit",
+      "once": "Run this step once",
       "raiseTo": "Raise the limit to (USD)",
       "mustExceed": "Must be above the {{spent}} already spent"
     },
@@ -255,11 +279,15 @@
       "launchForecast": "the launch forecast",
       "loopBuilder": "the Loop Builder",
       "shortcuts": "keyboard shortcuts",
-      "inbox": "the Needs you inbox",
+      "inbox": "the Needs attention inbox",
       "specsBoard": "specs and the backlog",
       "specTimeline": "the spec timeline and hand-off",
       "accessibility": "accessibility and personalisation",
-      "prDecision": "the delivery options"
+      "prDecision": "the delivery options",
+      "attention": "Notifications",
+      "liveBoard": "the live board",
+      "serverRecovery": "If the local server stops",
+      "retainedWorktrees": "run worktrees kept on disk"
     }
   },
   "forecast": {
@@ -294,8 +322,8 @@
       "startedRail": "Rail {{rail}}: run started",
       "pausedBudget": "Run paused: a spend limit was reached",
       "pausedLimit": "Run paused: the provider limit was reached",
-      "needsYou": "A run needs you",
-      "needsYouRail": "Rail {{rail}}: a run needs you",
+      "needsYou": "A run needs your attention",
+      "needsYouRail": "Rail {{rail}}: a run needs your attention",
       "failed": "Run failed",
       "failedRail": "Rail {{rail}}: run failed",
       "finished": "Run finished",
@@ -310,12 +338,50 @@
       "finishedSpec": "Rail {{rail}}: #{{id}} finished",
       "failedSpec": "Rail {{rail}}: #{{id}} failed",
       "stoppedSpec": "Rail {{rail}}: #{{id}} stopped",
-      "needsYouSpec": "Rail {{rail}}: #{{id}} needs you",
+      "needsYouSpec": "Rail {{rail}}: #{{id}} needs your attention",
       "reviewReadySpec": "Rail {{rail}}: #{{id}} review ready"
     }
   },
   "errors": {
     "technicalDetails": "Technical details",
     "copyDetails": "Copy details"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "The planner needs a decision",
+      "developer": "The developer needs you to decide",
+      "fixer": "The fixer needs you to decide",
+      "reviewer": "The reviewer needs you to decide",
+      "install": "Specrails needs your permission",
+      "run": "The run needs your answer"
+    },
+    "approval": "The run needs your approval",
+    "recommended": "Recommended",
+    "other": "Other answer…",
+    "otherLabel": "Your answer",
+    "otherPlaceholder": "Write your answer",
+    "answer": "Answer",
+    "approve": "Approve",
+    "reject": "Reject",
+    "rejectLabel": "Why are you rejecting it?",
+    "rejectPlaceholder": "Your reason",
+    "back": "Back",
+    "sending": "Sending…",
+    "consequence": {
+      "waits": "The run waits, at no cost, until you answer.",
+      "mayEnd": "If you say it should not be done here, the run ends.",
+      "endsRunOption": "Choosing “{{label}}” ends the run.",
+      "reject": "Rejecting ends the run. Nothing is archived or merged."
+    },
+    "sent": "Answer sent — the run continues.",
+    "approved": "Approved — the run continues.",
+    "rejected": "Rejected — the run ends.",
+    "failed": "Couldn't send your answer",
+    "showMore": "Show all",
+    "showLess": "Show less",
+    "notice": "Needs attention",
+    "notHere": "Don't do it here",
+    "notHereMeaning": "This spec does not belong in this repository; the run ends without changes.",
+    "sentEnds": "Answer sent — the run ends."
   }
 }

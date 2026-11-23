@@ -7,6 +7,8 @@ import { ConfirmDialog } from '../../../components/ui/confirm-dialog'
 import { API_ORIGIN } from '../../../lib/origin'
 import { ExternalMcpServersCard } from './ExternalMcpServersCard'
 import { SettingsCard } from './SettingsCard'
+import { McpConnectCard } from './McpConnectCard'
+import { McpPreferencesCard, type McpPreferences } from './McpPreferencesCard'
 
 import { notifyError } from '../../../lib/notify-error'
 interface McpStatus {
@@ -16,6 +18,9 @@ interface McpStatus {
   toolCount: number
   tiers: { write: boolean; aiSpawn: boolean; destructive: boolean }
   tokenHint: string
+  /** "Ask before spending" (USD) and the v2 surface flag; absent on older servers. */
+  confirmAboveUsd?: number
+  v2?: McpPreferences['v2']
 }
 
 interface McpConfig {
@@ -242,6 +247,9 @@ export function McpSettingsSection() {
 
       {status.enabled && (
         <>
+          {/* One-click connect for Claude Code / Codex */}
+          <McpConnectCard />
+
           {/* Permission tiers */}
           <div className="space-y-2 rounded-lg border border-border p-3">
             <div className="text-xs font-semibold text-foreground">{t('tiers.heading')}</div>
@@ -273,6 +281,17 @@ export function McpSettingsSection() {
               </label>
             ))}
           </div>
+
+          {status.confirmAboveUsd !== undefined && status.v2 && (
+            <McpPreferencesCard
+              value={{ confirmAboveUsd: status.confirmAboveUsd, v2: status.v2 }}
+              onChange={(next) => {
+                setStatus((prev) => (prev ? { ...prev, ...next } : prev))
+                // The v2 switch changes the advertised tool count.
+                void loadStatus()
+              }}
+            />
+          )}
 
           {/* Client config (no token) */}
           {config && (

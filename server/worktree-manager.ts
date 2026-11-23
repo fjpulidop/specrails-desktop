@@ -16,6 +16,8 @@ import { execFile } from 'child_process'
 import * as fs from 'fs'
 import * as path from 'path'
 import { windowsSpawnEnv } from './util/win-spawn'
+import { gitInvocationEnv, gitSubcommand } from './util/git-invocation'
+import { annotateIndexLockFailure, waitForIndexLockRelease } from './util/git-index-lock'
 
 export interface GitResult {
   code: number
@@ -31,24 +33,33 @@ export interface GitRunner {
 const GIT_RUNNER_TIMEOUT_MS = 120_000
 
 export const defaultGitRunner: GitRunner = {
-  run(args, cwd) {
-    return new Promise<GitResult>((resolve) => {
-      // SystemRoot/ComSpec backfill so worktree + PR-decision git ops don't fail
-      // to start under a pkg-stripped Windows sidecar env. No-op on POSIX.
-      const env = windowsSpawnEnv()
-      execFile('git', args, {
-        cwd,
-        env,
-        timeout: GIT_RUNNER_TIMEOUT_MS,
-        killSignal: 'SIGTERM',
-        maxBuffer: 16 * 1024 * 1024,
-        windowsHide: true,
-      }, (err, stdout, stderr) => {
-        const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? 1 : 0
-        resolve({ code, stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' })
-      })
-    })
+  async run(args, cwd) {
+    // A status read waits (bounded) for a live index.lock so it sees the
+    // settled index, not a half-staged commit; a lock failure gets an
+    // actionable explanation. See util/git-index-lock.ts.
+    if (gitSubcommand(args)?.name === 'status') await waitForIndexLockRelease(cwd)
+    return annotateIndexLockFailure(await spawnGit(args, cwd), cwd)
   },
+}
+
+function spawnGit(args: string[], cwd: string): Promise<GitResult> {
+  return new Promise<GitResult>((resolve) => {
+    // SystemRoot/ComSpec backfill so worktree + PR-decision git ops don't fail
+    // to start under a pkg-stripped Windows sidecar env. No-op on POSIX. Reads
+    // skip Git's optional index locks (util/git-invocation.ts).
+    const env = gitInvocationEnv(windowsSpawnEnv(), args)
+    execFile('git', args, {
+      cwd,
+      env,
+      timeout: GIT_RUNNER_TIMEOUT_MS,
+      killSignal: 'SIGTERM',
+      maxBuffer: 16 * 1024 * 1024,
+      windowsHide: true,
+    }, (err, stdout, stderr) => {
+      const code = err && typeof (err as { code?: unknown }).code === 'number' ? (err as { code: number }).code : err ? 1 : 0
+      resolve({ code, stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' })
+    })
+  })
 }
 
 /** True when `dir` is inside a git working tree. Worktree isolation is impossible
@@ -102,6 +113,109 @@ export interface CreateWorktreeInput {
   fresh?: boolean
   /** Exact delivered branch continuations may reuse a mount at another run path. */
   reuseBranchWorktree?: boolean
+  /** Fresh branches only: adopt a checkout prepared ahead of time (see
+   *  modules/delivery/runtime/worktree-preparation-pool.ts) instead of
+   *  writing every file now. Any failure falls back to a plain `worktree add`. */
+  claimPrepared?: ClaimPreparedCheckout
+}
+
+/** A detached, fully populated linked worktree prepared before it was needed.
+ *  `discard` removes it (it never held anyone's work). */
+export interface PreparedCheckout {
+  path: string
+  discard(): Promise<void>
+}
+
+export type ClaimPreparedCheckout = () => Promise<PreparedCheckout | null>
+
+/** Parallel checkout fan-out for worktree population (Git ≥ 2.32 honours it,
+ *  older Git ignores the unknown key). Measured on a 5k-file repository:
+ *  `worktree add` 2.2–2.5 s sequential vs 1.0–1.2 s with 4 workers; 8 workers
+ *  was not faster. */
+const CHECKOUT_WORKERS = 4
+const CHECKOUT_WORKERS_TTL_MS = 60_000
+const checkoutWorkersCache = new Map<string, { at: number; args: Promise<string[]> }>()
+
+/** `-c checkout.workers=4` unless the person configured `checkout.workers` at
+ *  any scope for this repository (their value wins). Cached briefly per repo. */
+export function checkoutWorkersArgs(git: GitRunner, repoDir: string, now: () => number = Date.now): Promise<string[]> {
+  const key = canonicalWorktreePath(repoDir)
+  const cached = checkoutWorkersCache.get(key)
+  if (cached && now() - cached.at < CHECKOUT_WORKERS_TTL_MS) return cached.args
+  const args = git.run(['config', '--get', 'checkout.workers'], repoDir)
+    // Exit 1 = unset. Any other failure keeps Git's own default.
+    .then((r) => (r.code === 1 ? ['-c', `checkout.workers=${CHECKOUT_WORKERS}`] : []))
+    .catch(() => [])
+  checkoutWorkersCache.set(key, { at: now(), args })
+  return args
+}
+
+/** Test-only: forget cached `checkout.workers` probes. */
+export function __resetCheckoutWorkersCache(): void {
+  checkoutWorkersCache.clear()
+}
+
+/**
+ * Turn a prepared checkout into the run's worktree: reset it to the exact
+ * base (only the delta since preparation is written), move it to the run path
+ * and create the branch with `git checkout --no-track -b`, which is also what
+ * runs the person's `post-checkout` hook — exactly once, after the files exist,
+ * as `worktree add` would (the preparation used `--no-checkout` + `reset`,
+ * which run no hook). Returns false (and leaves nothing behind) when any step
+ * fails, so the caller falls back to a plain `worktree add`.
+ */
+async function adoptPreparedCheckout(
+  git: GitRunner,
+  input: { repoDir: string; claimPrepared: ClaimPreparedCheckout },
+  branch: string,
+  wt: string,
+  base: string,
+): Promise<boolean> {
+  let prepared: PreparedCheckout | null = null
+  try {
+    prepared = await input.claimPrepared()
+  } catch {
+    return false
+  }
+  if (!prepared) return false
+  const target = await gitRun(git, ['rev-parse', '--verify', `${base}^{commit}`], input.repoDir)
+  const targetSha = target.code === 0 ? target.stdout.trim() : ''
+  if (!/^[0-9a-f]{40,64}$/i.test(targetSha)) {
+    await prepared.discard().catch(() => {})
+    return false
+  }
+  const head = await gitRun(git, ['rev-parse', '--verify', 'HEAD'], prepared.path)
+  if (head.code !== 0 || head.stdout.trim() !== targetSha) {
+    const workers = await checkoutWorkersArgs(git, input.repoDir)
+    const reset = await gitRun(git, [...workers, 'reset', '--hard', '--quiet', targetSha], prepared.path)
+    if (reset.code !== 0) {
+      await prepared.discard().catch(() => {})
+      return false
+    }
+  }
+  try {
+    await fs.promises.mkdir(path.dirname(wt), { recursive: true })
+  } catch {
+    await prepared.discard().catch(() => {})
+    return false
+  }
+  const moved = await gitRun(git, ['worktree', 'move', prepared.path, wt], input.repoDir)
+  if (moved.code !== 0) {
+    await prepared.discard().catch(() => {})
+    return false
+  }
+  const checkout = await gitRun(git, ['checkout', '--quiet', '--no-track', '-b', branch, targetSha], wt)
+  if (checkout.code !== 0) {
+    // The mount is ours and holds nothing yet; the branch may exist only if
+    // checkout created it before failing (it never did when -b failed).
+    await gitRun(git, ['worktree', 'remove', '--force', wt], input.repoDir)
+    const created = await gitRun(git, ['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`], input.repoDir)
+    if (created.code === 0 && created.stdout.trim() === targetSha) {
+      await gitRun(git, ['update-ref', '-d', `refs/heads/${branch}`, targetSha], input.repoDir)
+    }
+    return false
+  }
+  return true
 }
 
 export interface WorktreeHandle {
@@ -139,13 +253,39 @@ export const PR_NEVER_STAGE_PATHS = [
   '.specrails/agent-memory/**',
   '.specrails/agent-memory/explanations',
   '.specrails/agent-memory/explanations/**',
+  // Core's run state. Without a populated relocated workspace (an assembly that
+  // has not finished or failed) the backlog root is the run checkout, so the
+  // pipeline directory (run artifacts, the materialized runtime package with
+  // its node_modules) and the engine store land inside the worktree. They are
+  // never PR content.
+  '.specrails/pipeline',
+  '.specrails/pipeline/**',
+  '.specrails/engine-store.sqlite',
+  '.specrails/engine-store.sqlite-wal',
+  '.specrails/engine-store.sqlite-shm',
+  // The run browser tool's captures (screenshots, console, page text): review evidence, never PR content.
+  '.specrails/browser-evidence',
+  '.specrails/browser-evidence/**',
 ] as const
 
 const PR_NEVER_STAGE_EXCLUDE_MARKER_BEGIN = '# specrails: never stage private agent artifacts'
 const PR_NEVER_STAGE_EXCLUDE_MARKER_END = '# /specrails: never stage private agent artifacts'
+// The rail overlay's manifest sits at every rail worktree root. Commits already exclude it
+// literally, but untracked it showed in `git status`, and reviewers kept raising it as a human
+// check ("confirm .sr-rail-overlay.json is host-owned and not committed").
+const OVERLAY_MANIFEST_EXCLUDE = '/.sr-rail-overlay.json'
+// Build and tool caches the run's own checks write (a React delivery committed the
+// tsconfig.tsbuildinfo that `tsc -b` left behind). Ignored only while UNTRACKED: a repository
+// that tracks one of these keeps committing its changes.
+export const GENERATED_ARTIFACT_EXCLUDES = [
+  '*.tsbuildinfo', '.DS_Store', '__pycache__/', '*.py[co]', '.pytest_cache/', '.mypy_cache/', '.ruff_cache/',
+  '.swiftpm/', '/.build/', '.dart_tool/', '.gradle/', 'node_modules/', '/target/',
+] as const
 const PR_NEVER_STAGE_EXCLUDE_BLOCK = [
   PR_NEVER_STAGE_EXCLUDE_MARKER_BEGIN,
   ...PR_NEVER_STAGE_PATHS,
+  OVERLAY_MANIFEST_EXCLUDE,
+  ...GENERATED_ARTIFACT_EXCLUDES,
   PR_NEVER_STAGE_EXCLUDE_MARKER_END,
 ].join('\n')
 
@@ -247,15 +387,137 @@ export async function createWorktree(git: GitRunner, input: CreateWorktreeInput)
   if (hasBranch && input.refreshFromBaseRef) {
     await fastForwardExistingBranch(git, input.repoDir, branch, input.baseRef)
   }
+  if (!hasBranch && input.claimPrepared && await adoptPreparedCheckout(git, { repoDir: input.repoDir, claimPrepared: input.claimPrepared }, branch, wt, base)) {
+    await ensurePrNeverStageExcludes(git, wt)
+    return { branch, worktreePath: wt, worktreeCreated: true, branchCreated: true }
+  }
+  const workers = await checkoutWorkersArgs(git, input.repoDir)
   const args = hasBranch
-    ? ['worktree', 'add', wt, branch]
-    : ['worktree', 'add', '-b', branch, wt, base]
+    ? [...workers, 'worktree', 'add', wt, branch]
+    : [...workers, 'worktree', 'add', '-b', branch, wt, base]
   const res = await git.run(args, input.repoDir)
   if (res.code !== 0) {
-    throw new Error(`git worktree add failed for ${branch}: ${res.stderr.trim() || res.stdout.trim() || `exit ${res.code}`}`)
+    const reason = res.stderr.trim() || res.stdout.trim() || `exit ${res.code}`
+    // `worktree add -b` creates the branch before it writes the checkout. A failed add (a full
+    // disk, a permission error) must not leave that branch, the half-written directory or its
+    // registration behind: each retry would otherwise mint another suffixed branch.
+    await rollBackFailedWorktreeAdd(git, input.repoDir, wt, hasBranch ? null : branch)
+    const full = /No space left on device|ENOSPC/i.test(reason)
+    throw new Error(full
+      ? `The disk that holds the run checkouts is full, so git could not create the worktree for ${branch} (${reason}). Free disk space there, then launch again.`
+      : `git worktree add failed for ${branch}: ${reason}`)
   }
   await ensurePrNeverStageExcludes(git, wt)
   return { branch, worktreePath: wt, worktreeCreated: true, branchCreated: !hasBranch }
+}
+
+/** Best effort: undo what a failed `git worktree add` left (its new branch, directory and registration). */
+async function rollBackFailedWorktreeAdd(git: GitRunner, repoDir: string, wt: string, createdBranch: string | null): Promise<void> {
+  try { await fs.promises.rm(wt, { recursive: true, force: true }) } catch { /* nothing was written */ }
+  await git.run(['worktree', 'prune'], repoDir).catch(() => undefined)
+  if (createdBranch) await git.run(['branch', '-D', createdBranch], repoDir).catch(() => undefined)
+}
+
+/** A run checkout could not populate a submodule its base commit records. */
+export class SubmoduleUnavailableError extends Error {
+  readonly code = 'submodule_unavailable'
+  constructor(readonly submodulePath: string, message: string) {
+    super(message)
+    this.name = 'SubmoduleUnavailableError'
+  }
+}
+
+interface RecordedSubmodule { name: string; path: string; sha: string; url: string | null }
+
+/** Submodules `.gitmodules` declares that the checkout's index records as gitlinks. */
+async function recordedSubmodules(git: GitRunner, dir: string): Promise<RecordedSubmodule[]> {
+  try { await fs.promises.access(path.join(dir, '.gitmodules')) } catch { return [] }
+  const declared = await gitRun(git, ['config', '--file', '.gitmodules', '--null', '--get-regexp', '^submodule\\..*\\.path$'], dir)
+  if (declared.code !== 0) return []
+  const urls = await gitRun(git, ['config', '--file', '.gitmodules', '--null', '--get-regexp', '^submodule\\..*\\.url$'], dir)
+  const entries = (stdout: string) => stdout.split('\0').filter(Boolean).map((entry) => {
+    const newline = entry.indexOf('\n')
+    return newline < 0 ? null : { key: entry.slice(0, newline), value: entry.slice(newline + 1) }
+  }).filter((entry): entry is { key: string; value: string } => entry !== null)
+  const urlByName = new Map(entries(urls.code === 0 ? urls.stdout : '').map(({ key, value }) => [key.slice('submodule.'.length, -'.url'.length), value]))
+  const staged = await gitRun(git, ['ls-files', '--stage', '-z'], dir)
+  const gitlinks = new Map<string, string>()
+  for (const line of staged.stdout.split('\0')) {
+    const match = /^160000 ([0-9a-f]{40,64}) \d+\t(.+)$/.exec(line)
+    if (match) gitlinks.set(match[2]!, match[1]!)
+  }
+  const submodules: RecordedSubmodule[] = []
+  for (const { key, value } of entries(declared.stdout)) {
+    const name = key.slice('submodule.'.length, -'.path'.length)
+    const sha = gitlinks.get(value)
+    if (sha) submodules.push({ name, path: value, sha, url: urlByName.get(name) ?? null })
+  }
+  return submodules
+}
+
+async function isGitDirectory(candidate: string): Promise<boolean> {
+  try {
+    await fs.promises.access(path.join(candidate, 'HEAD'))
+    return (await fs.promises.stat(path.join(candidate, 'objects'))).isDirectory()
+  } catch { return false }
+}
+
+/**
+ * Populate the submodules of a run checkout, recursively. `git worktree add` leaves them
+ * empty, so a repository whose code or tests import from a submodule failed at baseline.
+ *
+ * Each submodule is cloned from the person's own checkout first (`<common git dir>/modules/
+ * <name>`, local objects, no network) and only falls back to its configured or declared URL
+ * when that copy is missing or lacks the recorded commit. Activation and the URL are passed
+ * as command-line configuration, so nothing is written to the repository's shared config;
+ * the clones live in this worktree's private git dir and are removed with it. A submodule
+ * already populated in this checkout is left exactly as it is (a resumed run may have moved
+ * it), and `submodule.<name>.update=none` is honoured by Git. When a submodule can be
+ * populated neither way, a SubmoduleUnavailableError names it, both sources and Git's reason.
+ */
+export async function initializeWorktreeSubmodules(git: GitRunner, repoDir: string, worktreePath: string): Promise<void> {
+  const common = await gitRun(git, ['rev-parse', '--path-format=absolute', '--git-common-dir'], repoDir)
+  const modules = common.code === 0 && common.stdout.trim() ? path.join(common.stdout.trim(), 'modules') : null
+  await initializeSubmodulesIn(git, repoDir, worktreePath, modules, '')
+}
+
+async function initializeSubmodulesIn(git: GitRunner, repoDir: string, dir: string, localModules: string | null, prefix: string): Promise<void> {
+  for (const submodule of await recordedSubmodules(git, dir)) {
+    const display = prefix + submodule.path
+    const checkout = path.join(dir, submodule.path)
+    const populated = await fs.promises.access(path.join(checkout, '.git')).then(() => true, () => false)
+    const local = localModules ? path.join(localModules, ...submodule.name.split('/')) : null
+    const localUsable = local !== null && !/[=\n]/.test(submodule.name) && await isGitDirectory(local)
+    if (!populated) {
+      const update = (overrides: string[]) => gitRun(git, ['-c', `submodule.${submodule.name}.active=true`, ...overrides, 'submodule', 'update', '--quiet', '--', submodule.path], dir)
+      let result: GitResult | null = null
+      if (localUsable) {
+        result = await update(['-c', 'protocol.file.allow=always', '-c', `submodule.${submodule.name}.url=${local}`])
+        // Git would reuse the failed clone (its origin is the local copy) instead of
+        // cloning from the real URL: drop it from this worktree's private git dir.
+        if (result.code !== 0) {
+          await fs.promises.rm(path.join(checkout, '.git'), { force: true, recursive: true }).catch(() => {})
+          const clone = await gitRun(git, ['rev-parse', '--path-format=absolute', '--git-path', `modules/${submodule.name}`], dir)
+          const target = clone.code === 0 ? clone.stdout.trim() : ''
+          // Never the person's own module store (the local copy itself).
+          const own = path.relative(localModules!, target)
+          if (target && (own.startsWith('..') || path.isAbsolute(own))) await fs.promises.rm(target, { force: true, recursive: true }).catch(() => {})
+        }
+      }
+      if (!result || result.code !== 0) {
+        const remote = await update([])
+        if (remote.code !== 0) {
+          const reason = (remote.stderr.trim() || remote.stdout.trim() || `exit ${remote.code}`).split('\n').filter(Boolean).slice(-3).join(' ')
+          const sources = [localUsable ? `the local copy ${local}` : null, submodule.url ? `its URL ${submodule.url}` : null].filter(Boolean).join(' or ') || 'any source'
+          throw new SubmoduleUnavailableError(display, `submodule_unavailable: The run checkout needs submodule ${display} at ${submodule.sha.slice(0, 12)}, but it could not be populated from ${sources}: ${reason}. Run "git submodule update --init --recursive" in ${repoDir} (or restore access to the submodule's remote), then launch again.`)
+        }
+      }
+    }
+    const nested = localUsable ? path.join(local!, 'modules') : null
+    if (await fs.promises.access(path.join(checkout, '.gitmodules')).then(() => true, () => false)) {
+      await initializeSubmodulesIn(git, repoDir, checkout, nested, `${display}/`)
+    }
+  }
 }
 
 export interface CommitWorktreeResult {
@@ -600,10 +862,19 @@ export interface RemoveWorktreeInput {
  * throw so callers do not mark the ledger released while it is still mounted.
  * Branch deletion remains best-effort. */
 export async function removeWorktree(git: GitRunner, input: RemoveWorktreeInput): Promise<void> {
-  const removed = await git.run(
+  let removed = await git.run(
     ['worktree', 'remove', ...(input.force === false ? [] : ['--force']), input.worktreePath],
     input.repoDir,
   )
+  if (removed.code !== 0 && input.force === false && /containing submodules/i.test(removed.stderr)) {
+    // Git refuses any non-force removal of a checkout with populated submodules (run
+    // checkouts populate them). Apply Git's own non-force guard — a porcelain status
+    // that includes submodule content and commits — and only then force the unmount.
+    const status = await gitRun(git, ['status', '--porcelain', '--ignore-submodules=none'], input.worktreePath)
+    if (status.code !== 0) throw new Error(`git worktree remove failed for ${input.worktreePath}: ${gitFailure(status, `status exit ${status.code}`)}`)
+    if (status.stdout.trim()) throw new Error(`git worktree remove failed for ${input.worktreePath}: it contains modified or untracked files, either delete them or use --force (${status.stdout.trim().split('\n').slice(0, 5).join('; ')})`)
+    removed = await git.run(['worktree', 'remove', '--force', input.worktreePath], input.repoDir)
+  }
   if (removed.code !== 0) {
     throw new Error(`git worktree remove failed for ${input.worktreePath}: ${gitFailure(removed, `exit ${removed.code}`)}`)
   }

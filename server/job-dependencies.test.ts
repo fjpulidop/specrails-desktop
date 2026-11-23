@@ -39,6 +39,7 @@ describe('Job Dependencies', () => {
   let qm: QueueManager
   let broadcast: ReturnType<typeof vi.fn>
   const savedInteractiveFlag = process.env.SPECRAILS_INTERACTIVE_JOBS
+  const savedCodeExplorerFlag = process.env.SPECRAILS_CODE_EXPLORER
 
   beforeEach(() => {
     vi.resetAllMocks()
@@ -47,12 +48,17 @@ describe('Job Dependencies', () => {
     // default since the S1 flip; the interactive dependency/pipeline flow is
     // covered in queue-manager.test.ts's dedicated describe).
     process.env.SPECRAILS_INTERACTIVE_JOBS = 'false'
+    // child_process is fully mocked: keep async provenance `git` children out
+    // of the fake spawn (provenance is covered in queue-manager-provenance.test.ts).
+    process.env.SPECRAILS_CODE_EXPLORER = 'false'
     broadcast = vi.fn()
   })
 
   afterEach(() => {
     if (savedInteractiveFlag === undefined) delete process.env.SPECRAILS_INTERACTIVE_JOBS
     else process.env.SPECRAILS_INTERACTIVE_JOBS = savedInteractiveFlag
+    if (savedCodeExplorerFlag === undefined) delete process.env.SPECRAILS_CODE_EXPLORER
+    else process.env.SPECRAILS_CODE_EXPLORER = savedCodeExplorerFlag
     vi.restoreAllMocks()
   })
 

@@ -444,6 +444,8 @@ export function createMobileRouter(deps: MobileRouterDeps): Router {
  *  against a real internal route, and that no traversal param is accepted). */
 export const MOBILE_ALLOWLIST: Array<{ method: string; path: string }> = [
   { method: 'GET', path: '/v1/inbox' },
+  { method: 'POST', path: '/v1/inbox/dismissals' },
+  { method: 'DELETE', path: '/v1/inbox/dismissals/:itemId' },
   { method: 'GET', path: '/v1/projects/:pid/inbox/runs/:runId/question' },
   { method: 'POST', path: '/v1/projects/:pid/inbox/answer' },
   { method: 'POST', path: '/v1/projects/:pid/inbox/resume' },

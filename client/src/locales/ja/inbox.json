@@ -1,11 +1,11 @@
 {
   "title": "対応待ち",
-  "subtitle_one": "{{count}} 件があなたを待っています",
-  "subtitle_other": "{{count}} 件があなたを待っています",
-  "subtitleEmpty": "待っている項目はありません",
+  "subtitle_one": "未対応の項目が {{count}} 件あります",
+  "subtitle_other": "未対応の項目が {{count}} 件あります",
+  "subtitleEmpty": "すべて対応済みです",
   "loading": "プロジェクトを確認しています…",
   "empty": {
-    "title": "対応が必要な項目はありません",
+    "title": "未対応の項目はありません",
     "description": "すべてのプロジェクトのレビュー、質問、失敗が発生するとここに表示されます。"
   },
   "error": {
@@ -21,7 +21,9 @@
     "budget": "予算で一時停止",
     "jira": "Jira 同期に失敗",
     "failedNoCause": "納品前に停止しました",
-    "capReached": "予算の上限に達しました"
+    "capReached": "作業を一時停止中",
+    "chain": "マイルストーンが一時停止中",
+    "chainCheckpoint": "マイルストーンがあなたの承認待ち"
   },
   "actions": {
     "open": "開く",
@@ -29,20 +31,19 @@
     "answer": "回答",
     "resume": "再開",
     "retry": "再試行",
-    "raiseCap": "上限を引き上げる"
+    "raiseCap": "上限を引き上げる",
+    "resumeChain": "再開",
+    "continueChain": "続行",
+    "openMission": "ミッションを開く"
   },
   "working": "処理中…",
   "rowLabel": "{{action}}：{{title}}",
   "snooze": {
-    "label": "後で通知",
-    "hour": "1 時間",
-    "tomorrow": "明日まで",
-    "cancel": "キャンセル"
+    "hour": "1 時間後に通知",
+    "tomorrow": "明日まで後で通知"
   },
-  "snoozeItem": "{{title}} を後で通知",
-  "snoozeFor": "{{title}} を保留する期間",
   "done": "完了",
-  "doneItem": "{{title}} を完了にする",
+  "more": "{{title}} のその他の操作",
   "age": {
     "now": "たった今",
     "ago": "{{age}}前"
@@ -63,7 +64,12 @@
     "snoozed": "{{when}} まで後回しにしました",
     "undo": "元に戻す",
     "stillOverBudget_week": "週間予算をまだ超えています",
-    "stillOverBudget_month": "月間予算をまだ超えています"
+    "stillOverBudget_month": "月間予算をまだ超えています",
+    "muted": "{{project}} の通知をミュートしました",
+    "unmuted": "{{project}} の通知を再開しました",
+    "muteFailed": "プロジェクトの通知を変更できませんでした",
+    "chainResumed": "マイルストーンを再開しました",
+    "chainResumeFailed": "マイルストーンを再開できませんでした"
   },
   "cap": {
     "title": {
@@ -80,5 +86,38 @@
     },
     "detail": "{{spent}} / {{budget}} を使用"
   },
-  "stale": "更新できませんでした。前回の一覧を表示しています。"
+  "stale": "更新できませんでした。前回の一覧を表示しています。",
+  "unseen": "新着",
+  "markRead": "既読にする",
+  "markUnread": "未読にする",
+  "mute": {
+    "mute": "{{project}} の通知をミュート",
+    "unmute": "{{project}} の通知を再開"
+  },
+  "attempt": "試行 {{number}}",
+  "chain": {
+    "title": "マイルストーン {{n}}",
+    "progress": "レール {{total}} 件中 {{done}} 件完了",
+    "reason": {
+      "chunk_failed": "レールが失敗しました",
+      "chunk_stalled": "レールが停滞しています",
+      "chunk_stopped": "レールが停止されました",
+      "provider_limit": "プロバイダーの使用量上限に達しました",
+      "head_missing": "ベースのブランチが見つかりません",
+      "head_discarded": "ベースのブランチが破棄されました",
+      "run_lost": "レールの実行が失われました",
+      "rail_limit_reached": "空いているレールがありません",
+      "launch_rejected": "レールを開始できませんでした",
+      "integration_failed": "最後のレールの統合にあなたの対応が必要です",
+      "paused": "一時停止中"
+    }
+  },
+  "missionCard": {
+    "railLaunch": "起動の提案",
+    "flowOffer": "Intent か実装か？",
+    "prCiOffer": "失敗している CI を修正しますか？"
+  },
+  "card": {
+    "pr": "PR #{{number}}"
+  }
 }

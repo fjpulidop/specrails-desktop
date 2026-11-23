@@ -12,6 +12,7 @@
 // glass surface, header row with rail + `#` chips + status pill, muted rationale,
 // motion enter, reduced-motion safe, `data-agent-interactive` on every control.
 
+import { useLaunchGuard } from '../../provider-quota/lib/useLaunchPreflight'
 import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { FollowUpProposal } from '../../rails/lib/rail-launch-draft'
@@ -52,8 +53,9 @@ import { InitialCommitButton } from '../../../components/InitialCommitButton'
 import { HelpHint } from '../../../components/HelpHint'
 import { LaunchForecast } from '../../../components/LaunchForecast'
 import { useLaunchBudgetGuard } from '../../../hooks/useLaunchBudgetGuard'
-import { LiveDot } from '../../../components/ui/live-dot'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
 import { announce } from '../../../lib/announce'
+import { sharedFetch } from '../../../lib/shared-fetch'
 
 // ── Live project state the card reconciles against ────────────────────────────
 
@@ -231,6 +233,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   const [loadError, setLoadError] = useState(false)
   const [busy, setBusy] = useState<'launch' | 'dismiss' | 'scope' | null>(null)
   const [scopeEdit, setScopeEdit] = useState<{ ticketId: number; repositoryIds: string[] } | null>(null)
+  const preflightGuard = useLaunchGuard()
   const [inlineError, setInlineError] = useState<{ error: string; detail?: string; action?: string } | null>(null)
   // A server code the locale knows is the headline. Anything else (`network`,
   // `HTTP 502`, an unmapped code) gets a generic, localized headline that
@@ -253,9 +256,9 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
     setBusy(null)
     const base = repositoryApiBase(projectId)
     Promise.all([
-      fetch(`${base}/rails`).then((r) => (r.ok ? (r.json() as Promise<RailsResponse>) : Promise.reject(new Error(String(r.status))))),
-      fetch(`${base}/tickets`).then((r) => (r.ok ? (r.json() as Promise<{ tickets?: LocalTicket[] }>) : Promise.reject(new Error(String(r.status))))),
-      fetch(`${base}/repositories`).then((r) => (r.ok ? (r.json() as Promise<{ repositories?: ProjectRepository[] }>) : Promise.reject(new Error(String(r.status))))),
+      sharedFetch(`${base}/rails`).then((r) => (r.ok ? (r.json() as Promise<RailsResponse>) : Promise.reject(new Error(String(r.status))))),
+      sharedFetch(`${base}/tickets`).then((r) => (r.ok ? (r.json() as Promise<{ tickets?: LocalTicket[] }>) : Promise.reject(new Error(String(r.status))))),
+      sharedFetch(`${base}/repositories`).then((r) => (r.ok ? (r.json() as Promise<{ repositories?: ProjectRepository[] }>) : Promise.reject(new Error(String(r.status))))),
     ]).then(([rails, tix, repos]) => {
       if (cancelled) return
       if (!Array.isArray(repos.repositories) || !repos.repositories.some(repository => repository.isPrimary)) throw new Error('Missing project repositories')
@@ -344,7 +347,7 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
   useEffect(() => {
     if (!projectId || intent || !catalogProvider || !profilesApply) { setProfiles([]); return }
     let cancelled = false
-    fetch(`${repositoryApiBase(projectId)}/profiles?provider=${encodeURIComponent(catalogProvider)}`)
+    sharedFetch(`${repositoryApiBase(projectId)}/profiles?provider=${encodeURIComponent(catalogProvider)}`)
       .then((r) => (r.ok ? (r.json() as Promise<{ profiles?: ProfileListEntry[] }>) : { profiles: [] }))
       .then((d) => {
         if (cancelled) return
@@ -526,6 +529,9 @@ export function AgentRailLaunchCard({ proposal, proposalIndex, messageId, conver
       }
     }
     try {
+      // The same launch checks as Launch all: a signed-out provider stops here, worded like the dialog.
+      const blocked = await preflightGuard(projectId, [effectiveEngine ?? ''])
+      if (blocked) { setInlineError({ error: 'launch_preflight_blocked', detail: blocked.failed.join(' · ') || undefined }); return }
       let railIndex = resolvedRailIndex
       const wantsName = config.railName.trim().slice(0, 60)
       if (railIndex === null) {
@@ -1203,7 +1209,8 @@ export function AgentRailLaunchPending() {
   const { t } = useTranslation('agent')
   return (
     <div data-testid="agent-rail-launch-pending" className="my-1 inline-flex items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-2.5 py-1 text-caption text-accent-primary">
-      <LiveDot tone="primary" size="xs" aria-hidden />
+      {/* The block is still streaming in: work in progress. */}
+      <RunStateDot state="working" />
       {t('railCard.pending')}
     </div>
   )

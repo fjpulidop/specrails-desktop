@@ -59,6 +59,11 @@ interface SidebarPinContextValue {
   setRightMode: (mode: SidebarMode) => void
   cycleLeftMode: () => void
   cycleRightMode: () => void
+  /** The window is narrow: a pinned-open left sidebar renders as an overlay. */
+  narrow: boolean
+  /** Narrow window: whether the left sidebar overlay is open (the title bar button and ⌘B toggle it). */
+  leftFlyoutOpen: boolean
+  setLeftFlyoutOpen: (open: boolean) => void
 }
 
 const SidebarPinContext = createContext<SidebarPinContextValue>({
@@ -70,6 +75,9 @@ const SidebarPinContext = createContext<SidebarPinContextValue>({
   setRightMode: () => {},
   cycleLeftMode: () => {},
   cycleRightMode: () => {},
+  narrow: false,
+  leftFlyoutOpen: false,
+  setLeftFlyoutOpen: () => {},
 })
 
 export function SidebarPinProvider({ children }: { children: ReactNode }) {
@@ -89,15 +97,23 @@ export function SidebarPinProvider({ children }: { children: ReactNode }) {
 
   const setLeftMode = useCallback((mode: SidebarMode) => setLeftModeState(mode), [])
   const setRightMode = useCallback((mode: SidebarMode) => setRightModeState(mode), [])
-  const cycleLeftMode = useCallback(() => setLeftModeState((m) => nextMode(m)), [])
+  // In a narrow window every left mode renders hidden, so cycling it would change
+  // nothing on screen: the toggle (title bar, ⌘B, ⌘K) opens the overlay instead,
+  // keeping Mission/Board, the live board and the rest one click away.
+  const [leftFlyoutOpen, setLeftFlyoutOpen] = useState(false)
+  useEffect(() => { if (!narrow) setLeftFlyoutOpen(false) }, [narrow])
+  const cycleLeftMode = useCallback(() => {
+    if (narrow) setLeftFlyoutOpen((open) => !open)
+    else setLeftModeState((m) => nextMode(m))
+  }, [narrow])
   const cycleRightMode = useCallback(() => setRightModeState((m) => nextMode(m)), [])
 
   // Memoise so consumers don't re-render unless leftMode/rightMode actually change
   // (the setters are stable). An inline object would re-render every consumer on
   // every parent render.
   const value = useMemo(
-    () => ({ leftMode, rightMode, effectiveLeftMode, effectiveRightMode, setLeftMode, setRightMode, cycleLeftMode, cycleRightMode }),
-    [leftMode, rightMode, effectiveLeftMode, effectiveRightMode, setLeftMode, setRightMode, cycleLeftMode, cycleRightMode],
+    () => ({ leftMode, rightMode, effectiveLeftMode, effectiveRightMode, setLeftMode, setRightMode, cycleLeftMode, cycleRightMode, narrow, leftFlyoutOpen, setLeftFlyoutOpen }),
+    [leftMode, rightMode, effectiveLeftMode, effectiveRightMode, setLeftMode, setRightMode, cycleLeftMode, cycleRightMode, narrow, leftFlyoutOpen],
   )
 
   return (

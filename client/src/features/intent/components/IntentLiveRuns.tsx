@@ -43,7 +43,7 @@ import { isOpenFlow } from '../lib/intent-api'
 import { flowFailureStep } from '../lib/intent-failure'
 import { FLOW_SPEC_LOOP_ID } from '../lib/intent-offer'
 import { FLOW_ACCENT } from '../lib/intent-accent'
-import { flowOpenRunTone } from '../lib/intent-run-tone'
+import { flowOpenRunTone, intentRunState } from '../lib/intent-run-tone'
 import { IntentHandOffCard } from './IntentHandOffCard'
 import { IntentPanel, IntentStripControls, flowStripHeadline, useFlowLiveStats } from './IntentStripControls'
 
@@ -111,6 +111,8 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
         key, label, attributes, mode,
         // Ready to hand off is calm: the person just asked for it, nothing is late.
         tone: launching ? 'launching' : 'info',
+        // Ready to turn into a PR: the Intent's result waits for the person's hand-off.
+        ...(launching ? {} : { state: 'review' as const }),
         headline: launching ? t('flow.strip.launching') : t('flow.strip.ready'),
         panel: <IntentHandOffCard projectId={projectId} conversationId={conversationId} flow={flow} receipt={null} />,
         autoOpenToken: wrappingUp ? handOffToken : null,
@@ -126,6 +128,8 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
       return [{
         key, label, attributes, mode,
         tone: stillHandingOff ? 'info' : 'launching',
+        // Still waiting for the handed-off run to show: not started yet, as far as we know.
+        state: 'queued',
         headline: stillHandingOff ? t('flow.strip.stillHandingOff', { rail }) : t('flow.strip.launchingOn', { rail }),
         controls: stillHandingOff ? (
           <button
@@ -148,6 +152,7 @@ export function useFlowLiveRuns({ conversationId, projectId, inline }: MissionCo
     const tone = flowOpenRunTone(flow.state) ?? 'running'
     return [{
       key, label, attributes, tone, mode,
+      state: intentRunState(flow.state),
       working,
       headline: flowStripHeadline(t, flow, stats.diff),
       controls: <IntentStripControls projectId={projectId} flow={flow} inline={inline} />,

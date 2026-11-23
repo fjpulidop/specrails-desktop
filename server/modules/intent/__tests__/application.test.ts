@@ -456,6 +456,21 @@ describe('handOffFlow', () => {
     await expect(service.discardFlow('flow-1')).rejects.toBeInstanceOf(IntentTransitionError)
   })
 
+  it('asked for the mission engine (an MCP client), runs on the Intent conversation\'s engine; an explicit engine or no flag keeps the given options', async () => {
+    const ctx = setup()
+    ctx.agent.launchEngine.mockReturnValue({ aiEngine: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'medium' })
+    await ctx.service.startFlow(startInput)
+    await ctx.service.handOffFlow({ flowId: 'flow-1', railIndex: 2, options: { loopId: 'factory:flow-spec', reasoningEffort: 'high' }, missionEngine: true })
+    expect(ctx.agent.launchEngine).toHaveBeenCalledWith('conv-1')
+    expect(ctx.rails.launch).toHaveBeenCalledWith(expect.objectContaining({ options: { loopId: 'factory:flow-spec', aiEngine: 'codex', model: 'gpt-6.1-sol', reasoningEffort: 'high' } }))
+
+    const plain = setup()
+    plain.agent.launchEngine.mockReturnValue({ aiEngine: 'codex' })
+    await plain.service.startFlow(startInput)
+    await plain.service.handOffFlow({ flowId: 'flow-1', railIndex: 2, options: { aiEngine: 'claude' }, missionEngine: true })
+    expect(plain.rails.launch).toHaveBeenCalledWith(expect.objectContaining({ options: { aiEngine: 'claude' } }))
+  })
+
   it.each([
     ['freeze', (ctx: ReturnType<typeof setup>) => ctx.worktrees.freeze.mockRejectedValueOnce(new IntentConflictError('flow_freeze_failed', 'dirty'))],
     ['launch', (ctx: ReturnType<typeof setup>) => ctx.rails.launch.mockRejectedValueOnce(new Error('rail busy'))],

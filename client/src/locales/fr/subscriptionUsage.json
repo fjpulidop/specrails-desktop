@@ -63,5 +63,13 @@
     "limitUnknown": "Limite mensuelle indisponible",
     "resets": "Réinitialisation le {{time}}",
     "progress": "Dépenses mensuelles Claude"
+  },
+  "statusBar": {
+    "label": "Utilisation du forfait : {{provider}} à {{percent}} %. Voir le détail",
+    "rejectedLabel": "Utilisation du forfait : limite de {{provider}} atteinte. Voir le détail"
+  },
+  "today": {
+    "title": "Dépensé aujourd'hui",
+    "estimated": "Inclut des estimations pour les fournisseurs qui n'indiquent pas de prix"
   }
 }

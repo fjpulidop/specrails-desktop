@@ -7,6 +7,7 @@ import { initDb, type DbInstance } from '../../../db'
 import { initDesktopDb } from '../../../desktop-db'
 import { LoopRunManager, type LoopExecutors } from '../../loops/runtime/loop-run-manager'
 import { launchIsolatedRail, reconcileRailWorktrees, type IsolatedLaunchIO } from './rail-isolated-launch'
+import { RUN_STOPPED_DETAIL } from './rail-isolated-launch-contracts'
 import { launchMultiRepositoryRail, listRepositoryDeliveries, refreshRepositoryDeliveryGroup } from './multi-repo-execution'
 import { getActivePrDeliveryByRail, getPrDelivery, listActivePrDeliveries, toPrDeliverySnapshot, transitionDecision } from './rail-pr-store'
 import { executePrDecision, type PrDecisionDeps } from './rail-pr-decision'
@@ -430,9 +431,10 @@ describe('coordinated multi-repository execution', () => {
     const f = fixture()
     await launchIsolatedRail(f.input, f.io)
     const parentId = await settled(f.db)
-    for (const child of listRepositoryDeliveries(f.db, parentId)) transitionDecision(f.db, child.id, child.decision, 'implementation_failed', { implementationOutcome: 'failed', statusCode: 'run_stopped' })
+    // A legacy child row may still carry the partial commit's hygiene refusal.
+    for (const child of listRepositoryDeliveries(f.db, parentId)) transitionDecision(f.db, child.id, child.decision, 'implementation_failed', { implementationOutcome: 'failed', statusCode: 'run_stopped', statusDetail: 'OpenSpec delivery blocked by new active changes: "openspec/changes/x".' })
     refreshRepositoryDeliveryGroup(f.db, parentId)
-    expect(getPrDelivery(f.db, parentId)).toMatchObject({ decision: 'implementation_failed', status_code: 'run_stopped' })
+    expect(getPrDelivery(f.db, parentId)).toMatchObject({ decision: 'implementation_failed', status_code: 'run_stopped', status_detail: RUN_STOPPED_DETAIL })
   }, 20000)
 
   it('a group with one stopped run and one real failure stays failed', async () => {

@@ -6,6 +6,7 @@
     "noResults": "Sin resultados",
     "activeBadge": "activo",
     "groups": {
+      "jumpBackIn": "Volver a",
       "projects": "Proyectos",
       "missions": "Misiones",
       "spec": "Spec",
@@ -25,7 +26,7 @@
       "desktopAnalytics": "Analíticas de Desktop",
       "projectAnalytics": "Analíticas del proyecto",
       "activityFeed": "Actividad",
-      "desktopSettings": "Ajustes de Desktop",
+      "desktopSettings": "Ajustes",
       "docs": "Docs",
       "replayTour": "Repetir el tour"
     },
@@ -68,7 +69,7 @@
       "switchTheme": "Cambiar tema",
       "switchToMission": "Cambiar a modo Misión",
       "switchToBoard": "Cambiar a modo Tablero",
-      "openAppSettings": "Abrir ajustes de la app",
+      "openAppSettings": "Abrir ajustes",
       "openProjectSettings": "Abrir ajustes del proyecto",
       "switchProject": "Cambiar de proyecto",
       "runLoop": "Ejecutar loop",
@@ -94,7 +95,7 @@
         "themeTitle": "Tema",
         "themePlaceholder": "Elige un tema…",
         "noThemes": "No hay temas disponibles.",
-        "appSettingsTitle": "Ajustes de la app",
+        "appSettingsTitle": "Ajustes",
         "projectSettingsTitle": "Ajustes del proyecto",
         "sectionPlaceholder": "Elige una sección…",
         "noSections": "No hay secciones.",
@@ -149,7 +150,11 @@
       "copyPrDescriptionN": "Copiar descripción de PR de #{{id}}",
       "exportHandoff": "Exportar traspaso",
       "copyPrDescription": "Copiar descripción de PR",
-      "moveFocusedSpec": "Mover la spec enfocada…"
+      "moveFocusedSpec": "Mover la spec enfocada…",
+      "openLiveBoard": "Abrir tablero en vivo",
+      "openLiveBoardKeywords": "tablero, en vivo, ejecuciones, en curso, todos los proyectos, misiones, estado",
+      "toggleKeepAwake": "Mantener el ordenador despierto (activar / desactivar)",
+      "toggleKeepAwakeKeywords": "mantener despierto, evitar reposo, reposo, suspensión"
     },
     "scopes": {
       "remove": "Quitar ámbito",
@@ -212,7 +217,7 @@
       }
     },
     "settings": {
-      "appScope": "Ajustes de Desktop",
+      "appScope": "Ajustes",
       "projectScope": "Ajustes del proyecto",
       "entries": {
         "theme": {
@@ -247,6 +252,10 @@
           "label": "Sub-agentes (Desktop)",
           "keywords": "subagentes, sub-agentes, nativos, delegados, paralelo, subagents"
         },
+        "missionConnectors": {
+          "label": "Conectores en las misiones",
+          "keywords": "conectores, mcp, claude.ai, codex, servidores, google drive, herramientas"
+        },
         "mobileCompanion": {
           "label": "App móvil complementaria",
           "keywords": "móvil, companion, teléfono, emparejar, qr, ipad, remoto, mobile"
@@ -258,6 +267,10 @@
         "budgetAlerts": {
           "label": "Límite diario y alertas de coste",
           "keywords": "presupuesto, diario, coste, gasto, límite, alerta, dinero, budget"
+        },
+        "resumeOnDailyReset": {
+          "label": "Reanudar ejecuciones al reiniciarse el día",
+          "keywords": "presupuesto, diario, reinicio, medianoche, reanudar, ejecuciones, retenidas, automáticamente"
         },
         "notifications": {
           "label": "Notificaciones del sistema",
@@ -282,6 +295,10 @@
         "about": {
           "label": "Información de Desktop",
           "keywords": "acerca de, info, puerto, base de datos, versión, about"
+        },
+        "reportProblem": {
+          "label": "Informar de un problema",
+          "keywords": "informe, problema, error, fallo, registros, diagnóstico, zip, soporte"
         },
         "repositories": {
           "label": "Repositorios",
@@ -350,9 +367,30 @@
         "reduceMotion": {
           "label": "Reducir movimiento",
           "keywords": "reducir movimiento, animación, accesibilidad, vestibular, calma, transiciones, motion"
+        },
+        "retainedWorktrees": {
+          "label": "Worktrees de ejecuciones en disco",
+          "keywords": "almacenamiento, disco, worktrees, limpiar, limpieza, espacio, retenidos, ramas, quitar"
+        },
+        "safetyArchives": {
+          "label": "Archivos guardados fuera de una PR",
+          "keywords": "almacenamiento, disco, archivo de seguridad, archivos guardados, cuarentena, limpiar, eliminar"
+        },
+        "autoContinue": {
+          "label": "Continuar automáticamente las ejecuciones fallidas",
+          "keywords": "continuar, reintentar, ejecución fallida, automático, recuperación"
+        },
+        "machineInstalls": {
+          "label": "Instalaciones recordadas",
+          "keywords": "instalar, brew, toda la máquina, herramienta, aprobación, revocar"
+        },
+        "envFiles": {
+          "label": "Archivos de entorno en las ejecuciones",
+          "keywords": "archivos env, .env, dotenv, APP_KEY, secretos, entorno, worktree"
         }
       }
-    }
+    },
+    "jumpAttempt": "Intento {{number}}"
   },
   "toasts": {
     "queued": "{{name}} en cola",
@@ -403,6 +441,7 @@
       "navigateProjectPageWithAgents": "Ir a una página del proyecto (Tablero/Trabajos/Analíticas/Agentes/Ajustes)",
       "navigateProjectPage": "Ir a una página del proyecto (Tablero/Trabajos/Analíticas/Ajustes)",
       "switchProject": "Cambiar de proyecto por posición",
+      "paletteJumpBackIn": "Abrir una fila de «Volver a» con la paleta ⌘K abierta",
       "goDashboard": "Ir al tablero",
       "goActivity": "Ir a Actividad / Trabajos",
       "goAnalytics": "Ir a Analíticas",
@@ -424,7 +463,12 @@
       "boardSelectClick": "Tablero: clic alterna una spec, Mayús+clic selecciona un rango",
       "boardSelectColumn": "Tablero: seleccionar todas las specs de la columna",
       "boardClearSelection": "Tablero: quitar la selección",
-      "boardMove": "Tablero: mover la spec enfocada (estado o rail)"
+      "boardMove": "Tablero: mover la spec enfocada (estado o rail)",
+      "openLiveBoard": "Abrir el tablero en vivo (todas las ejecuciones de todos los proyectos)",
+      "splitFocusPane": "Ir al panel de misión siguiente / anterior",
+      "splitMaximize": "Maximizar o restaurar el panel de misión activo",
+      "splitEqualize": "Igualar los paneles de misión",
+      "splitClose": "Cerrar el panel de misión activo"
     },
     "searchLabel": "Buscar atajos y guías",
     "searchPlaceholder": "Buscar atajos y guías…",
@@ -440,7 +484,9 @@
       "downloading": "Descargando actualización",
       "installing": "Instalando actualización",
       "ready": "Actualización lista",
-      "error": "Error al actualizar"
+      "error": "Error al actualizar",
+      "busy": "Hay trabajo en marcha",
+      "waiting": "Esperando para reiniciar"
     },
     "desc": {
       "available": "Hay una nueva versión de Specrails lista para instalar.",
@@ -448,12 +494,15 @@
       "progress": "{{percent}}% · {{downloaded}} de {{total}}",
       "installing": "Verificando la firma y terminando…",
       "ready": "Reinicia para abrir la versión {{version}}.",
-      "errorFallback": "No se pudo completar la actualización. Inténtalo de nuevo."
+      "errorFallback": "No se pudo completar la actualización. Inténtalo de nuevo.",
+      "busy": "Reiniciar ahora detiene {{what}}.",
+      "waiting": "Se reinicia cuando no haya nada en marcha · {{what}}"
     },
     "pill": {
       "downloading": "Descargando",
       "installing": "Instalando",
-      "ready": "Lista"
+      "ready": "Lista",
+      "waiting": "En espera"
     },
     "actions": {
       "restart": "Reiniciar",
@@ -461,7 +510,10 @@
       "update": "Actualizar",
       "installing": "Instalando…",
       "tryAgain": "Reintentar",
-      "dismiss": "Descartar"
+      "dismiss": "Descartar",
+      "whenIdle": "Instalar cuando no haya nada en marcha",
+      "restartNow": "Reiniciar ahora",
+      "cancelWait": "Cancelar"
     },
     "mockReady": "Actualización simulada lista — reinicio omitido",
     "errors": {
@@ -470,6 +522,17 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "{{count}} turno de misión",
+      "missions_other": "{{count}} turnos de misión",
+      "runs_one": "{{count}} ejecución",
+      "runs_other": "{{count}} ejecuciones",
+      "something": "trabajo en curso"
+    },
+    "chip": {
+      "text": "Actualizar",
+      "label": "Specrails {{version}} está disponible. Ver la actualización"
     }
   },
   "notifications": {
@@ -483,8 +546,43 @@
     "jobStuckStopped": "Ejecución detenida",
     "jobStuckStopFailed": "No se pudo detener la ejecución",
     "providerLimit": "Límite de uso del proveedor alcanzado",
-    "providerLimitBody": "{{provider}} rechazó la petición: límite de uso alcanzado — se restablece {{resetsAt}}. La ejecución se ha detenido; vuelve a lanzarla o usa Recuperar y reintentar tras el reinicio.",
-    "providerLimitBodyNoReset": "{{provider}} rechazó la petición: límite de uso alcanzado. La ejecución se ha detenido; vuelve a lanzarla cuando se restablezca el límite."
+    "providerLimitBody": "{{provider}} rechazó la petición: límite de uso alcanzado — se restablece {{resetsAt}}. La ejecución está en pausa y se reanuda sola tras el restablecimiento; también puedes continuarla ahora con otro proveedor.",
+    "providerLimitBodyNoReset": "{{provider}} rechazó la petición: límite de uso alcanzado. La ejecución está en pausa; reanúdala cuando se restablezca el límite o continúala ahora con otro proveedor.",
+    "attention": {
+      "open": "Abrir",
+      "openInbox": "Ver bandeja",
+      "actions": {
+        "answer": "Responder",
+        "review": "Revisar",
+        "view": "Ver",
+        "open": "Abrir"
+      },
+      "single": {
+        "question": "{{subject}} espera tu respuesta",
+        "approval": "{{subject}} necesita tu aprobación",
+        "review": "{{subject}} está listo para revisar",
+        "stopped": "{{subject}} se ha detenido",
+        "stuck": "{{subject}}: una ejecución no avanza",
+        "paused": "{{subject}} está en pausa por un límite",
+        "pausedByYou": "{{subject}} está en pausa (pausada por ti)",
+        "held": "{{subject}} está en pausa",
+        "done": "{{subject}} ha terminado",
+        "generic": "{{subject}} requiere tu atención"
+      },
+      "pending_one": "{{count}} aviso pendiente",
+      "pending_other": "{{count}} avisos pendientes",
+      "breakdown": "{{list}} pendientes",
+      "group": {
+        "question_one": "{{count}} pregunta",
+        "question_other": "{{count}} preguntas",
+        "approval_one": "{{count}} aprobación",
+        "approval_other": "{{count}} aprobaciones",
+        "review_one": "{{count}} revisión",
+        "review_other": "{{count}} revisiones"
+      },
+      "missionReplied": "{{title}} respondió",
+      "untitledMission": "Tu misión"
+    }
   },
   "templates": {
     "emptyState": {

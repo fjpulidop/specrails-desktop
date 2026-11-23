@@ -222,6 +222,44 @@ describe('FrameworkManager', () => {
     })
   })
 
+  describe('materializeAsync (non-blocking)', () => {
+    it('materializes with --no-swap and the same result shape as materialize', async () => {
+      installFakeCore('5.0.0')
+      const fm = new FrameworkManager({ home })
+      const res = await fm.materializeAsync(undefined, ['claude'])
+      expect(res).toEqual({ ran: true, version: '5.0.0', providers: ['claude'], errors: [] })
+      expect(existsSync(path.join(frameworkRoot(home), '5.0.0', '.claude', 'agents', 'sr-architect.md'))).toBe(true)
+      expect(readCurrentFrameworkVersion(home)).toBeNull()
+    })
+
+    it('keeps the event loop responsive while the child runs', async () => {
+      installFakeCore('5.0.0')
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), 'setTimeout(() => process.exit(0), 300)')
+      const fm = new FrameworkManager({ home })
+      let ticks = 0
+      const timer = setInterval(() => { ticks += 1 }, 10)
+      try {
+        const res = await fm.materializeAsync('5.0.0', ['claude'])
+        expect(res.errors).toEqual([])
+      } finally { clearInterval(timer) }
+      expect(ticks).toBeGreaterThan(5)
+    })
+
+    it('records a per-provider error when the CLI exits non-zero', async () => {
+      installFakeCore('5.0.0')
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), 'process.stderr.write("boom"); process.exit(3)')
+      const res = await new FrameworkManager({ home }).materializeAsync('5.0.0', ['claude'])
+      expect(res.ran).toBe(true)
+      expect(res.providers).toEqual([])
+      expect(res.errors).toEqual([{ provider: 'claude', message: 'boom' }])
+    })
+
+    it('no-ops without a bundled core', async () => {
+      delete process.env.SPECRAILS_BUNDLED_CORE_PATH
+      await expect(new FrameworkManager({ home }).materializeAsync()).resolves.toEqual({ ran: false, version: null, providers: [], errors: [] })
+    })
+  })
+
   describe('swapCurrent', () => {
     it('is a no-op when current already points at the version', () => {
       installFakeCore('5.0.0')
@@ -392,6 +430,58 @@ describe('FrameworkManager', () => {
       delete process.env.SPECRAILS_BUNDLED_CORE_PATH
       const noCli = new FrameworkManager({ home })
       expect(noCli.swapCurrentDetailed('9.9.9').detail).toMatch(/no usable core CLI/)
+    })
+  })
+
+  describe('swapCurrentDetailedAsync (non-blocking, same contract)', () => {
+    it('re-points current like the sync swap, and short-circuits when already current', async () => {
+      installFakeCore('5.0.0')
+      const fm = new FrameworkManager({ home })
+      fm.materialize('5.0.0', ['claude'])
+      expect(await fm.swapCurrentDetailedAsync('5.0.0')).toEqual({ ok: true, detail: null })
+      writeFileSync(path.join(coreDir, 'package.json'), JSON.stringify({ version: '5.1.0' }))
+      fm.materialize('5.1.0', ['claude'])
+      expect(await fm.swapCurrentDetailedAsync('5.1.0')).toEqual({ ok: true, detail: null })
+      expect(readCurrentFrameworkVersion(home)).toBe('5.1.0')
+      expect(await fm.swapCurrentDetailedAsync('5.1.0')).toEqual({ ok: true, detail: null })
+    })
+
+    it('carries the same failure detail and restores the previous framework', async () => {
+      installFakeCore('5.0.0')
+      const fm = new FrameworkManager({ home })
+      fm.materialize('5.0.0', ['claude'])
+      fm.swapCurrent('5.0.0')
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), `
+        const fs = require('fs'), path = require('path');
+        const fw = process.argv[process.argv.indexOf('--framework-dir') + 1];
+        fs.rmSync(path.join(fw, 'current'), { recursive: true, force: true });
+        process.stderr.write('EPERM: publication denied'); process.exit(41);
+      `)
+      const result = await fm.swapCurrentDetailedAsync('5.1.0')
+      expect(result.ok).toBe(false)
+      expect(result.detail).toContain('EPERM: publication denied')
+      expect(result.detail).toContain('previous framework 5.0.0 restored')
+      expect(readCurrentFrameworkVersion(home)).toBe('5.0.0')
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), 'process.exit(5)')
+      expect((await fm.swapCurrentDetailedAsync('9.9.9')).detail).toMatch(/^exit 5/)
+    })
+
+    it('keeps the event loop turning while the swap child runs', async () => {
+      installFakeCore('5.0.0')
+      const fm = new FrameworkManager({ home })
+      fm.materialize('5.0.0', ['claude'])
+      writeFileSync(path.join(coreDir, 'dist', 'installer', 'cli.js'), `
+        const end = Date.now() + 300; while (Date.now() < end) {}
+        process.exit(3)
+      `)
+      let ticks = 0
+      const ticker = setInterval(() => { ticks += 1 }, 10)
+      try {
+        expect(await fm.swapCurrentDetailedAsync('9.9.9')).toEqual({ ok: false, detail: 'exit 3' })
+      } finally {
+        clearInterval(ticker)
+      }
+      expect(ticks).toBeGreaterThan(5)
     })
   })
 

@@ -59,6 +59,28 @@
     "draft": "Borrador",
     "onReview": "En revisión"
   },
+  "runState": {
+    "queued": "En cola",
+    "working": "En curso",
+    "needs-input": "Necesita respuesta",
+    "review": "Lista para revisar",
+    "paused": "En pausa",
+    "blocked": "Bloqueada",
+    "failed": "Fallida",
+    "done": "Hecha",
+    "stopped": "Detenida",
+    "hint": {
+      "queued": "Esperando para empezar",
+      "working": "El trabajo está en curso",
+      "needs-input": "Un agente espera tu respuesta",
+      "review": "Un resultado espera tu decisión",
+      "paused": "En pausa: reanúdala para continuar",
+      "blocked": "No puede seguir hasta que cambie algo externo",
+      "failed": "Terminó con un error",
+      "done": "Terminó correctamente",
+      "stopped": "Terminó sin completarse: cancelada, omitida o reemplazada"
+    }
+  },
   "prDeliveryStatus": {
     "implementation_running": "Implementación en curso",
     "implementation_failed": "Implementación fallida",
@@ -179,6 +201,7 @@
     "stillExceeded": "El límite diario sigue agotado.",
     "exceededRun": "Límite por ejecución alcanzado ({{spent}} de {{budget}}). La ejecución está en pausa.",
     "pausedRun": "En pausa en el límite por ejecución ({{spent}} de {{budget}}). Continúa sin él o súbelo.",
+    "pausedRunNext": "En pausa antes de {{step}}: suele costar ~{{next}} y quedan {{left}} del límite de {{budget}} por ejecución ({{spent}} gastado). Ejecútalo una vez, continúa sin límite o súbelo.",
     "actionRun": "Continúa sin el límite, o súbelo, y reanuda.",
     "exceededProject_week": "Límite semanal del proyecto alcanzado ({{spent}} de {{budget}}). No se lanzó nada.",
     "exceededProject_month": "Límite mensual del proyecto alcanzado ({{spent}} de {{budget}}). No se lanzó nada.",
@@ -198,6 +221,7 @@
       "title": "Ejecución en pausa en su límite",
       "raise": "Subir el límite y continuar",
       "continue": "Continuar sin límite",
+      "once": "Ejecutar solo este paso",
       "raiseTo": "Subir el límite a (USD)",
       "mustExceed": "Debe superar los {{spent}} ya gastados"
     },
@@ -259,7 +283,11 @@
       "specsBoard": "las specs y el backlog",
       "specTimeline": "la cronología y el traspaso de una spec",
       "accessibility": "accesibilidad y personalización",
-      "prDecision": "las opciones de entrega"
+      "prDecision": "las opciones de entrega",
+      "attention": "Notificaciones",
+      "liveBoard": "el tablero en vivo",
+      "serverRecovery": "Si el servidor local se detiene",
+      "retainedWorktrees": "los worktrees de ejecuciones guardados en disco"
     }
   },
   "forecast": {
@@ -294,8 +322,8 @@
       "startedRail": "Rail {{rail}}: ejecución iniciada",
       "pausedBudget": "Ejecución en pausa: se alcanzó un límite de gasto",
       "pausedLimit": "Ejecución en pausa: se alcanzó el límite del proveedor",
-      "needsYou": "Una ejecución te necesita",
-      "needsYouRail": "Rail {{rail}}: una ejecución te necesita",
+      "needsYou": "Una ejecución requiere tu atención",
+      "needsYouRail": "Rail {{rail}}: una ejecución requiere tu atención",
       "failed": "La ejecución falló",
       "failedRail": "Rail {{rail}}: la ejecución falló",
       "finished": "Ejecución terminada",
@@ -310,12 +338,50 @@
       "finishedSpec": "Rail {{rail}}: #{{id}} terminada",
       "failedSpec": "Rail {{rail}}: #{{id}} falló",
       "stoppedSpec": "Rail {{rail}}: #{{id}} detenida",
-      "needsYouSpec": "Rail {{rail}}: #{{id}} te necesita",
+      "needsYouSpec": "Rail {{rail}}: #{{id}} requiere tu atención",
       "reviewReadySpec": "Rail {{rail}}: revisión de #{{id}} lista"
     }
   },
   "errors": {
     "technicalDetails": "Detalles técnicos",
     "copyDetails": "Copiar detalles"
+  },
+  "runQuestion": {
+    "asker": {
+      "planner": "El planificador necesita una decisión",
+      "developer": "El desarrollador necesita que decidas",
+      "fixer": "El corrector necesita que decidas",
+      "reviewer": "El revisor necesita que decidas",
+      "install": "Specrails necesita tu permiso",
+      "run": "La ejecución necesita tu respuesta"
+    },
+    "approval": "La ejecución necesita tu aprobación",
+    "recommended": "Recomendada",
+    "other": "Otra respuesta…",
+    "otherLabel": "Tu respuesta",
+    "otherPlaceholder": "Escribe tu respuesta",
+    "answer": "Responder",
+    "approve": "Aprobar",
+    "reject": "Rechazar",
+    "rejectLabel": "¿Por qué lo rechazas?",
+    "rejectPlaceholder": "Tu motivo",
+    "back": "Volver",
+    "sending": "Enviando…",
+    "consequence": {
+      "waits": "La ejecución espera, sin coste, hasta que respondas.",
+      "mayEnd": "Si dices que no va aquí, la ejecución termina.",
+      "endsRunOption": "Elegir «{{label}}» termina la ejecución.",
+      "reject": "Rechazar termina la ejecución. No se archiva ni se fusiona nada."
+    },
+    "sent": "Respuesta enviada: la ejecución continúa.",
+    "approved": "Aprobado: la ejecución continúa.",
+    "rejected": "Rechazado: la ejecución termina.",
+    "failed": "No se pudo enviar tu respuesta",
+    "showMore": "Ver todo",
+    "showLess": "Ver menos",
+    "notice": "Requiere atención",
+    "notHere": "No hacerlo aquí",
+    "notHereMeaning": "Esta spec no va en este repositorio; la ejecución termina sin cambios.",
+    "sentEnds": "Respuesta enviada: la ejecución termina."
   }
 }

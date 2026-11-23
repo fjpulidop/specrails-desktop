@@ -17,10 +17,11 @@ vi.mock('tree-kill', () => ({
 // is covered exhaustively in user-mcp-config.test.ts.
 vi.mock('../../../user-mcp-config', () => ({
   buildUserMcpArgs: vi.fn(() => []),
+  buildCodexReservedMcpArgs: vi.fn(() => []),
 }))
 
 import { spawn as mockSpawn, execSync as mockExecSync } from 'child_process'
-import { buildUserMcpArgs as mockBuildUserMcpArgs } from '../../../user-mcp-config'
+import { buildUserMcpArgs as mockBuildUserMcpArgs, buildCodexReservedMcpArgs as mockBuildCodexReservedMcpArgs } from '../../../user-mcp-config'
 import treeKill from 'tree-kill'
 import { ChatManager } from './chat-manager'
 import { attachmentManager } from '../../../attachment-manager'
@@ -102,6 +103,7 @@ describe('ChatManager', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.mocked(mockBuildCodexReservedMcpArgs).mockReturnValue([])
     vi.spyOn(process, 'kill').mockImplementation(() => true)
     __resetBinaryProbeCacheForTest()
     vi.mocked(mockExecSync).mockReturnValue(Buffer.from('/usr/bin/claude'))
@@ -1391,7 +1393,7 @@ describe('ChatManager', () => {
       expect(promptArg).not.toContain('---')
     })
 
-    it('defaults to gpt-6.1-sol when conversation.model is empty string', async () => {
+    it('defaults to gpt-6.2-sol when conversation.model is empty string', async () => {
       // Create a conversation with empty model — simulates a null/missing model override
       createConversation(dbCodex, { id: 'codex-conv-empty-model', model: '' })
       const child = createMockChildProcess()
@@ -1403,7 +1405,7 @@ describe('ChatManager', () => {
 
       const spawnArgs = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
       expect(spawnArgs).toContain('--model')
-      expect(spawnArgs).toContain('gpt-6.1-sol')
+      expect(spawnArgs).toContain('gpt-6.2-sol')
     })
 
     it('captures real thread_id from codex thread.started event on successful close', async () => {
@@ -2510,6 +2512,29 @@ describe('ChatManager', () => {
 
       pushLine(child, assistantEvent('hi'))
       pushLine(child, resultEvent('sess'))
+      await finishProcess(child, 0)
+      await sendPromise
+    })
+
+    it('switches off the person\'s own codex specrails entry on codex Explore turns', async () => {
+      vi.mocked(mockBuildCodexReservedMcpArgs).mockReturnValueOnce(['-c', 'mcp_servers.specrails.enabled=false'])
+      const cmExplore = new ChatManager(broadcast, db, projectPath, 'P', 'codex', 'proj-r', 'slug-r')
+      const convId = 'conv-explore-reserved-codex'
+      createConversation(db, {
+        id: convId, model: 'gpt-5.4-mini', kind: 'explore',
+        contextScope: { specrails: false, openspec: false, full: true, mcp: false, contractRefine: false, userMcp: true },
+      })
+      const child = createMockChildProcess()
+      vi.mocked(mockSpawn).mockReturnValue(child as any)
+      const sendPromise = cmExplore.sendMessage(convId, 'hi', { lightweight: true })
+      await Promise.resolve(); await Promise.resolve()
+
+      expect(mockBuildCodexReservedMcpArgs).toHaveBeenCalledWith({ adapterId: 'codex' })
+      const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[]
+      expect(args.join(' ')).toContain('-c mcp_servers.specrails.enabled=false')
+
+      pushLine(child, JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'hi' } }))
+      pushLine(child, JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } }))
       await finishProcess(child, 0)
       await sendPromise
     })

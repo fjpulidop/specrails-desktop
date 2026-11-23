@@ -18,7 +18,7 @@ ports-and-adapters slice.
 | `/api/projects/:projectId/flow/*` routes and error mapping | [adapters/http.ts](adapters/http.ts) |
 | Port implementations over delivery, specs, missions/Core, accounting, WebSocket (the background-process stop is injected by the registry); the hand-off authority (with the conversation summary), the settlement publication (derived change, spec rewrite, Jira) and its retry scheduler; the missions `IntentTurnContext` | [adapters/bindings.ts](adapters/bindings.ts) |
 | Public imports | [index.ts](index.ts) |
-| Production wiring | [project-registry.ts](../../project-registry.ts) (per project), [project-router.ts](../../project-router.ts) (routes), [index.ts](../../index.ts) (missions port) |
+| Production wiring | [project-context-intent.ts](../../project-context-intent.ts) (per project, called by [project-registry.ts](../../project-registry.ts)), [project-router.ts](../../project-router.ts) (routes), [index.ts](../../index.ts) (missions port) |
 
 ## Frozen identifiers
 
@@ -56,8 +56,8 @@ saga (`start:ticket`, `start:worktree`, `start:session`, `handoff:freeze`,
 `handoff:launch`).
 
 Pause, discard and hand-off first run the `stopProcesses` effect: the dev
-servers the Intent agent started in the worktree (`specrails_jobs
-background_start`, tagged `flowId`) stop before the worktree is frozen,
+servers the Intent agent started in the worktree (`specrails_background(start)`,
+tagged `flowId`) stop before the worktree is frozen,
 removed or handed to a rail. Best effort, like closing the session.
 
 ## Invariants
@@ -87,6 +87,14 @@ removed or handed to a rail. Best effort, like closing the session.
   card preselects the conversation's current provider/model/effort (rail
   default plus a note when that provider is not usable here) and Relaunch uses
   `agent.launchEngine` the same way (the stopped run's engine otherwise).
+  A hand-off request with `engine: 'mission'` and no `aiEngine` (MCP v2
+  `intent_hand_off`) resolves the same `agent.launchEngine`; without the flag
+  an omitted engine stays the rail default (the card's own choice).
+- An Intent is fully continuable from an external MCP client: v2 `send` marks
+  the turn `surface: 'mcp'` (the turn note says `Surface: MCP client`, so the
+  persona names `specrails_missions` actions instead of the Intent strip's
+  buttons), `card_decide` answers its chips, `intent_get` reads the running
+  turn, last reply and preview apps.
 - Every use case is idempotent by `flowId`; a repeated command whose target
   state already holds is a no-op.
 - Release removes only the Intent mount root (`worktrees/<flowId>`); a worktree

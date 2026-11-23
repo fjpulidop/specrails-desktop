@@ -44,8 +44,8 @@
     "intro": "Statuses are matched automatically by category (To Do / In Progress / Done). Override any state if your workflow uses custom names.",
     "auto": "Automatic (by category)",
     "todo": "Backlog / To Do",
-    "inProgress": "In Progress",
-    "onReview": "On Review",
+    "inProgress": "In progress",
+    "onReview": "On review",
     "done": "Done",
     "cancelled": "Cancelled",
     "loading": "Loading statuses…",
@@ -113,7 +113,7 @@
       "branches": "Branches",
       "commits": "Commits"
     },
-    "goToTicket": "Go to Ticket {{key}}",
+    "goToTicket": "Go to ticket {{key}}",
     "epic": "Epic"
   },
   "discard": {

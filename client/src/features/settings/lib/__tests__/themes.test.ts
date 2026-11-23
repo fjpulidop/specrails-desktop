@@ -382,7 +382,7 @@ describe('themes', () => {
       expect(Math.abs(primaryHue - cursorHue)).toBeLessThanOrEqual(5)
     })
 
-    it('uses neutral black, steel-gray, and separated saturated blue instead of SpecRails hue families', () => {
+    it('uses neutral black, steel-gray, and separated saturated blue instead of Specrails hue families', () => {
       const starWars = THEMES['galaxy']
       const specrails = THEMES.specrails
       const starWarsBackground = hslParts(starWars.previewSwatches.background)
@@ -423,7 +423,7 @@ describe('themes', () => {
       expect(galaxyCssVar('--galaxy-glow')).toBe(`drop-shadow(0 0 10px ${t.previewSwatches.accents[0].replace(')', ' / 0.45)')})`)
     })
 
-    it('keeps every Galaxy CSS color hue separated from SpecRails tokens', () => {
+    it('keeps every Galaxy CSS color hue separated from Specrails tokens', () => {
       const minimumHueDistance = 10
       const starWarsVars = cssVarsForTheme('galaxy')
       const specrailsVars = cssVarsForTheme('specrails')

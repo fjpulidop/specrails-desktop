@@ -16,6 +16,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Sparkles, ChevronDown, ChevronUp, Circle, AlertTriangle } from 'lucide-react'
+import { RunStateDot } from '../../../components/ui/run-state/run-state-dot'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../lib/utils'
 import type { SpecDraft, SpecDraftPriority } from '../../specs/lib/spec-draft'
@@ -199,7 +200,9 @@ export function AgentSpecDraftPending() {
       data-testid="agent-spec-draft-pending"
       className="inline-flex w-fit items-center gap-1.5 rounded-full border border-accent-primary/25 bg-accent-primary/10 px-2.5 py-1 text-label font-normal text-accent-primary"
     >
-      <Sparkles className="h-3 w-3 motion-safe:animate-pulse" aria-hidden />
+      {/* Still streaming in: the working lamp; Sparkles stays the object. */}
+      <RunStateDot state="working" />
+      <Sparkles className="h-3 w-3" aria-hidden />
       {t('specDraft.drafting')}
     </span>
   )

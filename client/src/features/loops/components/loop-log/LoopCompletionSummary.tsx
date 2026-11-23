@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Copy, ShieldAlert } from 'lucide-react'
+import { Check, Copy } from 'lucide-react'
+import { RunStatePill } from '../../../../components/ui/run-state/run-state-pill'
+import { RunStateGlyph } from '../../../../components/ui/run-state/run-state-glyph'
 import { blockerCommandLine, type LoopCompletion, type LoopHostBlocker } from './completion-model'
 
 /** Premium blocked state: the host could not satisfy a precondition, so the run stopped before any correction round. */
@@ -19,7 +21,7 @@ function HostBlockerBlock({ blocker }: { blocker: LoopHostBlocker }) {
   }
   return <div data-testid="loop-completion-blocker" className="rounded-md border border-accent-warning/40 bg-accent-warning/5 px-3 py-2.5 space-y-1.5">
     <p className="flex items-center gap-1.5 font-medium text-accent-warning">
-      <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <RunStateGlyph state="blocked" size="sm" />
       <span>{t('core.hostBlocked')}</span>
       <span className="ml-auto rounded-full border border-accent-warning/40 px-1.5 py-0.5 text-xs font-semibold">{t(`core.blockerKind.${blocker.kind}`, { defaultValue: blocker.kind })}</span>
     </p>
@@ -38,18 +40,33 @@ function HostBlockerBlock({ blocker }: { blocker: LoopHostBlocker }) {
   </div>
 }
 
-export function LoopCompletionSummary({ result }: { result: LoopCompletion }) {
+/** `compact`: no frame, for a toolbar row. */
+export function LoopCompletionSummary({ result, compact = false }: { result: LoopCompletion; compact?: boolean }) {
   const { t } = useTranslation('jobs')
   const {t: tl} = useTranslation('loops')
   const core = result.core
   const status = (value: string) => t(`completion.status.${value}`, { defaultValue: value })
-  return <section aria-label={t('completion.title')} className="border-b border-border/40 px-4 py-3 text-xs space-y-2" data-testid="loop-completion">
-    <p className="font-medium">{t('completion.execution')}: {status(result.execution)}</p>
-    {result.completion ? <div className="space-y-1">
-      <p className={result.completion.ok ? 'text-accent-success' : 'text-accent-warning'}>{tl('core.acceptance')}: {status(result.completion.ok ? 'complete' : 'blocked')}</p>
-      <p>{tl('core.verified')}: {status(result.completion.verified ? 'verified' : 'unverified')}</p>
-      {result.completion.blocker ? <HostBlockerBlock blocker={result.completion.blocker} /> : result.completion.reasons.map((reason,index) => <p key={index} className="text-muted-foreground">{reason}</p>)}
-    </div> : core ? <>
+  return <section aria-label={t('completion.title')} className={compact ? 'min-w-0 text-xs space-y-1' : 'border-b border-border/40 px-3 py-2 text-xs space-y-2'} data-testid="loop-completion">
+    {result.completion && compact ? <div className="flex flex-wrap items-center gap-1.5">
+      {/* The status badge already says how the run ended: only the verdicts. */}
+      <RunStatePill state={result.completion.ok ? 'done' : 'blocked'} label={<>{tl('core.acceptance')}: {status(result.completion.ok ? 'complete' : 'blocked')}</>} />
+      <RunStatePill state={result.completion.verified ? 'done' : 'queued'} label={<>{tl('core.verified')}: {status(result.completion.verified ? 'verified' : 'unverified')}</>} />
+      {result.completion.blocker && <RunStatePill state="blocked" title={result.completion.blocker.reason || undefined} label={<>{tl('core.hostBlocked')}: {tl(`core.blockerKind.${result.completion.blocker.kind}`, { defaultValue: result.completion.blocker.kind })}</>} />}
+    </div> : result.completion ? <div className="space-y-1.5">
+      {/* One line: what happened, whether it was accepted, whether it was verified. */}
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="font-medium">{t('completion.execution')}: {status(result.execution)}</span>
+        <span aria-hidden className="text-muted-foreground">·</span>
+        <span className={result.completion.ok ? 'text-accent-success' : 'text-accent-warning'}>{tl('core.acceptance')}: {status(result.completion.ok ? 'complete' : 'blocked')}</span>
+        <span aria-hidden className="text-muted-foreground">·</span>
+        <span>{tl('core.verified')}: {status(result.completion.verified ? 'verified' : 'unverified')}</span>
+      </p>
+      {result.completion.blocker ? <HostBlockerBlock blocker={result.completion.blocker} /> : result.completion.reasons
+        // A reason that only repeats the verification state says nothing new.
+        .filter(reason => !['verified', 'unverified'].includes(reason.trim()))
+        .map((reason,index) => <p key={index} className="text-muted-foreground">{reason}</p>)}
+    </div> : compact ? null : <p className="font-medium">{t('completion.execution')}: {status(result.execution)}</p>}
+    {result.completion ? null : core ? <>
       <dl className="grid grid-cols-2 gap-2 md:grid-cols-4">
         {(['implementation', 'validation', 'archive', 'delivery'] as const).map(key => <div key={key}>
           <dt className="text-muted-foreground">{t(`completion.${key}`)}</dt>

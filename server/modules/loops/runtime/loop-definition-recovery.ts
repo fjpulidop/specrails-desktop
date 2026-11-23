@@ -6,7 +6,7 @@ import type { DbInstance } from '../../../db'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { windowsSpawnEnv } from '../../../util/win-spawn'
 import { readFrozenRuntimeHost } from '../../agent-runtime/runtime/agent-runtime-bridge'
-import { resolveRetainedAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-package'
+import { resolveRetainedAgentRuntimeForInspection } from '../../agent-runtime/runtime/agent-runtime-package'
 import { readDefinitionRun, type DefinitionCheckpoint } from './loop-runs-store'
 import type { DefinitionCompletion, DefinitionInterrupt } from './loop-definition-run'
 
@@ -22,7 +22,7 @@ export interface DefinitionRunProbe {
   pendingInterrupts: DefinitionInterrupt[]
   completion: DefinitionCompletion | null
   /** Full inspection only; exact scope/attempt identities prevent branch conflation. */
-  scopes?: Array<{ nodePath: string; scopeId: string; kind: string; status: string; attemptId: string | null; output?: unknown }>
+  scopes?: Array<{ nodePath: string; scopeId: string; kind: string; status: string; attemptId: string | null; visits?: number; output?: unknown }>
   coreRevision: number | null
   eventCursor: number | null
   probedAt: string
@@ -58,7 +58,10 @@ export async function probeDefinitionRun(ctx: DefinitionProbeContext, runId: str
       host = { cwd: path.dirname(contextPath), env: { ...ctx.env, SPECRAILS_GIT_AUTO: 'false' } }
       selector = ['--run-dir', runDirectory]
     }
-    const cli = resolveRetainedAgentRuntime(contextPath)
+    // `status` only reads the run: verify the retained package off the event loop and
+    // share the verification across runs pinned to the same package (startup probes
+    // every retained run; a synchronous full digest each stalled the server ~20 s).
+    const cli = await resolveRetainedAgentRuntimeForInspection(contextPath)
     const { stdout } = await promisify(execFile)(resolveCoreNodeRuntime(), [cli, 'status', ...selector, ...(includeOutputs ? [] : ['--compact'])], {
       cwd: host.cwd, env: windowsSpawnEnv(host.env), windowsHide: true, timeout: 15_000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8',
     })

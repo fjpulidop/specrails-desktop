@@ -22,6 +22,7 @@ import {
   type HeadroomProvider,
 } from './headroom-routing'
 import { treeKillSafe, windowsSpawnEnv } from './util/win-spawn'
+import { logRejection } from './util/log-rejection'
 
 export type HeadroomPhase =
   | 'idle'
@@ -826,6 +827,7 @@ export class HeadroomManager {
     routes: Record<HeadroomProvider, boolean>
     raw: unknown
   } | null = null
+  private versionCache: { stamp: string; version: string | null } | null = null
   private metricsCache: HeadroomMetricsState = emptyMetricsState()
   private metricsRefresh: Promise<void> | null = null
 
@@ -918,7 +920,7 @@ export class HeadroomManager {
   }
 
   async getFreshState(): Promise<HeadroomState> {
-    if (this.shuttingDown) return this.shutdownState ?? this.buildState(false)
+    if (this.shuttingDown) return this.shutdownSnapshot()
     await this.refreshMetrics()
     return this.getState()
   }
@@ -1573,7 +1575,10 @@ export class HeadroomManager {
 
   private async startActiveProxyOnBootLocked(): Promise<void> {
     if (this.shuttingDown) return
-    const active = this.getState().activeProviders
+    // Only the persisted activation decides; building the full state here would
+    // run the install probes (`headroom --version`, `doctor`) synchronously on
+    // the startup path, which takes seconds on a loaded machine.
+    const active = this.explicitActiveProviders(this.readPersisted())
     this.syncRouting()
     if (active.codex || active.claude) {
       const result = await this.ensureProxy()
@@ -1764,9 +1769,7 @@ export class HeadroomManager {
 
   private cancelledProxyStart(): HeadroomActionResult {
     const failure = issue('proxy_unhealthy', 'Headroom proxy startup was superseded by a newer lifecycle operation.')
-    const state = this.shuttingDown && this.shutdownState
-      ? this.shutdownState
-      : this.getState()
+    const state = this.shuttingDown ? this.shutdownSnapshot() : this.getState()
     return { ok: false, state, issue: failure }
   }
 
@@ -1844,9 +1847,19 @@ export class HeadroomManager {
   }
 
   private readHeadroomVersion(exe: string): string | null {
+    // A binary's version only changes when the file does: probe once per file
+    // identity instead of a synchronous child process on every state read.
+    let stamp: string | null = null
+    try {
+      const st = fs.statSync(exe)
+      stamp = `${exe}:${st.ino}:${st.size}:${st.mtimeMs}`
+    } catch { stamp = null }
+    if (stamp && this.versionCache?.stamp === stamp) return this.versionCache.version
     const probe = spawnSync(exe, ['--version'], { encoding: 'utf8', timeout: 5000 })
-    if (probe.status !== 0) return null
-    return parseHeadroomVersion(`${probe.stdout ?? ''}${probe.stderr ?? ''}`)
+    const version = probe.status === 0 ? parseHeadroomVersion(`${probe.stdout ?? ''}${probe.stderr ?? ''}`) : null
+    // Only a successful probe is remembered; a failure (timeout under load) retries next time.
+    if (stamp && version) this.versionCache = { stamp, version }
+    return version
   }
 
   private readLearningBaseline(): Pick<HeadroomLearningState, 'baselineReady' | 'baselineSamples'> {
@@ -2158,7 +2171,7 @@ export class HeadroomManager {
       child.on('close', (code) => settle(code))
       if (this.shuttingDown) {
         settle(null)
-        void this.terminateProxyChild(child)
+        void this.terminateProxyChild(child).catch(logRejection('headroom proxy child termination'))
       }
     })
   }
@@ -2193,7 +2206,7 @@ export class HeadroomManager {
       this.trackLifecycleCommand(child, () => settle(null))
       timer = setTimeout(() => {
         settle(null)
-        void this.terminateProxyChild(child)
+        void this.terminateProxyChild(child).catch(logRejection('headroom proxy child termination'))
       }, timeoutMs)
       child.stdout?.on('data', (chunk) => { output += chunk.toString() })
       child.stderr?.on('data', (chunk) => { output += chunk.toString() })
@@ -2204,7 +2217,7 @@ export class HeadroomManager {
       child.on('close', (code) => settle(code))
       if (this.shuttingDown) {
         settle(null)
-        void this.terminateProxyChild(child)
+        void this.terminateProxyChild(child).catch(logRejection('headroom proxy child termination'))
       }
     })
   }
@@ -2315,8 +2328,14 @@ export class HeadroomManager {
     if (this.shuttingDown) return
     this.shuttingDown = true
     this.syncRouting()
-    const state = this.buildState(false)
-    this.shutdownState = { ...state, proxyRunning: false, proxyPid: null }
+    // The state shown while stopping is built only if something asks for it:
+    // its install probes are child processes the shutdown should not wait on.
+    this.shutdownState = null
+  }
+
+  private shutdownSnapshot(): HeadroomState {
+    if (!this.shutdownState) this.shutdownState = { ...this.buildState(false), proxyRunning: false, proxyPid: null }
+    return this.shutdownState
   }
 
   /** Stop the owned proxy before the app tears down its DB and HTTP server. */

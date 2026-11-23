@@ -44,3 +44,12 @@ Este é o pacote a obter quando quer perceber uma execução complicada, guardar
 ## Como desativar
 
 Desligue o interruptor a qualquer momento. Os novos jobs deixam de registar de imediato. Tudo o que já foi capturado fica no disco até ser compactado ou até remover o projeto — nada é enviado para parte nenhuma nem se perde sem você saber.
+
+
+## Evidências de conclusão
+
+O histórico de loops guarda um resultado terminal independentemente da telemetria opcional do fornecedor.
+Separa a execução do processo da aceitação e da entrega pelo Core, e distingue
+passos, avaliações do decisor e turnos do agente. As durações e as tentativas de cada fase vêm do
+diário do Core; nenhum custo por fase é inferido a partir do total. Os runtimes mais antigos mantêm
+as evidências de aceitação indisponíveis.

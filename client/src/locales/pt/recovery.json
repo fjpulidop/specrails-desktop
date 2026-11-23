@@ -10,9 +10,14 @@
     },
     "provider_limit": "O limite de uso do provedor de IA foi atingido",
     "environment": "O ambiente não consegue executar as verificações",
+    "port_in_use": {
+      "port": "Outro processo já estava usando a porta {{port}}",
+      "plain": "Outro processo já estava usando a porta de que a execução precisava"
+    },
     "blocked": {
       "phase": "A execução está bloqueada na fase {{phase}}",
-      "plain": "A execução está bloqueada"
+      "plain": "A execução está bloqueada",
+      "corrections": "As correções automáticas esgotaram-se"
     },
     "timeout": {
       "phase": "A fase {{phase}} ficou sem tempo",
@@ -26,31 +31,55 @@
       "phase": "O agente parou inesperadamente na fase {{phase}}",
       "plain": "O agente parou inesperadamente"
     },
-    "unknown": "Causa desconhecida"
+    "provider_unavailable": {
+      "phase": "O serviço do provedor estava indisponível na fase {{phase}}",
+      "plain": "O serviço do provedor estava indisponível"
+    },
+    "incomplete_tasks": "Algumas tarefas aprovadas ficaram por terminar",
+    "spec_invalid": "O OpenSpec rejeitou a especificação da alteração",
+    "workflow_protocol": {
+      "role": "O modelo de {{role}} pulou etapas obrigatórias do OpenSpec",
+      "plain": "O modelo pulou etapas obrigatórias do OpenSpec"
+    },
+    "unknown": "Causa desconhecida",
+    "stepFailed": "A etapa {{phase}} falhou"
   },
   "why": {
     "provider_limit": {
-      "reset": "Ele é redefinido {{resetAt}}. Retome depois.",
-      "noReset": "Espere o limite ser redefinido e depois retome."
+      "resetsAt": "É reposto às {{time}}. Continue nessa altura ou execute noutro fornecedor.",
+      "reset": "É reposto {{resetAt}}. Continue nessa altura ou execute noutro fornecedor.",
+      "noReset": "Espere que o limite seja reposto e continue, ou execute noutro fornecedor."
     },
     "environment": "O problema não é a mudança em si. A máquina precisa de algo antes.",
+    "port_in_use": "O problema não é a mudança: outra coisa ocupava a porta. Pare-a ou faça o projeto ler PORT (cada execução tem a sua) e execute novamente.",
     "tests_failed": "As verificações continuam falhando após as correções.",
     "blocked": "Um limite ou uma decisão a interrompeu. Ela não travou.",
     "timeout": "Atingiu o limite de tempo antes de terminar.",
     "tool_inactivity": "Parou de usar ferramentas e de responder por tempo demais.",
     "crash": "O processo do provedor ou sua conexão morreu no meio da execução.",
-    "unknown": "O app não sabe por que parou e não vai adivinhar."
+    "provider_unavailable": "O serviço do provedor não respondeu por um momento, mesmo depois de o Specrails tentar de novo durante cerca de um minuto. Não há nada de errado com o trabalho.",
+    "incomplete_tasks": "Tudo o resto está feito. Continuar termina o que falta com o navegador e as suas ferramentas; uma verificação que só uma pessoa pode fazer pode ir para revisão.",
+    "spec_invalid": "O plano ou a especificação não passou no OpenSpec, e o planeamento não conseguiu corrigi-lo.",
+    "workflow_protocol": {
+      "plain": "Ele encerrou o turno sem as etapas que o Specrails exige, mesmo após um lembrete. O trabalho anterior a essa etapa é mantido: continue a partir dela.",
+      "stronger": "{{model}} é um modelo pequeno e encerrou o turno sem as etapas que o Specrails exige, mesmo após um lembrete. Continue a partir dessa etapa; se acontecer de novo, escolha {{stronger}} para esta função."
+    },
+    "unknown": "Os registos da execução não indicam a causa. Uma leitura do log com IA costuma encontrá-la.",
+    "correctionsExhausted": "O revisor ainda pede uma alteração após {{count}} correções automáticas. Nada falhou: a execução parou antes de gastar mais."
   },
   "remedies": {
-    "label": "Formas de recuperar"
+    "label": "Formas de recuperar",
+    "more": "Outras formas de recuperar"
   },
   "remedy": {
-    "resume": "Retomar",
-    "resumeFrom": "Retomar a partir de {{phase}}",
-    "retry": "Executar novamente",
+    "retry": "Começar de novo",
     "editSpec": "Editar a spec e relançar",
     "fixEnvironment": "Corrigir o ambiente",
-    "openLogs": "Abrir o registro na falha"
+    "openLogs": "Abrir o registro na falha",
+    "continueToReview": "Continuar para a revisão",
+    "continue": "Continuar",
+    "continueFrom": "Continuar a partir de {{phase}}",
+    "copyEnvFiles": "Copiar o .env deste projeto para as execuções"
   },
   "environment": {
     "command": "Comando",
@@ -59,7 +88,7 @@
     "inDirectory": "em {{cwd}}",
     "requiredAction": "Ação necessária",
     "generic": "O ambiente precisa de atenção antes de a execução continuar.",
-    "then": "Quando isso estiver feito, retome a execução."
+    "then": "Quando estiver feito, continue a execução."
   },
   "logTail": {
     "title": "Fim do registro"
@@ -73,5 +102,139 @@
     "apply": "Usar um venv Python {{version}} nas verificações",
     "saved": "Salvo nas configurações do projeto. O próximo lançamento cria o venv antes das verificações.",
     "failed": "Não foi possível salvar as configurações. Abra as configurações do projeto para ajustá-las."
+  },
+  "analysis": {
+    "title": "Análise de IA",
+    "offer": "Peça à IA para ler o log e explicar por que esta execução parou.",
+    "run": "Analisar com IA",
+    "retry": "Tentar novamente",
+    "running": "Lendo o log para encontrar o motivo…",
+    "failed": "A análise com IA não terminou.",
+    "evidence": "Do log",
+    "nextSteps": "O plano para o resolver",
+    "failedStep": "etapa: {{step}}",
+    "by": "Análise de IA feita com {{model}}. Baseia-se no log; confira as linhas citadas.",
+    "stale": "O log mudou desde esta análise.",
+    "regenerate": "Analisar novamente",
+    "category": {
+      "providerLimit": "Limite de cota ou uso",
+      "missingArtifact": "Artefato ausente",
+      "configuration": "Configuração",
+      "tests": "Testes",
+      "environment": "Ambiente",
+      "agentError": "Erro do agente",
+      "interrupted": "Interrompida",
+      "incompleteTasks": "Tarefas por terminar",
+      "other": "Outro"
+    },
+    "interrupted": "A análise foi interrompida (o app reiniciou enquanto ela rodava). Tente de novo.",
+    "action": {
+      "changeModel": "Mudar o modelo",
+      "changeModelFor": "Mudar o modelo de {{role}}"
+    },
+    "continueCarriesPlan": "Não precisa de escolher nenhum: Continuar (acima) passa estes passos ao agente e executa-os."
+  },
+  "facts": {
+    "label": "Onde falhou",
+    "step": "Passo",
+    "attempt": "Tentativa",
+    "iteration": "Iteração",
+    "time": "Hora"
+  },
+  "incomplete": {
+    "title": "Tarefas por terminar"
+  },
+  "ai": {
+    "label": "Segundo a análise de IA",
+    "running": "A IA está a ler o log para encontrar a causa…"
+  },
+  "remedyResult": {
+    "continued": "A continuar para a revisão com o restante como verificações manuais.",
+    "notResumed": "A execução continuada não arrancou",
+    "failed": "Não foi possível continuar a execução",
+    "continuing": "A continuar a execução.",
+    "continuingFrom": "A continuar a partir do passo {{step}}.",
+    "envFilesCopied": "{{files}} copiado para a execução. Continuando.",
+    "envFilesUnavailable": "Este projeto não tem nenhum arquivo .env para copiar. Crie-o na sua cópia de trabalho e tente novamente.",
+    "continuingWith": "Continuando com: {{label}}",
+    "continuingWithInstruction": "Continuando com a sua instrução."
+  },
+  "consequence": {
+    "continue": "Mantém tudo e continua a partir do passo que falhou.",
+    "continueTasks": "Mantém tudo e refaz apenas o que faltava, com o navegador e as instruções de instalação.",
+    "continueEnvironment": "Mantém tudo; o agente fica a saber o que falta, instala-o e continua.",
+    "continueLimit": "Mantém tudo e continua assim que o fornecedor voltar a aceitar pedidos.",
+    "continueTransient": "Mantém tudo e executa de novo o mesmo passo.",
+    "continueStopped": "Retoma onde parou, no mesmo worktree, com tudo o que fez até agora.",
+    "continueToReview": "Envia já para revisão, com o que falta como verificações manuais.",
+    "editSpec": "Abre a spec; alterá-la inicia uma nova execução.",
+    "fixEnvironment": "Mostra o que a máquina precisa e o comando a executar.",
+    "openLogs": "Leva ao passo que falhou no registo.",
+    "retry": "Uma execução nova a partir da base. O trabalho desta tentativa não é aproveitado; fica no worktree antigo.",
+    "analyze": "A IA lê o registo e explica porque parou.",
+    "copyEnvFiles": "Ativa a configuração neste projeto e continua. Os agentes nas suas execuções podem ler esses arquivos; eles nunca são incluídos em commits nem mostrados nas revisões.",
+    "continueCorrections": "Dá ao corretor 3 novas correções com o que o revisor pede e volta a rever."
+  },
+  "stopped": {
+    "headline": "Parou esta execução",
+    "why": "Nada se perde.",
+    "whyNoContinue": "O seu trabalho fica no worktree. Começar de novo executa-a outra vez a partir da base."
+  },
+  "lineage": {
+    "title": "Tentativas",
+    "explain": "Cada tentativa continuou a anterior e manteve o seu trabalho. A mais recente representa todas.",
+    "attempt": "Tentativa {{attempt}} de {{total}}",
+    "attemptShort": "Tentativa {{attempt}}",
+    "continuedFromStep": "continuada a partir do passo {{step}} da tentativa {{attempt}}",
+    "continuedFrom": "continuada a partir da tentativa {{attempt}}",
+    "supersededBy": "a tentativa {{attempt}} assumiu",
+    "automatic": "O Specrails continuou automaticamente",
+    "this": "esta",
+    "open": "Abrir",
+    "fromStep": "A partir do passo {{step}}",
+    "byAutomatic": "O Specrails continuou automaticamente",
+    "byPerson": "Continuada por si",
+    "byReview": "Enviada para revisão com verificações manuais",
+    "guidance": "Orientações enviadas ao agente",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "Estimativa pela tabela de preços, não custo cobrado"
+  },
+  "resolution": {
+    "title": "Escolha como seguir",
+    "intro": "Cada opção diz o que faz e o que pode acontecer. Um clique faz a execução continuar.",
+    "recommended": "Recomendada",
+    "whatMayHappen": "O que pode acontecer:",
+    "risk": {
+      "low": "Risco baixo",
+      "medium": "Algum risco",
+      "high": "Risco alto"
+    },
+    "other": "Outra instrução…",
+    "otherLabel": "O que o agente deve fazer?",
+    "otherPlaceholder": "Por exemplo: inicie o Electron sem o depurador nos testes de fechamento e verifique só o código de saída",
+    "send": "Continuar com esta instrução",
+    "sending": "Continuando…",
+    "keepTrying": {
+      "label": "Tentar de novo assim",
+      "does": "Continua com a mesma abordagem e uma nova rodada de correções.",
+      "consequence": "O mais provável é parar outra vez da mesma forma; cada tentativa custou cerca de {{cost}} até agora.",
+      "consequenceNoCost": "O mais provável é parar outra vez da mesma forma."
+    }
+  },
+  "repeat": {
+    "title_one": "Parou da mesma forma {{count}} vez",
+    "title_other": "Parou da mesma forma {{count}} vezes seguidas",
+    "spend_one": "{{count}} tentativa, {{cost}} até agora",
+    "spend_other": "{{count}} tentativas, {{cost}} até agora",
+    "attempts_one": "{{count}} tentativa até agora",
+    "attempts_other": "{{count}} tentativas até agora",
+    "advice": "Continuar sem mudar nada provavelmente vai parar aqui de novo. Escolha um dos caminhos abaixo.",
+    "adviceNoOptions": "Continuar sem mudar nada provavelmente vai parar aqui de novo. A análise com IA abaixo sugere caminhos.",
+    "adviceAlone": "Continuar sem mudar nada provavelmente vai parar aqui de novo."
+  },
+  "flaky": {
+    "title_one": "Este teste parece instável",
+    "title_other": "Estes testes parecem instáveis",
+    "explain": "Passaram em rodadas anteriores ou com o mesmo código e agora falham por tempo. Ao continuar, o agente é instruído a torná-los determinísticos, não a aumentar os tempos limite."
   }
 }

@@ -83,6 +83,11 @@ export const PRICING: Record<string, PriceEntry> = {
   // reviewed 2026-11-01). Prompts above 272K input tokens re-rate the WHOLE
   // request at the `longContext` tier. The 6.x rate cards publish no cache-write
   // tier, so none is modelled (cache-create tokens are ignored, fail-soft).
+  // 6.2 rates assumed equal to their 6.1/6.0 predecessors until reviewed.
+  'codex:gpt-6.2-sol':   {
+    inputPer1M: 2.00, outputPer1M: 10.00, cacheReadPer1M: 0.10, lastReviewedAt: '2026-11-01',
+    longContext: { thresholdTokens: 272_000, inputPer1M: 4.00, outputPer1M: 15.00, cacheReadPer1M: 0.20 },
+  },
   'codex:gpt-6.1-sol':   {
     inputPer1M: 2.00, outputPer1M: 10.00, cacheReadPer1M: 0.10, lastReviewedAt: '2026-11-01',
     longContext: { thresholdTokens: 272_000, inputPer1M: 4.00, outputPer1M: 15.00, cacheReadPer1M: 0.20 },
@@ -90,6 +95,10 @@ export const PRICING: Record<string, PriceEntry> = {
   'codex:gpt-6.1-terra': {
     inputPer1M: 1.00, outputPer1M: 5.00, cacheReadPer1M: 0.05, lastReviewedAt: '2026-11-01',
     longContext: { thresholdTokens: 272_000, inputPer1M: 2.00, outputPer1M: 7.50, cacheReadPer1M: 0.10 },
+  },
+  'codex:gpt-6.2-astra': {
+    inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 1.00, lastReviewedAt: '2026-11-01',
+    longContext: { thresholdTokens: 272_000, inputPer1M: 20.00, outputPer1M: 75.00, cacheReadPer1M: 2.00 },
   },
   'codex:gpt-6-astra':   {
     inputPer1M: 10.00, outputPer1M: 50.00, cacheReadPer1M: 1.00, lastReviewedAt: '2026-11-01',

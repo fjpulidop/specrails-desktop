@@ -63,7 +63,7 @@ export function registerBackgroundProcessRoutes({ router, ctx }: ProjectRoutesDe
       const multiRepository = getProjectRepositories(c.project).length > 1
       // Inside an ACTIVE Intent of a multi-repository project the repository is
       // the Intent's own: the process runs in the Intent worktree, tagged with the
-      // Intent so it stops with it (as the in-app agent's background_start does).
+      // Intent so it stops with it (as the in-app agent's specrails_background(start) does).
       const flow = multiRepository && repositoryId === undefined ? activeFlow(c, chatId.trim()) : null
       if (flow) {
         const repository = resolveProjectRepository(c.project, flow.repositoryId)

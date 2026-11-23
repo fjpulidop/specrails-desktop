@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useMilestoneProgress } from '../../hooks/useMilestoneProgress'
+import { useOpenMilestoneRail } from '../../hooks/useOpenMilestoneRail'
+import { useResumeRailRun } from '../../hooks/useResumeRailRun'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { FEATURE_REVIEW_PACKET } from '../../../../lib/feature-flags'
-import { cancelChain, resumeChain, saveMilestoneAutoAdvance, setChainAutoAdvance } from '../../lib/milestone-launch'
+import { cancelChain, resumeChain, type ChainResumeFrom, saveMilestoneAutoAdvance, setChainAutoAdvance } from '../../lib/milestone-launch'
 import { MilestoneCard } from './MilestoneProgressCard'
 
 import { notifyError } from '../../../../lib/notify-error'
@@ -23,15 +25,18 @@ export function BuilderDoneMilestone({ projectId }: { projectId: string }) {
   const [chainBusy, setChainBusy] = useState(false)
   const m1 = progress.find((p) => p.n === 1) ?? null
 
-  const goTo = useCallback((path: string) => {
+  const goTo = useCallback((path: string, state?: Record<string, unknown>) => {
     setActiveProjectId(projectId)
-    setTimeout(() => navigate(path), 50)
+    setTimeout(() => { if (state) navigate(path, { state }); else navigate(path) }, 50)
   }, [navigate, projectId, setActiveProjectId])
+  const openReview = useCallback((deliveryId: string) => goTo(FEATURE_REVIEW_PACKET ? `/review/${deliveryId}` : '/'), [goTo])
+  const resumeRun = useResumeRailRun(projectId)
+  const openRail = useOpenMilestoneRail({ go: goTo, openReview })
 
-  const onResume = useCallback(async (chainId: string) => {
+  const onResume = useCallback(async (chainId: string, from?: ChainResumeFrom) => {
     setChainBusy(true)
     try {
-      const r = await resumeChain(projectId, chainId)
+      const r = await resumeChain(projectId, chainId, fetch, from)
       if (r.ok) toast.success(t('milestoneProgress.chain.resumed'))
       else notifyError(t('milestoneProgress.chain.resumeFailed'), { detail: r.detail ?? r.error })
     } finally { setChainBusy(false) }
@@ -72,11 +77,12 @@ export function BuilderDoneMilestone({ projectId }: { projectId: string }) {
       <MilestoneCard
         progress={m1}
         chainBusy={chainBusy}
-        onReview={(deliveryId) => goTo(FEATURE_REVIEW_PACKET ? `/review/${deliveryId}` : '/')}
-        onOpenRail={() => goTo('/')}
+        onReview={openReview}
+        onOpenRail={openRail}
         onResume={onResume}
         onCancel={onCancel}
         onSetAutoAdvance={onSetAutoAdvance}
+        onResumeRun={resumeRun}
         className="bg-card/60"
       />
     </div>

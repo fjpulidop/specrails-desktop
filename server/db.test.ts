@@ -418,6 +418,77 @@ describe('db', () => {
       }
     })
 
+    it('migration 94 prices Core runtime calls recorded without a cost, flagged estimated', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-core-cost-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        const insert = db.prepare(`INSERT INTO ai_invocations (id, project_id, provider, surface, model, status, started_at, tokens_in, tokens_out, tokens_cache_read, total_cost_usd, total_cost_usd_estimated)
+          VALUES (?, 'p1', 'codex', ?, ?, 'success', '2026-11-17T10:00:00Z', 120000, 900, 100000, ?, 0)`)
+        insert.run('core:r1:priced', 'loop', 'gpt-6.1-sol', null)
+        insert.run('core:r1:unknown-model', 'loop', 'model-without-a-price', null)
+        insert.run('core:r1:reported', 'loop', 'gpt-6.1-sol', 0.5)
+        insert.run('job-row', 'job', 'gpt-6.1-sol', null)
+        db.prepare('DELETE FROM schema_migrations WHERE version = 94').run()
+        db.close(); db = initDb(dbPath)
+        const rows = Object.fromEntries((db.prepare('SELECT id, total_cost_usd, total_cost_usd_estimated FROM ai_invocations').all() as Array<{ id: string; total_cost_usd: number | null; total_cost_usd_estimated: number }>)
+          .map(row => [row.id, [row.total_cost_usd, row.total_cost_usd_estimated]]))
+        expect(rows['core:r1:priced'][0]).toBeGreaterThan(0)
+        expect(rows['core:r1:priced'][1]).toBe(1)
+        expect(rows['core:r1:unknown-model']).toEqual([null, 0])
+        expect(rows['core:r1:reported']).toEqual([0.5, 0])
+        expect(rows['job-row']).toEqual([null, 0])
+      } finally {
+        db.close(); fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    it('migration 95 re-attributes Core v1 rows only where the stored events prove the engine, totals unchanged', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-core-v1-migration-'))
+      const dbPath = path.join(dir, 'jobs.sqlite')
+      let db = initDb(dbPath)
+      try {
+        const row = db.prepare(`INSERT INTO ai_invocations (id, project_id, provider, surface, surface_ref_id, ticket_id, model, status, started_at, finished_at, duration_ms, tokens_in, tokens_out, total_cost_usd, total_cost_usd_estimated, loop_run_id)
+          VALUES (?, 'p1', 'agent-runtime', 'loop', ?, ?, ?, 'success', '2026-11-17T10:00:00Z', '2026-11-17T10:05:00Z', ?, ?, ?, ?, 0, ?)`)
+        const event = (job: string, seq: number, type: string, payload: unknown) => db.prepare("INSERT INTO events (job_id, seq, event_type, source, payload) VALUES (?, ?, ?, 'stdout', ?)").run(job, seq, type, JSON.stringify(payload))
+        const step = (job: string, seq: number, stepId: string, attemptId: string, usage: unknown) => event(job, seq, 'workflow-event', { type: 'workflow-event', event: { id: `${job}:${seq}`, type: 'step_succeeded', stepId, attemptId, usage } })
+        const call = (job: string, seq: number, attemptId: string, provider: string, model: string) => event(job, seq, 'runtime-efficiency-event', { type: 'runtime-efficiency-event', eventId: `${job}:${seq}`, attemptId, kind: 'role-context', payload: { provider, model } })
+        for (const id of ['r1', 'r2', 'r3']) createJob(db, { id, command: 'loop', started_at: '2026-11-17T10:00:00Z' })
+        // r1: one invocation over two tickets; both attempts name their engine.
+        row.run('inv1:t1', 'run:t1', 1, 'per-role', 2000, 60, 6, 0.3, 'r1')
+        row.run('inv1:t2', 'run:t2', 2, 'per-role', 2000, 60, 6, 0.3, 'r1')
+        call('r1', 1, 'a1', 'claude', 'opus'); step('r1', 2, 'architect', 'a1', { costUsd: 0.2, inputTokens: 40, outputTokens: 4 })
+        call('r1', 3, 'a2', 'codex', 'gpt-6.1-sol'); step('r1', 4, 'developer', 'a2', { costUsd: 0.4, inputTokens: 80, outputTokens: 8 })
+        // r2: two invocations in one run — the window is ambiguous, left as is.
+        row.run('inv2', 'run', null, 'per-role', 10, 10, 1, 0.1, 'r2')
+        row.run('inv3', 'run', null, 'per-role', 10, 10, 1, 0.1, 'r2')
+        call('r2', 1, 'a1', 'claude', 'opus'); step('r2', 2, 'architect', 'a1', { costUsd: 0.2, inputTokens: 20, outputTokens: 2 })
+        // r3: no role-context events (older Core) — not recoverable.
+        row.run('inv4', 'run', null, 'per-role', 10, 10, 1, 0.1, 'r3')
+        step('r3', 1, 'architect', 'a1', { costUsd: 0.1, inputTokens: 10, outputTokens: 1 })
+        // The deterministic completion check's $0 non-invocation.
+        row.run('verify', 'verify', null, 'deterministic-verification', 0, 0, 0, 0, 'r3')
+        const before = db.prepare('SELECT SUM(total_cost_usd) AS cost, SUM(tokens_in) AS tin, SUM(tokens_out) AS tout, SUM(duration_ms) AS dur FROM ai_invocations').get() as Record<string, number>
+        db.prepare('DELETE FROM schema_migrations WHERE version = 95').run()
+        db.close(); db = initDb(dbPath)
+        const after = db.prepare('SELECT SUM(total_cost_usd) AS cost, SUM(tokens_in) AS tin, SUM(tokens_out) AS tout, SUM(duration_ms) AS dur FROM ai_invocations').get() as Record<string, number>
+        expect(after.cost).toBeCloseTo(before.cost, 10)
+        expect([after.tin, after.tout, after.dur]).toEqual([before.tin, before.tout, before.dur])
+        const r1 = db.prepare("SELECT id, provider, model, ticket_id, surface_ref_id, tokens_in, total_cost_usd FROM ai_invocations WHERE loop_run_id = 'r1' ORDER BY id").all()
+        expect(r1).toEqual([
+          { id: 'core-v1:inv1:0:t1', provider: 'claude', model: 'opus', ticket_id: 1, surface_ref_id: 'run:architect:t1', tokens_in: 20, total_cost_usd: expect.closeTo(0.1, 10) },
+          { id: 'core-v1:inv1:0:t2', provider: 'claude', model: 'opus', ticket_id: 2, surface_ref_id: 'run:architect:t2', tokens_in: 20, total_cost_usd: expect.closeTo(0.1, 10) },
+          { id: 'core-v1:inv1:1:t1', provider: 'codex', model: 'gpt-6.1-sol', ticket_id: 1, surface_ref_id: 'run:developer:t1', tokens_in: 40, total_cost_usd: expect.closeTo(0.2, 10) },
+          { id: 'core-v1:inv1:1:t2', provider: 'codex', model: 'gpt-6.1-sol', ticket_id: 2, surface_ref_id: 'run:developer:t2', tokens_in: 40, total_cost_usd: expect.closeTo(0.2, 10) },
+        ])
+        expect(db.prepare("SELECT id, provider FROM ai_invocations WHERE loop_run_id IN ('r2', 'r3') ORDER BY id").all()).toEqual([
+          { id: 'inv2', provider: 'agent-runtime' }, { id: 'inv3', provider: 'agent-runtime' }, { id: 'inv4', provider: 'agent-runtime' },
+        ])
+      } finally {
+        db.close(); fs.rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
     it('migration 81 rebuilds flow_sessions with a closed state, preserving rows, columns and indexes', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'db-flow-closed-migration-'))
       const dbPath = path.join(dir, 'jobs.sqlite')
@@ -1062,6 +1133,27 @@ describe('db', () => {
   })
 
   describe('getStats', () => {
+    it('counts "today" on the local day (local midnight → next), not the UTC calendar day', () => {
+      const previousTz = process.env.TZ
+      process.env.TZ = 'Pacific/Auckland' // UTC+13 in November: the UTC date lags the local one
+      try {
+        const db = makeDb()
+        const now = new Date('2026-11-17T19:00:00.000Z') // 2026-11-18 08:00 local
+        // 2026-11-17 23:00 local — same UTC calendar day as `now`, but local YESTERDAY.
+        createJob(db, { id: 'late-yesterday', command: '/a', started_at: '2026-11-17T10:00:00.000Z' })
+        seedInvocation(db, { id: 'inv-yesterday', surface: 'job', total_cost_usd: 0.5, started_at: '2026-11-17T10:00:00.000Z' })
+        // 2026-11-18 00:00 local (inclusive lower bound) and 07:59 local.
+        createJob(db, { id: 'midnight', command: '/b', started_at: '2026-11-17T11:00:00.000Z' })
+        seedInvocation(db, { id: 'inv-today', surface: 'job', total_cost_usd: 0.25, started_at: '2026-11-17T18:59:00.000Z' })
+        const stats = getStats(db, now)
+        expect(stats.jobsToday).toBe(1)
+        expect(stats.costToday).toBeCloseTo(0.25, 5)
+      } finally {
+        if (previousTz === undefined) delete process.env.TZ
+        else process.env.TZ = previousTz
+      }
+    })
+
     it('computes job counts from jobs and cost from the ai_invocations ledger (MED-8)', () => {
       const db = makeDb()
       const today = new Date().toISOString()

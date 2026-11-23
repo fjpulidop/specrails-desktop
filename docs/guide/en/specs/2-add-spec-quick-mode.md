@@ -36,10 +36,10 @@ The more context you give it, the longer generation takes (it switches to multi-
 
 Use **Quick** when the idea is already clear in your head — you could write the spec yourself, you'd just rather the AI do it. Use [**Explore**](add-spec-explore-mode.md) when you're still thinking it through and want a partner to help you shape it.
 
-A spec created in Quick mode is a fully normal spec: you can later open it and **Continue Editing** in an Explore session if it needs refining.
+A spec created in Quick mode is a fully normal spec: you can later open it and **Continue editing** in an Explore session if it needs refining.
 
 ## Where to go next
 
 - [Add Spec — Explore mode](add-spec-explore-mode.md) — for specs that need shaping.
 - [Drafts & the Contract Layer](drafts-and-contract-layer.md) — the Contract Layer enrichment explained.
-- [Running pipelines](running-pipelines.md) — drag your new spec onto a rail and implement it.
+- [Running pipelines](../pipeline/rails-and-jobs) — drag your new spec onto a rail and implement it.

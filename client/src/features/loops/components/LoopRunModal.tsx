@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Play } from 'lucide-react'
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '../../../components/ui/dialog'
 import { Button } from '../../../components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select'
 import { HelpHint } from '../../../components/HelpHint'
 import { LaunchForecast } from '../../../components/LaunchForecast'
 import { useLaunchBudgetGuard } from '../../../hooks/useLaunchBudgetGuard'
@@ -103,17 +104,19 @@ export function LoopRunModal({
             {projects.length === 0 ? (
               <p className="text-xs text-muted-foreground">{t('run.noProjects')}</p>
             ) : (
-              <select
-                aria-label={t('run.project')}
-                data-testid="run-project-select"
+              <Select
                 value={projectId || projects[0]?.id}
-                onChange={(e) => { setProjectId(e.target.value); setProvider(''); setModel(''); setEffort(''); setRepositoryIds(undefined) }}
-                className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
+                onValueChange={(next) => { setProjectId(next); setProvider(''); setModel(''); setEffort(''); setRepositoryIds(undefined) }}
               >
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+                <SelectTrigger aria-label={t('run.project')} data-testid="run-project-select" className="border-border bg-transparent px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
 
             <RepositoryScopeSelector repositories={selected?.repositories ?? []} value={repositoryIds} onChange={setRepositoryIds} />
@@ -121,16 +124,19 @@ export function LoopRunModal({
             {providerList.length > 1 && (
               <>
                 <label className="block text-label text-muted-foreground">{t('run.provider')}</label>
-                <select
-                  aria-label={t('run.provider')}
+                <Select
                   value={effectiveProvider}
-                  onChange={(e) => { setProvider(e.target.value); setModel(''); setEffort('') }}
-                  className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
+                  onValueChange={(next) => { setProvider(next); setModel(''); setEffort('') }}
                 >
-                  {providerList.map((p) => (
-                    <option key={p} value={p}>{providerLabel(p)}</option>
-                  ))}
-                </select>
+                  <SelectTrigger aria-label={t('run.provider')} className="border-border bg-transparent px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providerList.map((p) => (
+                      <SelectItem key={p} value={p}>{providerLabel(p)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </>
             )}
 
@@ -150,21 +156,22 @@ export function LoopRunModal({
                     }}
                   />
                 ) : (
-                  <select
-                    aria-label={t('run.model')}
-                    data-testid="run-model-select"
+                  <Select
                     value={effectiveModel}
-                    onChange={(e) => {
-                      const nextModel = e.target.value
+                    onValueChange={(nextModel) => {
                       setModel(nextModel)
                       setEffort(defaultReasoningEffortForProvider(effectiveProvider, nextModel) ?? '')
                     }}
-                    className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
                   >
-                    {modelOptions.map((m) => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger aria-label={t('run.model')} data-testid="run-model-select" className="border-border bg-transparent px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {modelOptions.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </>
             )}
@@ -172,16 +179,16 @@ export function LoopRunModal({
             {showEffort && (
               <>
                 <label className="block text-label text-muted-foreground">{t('run.effort')}</label>
-                <select
-                  aria-label={t('run.effort')}
-                  value={effectiveEffort}
-                  onChange={(e) => setEffort(e.target.value)}
-                  className="w-full text-xs rounded border border-border bg-transparent px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40"
-                >
-                  {effortOptions.map((level) => (
-                    <option key={level} value={level}>{level}</option>
-                  ))}
-                </select>
+                <Select value={effectiveEffort} onValueChange={setEffort}>
+                  <SelectTrigger aria-label={t('run.effort')} className="border-border bg-transparent px-2 text-foreground focus:outline-none focus:ring-1 focus:ring-accent-primary/40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {effortOptions.map((level) => (
+                      <SelectItem key={level} value={level}>{level}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </>
             )}
             <label className="block text-label text-muted-foreground">{t('run.runCap')}</label>

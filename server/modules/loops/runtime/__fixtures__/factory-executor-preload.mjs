@@ -66,6 +66,12 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
       }
       if (!omitReviewWorkflow) await tools.execute({ action: 'instructions', artifact: 'apply' })
       if (['developer', 'build', 'correct'].includes(request.role)) {
+        // Environment repair: the fixer installs the missing tool into the ignored node_modules (no candidate change).
+        const envRepair = process.env.SPECRAILS_FACTORY_ENV_REPAIR
+        if (request.role === 'correct' && envRepair) {
+          if (envRepair === 'install') { fs.mkdirSync(path.join(request.cwd, 'node_modules/.bin'), { recursive: true }); fs.writeFileSync(path.join(request.cwd, 'node_modules/.bin/fmtcheck'), '#!/bin/sh\n') }
+          return { text: JSON.stringify({ summary: 'fmtcheck was missing from node_modules; installed it there and reran the check.', incomplete: [], environmentRepair: 'Installed the missing fmtcheck dev tool into node_modules/.bin.' }), usage }
+        }
         if (request.role === 'correct' && process.env.SPECRAILS_FACTORY_NOOP === '1') return { text: JSON.stringify({ summary: 'Queue-modal test is outside the approved scope; no edits were made.', incomplete: [] }), usage }
         const reviewMode = process.env.SPECRAILS_FACTORY_REVIEW_MODE
         if (request.role === 'correct' && ['reject', 'score'].includes(reviewMode)) return { text: JSON.stringify({ summary: 'All host checks pass; no candidate edits were made.', incomplete: ['The review objection is unresolved.'] }), usage }
@@ -75,7 +81,7 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
         }
         const calls = fs.readFileSync(process.env.SPECRAILS_FACTORY_CALLS, 'utf8').trim().split('\n').map(line => JSON.parse(line))
         if (request.role === 'correct') {
-          if (JSON.parse(process.env.SPECRAILS_FACTORY_ADDENDA ?? '[]').length || reviewMode === 'repair') fs.writeFileSync(path.join(request.cwd, 'review-obligation.txt'), 'Required review obligation implemented.\n')
+          if (JSON.parse(process.env.SPECRAILS_FACTORY_ADDENDA ?? '[]').length || reviewMode === 'repair' || reviewMode === 'advice-mixed') fs.writeFileSync(path.join(request.cwd, 'review-obligation.txt'), 'Required review obligation implemented.\n')
           if (reviewMode === 'churn') fs.writeFileSync(path.join(request.cwd, 'unrelated-churn.txt'), String(calls.filter(call => call.role === 'correct').length))
         }
         const breakReviewCorrection = request.role === 'correct' && process.env.SPECRAILS_FACTORY_STALE_REVIEW === '1' && calls.filter(call => call.role === 'correct').length === 1
@@ -91,8 +97,10 @@ if (core && path.resolve(process.argv[1] ?? '') === path.join(core, 'dist/agent-
         if (ids.length && calls.filter(call => call.role === 'assess').length > 1 && !calls.find(call => call.role === 'correct')?.prompt.includes('"verdict":"partial"')) throw Error('The correction prompt omitted the actual reviewer finding')
         const addenda = Object.fromEntries(ids.map((id, index) => [`a${index}`, { id, verdict, files: ['code.cjs'], tests: ['Node verifies value equals 2'] }]))
         const reviewMode = process.env.SPECRAILS_FACTORY_REVIEW_MODE
-        const rejected = ['reject', 'churn'].includes(reviewMode) || reviewMode === 'repair' && verdict === 'partial'
-        return { text: JSON.stringify({ approved: !rejected, summary: 'Read actual code and verification evidence', issues: rejected ? ['Required canvas fallback is missing.'] : [], score: 90, aspects: { type_correctness: 90, pattern_adherence: 90, test_coverage: 90, security: reviewMode === 'score' ? 70 : 90, architectural_alignment: 90 }, ...(ids.length ? { addenda } : {}) }), usage }
+        const rejected = ['reject', 'churn'].includes(reviewMode) || (reviewMode === 'repair' || reviewMode === 'advice-mixed') && verdict === 'partial'
+        // Findings the reviewer marks as advice or out of scope (Core reviewTriage 2) never start a correction round.
+        const advice = reviewMode === 'advice' || reviewMode === 'advice-mixed' ? ['[advice] Consider naming the export value.', '[out-of-scope] Add a CLI flag for the value in a follow-up.'] : []
+        return { text: JSON.stringify({ approved: !rejected, summary: 'Read actual code and verification evidence', issues: [...(rejected ? ['Required canvas fallback is missing.'] : []), ...advice], score: 90, aspects: { type_correctness: 90, pattern_adherence: 90, test_coverage: 90, security: reviewMode === 'score' ? 70 : 90, architectural_alignment: 90 }, ...(ids.length ? { addenda } : {}) }), usage }
       }
       const obligations = JSON.parse(request.prompt.split('Current frozen acceptance obligations (all remain required):\n')[1].split('\n')[0])
       return { text: JSON.stringify({ approved: true, summary: 'Inspected actual code and host verification', issues: [], score: 90,

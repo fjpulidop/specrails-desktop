@@ -13,10 +13,14 @@ load every UI component. Changes to this surface require updating the boundary m
 - [components/InboxButton.tsx](components/InboxButton.tsx)
 - [components/InboxDialog.tsx](components/InboxDialog.tsx)
 - [context/InboxContext.tsx](context/InboxContext.tsx)
+- [hooks/useInboxItemText.ts](hooks/useInboxItemText.ts)
+- [lib/inbox-model.ts](lib/inbox-model.ts)
+- [lib/inbox-run-state.ts](lib/inbox-run-state.ts)
 
 ## Feature dependencies
 
 - [integrations](../integrations/README.md)
+- [provider-quota](../provider-quota/README.md)
 - [recovery](../recovery/README.md)
 
 Dependencies record existing collaboration; they do not claim every feature is
@@ -39,20 +43,53 @@ project**, grouped by project, newest first.
 - **Sources:** review ready (delivery `on_review`, `pr_draft`, `pr_ready`, changes requested),
   agent question (a run paused for a human decision), run failed or blocked (a delivery that
   failed, a failed/stalled/blocked run, a run interrupted by a restart), budget paused, a spend
-  cap that is reached (daily, weekly or monthly; primary action Raise cap, which opens Analytics ▸ Budget), and
-  a Jira update that exhausted its retries (dead outbox op).
+  cap that is reached (daily, weekly or monthly; primary action Raise cap, which opens Analytics ▸ Budget),
+  a Jira update that exhausted its retries (dead outbox op), a milestone chain that paused or waits at a checkpoint
+  (primary Resume / Continue: the chain row's own `POST blueprint/chains/:id/resume`), and a mission card waiting for a
+  decision (launch proposal, Intent offer, CI-fix offer; primary Open mission, which closes the inbox and asks the
+  missions feature to show it through `requestOpenMission` (`lib/mission-events.ts`, answered by `MissionOpenRequests`)).
 - **Cause.** A failed or blocked run's row says why in the diagnosis' plain words ("The AI provider's usage limit was reached", "The environment can't run the checks") instead of the raw outcome; an unknown cause keeps the raw outcome ([recovery](../recovery/README.md)).
 - **Primary action** reuses the existing handlers: Open review / Open / Answer navigate
   to the place (`?review=` / `?job=` in Mission mode, `/review/:id` / `/jobs/:id` in Board
   mode) after switching project when needed; Resume calls `POST /loop-runs/:id/resume` of
   the item's project (the budget 409 is shown localized; a run paused at its per-run cap opens the Continue / Raise dialog and resumes with that choice); Retry calls the Jira outbox retry.
+- **One wording per item.** `lib/inbox-item-text.ts` (`inboxItemText`, pure; `useInboxItemText` binds it in React) is
+  the only place an item's title, kind words and detail are chosen: the inbox row, its live board card and its
+  notification (`inboxAttentionText`) all read it. A reached cap is named by the cap (*Project daily limit reached* ·
+  *Work paused* · *$5.12 of $5.00 spent*), never by the server's raw title; a provider usage-limit pause by that limit
+  and when it continues. The command palette lists no inbox item (one *N things need you* row opens the inbox).
+- **Row actions.** One primary button per row; everything else is in its **More actions** menu (`⋯`,
+  `components/ui/dropdown-menu`): Snooze 1 hour, Snooze until tomorrow, Done, Mark as read / unread, Mute notifications
+  from the project. The group header holds only the project name and its bell (tooltip *Mute notifications from …*).
 - **Snooze (1 hour, until tomorrow 08:00) and Done** are per viewer (`localStorage`, in try/catch)
   and keyed by item id **and state version**: when the underlying state changes the item
   comes back. Entries older than 30 days are pruned.
 - **Place:** `?inbox=1` is pushed on open (Back closes it). Opening a row replaces that
   entry with the place it leads to.
-- **Notifications:** a provider-limit OS notification opens the inbox
+- **Notifications (attention):** every new item version (`id` + `version`, recorded in
+  `localStorage` `specrails-desktop:inbox:announced`, pruned after 30 days) is announced once through the
+  app's attention pipeline ([`lib/attention`](../../lib/attention/attention-center.ts), `hooks/useInboxAttention.ts`):
+  an OS notification when the app is in the background, a toast with **Open** when it is focused elsewhere,
+  nothing when the inbox or the item's own place (`?review=` / `?job=`, `/review/:id` / `/jobs/:id`) is on screen.
+  The first snapshot after startup is recorded silently, so a restart never announces old news (what arrived
+  while the app was closed shows through the unseen dot and the Dock badge instead). Snoozed / done items
+  are recorded, not announced. Title: the kind (*Review ready*, *Waiting for your answer*…); body: project ·
+  item · plain cause. Categories: `question`, `review`, `failed` (failed, blocked, Jira), `budget` (budget
+  paused, cap reached, a run blocked by the provider's usage limit). A provider-limit alert opens the inbox
   (`lib/inbox-events.ts`); job notifications keep deep-linking to the job itself.
+- **Back from away.** A native notification in the desktop app cannot be clicked through, so when the main
+  window regains focus one toast sums up what was announced meanwhile (*3 things need you*): **Open** for a
+  single item (the row's primary open handler; Resume / Retry items open the inbox instead), **Open inbox**
+  otherwise (`hooks/useAttentionReturn.ts`). Browser notifications also open the item on click.
+- **Unseen.** An item version is *seen* once it is displayed in the open inbox or opened (per viewer,
+  `localStorage` `specrails-desktop:inbox:seen`, pruned after 30 days, renewed while the item stays). Rows show a
+  dot while unseen, and for the rest of the open session after being displayed; **Mark as unread** / **Mark as
+  read** toggle it (an item marked unread is not re-marked while the inbox stays open).
+- **Dock badge** (desktop app, macOS Dock and Linux launcher; Windows has no count badge) = unseen items outside
+  muted projects, sent to the guarded host command `desktop_set_badge` only when the number changes; cleared at 0
+  or when Settings ▸ Notifications ▸ Dock badge is off.
+- **Mute a project.** The bell in a project's group header (or *Mute notifications from …* in a row's menu) mutes /
+  unmutes its notifications (Settings ▸ Notifications lists every project too); its items stay listed.
 - **Shortcut.** `Ctrl+Shift+I` opens DevTools in WebView2 and Chromium (development builds and the
   web view), so off macOS the chord is `Ctrl+Alt+I` (`useKeyboardShortcuts`, `SHORTCUTS` with `platform`,
   `keyboardLabel`). macOS keeps `⌘⇧I`. The count badge is neutral (it mixes failures, questions and reviews).
@@ -61,7 +98,11 @@ project**, grouped by project, newest first.
 - **Done / Snooze** show a toast with Undo (sonner directly: the app undo stack is per project) and move the
   focus to the next row. The dialog opens with the first row's primary button focused; only the focused
   primary is filled, the rest are outlined.
-- Panel keyboard: `↑ ↓ Home End` walk the rows' primary buttons, `Esc` closes.
+- Panel keyboard: `↑ ↓ Home End` walk the rows' primary buttons, `Tab` reaches a row's `⋯`, whose menu takes the
+  arrows while open; `Esc` closes the menu only (it is portalled into the dialog, so the dialog's focus trap lets its
+  items take focus), then the panel.
+- **The count is the app's number.** `count` (items not snoozed or done) is the title-bar badge, the live board's
+  *Needs you* column and the palette's *N things need you* row.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/inbox`.
 For moves, update imports and mocks together, then run client coverage and typecheck.

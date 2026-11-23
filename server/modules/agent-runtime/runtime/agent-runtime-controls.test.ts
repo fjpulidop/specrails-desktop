@@ -19,7 +19,7 @@ import summaryContract from '../../../schemas/fixtures/runtime-efficiency-summar
 const loader = vi.hoisted(() => ({ cli: null as string | null }))
 const loginShell = vi.hoisted(() => ({ read: vi.fn() }))
 vi.mock('./agent-runtime-loader', () => ({ findCoreAgentRuntimeCli: () => loader.cli }))
-vi.mock('./agent-runtime-package', () => ({ resolveRetainedAgentRuntime: () => loader.cli }))
+vi.mock('./agent-runtime-package', () => ({ resolveRetainedAgentRuntime: async () => loader.cli, resolveRetainedAgentRuntimeForInspection: async () => loader.cli }))
 vi.mock('../../../path-resolver', () => ({
   resolveBundledNodeExe: () => process.execPath,
   readEnvFromLoginShellSyncDetailed: (names: string[]) => ({ values: loginShell.read(names) ?? {}, status: 'ok', exitCode: 0, shell: '/bin/zsh', names }),
@@ -369,6 +369,36 @@ describe('agent runtime lifecycle', () => {
     await service.summary('run-1'); expect(status).toHaveBeenCalledTimes(2)
     db.prepare("UPDATE loop_runs SET status = 'running' WHERE id = 'run-1'").run()
     expect((await service.summary('run-1')).canResume).toBe(false)
+    expect(status).toHaveBeenCalledTimes(2)
+  })
+
+  it('reuses a settled engine v2 status while its SQLite store is unchanged, never a live one', async () => {
+    const store = path.join(runDirectory, 'agent-workflow', 'run.sqlite')
+    fs.mkdirSync(path.dirname(store), { recursive: true }); fs.writeFileSync(store, 'db')
+    status.mockResolvedValue({ ...state(), status: 'failed', engineVersion: 2, steps: {}, nextNodePath: null })
+    await Promise.all([service.summary('run-1'), service.summary('run-1')])
+    expect(status).toHaveBeenCalledTimes(1)
+    await service.summary('run-1'); expect(status).toHaveBeenCalledTimes(1)
+    // A Core write (WAL frame) is a new answer.
+    fs.writeFileSync(`${store}-wal`, 'frame')
+    await service.summary('run-1'); expect(status).toHaveBeenCalledTimes(2)
+    // A resumed parent run is live: every read goes to Core until it settles again.
+    db.prepare("UPDATE loop_runs SET status = 'running' WHERE id = 'run-1'").run()
+    await service.summary('run-1'); await service.summary('run-1')
+    expect(status).toHaveBeenCalledTimes(4)
+    db.prepare("UPDATE loop_runs SET status = 'completed' WHERE id = 'run-1'").run()
+    status.mockResolvedValue({ ...state(), status: 'running', engineVersion: 2, steps: {}, nextNodePath: null, lease: { active: true } })
+    await service.summary('run-1'); await service.summary('run-1')
+    expect(status).toHaveBeenCalledTimes(6)
+  })
+
+  it('a dismissal invalidates the cached status', async () => {
+    const store = path.join(runDirectory, 'agent-workflow', 'run.sqlite')
+    fs.mkdirSync(path.dirname(store), { recursive: true }); fs.writeFileSync(store, 'db')
+    status.mockResolvedValue({ ...state(), status: 'failed', engineVersion: 2, steps: {}, nextNodePath: null })
+    await service.summary('run-1')
+    service.dismiss('run-1')
+    expect(await service.summary('run-1')).toMatchObject({ dismissed: true })
     expect(status).toHaveBeenCalledTimes(2)
   })
 

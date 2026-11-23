@@ -2,15 +2,15 @@ import type { ReactNode } from 'react'
 import { expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { within } from '@testing-library/react'
-import { render, screen, fireEvent } from '../../../../../test-utils'
+import { render, screen } from '../../../../../test-utils'
 import { RuntimeGraphExplorer } from '../RuntimeGraphExplorer'
 import type { RuntimeTopology } from '../runtime-topology'
 import type { LoopStepSegment } from '../loop-log-model'
 
 vi.mock('@xyflow/react', () => ({
   MarkerType: { ArrowClosed: 'arrowclosed' }, Background: () => null, Controls: () => null,
-  ReactFlow: ({ nodes, edges, onNodeClick, nodesDraggable, nodesConnectable }: { nodes: Array<{ id: string; data: { label: ReactNode }; style?: { borderColor?: string; boxShadow?: string } }>; edges: Array<{ id: string; source: string; target: string }>; onNodeClick(event: unknown, node: { id: string }): void; nodesDraggable: boolean; nodesConnectable: boolean }) => <div data-testid="flow" data-draggable={nodesDraggable} data-connectable={nodesConnectable}>
-    {nodes.map(node => <button key={node.id} data-testid={`node-${node.id}`} data-border={node.style?.borderColor} data-glow={node.style?.boxShadow} onClick={() => onNodeClick(null, node)}>{node.data.label}</button>)}
+  ReactFlow: ({ nodes, edges, onNodeClick, nodesDraggable, nodesConnectable }: { nodes: Array<{ id: string; data: { label: ReactNode }; style?: { borderColor?: string; boxShadow?: string; borderStyle?: string } }>; edges: Array<{ id: string; source: string; target: string }>; onNodeClick(event: unknown, node: { id: string }): void; nodesDraggable: boolean; nodesConnectable: boolean }) => <div data-testid="flow" data-draggable={nodesDraggable} data-connectable={nodesConnectable}>
+    {nodes.map(node => <button key={node.id} data-testid={`node-${node.id}`} data-border={node.style?.borderColor} data-glow={node.style?.boxShadow} data-border-style={node.style?.borderStyle} onClick={() => onNodeClick(null, node)}>{node.data.label}</button>)}
     {edges.map(edge => <span key={edge.id}>{edge.source} → {edge.target}</span>)}
   </div>,
 }))
@@ -20,9 +20,7 @@ function segment(id: string, scope: string, status: 'failed' | 'ok'): LoopStepSe
 }
 it('explores component topology and selects exact branch attempts without editing the definition', async () => {
   const user = userEvent.setup(), focus = vi.fn(), fork = vi.fn()
-  const { container } = render(<RuntimeGraphExplorer topology={topology} segments={[segment('left-attempt', 'left', 'failed'), segment('right-attempt', 'right', 'ok')]} settled onFocus={focus} onFork={fork} />)
-  const details = container.querySelector('details')!
-  details.open = true; fireEvent(details, new Event('toggle'))
+  render(<RuntimeGraphExplorer topology={topology} segments={[segment('left-attempt', 'left', 'failed'), segment('right-attempt', 'right', 'ok')]} settled onFocus={focus} onFork={fork} />)
   expect(await screen.findByText('map → end')).toBeInTheDocument()
   expect(screen.getByTestId('flow')).toHaveAttribute('data-draggable', 'false')
   expect(screen.getByTestId('flow')).toHaveAttribute('data-connectable', 'false')
@@ -30,12 +28,17 @@ it('explores component topology and selects exact branch attempts without editin
   await user.click(screen.getByRole('button', { name: 'Open component' }))
   expect(screen.getByTestId('node-read')).toHaveTextContent('Failed')
   await user.click(screen.getByTestId('node-read'))
-  await user.click(screen.getByRole('button', { name: 'right · right-attempt · Succeeded' }))
+  const panel = screen.getByTestId('runtime-graph-node-panel')
+  expect(panel).toHaveTextContent('Read')
+  expect(panel).toHaveTextContent('2 attempts')
+  await user.click(screen.getByRole('button', { name: 'Attempt 2 · Succeeded · right' }))
   expect(focus).toHaveBeenCalledWith('right-attempt')
-  const right = screen.getByRole('button', { name: 'right · right-attempt · Succeeded' }).closest('li')!
-  await user.click(within(right).getByRole('button', { name: 'Repeat from here' }))
-  expect(fork).toHaveBeenCalledWith(expect.objectContaining({ key: 'right-attempt', meta: expect.objectContaining({ nodePath: 'map/read', scopeId: 'right', iteration: 1 }) }))
-  expect(screen.getByRole('button', { name: 'left · left-attempt · Failed' })).toBeInTheDocument()
+  // Each branch forks its own attempt, not merely the latest one.
+  await user.click(within(panel).getByRole('button', { name: 'Repeat from here: Attempt 1 · Failed · left' }))
+  expect(fork).toHaveBeenCalledWith(expect.objectContaining({ key: 'left-attempt', meta: expect.objectContaining({ nodePath: 'map/read', scopeId: 'left', iteration: 1 }) }))
+  await user.click(within(panel).getByRole('button', { name: 'Repeat from here: Attempt 2 · Succeeded · right' }))
+  expect(fork).toHaveBeenLastCalledWith(expect.objectContaining({ key: 'right-attempt', meta: expect.objectContaining({ scopeId: 'right' }) }))
+  expect(screen.getByRole('button', { name: 'Attempt 1 · Failed · left' })).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Back' }))
   expect(screen.getByTestId('node-map')).toBeInTheDocument()
 })
@@ -47,14 +50,14 @@ it('highlights live steps, marks completed steps and retains live updates in ful
   const active = segment('end-active', 'root', 'ok')
   active.meta.nodePath = active.meta.nodeId = 'end'; delete active.end
   const props = { topology, segments: [done, active], settled: false, onFocus: vi.fn() }
-  const { container, rerender } = render(<RuntimeGraphExplorer {...props} />)
-  const details = container.querySelector('details')!
-  details.open = true; fireEvent(details, new Event('toggle'))
+  const { rerender } = render(<RuntimeGraphExplorer {...props} />)
   expect(await screen.findByTestId('node-map')).toHaveTextContent('Succeeded')
   expect(screen.getByTestId('node-map')).toHaveAttribute('data-border', 'var(--color-accent-success)')
   expect(screen.getByTestId('node-end')).toHaveTextContent('Running')
-  expect(screen.getByTestId('node-end')).toHaveAttribute('data-border', 'var(--color-accent-primary)')
-  expect(screen.getByTestId('node-end').getAttribute('data-glow')).toContain('22px')
+  // Lamp canon: running is the info lamp, a solid border and no halo.
+  expect(screen.getByTestId('node-end')).toHaveAttribute('data-border', 'var(--color-accent-info)')
+  expect(screen.getByTestId('node-end')).toHaveAttribute('data-border-style', 'solid')
+  expect(screen.getByTestId('node-end')).not.toHaveAttribute('data-glow')
   await user.click(screen.getByRole('button', { name: 'Full screen' }))
   const dialog = screen.getByRole('dialog', { name: 'Run graph' })
   expect(within(dialog).getByTestId('node-end')).toHaveTextContent('Running')
@@ -73,9 +76,7 @@ it('does not mark unvisited or interrupted steps as completed and highlights a r
   done.meta.nodePath = done.meta.nodeId = 'map'
   const retry = { ...done, key: 'map-retry', meta: { ...done.meta, attemptId: 'retry' }, end: undefined }
   const props = { topology, segments: [done, retry], settled: false, onFocus: vi.fn() }
-  const { container, rerender } = render(<RuntimeGraphExplorer {...props} />)
-  const details = container.querySelector('details')!
-  details.open = true; fireEvent(details, new Event('toggle'))
+  const { rerender } = render(<RuntimeGraphExplorer {...props} />)
   expect(await screen.findByTestId('node-map')).toHaveTextContent('Running')
   expect(screen.getByTestId('node-end')).toHaveTextContent('Pending')
   rerender(<RuntimeGraphExplorer {...props} settled />)
@@ -88,17 +89,17 @@ it('shows recorded trace and event-span correlation only for the owning attempt'
   const left = segment('left-attempt', 'left', 'failed')
   left.meta.traceId = 'recorded-trace'
   left.meta.spanId = 'recorded-span'
-  const { container } = render(<RuntimeGraphExplorer topology={topology} segments={[left, segment('right-attempt', 'right', 'ok')]} settled onFocus={vi.fn()} />)
-  const details = container.querySelector('details')!
-  details.open = true; fireEvent(details, new Event('toggle'))
+  render(<RuntimeGraphExplorer topology={topology} segments={[left, segment('right-attempt', 'right', 'ok')]} settled onFocus={vi.fn()} />)
   await user.click(await screen.findByTestId('node-map'))
   await user.click(screen.getByRole('button', { name: 'Open component' }))
   await user.click(screen.getByTestId('node-read'))
-  const leftRow = screen.getByRole('button', { name: 'left · left-attempt · Failed' }).closest('li')!
-  const rightRow = screen.getByRole('button', { name: 'right · right-attempt · Succeeded' }).closest('li')!
-  expect(leftRow).toHaveTextContent('traceId: recorded-trace · spanId: recorded-span')
-  expect(rightRow).not.toHaveTextContent('traceId:')
-  expect(rightRow).not.toHaveTextContent('spanId:')
+  // Correlation ids live in the collapsed Trace disclosure.
+  const trace = screen.getByText('Trace').closest('details')!
+  expect(trace).not.toHaveAttribute('open')
+  const rows = within(trace).getAllByTestId('runtime-graph-trace')
+  expect(rows).toHaveLength(1)
+  expect(rows[0]).toHaveTextContent('left-attempt: traceId: recorded-trace · spanId: recorded-span')
+  expect(trace).not.toHaveTextContent('right-attempt')
 })
 
 
@@ -110,8 +111,6 @@ it('portals the full screen graph and backdrop above the log modal and consumes 
     const { container } = render(<div className="fixed z-[65]" data-testid="log-modal">
       <RuntimeGraphExplorer topology={topology} segments={[]} settled onFocus={vi.fn()} />
     </div>)
-    const details = container.querySelector('details')!
-    details.open = true; fireEvent(details, new Event('toggle'))
     await user.click(await screen.findByRole('button', { name: 'Full screen' }))
     const dialog = screen.getByRole('dialog', { name: 'Run graph' })
     // Capture layer (z-80): above the entity log modal (z-65) and the dock.
@@ -131,17 +130,79 @@ it('portals the full screen graph and backdrop above the log modal and consumes 
   }
 })
 
-it('opens on the failed step with "Repeat from here" laid over the compact graph', async () => {
+it('opens on the failed step with "Repeat from here" beside the always-expanded graph', async () => {
   const fork = vi.fn()
   const failed = segment('dev-attempt', 'root', 'failed')
   failed.meta.nodePath = failed.meta.nodeId = 'map'; failed.end!.nodeId = 'map'
-  const { container } = render(<RuntimeGraphExplorer topology={topology} segments={[failed]} settled onFocus={vi.fn()} onFork={fork} />)
-  const details = container.querySelector('details')!
-  details.open = true; fireEvent(details, new Event('toggle'))
+  render(<RuntimeGraphExplorer topology={topology} segments={[failed]} settled onFocus={vi.fn()} onFork={fork} />)
   const panel = await screen.findByTestId('runtime-graph-node-panel')
-  // Inside the graph box (overlaid), not below it where the log panel clips it.
-  expect(screen.getByTestId('flow').parentElement).toContainElement(panel)
+  // Beside the canvas, never over it: the graph stays fully visible.
+  expect(screen.getByTestId('flow').parentElement).not.toContainElement(panel)
   expect(panel).toHaveTextContent('map')
-  await userEvent.setup().click(within(panel).getByRole('button', { name: 'Repeat from here' }))
+  await userEvent.setup().click(within(panel).getByRole('button', { name: /^Repeat from here/ }))
   expect(fork).toHaveBeenCalledWith(expect.objectContaining({ key: 'dev-attempt' }))
+})
+
+it('keeps the full graph by default, mutes unvisited steps and offers "Only the path taken"', async () => {
+  localStorage.clear()
+  const user = userEvent.setup()
+  const wide: RuntimeTopology = { entry: 'a', nodes: [
+    { id: 'a', kind: 'prompt', label: 'A', ends: { next: 'b' } },
+    { id: 'b', kind: 'prompt', label: 'B', ends: { next: 'c' } },
+    { id: 'c', kind: 'prompt', label: 'C', ends: { next: 'd' } },
+    { id: 'd', kind: 'end', label: 'D', ends: {} },
+  ], components: {} }
+  const ran = segment('a-run', 'root', 'ok')
+  ran.meta.nodePath = ran.meta.nodeId = 'a'
+  const view = render(<RuntimeGraphExplorer topology={wide} segments={[ran]} settled onFocus={vi.fn()} />)
+  for (const id of ['a', 'b', 'c', 'd']) expect(await screen.findByTestId(`node-${id}`)).toBeInTheDocument()
+  expect(screen.getByTestId('node-c')).toHaveAttribute('data-border-style', 'dashed')
+  expect(screen.getByTestId('node-a')).toHaveAttribute('data-border-style', 'solid')
+  expect(within(screen.getByRole('list', { name: 'Graph legend' })).queryByText('Pending')).not.toBeInTheDocument()
+  const toggle = screen.getByTestId('runtime-graph-path-only')
+  expect(toggle).toHaveAttribute('aria-pressed', 'false')
+  await user.click(toggle)
+  // The path taken plus one hop.
+  expect(screen.getByTestId('node-a')).toBeInTheDocument()
+  expect(screen.getByTestId('node-b')).toBeInTheDocument()
+  expect(screen.queryByTestId('node-c')).not.toBeInTheDocument()
+  expect(screen.queryByTestId('node-d')).not.toBeInTheDocument()
+  expect(localStorage.getItem('specrails-desktop:runtime-graph-path-only')).toBe('true')
+  view.unmount()
+  render(<RuntimeGraphExplorer topology={wide} segments={[ran]} settled onFocus={vi.fn()} />)
+  expect(screen.getByTestId('runtime-graph-path-only')).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.queryByTestId('node-d')).not.toBeInTheDocument()
+  localStorage.clear()
+})
+
+it('draws node states from the run-state vocabulary: failed glyph and stroke, legend lamps, neutral unvisited hairline', async () => {
+  const user = userEvent.setup()
+  render(<RuntimeGraphExplorer topology={topology} segments={[segment('left-attempt', 'left', 'failed')]} settled onFocus={vi.fn()} />)
+  await user.click(await screen.findByTestId('node-map'))
+  await user.click(screen.getByRole('button', { name: 'Open component' }))
+  const read = screen.getByTestId('node-read')
+  expect(read).toHaveAttribute('data-border', 'var(--color-destructive)')
+  expect(read.querySelector('[data-run-state="failed"]')).toBeInTheDocument()
+  const legend = screen.getByRole('list', { name: 'Graph legend' })
+  expect(legend.querySelectorAll('[data-run-state]')).toHaveLength(4)
+  expect(legend.querySelector('[data-run-state="working"] .bg-accent-info')).toBeInTheDocument()
+  // Legend lamps never pulse.
+  expect(legend.querySelector('[data-live-ring]')).toBeNull()
+})
+
+it('the step a held run stopped in reads Interrupted in the paused lamp, never the live running style', async () => {
+  // A held job (the app restarted mid developer step) is shown with jobDisplayStatus 'paused': settled for now.
+  const { jobDisplayStatus } = await import('../../../../jobs/lib/job-run-state')
+  const status = jobDisplayStatus({ status: 'running', hold: { kind: 'restart', step: 'developer', since: null } })
+  const roleTopology: RuntimeTopology = { entry: 'developer', nodes: [{ id: 'developer', kind: 'role-turn', label: 'Developer', ends: { next: null } }], components: {} }
+  const open = segment('dev-attempt', 'root', 'ok')
+  open.meta.nodePath = open.meta.nodeId = 'developer'; delete open.end
+  render(<RuntimeGraphExplorer topology={roleTopology} segments={[open]} settled={status !== 'running' && status !== 'queued'} onFocus={vi.fn()} />)
+  const node = await screen.findByTestId('node-developer')
+  expect(node).toHaveTextContent('Interrupted')
+  expect(node).not.toHaveTextContent('Running')
+  expect(node).toHaveAttribute('data-border', 'var(--color-accent-warning)')
+  // The node's kind is named in words, not the raw `role-turn` id.
+  expect(node).toHaveTextContent('Agent step')
+  expect(node).not.toHaveTextContent('role-turn')
 })

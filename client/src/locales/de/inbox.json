@@ -1,11 +1,11 @@
 {
   "title": "Offen",
-  "subtitle_one": "{{count}} Eintrag wartet auf dich",
-  "subtitle_other": "{{count}} Einträge warten auf dich",
-  "subtitleEmpty": "Nichts wartet auf dich",
+  "subtitle_one": "{{count}} offener Punkt",
+  "subtitle_other": "{{count}} offene Punkte",
+  "subtitleEmpty": "Alles erledigt",
   "loading": "Projekte werden geprüft …",
   "empty": {
-    "title": "Nichts braucht dich",
+    "title": "Nichts offen",
     "description": "Reviews, Rückfragen und Fehler aus allen Projekten erscheinen hier, sobald sie auftreten."
   },
   "error": {
@@ -21,7 +21,9 @@
     "budget": "Wegen Budget pausiert",
     "jira": "Jira-Sync fehlgeschlagen",
     "failedNoCause": "Vor der Auslieferung gestoppt",
-    "capReached": "Budgetlimit erreicht"
+    "capReached": "Arbeit pausiert",
+    "chain": "Meilenstein pausiert",
+    "chainCheckpoint": "Meilenstein wartet auf dein Okay"
   },
   "actions": {
     "open": "Öffnen",
@@ -29,20 +31,19 @@
     "answer": "Antworten",
     "resume": "Fortsetzen",
     "retry": "Wiederholen",
-    "raiseCap": "Limit erhöhen"
+    "raiseCap": "Limit erhöhen",
+    "resumeChain": "Fortsetzen",
+    "continueChain": "Weiter",
+    "openMission": "Mission öffnen"
   },
   "working": "Läuft …",
   "rowLabel": "{{action}}: {{title}}",
   "snooze": {
-    "label": "Zurückstellen",
-    "hour": "1 Stunde",
-    "tomorrow": "Bis morgen",
-    "cancel": "Abbrechen"
+    "hour": "1 Stunde zurückstellen",
+    "tomorrow": "Bis morgen zurückstellen"
   },
-  "snoozeItem": "{{title}} zurückstellen",
-  "snoozeFor": "{{title}} zurückstellen für",
   "done": "Erledigt",
-  "doneItem": "{{title}} als erledigt markieren",
+  "more": "Weitere Aktionen für {{title}}",
   "age": {
     "now": "gerade eben",
     "ago": "vor {{age}}"
@@ -63,7 +64,12 @@
     "snoozed": "Zurückgestellt bis {{when}}",
     "undo": "Rückgängig",
     "stillOverBudget_week": "Wochenbudget weiterhin überschritten",
-    "stillOverBudget_month": "Monatsbudget weiterhin überschritten"
+    "stillOverBudget_month": "Monatsbudget weiterhin überschritten",
+    "muted": "Benachrichtigungen von {{project}} stummgeschaltet",
+    "unmuted": "Benachrichtigungen von {{project}} eingeschaltet",
+    "muteFailed": "Die Benachrichtigungen des Projekts konnten nicht geändert werden",
+    "chainResumed": "Meilenstein fortgesetzt",
+    "chainResumeFailed": "Meilenstein konnte nicht fortgesetzt werden"
   },
   "cap": {
     "title": {
@@ -80,5 +86,38 @@
     },
     "detail": "{{spent}} von {{budget}} ausgegeben"
   },
-  "stale": "Aktualisierung fehlgeschlagen – die letzte Liste wird angezeigt."
+  "stale": "Aktualisierung fehlgeschlagen – die letzte Liste wird angezeigt.",
+  "unseen": "Neu",
+  "markRead": "Als gelesen markieren",
+  "markUnread": "Als ungelesen markieren",
+  "mute": {
+    "mute": "Benachrichtigungen von {{project}} stummschalten",
+    "unmute": "Benachrichtigungen von {{project}} wieder einschalten"
+  },
+  "attempt": "Versuch {{number}}",
+  "chain": {
+    "title": "Meilenstein {{n}}",
+    "progress": "Rail {{done}} von {{total}} fertig",
+    "reason": {
+      "chunk_failed": "Ein Rail ist fehlgeschlagen",
+      "chunk_stalled": "Ein Rail hängt",
+      "chunk_stopped": "Ein Rail wurde gestoppt",
+      "provider_limit": "Das Nutzungslimit des Anbieters ist erreicht",
+      "head_missing": "Der Basis-Branch fehlt",
+      "head_discarded": "Der Basis-Branch wurde verworfen",
+      "run_lost": "Die Ausführung eines Rails ging verloren",
+      "rail_limit_reached": "Kein Rail frei",
+      "launch_rejected": "Ein Rail konnte nicht starten",
+      "integration_failed": "Das Integrieren des letzten Rails braucht dich",
+      "paused": "Pausiert"
+    }
+  },
+  "missionCard": {
+    "railLaunch": "Startvorschlag",
+    "flowOffer": "Intent oder umsetzen?",
+    "prCiOffer": "Fehlschlagende CI reparieren?"
+  },
+  "card": {
+    "pr": "PR #{{number}}"
+  }
 }

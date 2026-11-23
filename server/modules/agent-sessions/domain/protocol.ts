@@ -37,8 +37,9 @@ export const KNOWN_EVENT_TYPES = Object.freeze([
  * Event types this Desktop understands when a Core sends them, without
  * requiring them: Cores released before they existed stay compatible.
  * `turn.image` — an image the provider generated (Codex `imageGeneration`).
+ * `provider.rate-limit` — the provider account's usage-limit state (contract 5.14).
  */
-export const OPTIONAL_EVENT_TYPES = Object.freeze(['turn.image'] as const)
+export const OPTIONAL_EVENT_TYPES = Object.freeze(['turn.image', 'provider.rate-limit'] as const)
 
 export type SessionPhase = 'idle' | 'turn' | 'background'
 /**
@@ -60,6 +61,18 @@ export interface Usage {
   costUsd: number | null
   costEstimated: boolean
   model: string | null
+}
+
+/**
+ * How full the provider's context window was after a turn (Core `ContextUsage`,
+ * optional and additive): the newest main-agent request's prompt size and the
+ * model's window, as the provider reported them. Absent when nothing was measured.
+ */
+export interface ContextUsage {
+  usedTokens: number | null
+  windowTokens: number | null
+  model: string | null
+  compacted?: boolean
 }
 
 export interface ToolActivity {
@@ -84,7 +97,7 @@ export type SessionEvent = { at: string } & (
   | { type: 'turn.output'; turnId: string; channel: 'text' | 'thinking'; delta: string }
   | ({ type: 'turn.tool'; turnId: string } & ToolActivity)
   | { type: 'turn.image'; turnId: string; imageId: string; path: string; mimeType: string; prompt?: string }
-  | { type: 'turn.completed'; turnId: string; status: TurnStatus; text: string; error?: string; usage: Usage }
+  | { type: 'turn.completed'; turnId: string; status: TurnStatus; text: string; error?: string; usage: Usage; context?: ContextUsage }
   | { type: 'subagent.started'; subagentId: string; parentId: string | null; kind: 'foreground' | 'background'; agentType?: string; description: string; prompt?: string; delegated?: { driver: string; model: string } }
   | { type: 'subagent.phase'; subagentId: string; phase: SubagentPhase; reason?: string }
   | { type: 'subagent.output'; subagentId: string; channel: 'text' | 'tool'; delta?: string; tool?: ToolActivity }
@@ -94,6 +107,8 @@ export type SessionEvent = { at: string } & (
   | { type: 'output.truncated'; scope: { turnId: string } | { subagentId: string }; droppedEvents: number; droppedBytes: number }
   | { type: 'notice.interruption'; subagentIds: string[]; inputIds: string[] }
   | { type: 'provider.diagnostic'; level: 'info' | 'warning'; code: string; message: string }
+  /** Core `RateLimitInfo`; validated by the provider-quota module, opaque here. */
+  | { type: 'provider.rate-limit'; rateLimit: Record<string, unknown> }
 )
 
 export interface SessionEventEnvelope {
@@ -114,6 +129,13 @@ export interface DriverDescriptor {
     subagentModel?: boolean
     /** Native sub-agents can run at another effort. */
     subagentEffort?: boolean
+    /**
+     * The provider loads MCP tool definitions on demand (Claude tool search),
+     * so a connector costs ~nothing until it is used. Absent on Cores that do
+     * not declare it; "Connectors in missions" only injects the user's own
+     * Claude servers when it is true.
+     */
+    deferredMcpTools?: boolean
     autonomousContinuation: boolean
     steer: boolean
     toolFiltering: boolean

@@ -1,11 +1,11 @@
 {
   "title": "Da gestire",
-  "subtitle_one": "{{count}} elemento ti aspetta",
-  "subtitle_other": "{{count}} elementi ti aspettano",
-  "subtitleEmpty": "Niente ti aspetta",
+  "subtitle_one": "{{count}} elemento in sospeso",
+  "subtitle_other": "{{count}} elementi in sospeso",
+  "subtitleEmpty": "Sei in pari",
   "loading": "Controllo dei tuoi progetti…",
   "empty": {
-    "title": "Nulla richiede il tuo intervento",
+    "title": "Nulla in sospeso",
     "description": "Revisioni, domande e errori di tutti i progetti compaiono qui appena accadono."
   },
   "error": {
@@ -15,13 +15,15 @@
   },
   "kinds": {
     "review": "Revisione pronta",
-    "question": "In attesa della tua risposta",
+    "question": "Attende la tua risposta",
     "failed": "Fallito",
     "blocked": "Bloccato",
     "budget": "In pausa per budget",
     "jira": "Sincronizzazione Jira non riuscita",
     "failedNoCause": "Interrotto prima della consegna",
-    "capReached": "Limite di budget raggiunto"
+    "capReached": "Lavoro in pausa",
+    "chain": "Milestone in pausa",
+    "chainCheckpoint": "Milestone in attesa del tuo via libera"
   },
   "actions": {
     "open": "Apri",
@@ -29,20 +31,19 @@
     "answer": "Rispondi",
     "resume": "Riprendi",
     "retry": "Riprova",
-    "raiseCap": "Aumenta limite"
+    "raiseCap": "Aumenta limite",
+    "resumeChain": "Riprendi",
+    "continueChain": "Continua",
+    "openMission": "Apri missione"
   },
   "working": "In corso…",
   "rowLabel": "{{action}}: {{title}}",
   "snooze": {
-    "label": "Posticipa",
-    "hour": "1 ora",
-    "tomorrow": "Fino a domani",
-    "cancel": "Annulla"
+    "hour": "Posticipa di 1 ora",
+    "tomorrow": "Posticipa a domani"
   },
-  "snoozeItem": "Posticipa {{title}}",
-  "snoozeFor": "Posticipa {{title}} di",
   "done": "Fatto",
-  "doneItem": "Segna {{title}} come fatto",
+  "more": "Altre azioni per {{title}}",
   "age": {
     "now": "adesso",
     "ago": "{{age}} fa"
@@ -63,7 +64,12 @@
     "snoozed": "Posticipato a {{when}}",
     "undo": "Annulla",
     "stillOverBudget_week": "Ancora sopra il budget settimanale",
-    "stillOverBudget_month": "Ancora sopra il budget mensile"
+    "stillOverBudget_month": "Ancora sopra il budget mensile",
+    "muted": "Notifiche di {{project}} silenziate",
+    "unmuted": "Notifiche di {{project}} riattivate",
+    "muteFailed": "Impossibile modificare le notifiche del progetto",
+    "chainResumed": "Milestone ripresa",
+    "chainResumeFailed": "Impossibile riprendere la milestone"
   },
   "cap": {
     "title": {
@@ -80,5 +86,38 @@
     },
     "detail": "{{spent}} su {{budget}} spesi"
   },
-  "stale": "Impossibile aggiornare: viene mostrata l'ultima lista."
+  "stale": "Impossibile aggiornare: viene mostrata l'ultima lista.",
+  "unseen": "Nuovo",
+  "markRead": "Segna come letto",
+  "markUnread": "Segna come non letto",
+  "mute": {
+    "mute": "Silenzia le notifiche di {{project}}",
+    "unmute": "Riattiva le notifiche di {{project}}"
+  },
+  "attempt": "tentativo {{number}}",
+  "chain": {
+    "title": "Milestone {{n}}",
+    "progress": "Rail {{done}} di {{total}} completato",
+    "reason": {
+      "chunk_failed": "Un rail è fallito",
+      "chunk_stalled": "Un rail si è bloccato",
+      "chunk_stopped": "Un rail è stato fermato",
+      "provider_limit": "Raggiunto il limite di utilizzo del provider",
+      "head_missing": "Manca il branch su cui costruire",
+      "head_discarded": "Il branch su cui costruire è stato scartato",
+      "run_lost": "L'esecuzione di un rail è andata persa",
+      "rail_limit_reached": "Nessun rail libero",
+      "launch_rejected": "Un rail non è riuscito ad avviarsi",
+      "integration_failed": "L'integrazione dell'ultimo rail ha bisogno di te",
+      "paused": "In pausa"
+    }
+  },
+  "missionCard": {
+    "railLaunch": "Proposta di avvio",
+    "flowOffer": "Intent o implementare?",
+    "prCiOffer": "Correggere la CI che fallisce?"
+  },
+  "card": {
+    "pr": "PR #{{number}}"
+  }
 }

@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ACCEPTED_SCOPE_HEADING,
+  FLOW_ACCEPTED_SCOPE_LIMIT_BYTES,
   FLOW_RETURN_BRIEFING_LIMIT,
   IntentTransitionError,
+  RETURN_SCOPE_CONDUCT,
+  UNREQUESTED_CHANGE_PREFIX,
+  acceptedScopeEntries,
+  buildAcceptedScope,
+  buildFlowSummary,
   buildReturnBriefing,
+  isUnrequestedChange,
+  provenanceTime,
   flowCoreSessionId,
   nextFlowCoreSessionId,
   isOpenFlow,
@@ -292,6 +301,105 @@ describe('Back to Intent briefing', () => {
     expect(buildReturnBriefing(null)).toContain('Ask the person how to proceed')
     const long = buildReturnBriefing({ reason: 'review', summary: 'x'.repeat(5000), issues: Array.from({ length: 40 }, () => 'y'.repeat(600)), issuesOmitted: 0, score: 1, failingChecks: [] })
     expect(long.length).toBeLessThanOrEqual(FLOW_RETURN_BRIEFING_LIMIT)
+  })
+})
+
+// The generala-dorada Intent, reduced: a layout intent whose constraint
+// forbids rule changes, then the person explicitly asks for other rules.
+const GENERALA = [
+  { role: 'user', content: 'quiero la pantalla de juego más horizontal', at: '2026-11-21 20:37:13' },
+  { role: 'assistant', content: 'Decision: el tablero tendrá dos bloques, «Números» y «Combinaciones».', at: '2026-11-22 09:10:21' },
+  { role: 'user', content: 'tienes acceso a las reglas de la generala de 51 worldwide games de switch, quiero las mismas reglas aquí (con el libre, solo con una generala, el combo etc)', at: '2026-11-22 09:10:21' },
+  { role: 'assistant', content: 'Hecho.\n\nDecision: cada jugador tendrá doce casillas. «Libre» suma los cinco dados y el bono añade 35 al alcanzar 63 en Números.', at: '2026-11-22 09:23:02' },
+  { role: 'user', content: '[Specrails run-failure briefing — automatic, not typed by the user]', at: '2026-11-22 14:28:34', automated: true },
+  { role: 'assistant', content: 'Decision: el tablero tendrá dos bloques, «Números» y «Combinaciones».', at: '2026-11-22 15:00:00' },
+]
+
+describe('Accepted scope (what the person decided during the Intent)', () => {
+  it('lists every request and decision in order with provenance, after the intent constraints they may supersede', () => {
+    const text = buildAcceptedScope({ constraints: ['No cambiar reglas ni lógica de juego'], messages: GENERALA })
+    expect(text.startsWith(ACCEPTED_SCOPE_HEADING)).toBe(true)
+    expect(text).toContain('A later one supersedes an earlier one, and any constraint of the intent, that it contradicts')
+    expect(text).toContain('Intent constraints (each holds only where no later entry below contradicts it):\n- No cambiar reglas ni lógica de juego')
+    expect(text).toContain('1. 2026-11-21 20:37 UTC — Person asked: "quiero la pantalla de juego más horizontal"')
+    expect(text).toContain('2. 2026-11-22 09:10 UTC — Decision recorded: "el tablero tendrá dos bloques')
+    expect(text).toContain('3. 2026-11-22 09:10 UTC — Person asked: "tienes acceso a las reglas de la generala de 51 worldwide games')
+    expect(text).toContain('4. 2026-11-22 09:23 UTC — Decision recorded: "cada jugador tendrá doce casillas')
+    // Automated briefings are not the person; a repeated decision is listed once.
+    expect(text).not.toContain('run-failure briefing')
+    expect(text).not.toContain('5. ')
+    // What each step does with it.
+    expect(text).toContain('- Derive: describe these entries as requirements (ADDED or MODIFIED), never as out-of-scope change. A superseded constraint is not a Non-Goal')
+    expect(text).toContain('- Review: never ask to revert, remove or restore behaviour an entry supports')
+    expect(text).toContain(`as an issue starting with "${UNREQUESTED_CHANGE_PREFIX}"`)
+    expect(text).toContain('- Fix: never revert behaviour an entry supports, and never revert an unrequested change yourself')
+  })
+
+  it('is empty without requests or decisions, and keeps quotes inside the quoted text', () => {
+    expect(buildAcceptedScope({ constraints: ['x'], messages: [] })).toBe('')
+    expect(buildAcceptedScope({ messages: [{ role: 'user', content: '[briefing]', automated: true }] })).toBe('')
+    const text = buildAcceptedScope({ messages: [{ role: 'user', content: 'say "hi"\nthen leave' }] })
+    expect(text).toContain('1. Person asked: "say \'hi\' then leave"')
+    expect(text).not.toContain('Intent constraints')
+    // Step prompts are interpolated by Core: a template in the person's words stays inert.
+    expect(buildAcceptedScope({ constraints: ['keep {{run.x}}'], messages: [{ role: 'user', content: 'use {{outputs.check}}' }] })).not.toMatch(/\{\{|\}\}/)
+  })
+
+  it('stays bounded: the oldest requests give way first, the decisions stay', () => {
+    const many = Array.from({ length: 200 }, (_, index) => ({ role: 'user', content: `request ${index} ${'z'.repeat(300)}`, at: '2026-11-22 09:00:00' }))
+    const text = buildAcceptedScope({ constraints: ['c'], messages: [...many, { role: 'assistant', content: 'Decision: keep the rules of Switch' }] })
+    expect(new TextEncoder().encode(text).length).toBeLessThanOrEqual(FLOW_ACCEPTED_SCOPE_LIMIT_BYTES)
+    expect(text).toContain('keep the rules of Switch')
+    expect(text).toContain('request 199')
+    expect(text).not.toContain('request 0 ')
+    expect(text).toMatch(/\(\d+ earlier request\(s\) omitted here; the conversation summary keeps them\)/)
+    expect(text).toContain('- Fix:')
+  })
+
+  it('reads provenance from SQLite and ISO times', () => {
+    expect(provenanceTime('2026-11-22 09:10:21')).toBe('2026-11-22 09:10 UTC')
+    expect(provenanceTime('2026-11-22T09:10:21.500Z')).toBe('2026-11-22 09:10 UTC')
+    expect(provenanceTime('soon')).toBeNull()
+    expect(provenanceTime(null)).toBeNull()
+    expect(acceptedScopeEntries(GENERALA).map((entry) => entry.kind)).toEqual(['request', 'decision', 'request', 'decision'])
+  })
+
+  it('the derive input states the precedence and stamps each message and decision', () => {
+    const summary = buildFlowSummary({ idea: null, messages: GENERALA, intent: '## Intent (source of truth for why and for the outcome, never for how)\n\n### Constraints\n\n- No cambiar reglas ni lógica de juego' })
+    expect(summary.indexOf('No cambiar reglas')).toBeLessThan(summary.indexOf('## Accepted scope'))
+    expect(summary).toContain('A later one supersedes an earlier one, and any constraint of the intent, that it contradicts')
+    expect(summary).toContain('describe them as requirements, never as out-of-scope change')
+    expect(summary).toContain('2. [2026-11-22 09:10 UTC] tienes acceso a las reglas de la generala')
+    expect(summary).toContain('- [2026-11-22 09:23 UTC] cada jugador tendrá doce casillas')
+    expect(buildFlowSummary({ idea: 'x', messages: [] })).not.toContain('## Accepted scope')
+  })
+})
+
+describe('Back to Intent never plans a revert of what the person asked for', () => {
+  // The generala-dorada review, reduced.
+  const findings = {
+    reason: 'review' as const, summary: 'Layout works; tests missing', score: 55, issuesOmitted: 0, failingChecks: [],
+    issues: [
+      'src/renderer/shell/shell.css:525: Keep a visible focus indicator when a roll gates candidate buttons.',
+      `${UNREQUESTED_CHANGE_PREFIX} src/renderer/menu/Credits.tsx: a credits screen; no request or decision supports it`,
+    ],
+  }
+
+  it('keeps person-requested work, lists unrequested changes apart and asks the person about them', () => {
+    const text = buildReturnBriefing(findings)
+    expect(text).toContain('Issues to address:\n1. src/renderer/shell/shell.css:525')
+    expect(text).toContain('Changes the reviewer could not trace to any request or decision of this Intent (the person decides each one; never revert it on your own):\n1. src/renderer/menu/Credits.tsx: a credits screen')
+    expect(text).not.toContain(`2. ${UNREQUESTED_CHANGE_PREFIX}`)
+    expect(text).toContain(RETURN_SCOPE_CONDUCT)
+    expect(RETURN_SCOPE_CONDUCT).toContain('Never revert, remove or restore anything the person asked for or decided in this Intent')
+    expect(RETURN_SCOPE_CONDUCT).toContain('even when a finding asks for it or the original intent\'s constraints say otherwise')
+    expect(RETURN_SCOPE_CONDUCT).toContain('offer the choice as an `options` block BEFORE editing (keep it and record it as a requirement, or revert it)')
+    expect(text).not.toContain('is removed or explicitly confirmed by them')
+  })
+
+  it('recognises the unrequested-change prefix in any case', () => {
+    expect(isUnrequestedChange('  unrequested change: x')).toBe(true)
+    expect(isUnrequestedChange('Revert the rules')).toBe(false)
   })
 })
 

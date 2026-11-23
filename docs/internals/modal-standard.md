@@ -8,6 +8,11 @@ Tests for the contract: [`dialog-standard.test.tsx`](../../client/src/components
 [`dialog-movable.test.tsx`](../../client/src/components/ui/__tests__/dialog-movable.test.tsx)
 and the source guard [`modal-standard-guard.test.ts`](../../client/src/components/ui/__tests__/modal-standard-guard.test.ts).
 
+In the desktop app, opted-in surfaces (Settings, Job detail) open as native
+OS windows instead; see [native window surfaces](native-window-surfaces.md).
+The dialog stays the same component: inside the window it fills the window, and
+in the browser it is the modal described here.
+
 ## When a modal is the right pattern
 
 Use a modal for a decision (confirm, launch) or a protected, focused task
@@ -19,7 +24,7 @@ working.
 | Confirms, launch dialogs, Add Spec | Modal |
 | Settings | Modal (AGENTS.md: app settings are a modal; project settings are a route in board mode and `ProjectSettingsDialog` in Agent Mode, which has no routed dashboard) |
 | Spec detail, Job detail | Entity modal (`layer="entity"`), resizable, geometry persisted |
-| Loops, Plugins, Review packet | `fullscreen` modal with the standard header and a visible close. Candidates for routes. |
+| Loops, Plugins, Review packet | `fullscreen` modal with the standard header and a visible close. Candidates for routes. In the desktop app Loops and Plugins open in their own native windows instead. |
 | Docs, Analytics, agent activity log, background-process logs | `workspace` modal today. These are read while working, so they are candidates for a right-side sheet. |
 | Move to rail, Subscription usage, floating agent chat | Non-modal popovers and panels. Not dialogs. |
 
@@ -89,7 +94,7 @@ bar (`lib/modal-safe-area.ts`).
   secondary info or a destructive action such as Delete. On the right, Cancel
   (`variant="ghost"`) comes first, then the primary action (`default`, or
   `destructive` when it destroys data). Footer buttons use the Button default
-  size. On narrow viewports the footer stacks with the primary on top.
+  size. On narrow viewports the footer stacks with the primary on top. A confirmation with four or more actions (the per-run limit dialog) passes `stackedFooter` to `ConfirmDialog` and stacks at every width, so the row never wraps into a ragged second line.
 - **Initial focus**: the primary for confirms and launch dialogs
   (`onOpenAutoFocus` → `primaryRef`), the first field for forms. `⌘↵` submits,
   and the primary shows the kbd hint.
@@ -117,7 +122,7 @@ truly has none passes `aria-describedby={undefined}`.
 | dock | 75 | Minimized chats dock (stays clickable over modals) |
 | `capture` | 80 | Browser capture, web view, native browser pane, background-process logs, runtime graph |
 | `media` | 100 | Lightboxes |
-| toast | 110 | Toasts. Sonner portals to `<body>` (its own rule in `globals.css` pins it even higher) and switches to top-right while a modal is open, so a toast never covers a modal footer |
+| toast | 110 | Toasts. Sonner portals to `<body>` (its own rule in `globals.css` pins it even higher). Toasts stay bottom-right and stay clickable while a modal is open: they get `pointer-events: auto`, and a press on a toast never counts as an outside press that closes the modal (`useToastsUsableOverModals` in `lib/toasts-over-modals.ts`). In the desktop app, toasts raised inside a native surface window show in the window that opened it ([native window surfaces](native-window-surfaces.md#toasts)) |
 
 Pass `layer` to `DialogContent` (or to `ConfirmDialog`). A dialog rendered
 inside another dialog inherits a layer automatically. Inside an `entity` modal

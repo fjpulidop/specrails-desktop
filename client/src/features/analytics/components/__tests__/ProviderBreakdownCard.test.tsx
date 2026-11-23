@@ -202,4 +202,26 @@ describe('ProviderBreakdownCard', () => {
     const claudeSegment = container.querySelector('[title^="Claude:"]')
     expect(claudeSegment!.getAttribute('title')).not.toMatch(/~/)
   })
+
+  it('hides an unconfigured provider without activity but keeps one that spent', () => {
+    const data = makeData([
+      makeProvider({ provider: 'claude', count: 3, costUsd: 2 }),
+      makeProvider({ provider: 'codex', count: 1, estimatedCostUsd: 1 }),
+      makeProvider({ provider: 'gemini', count: 0 }),
+    ])
+    render(<ProviderBreakdownCard data={data} loading={false} configuredProviders={['claude']} />)
+    expect(screen.getByText('Claude')).toBeInTheDocument()
+    // Spent in the window: still listed so the totals reconcile.
+    expect(screen.getByText('Codex')).toBeInTheDocument()
+    expect(screen.queryByText('Gemini')).not.toBeInTheDocument()
+  })
+
+  it('keeps the explanation behind an info hint instead of a paragraph', () => {
+    const data = makeData([
+      makeProvider({ provider: 'claude', count: 3, costUsd: 2 }),
+      makeProvider({ provider: 'codex', count: 1, estimatedCostUsd: 1 }),
+    ])
+    render(<ProviderBreakdownCard data={data} loading={false} />)
+    expect(screen.getByRole('button', { name: /estimated from local pricing/ })).toBeInTheDocument()
+  })
 })

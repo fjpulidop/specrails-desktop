@@ -2,7 +2,6 @@
 
 > Documento de arquitectura. Audiencia: product owner + mantenedores de **specrails-core** y **specrails-desktop**.
 > Antecedentes técnicos completos: [`global-artifacts-relocation-evaluation.md`](./global-artifacts-relocation-evaluation.md).
-> Evolución posterior (framework bundleado): [`bundled-framework-build-plan.md`](./bundled-framework-build-plan.md).
 > Estado: **IMPLEMENTADO** en la rama `feat/relocate-artifacts-to-home` (ambos repos). Las secciones 2-10 describen el DISEÑO original; la **Reconciliación as-built** (abajo) registra los deltas entre el diseño y lo construido — donde difieran, **gana el as-built**.
 
 ---

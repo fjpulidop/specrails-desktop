@@ -15,11 +15,11 @@ let latest: ReturnType<typeof useBackgroundProcesses>
 function Probe() { latest = useBackgroundProcesses(); return <div>{latest.processes.map(p => `${p.processId}:${p.status}`).join('|')}</div> }
 const tree = () => <BackgroundProcessesProvider><Probe /></BackgroundProcessesProvider>
 const process = (patch: Partial<BackgroundProcess> = {}): BackgroundProcess => ({ processId: 'execution-1', pid: 77, command: 'npm run dev', cwd: '/repo', startedAt: 10, status: 'running', chatId: 'chat-1', projectId: 'proj-1', ...patch })
-const response = (body: unknown, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response
+const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r }); return { promise, resolve } }
 function send(value: BackgroundProcess, type = 'background_process.started') { act(() => capturedHandler?.({ type, projectId: value.projectId, process: value })) }
 async function mount() { const result = render(tree()); await act(async () => {}); return result }
-beforeEach(() => { capturedHandler = null; connectionStatus = 'connected'; active = { id: 'chat-1', pinned_project_id: 'proj-1' }; vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ processes: [] }))) })
+beforeEach(() => { capturedHandler = null; connectionStatus = 'connected'; active = { id: 'chat-1', pinned_project_id: 'proj-1' }; vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => response({ processes: [] }))) })
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('BackgroundProcessesProvider', () => {
@@ -165,7 +165,7 @@ describe('BackgroundProcessesProvider', () => {
     send(target)
     vi.mocked(fetch).mockResolvedValueOnce(response({ ok: true, process: { ...target, status: 'stopping' } }, 202))
     await act(async () => latest.kill(target))
-    vi.mocked(fetch).mockResolvedValue(response({ processes: [{ ...target, status: 'stopping' }] }))
+    vi.mocked(fetch).mockImplementation(async () => response({ processes: [{ ...target, status: 'stopping' }] }))
     for (let index = 0; index < 7; index++) await act(async () => vi.advanceTimersByTimeAsync(2000))
     await act(async () => vi.advanceTimersByTimeAsync(1000))
     expect(latest.processes[0]).toMatchObject({ status: 'stopping', stopError: expect.stringContaining('Try again') })
@@ -189,7 +189,7 @@ describe('BackgroundProcessesProvider', () => {
     let result!: Promise<void>
     act(() => { result = latest.kill(target) })
     const outcome = result.catch(() => undefined)
-    vi.mocked(fetch).mockResolvedValue(response({ processes: [target] }))
+    vi.mocked(fetch).mockImplementation(async () => response({ processes: [target] }))
     for (let index = 0; index < 7; index++) await act(async () => vi.advanceTimersByTimeAsync(2000))
     await act(async () => { await vi.advanceTimersByTimeAsync(BACKGROUND_STOP_CONFIRMATION_MS - 14_000); await outcome })
     expect(latest.processes[0].stopError).toContain('timed out')
@@ -217,7 +217,7 @@ describe('BackgroundProcessesProvider', () => {
   })
   it('restores durable history after remount without reviving old chips or recovered PIDs', async () => {
     const archived = process({ status: 'interrupted', recoveredAt: Date.now() - 600_000 })
-    vi.mocked(fetch).mockResolvedValue(response({ processes: [archived] }))
+    vi.mocked(fetch).mockImplementation(async () => response({ processes: [archived] }))
     const first = await mount()
     expect(latest.processes).toEqual([])
     expect(latest.history).toEqual([expect.objectContaining(archived)])
@@ -232,7 +232,7 @@ describe('BackgroundProcessesProvider', () => {
   it('uses the original end time for the chip window after reload', async () => {
     vi.useFakeTimers()
     const archived = process({ status: 'exited', endedAt: Date.now() - 119_000 })
-    vi.mocked(fetch).mockResolvedValue(response({ processes: [archived] }))
+    vi.mocked(fetch).mockImplementation(async () => response({ processes: [archived] }))
     await mount()
     expect(latest.processes).toHaveLength(1)
     act(() => vi.advanceTimersByTime(1000))

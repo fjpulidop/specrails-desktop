@@ -8,6 +8,7 @@ import { useTicketDetailModal } from '../../specs/context/TicketDetailModalConte
 import type { TicketSpendingSummary, Surface } from '../types/spending'
 import { SURFACE_LABEL } from '../types/spending'
 import { formatUsd } from '../lib/format'
+import { requestJson } from '../../../lib/api-response'
 
 interface Props { ticketId: number }
 
@@ -35,8 +36,7 @@ export function TicketSpendingLine({ ticketId }: Props) {
     // switch with the same id must refetch the new project's spending.
     const ctrl = new AbortController()
     setSummary(null)
-    fetch(`${getApiBase()}/tickets/${ticketId}/spending-summary`, { signal: ctrl.signal })
-      .then((r) => r.ok ? r.json() as Promise<TicketSpendingSummary> : null)
+    requestJson<TicketSpendingSummary | null>(`${getApiBase()}/tickets/${ticketId}/spending-summary`, { signal: ctrl.signal })
       .then((d) => { if (d) setSummary(d) })
       .catch(() => { /* ignore */ })
     return () => ctrl.abort()

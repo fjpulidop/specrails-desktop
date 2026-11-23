@@ -1,4 +1,4 @@
-import { execSync } from 'child_process'
+import { execBounded } from '../../../util/bounded-exec'
 import fs from 'fs'
 import path from 'path'
 import type { DbInstance } from '../../../db'
@@ -88,12 +88,15 @@ function readCoverage(projectPath: string): CoverageInfo {
 
 // ─── Git activity ─────────────────────────────────────────────────────────────
 
-function getGitCommits(projectPath: string, limit = 10): GitCommit[] {
+// Async + bounded: this ran as execSync on every GET /metrics, freezing the
+// server for the whole `git log` (large or network-mounted repos are slow).
+async function getGitCommits(projectPath: string, limit = 10): Promise<GitCommit[]> {
   try {
-    const out = execSync(
-      `git log --pretty=format:"%H|%s|%an|%ai" -${limit}`,
-      { cwd: projectPath, timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] }
-    ).toString().trim()
+    const out = (await execBounded(
+      'git',
+      ['log', '--pretty=format:%H|%s|%an|%ai', `-${limit}`],
+      { cwd: projectPath, timeoutMs: 5000 },
+    )).trim()
     if (!out) return []
     return out.split('\n').map((line) => {
       const parts = line.split('|')
@@ -190,9 +193,9 @@ function computeHealthScore(
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export function getProjectMetrics(projectPath: string, db: DbInstance): ProjectMetrics {
+export async function getProjectMetrics(projectPath: string, db: DbInstance): Promise<ProjectMetrics> {
   const coverage = readCoverage(projectPath)
-  const recentCommits = getGitCommits(projectPath, 10)
+  const recentCommits = await getGitCommits(projectPath, 10)
   const pipeline = getPipelineStatus(db)
   const { score, factors } = computeHealthScore(coverage, pipeline, recentCommits)
   const failurePatterns = getFailurePatterns(db)

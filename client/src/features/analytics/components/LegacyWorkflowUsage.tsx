@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { getApiBase } from '../../../lib/api'
+import { requestJson } from '../../../lib/api-response'
 
 const kinds = ['legacy_loop_traversal', 'queue_manager_slash', 'merge_back'] as const
 interface Summary { total: number; byKind: Record<typeof kinds[number], number>; lastAt: string | null }
@@ -25,9 +26,7 @@ export function LegacyWorkflowUsage({ projectId }: { projectId: string }) {
     setState({ projectId, loading: true, error: false })
     void (async () => {
       try {
-        const response = await fetch(`${getApiBase()}/analytics/legacy-launches`, { signal: controller.signal })
-        if (!response.ok) throw new Error('Telemetry unavailable')
-        const summary = parseSummary(await response.json())
+        const summary = parseSummary(await requestJson<unknown>(`${getApiBase()}/analytics/legacy-launches`, { signal: controller.signal }))
         if (!current) return
         cache.current.set(projectId, summary)
         setState({ projectId, loading: false, error: false })
@@ -44,7 +43,7 @@ export function LegacyWorkflowUsage({ projectId }: { projectId: string }) {
   if (!failed && (!summary || summary.total === 0)) return null
   return <section className="rounded-xl border border-border/40 bg-card/40 p-4 space-y-3" aria-label={t('legacyUsage.title')}>
     <div className="flex items-center justify-between gap-3">
-      <h2 className="text-strong">{t('legacyUsage.title')}</h2>
+      <h2 className="text-title">{t('legacyUsage.title')}</h2>
       <button type="button" disabled={loading} onClick={() => refresh(value => value + 1)} className="text-xs underline disabled:opacity-50">{t('legacyUsage.refresh')}</button>
     </div>
     <p className="text-xs text-muted-foreground">{t('legacyUsage.scope')}</p>

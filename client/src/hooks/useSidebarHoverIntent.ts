@@ -29,6 +29,8 @@ export function useSidebarHoverIntent({ enabled, dragging }: Options) {
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pointerInside = useRef(false)
+  // After `dismiss()` the rail stays collapsed until the pointer leaves it.
+  const suppressed = useRef(false)
   const draggingRef = useRef(dragging)
   draggingRef.current = dragging
 
@@ -46,9 +48,18 @@ export function useSidebarHoverIntent({ enabled, dragging }: Options) {
     setHovered(false)
   }, [enabled, clearTimers])
 
+  /** Collapse now (an item was chosen): the pointer still over the rail or the
+   *  focus still on the clicked item must not reopen it until the pointer leaves. */
+  const dismiss = useCallback(() => {
+    if (!enabled) return
+    clearTimers()
+    suppressed.current = true
+    setHovered(false)
+  }, [enabled, clearTimers])
+
   const onMouseEnter = useCallback(() => {
     pointerInside.current = true
-    if (!enabled) return
+    if (!enabled || suppressed.current) return
     if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null }
     if (openTimer.current) return
     openTimer.current = setTimeout(() => {
@@ -59,6 +70,7 @@ export function useSidebarHoverIntent({ enabled, dragging }: Options) {
 
   const onMouseLeave = useCallback(() => {
     pointerInside.current = false
+    suppressed.current = false
     if (!enabled) return
     if (openTimer.current) { clearTimeout(openTimer.current); openTimer.current = null }
     if (draggingRef.current) return
@@ -70,7 +82,7 @@ export function useSidebarHoverIntent({ enabled, dragging }: Options) {
   }, [enabled])
 
   const onFocus = useCallback(() => {
-    if (!enabled) return
+    if (!enabled || suppressed.current) return
     clearTimers()
     setHovered(true)
   }, [enabled, clearTimers])
@@ -88,6 +100,7 @@ export function useSidebarHoverIntent({ enabled, dragging }: Options) {
   return {
     hovered,
     setHovered,
+    dismiss,
     handlers: { onMouseEnter, onMouseLeave, onFocus, onBlur },
   }
 }

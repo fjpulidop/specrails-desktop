@@ -1,4 +1,6 @@
-import { RuntimeGraphExplorer } from './RuntimeGraphExplorer'
+import { RuntimeGraphExplorer, type RuntimeGraphHold } from './RuntimeGraphExplorer'
+
+export type { RuntimeGraphHold }
 /**
  * LoopStepExplorer — premium step-grouped log exploration for loop jobs.
  *
@@ -15,7 +17,7 @@ import { RuntimeGraphExplorer } from './RuntimeGraphExplorer'
  *    floating "Resume follow" pill brings it back.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, Copy, ChevronsUpDown, ChevronsDownUp } from 'lucide-react'
 import { toast } from 'sonner'
@@ -36,34 +38,55 @@ import { LoopStepSection, LoopSetupSection, SETUP_KEY } from './LoopStepSection'
 import { useLogTicketActions } from '../../../jobs/hooks/useLogTicketActions'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { useDefinitionFork } from '../../hooks/useDefinitionFork'
-import { LiveDot } from '../../../../components/ui/live-dot'
+import { RunStateDot } from '../../../../components/ui/run-state/run-state-dot'
 
 import { notifyError } from '../../../../lib/notify-error'
 export interface LoopStepExplorerProps {
   events: EventRow[]
   /** Job status — drives running/interrupted derivation and the follow pill. */
   jobStatus?: string
+  /** The run's hold (state and name), when it is held: the step it stopped on reads as the hold. */
+  hold?: RuntimeGraphHold | null
   isLoading?: boolean
   variant?: 'page' | 'glass'
   /** Project scope for `#N` ticket refs in step-box lines — defaults to the
    *  active project (board page); mission JobDetailModal passes its own. */
   projectId?: string
   onOpenRun?(runId: string): void
+  /**
+   * Which half of the explorer to render. `graph`: the run's outcome and its
+   * always-expanded graph. `detail`: the step trail and the step-grouped log.
+   * `all` (default) stacks both.
+   */
+  view?: 'all' | 'graph' | 'detail'
+  /** Graph view: show a step's log (the detail view lives in another tab). */
+  onShowStep?(key: string): void
+  /** Detail view: open and scroll to this step; `seq` repeats a request. */
+  focusStep?: { key: string; seq: number } | null
+  /** Detail view: controls drawn at the start of the filter bar. */
+  toolbarLeading?: ReactNode
+  /** Graph view of a held run that never ran a step: what the person sees instead of an empty map (the hold's own card). */
+  notStarted?: ReactNode
 }
 
+/** The run is live: the working lamp (info, pulsing; static under reduced motion). */
 function PulseDot() {
-  return (
-    <LiveDot size="xs" />
-  )
+  return <RunStateDot state="working" />
 }
 
 export function LoopStepExplorer({
   events,
   jobStatus,
+  hold: holdProp = null,
   isLoading,
   variant = 'page',
   projectId,
   onOpenRun,
+  view = 'all',
+  onShowStep,
+  focusStep,
+  toolbarLeading,
+  notStarted,
 }: LoopStepExplorerProps) {
   const { t, i18n: i18nInstance } = useTranslation('jobs')
   const [filter, setFilter] = useState('')
@@ -81,6 +104,9 @@ export function LoopStepExplorer({
   const model = useMemo(() => groupByLoopStep(events), [events, i18nInstance.language])
 
   const settled = jobStatus != null && jobStatus !== 'running' && jobStatus !== 'queued'
+  // One object per hold (callers build it on every render): the graph's layout memo keys on it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const hold = useMemo(() => holdProp, [holdProp?.state, holdProp?.label])
   const isJobRunning = jobStatus === 'running'
 
   const segStatuses = useMemo(
@@ -98,9 +124,18 @@ export function LoopStepExplorer({
   }, [model])
 
   // Follow mode keeps exactly the latest section open (the running step, or the
-  // final step once settled; setup when no step has started yet).
+  // final step once settled; setup when no step has started yet). A settled
+  // failed run follows the last step that failed: that is where the evidence
+  // is, not the terminal node the run reached afterwards.
+  const failedKey = useMemo(() => {
+    if (!settled || jobStatus !== 'failed') return null
+    for (let i = model.segments.length - 1; i >= 0; i--) {
+      if (segStatuses[i] === 'failed') return model.segments[i].key
+    }
+    return null
+  }, [settled, jobStatus, model, segStatuses])
   const followKey =
-    model.segments.length > 0 ? model.segments[model.segments.length - 1].key : SETUP_KEY
+    failedKey ?? (model.segments.length > 0 ? model.segments[model.segments.length - 1].key : SETUP_KEY)
 
   const effectiveExpanded = useMemo(() => {
     if (filter) return new Set(allKeys) // filtering searches EVERY section
@@ -142,6 +177,12 @@ export function LoopStepExplorer({
     [toManual],
   )
 
+  // A step picked in the graph tab opens here.
+  useEffect(() => {
+    if (focusStep && view !== 'graph') focusSegment(focusStep.key)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusStep?.seq])
+
   const scrollToBottom = useCallback(() => {
     const el = containerRef.current
     if (el) el.scrollTop = el.scrollHeight
@@ -162,15 +203,25 @@ export function LoopStepExplorer({
     setMode('manual')
   }, [])
 
-  // Autoscroll while following.
+  // Autoscroll while following: to the bottom, or to the failed step.
+  const programmaticScroll = useRef(false)
   useEffect(() => {
-    if (mode === 'follow' && !filter) scrollToBottom()
-  }, [model.totalLines, model.segments.length, mode, filter, scrollToBottom])
+    if (mode !== 'follow' || filter) return
+    if (failedKey) {
+      const section = sectionElsRef.current.get(failedKey)
+      if (!section) return
+      programmaticScroll.current = true
+      section.scrollIntoView?.({ block: 'start' })
+      return
+    }
+    scrollToBottom()
+  }, [model.totalLines, model.segments.length, mode, filter, scrollToBottom, failedKey])
 
   // Scrolling away from the bottom pauses follow (programmatic scrolls land AT
   // the bottom, so they never trip this — same idiom as LogViewer's autoScroll).
   const handleScroll = useCallback(() => {
     const el = containerRef.current
+    if (programmaticScroll.current) { programmaticScroll.current = false; return }
     if (!el || mode !== 'follow') return
     const distance = el.scrollHeight - el.scrollTop - el.clientHeight
     if (distance > 80) toManual()
@@ -256,11 +307,44 @@ export function LoopStepExplorer({
 
   const barPad = variant === 'glass' ? 'px-3 py-1.5' : 'px-4 py-2'
 
+  // Held before its first step: no step ran, so there is no map to draw yet. Say so (or show the hold's own card).
+  if (view === 'graph' && hold && model.segments.length === 0 && !model.completion) {
+    return (
+      <div data-testid="loop-step-explorer" data-view="graph" data-not-started className="flex h-full min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto p-4">
+        {notStarted ?? (
+          <p className="inline-flex items-center gap-2 text-body text-muted-foreground" data-testid="loop-not-started">
+            <RunStateDot state={hold.state} />
+            <span><span className="text-foreground">{hold.label}</span>. {t('loopExplorer.notStarted')}</span>
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  if (view === 'graph') {
+    return (
+      <div data-testid="loop-step-explorer" data-view="graph" className="flex h-full min-h-0 flex-1 flex-col">
+      {/* With a graph, the outcome shares the graph's toolbar row. */}
+      {model.completion && !model.graphMeta?.runtimeTopology && <div data-testid="loop-completion-scroll" className="shrink-0"><LoopCompletionSummary result={model.completion} /></div>}
+      {model.graphMeta?.runtimeTopology && <>
+        <RuntimeGraphExplorer topology={model.graphMeta.runtimeTopology} segments={model.segments} settled={settled} hold={hold} onFocus={onShowStep ?? focusSegment} leading={model.completion ? <LoopCompletionSummary result={model.completion} compact /> : undefined} onFork={forkControl.fork} forkBusy={forkControl.busy} />
+        {forkControl.error && <p role="alert" className="px-2 text-xs text-destructive">{forkControl.error}</p>}
+        {forkControl.created && <div className="p-2 text-xs"><p>{t('loopExplorer.forkCreated')}</p><Button size="sm" variant="outline" onClick={() => onOpenRun?.(forkControl.created!)} disabled={!onOpenRun}>{t('loopExplorer.openFork')}</Button><code className="ml-2">{forkControl.created}</code></div>}
+      </>}
+      {/* Runs recorded before Core reported its topology: the step trail is the graph. */}
+      {!model.graphMeta?.runtimeTopology && (
+        <LoopOverviewStrip chips={chips} iteration={iterationInfo} onChipClick={onShowStep ?? focusSegment} variant={variant} />
+      )}
+      </div>
+    )
+  }
+
   return (
-    <div data-testid="loop-step-explorer" className="relative flex min-h-0 flex-col h-full">
+    <div data-testid="loop-step-explorer" data-view={view} className="relative flex min-h-0 flex-col h-full">
       {/* Top bar — filter, expand/collapse all, follow state, copy + count in
           the SAME trailing position as LogViewer. */}
       <div className={cn('border-b border-border flex items-center gap-2', barPad)}>
+        {toolbarLeading}
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
           <Input
@@ -311,22 +395,25 @@ export function LoopStepExplorer({
         </span>
       </div>
 
+      {view === 'all' && <>
       {/* Overview strip — the loop's live circuit */}
-      {model.completion && <div
+        {model.completion && <div
         data-testid="loop-completion-scroll"
-        className={variant === 'glass' ? 'max-h-[45%] min-h-0 shrink-0 overflow-y-auto overscroll-contain' : undefined}
+        className={variant === 'glass' ? 'max-h-[45%] min-h-0 shrink-0 overflow-y-auto overscroll-contain' : 'shrink-0'}
         tabIndex={variant === 'glass' ? 0 : undefined}
       ><LoopCompletionSummary result={model.completion} /></div>}
       {model.graphMeta?.runtimeTopology && <>
-        <RuntimeGraphExplorer topology={model.graphMeta.runtimeTopology} segments={model.segments} settled={settled} onFocus={focusSegment} onFork={forkControl.fork} forkBusy={forkControl.busy} />
+        <RuntimeGraphExplorer topology={model.graphMeta.runtimeTopology} segments={model.segments} settled={settled} hold={hold} onFocus={focusSegment} onFork={forkControl.fork} forkBusy={forkControl.busy} />
         {forkControl.error && <p role="alert" className="px-2 text-xs text-destructive">{forkControl.error}</p>}
         {forkControl.created && <div className="p-2 text-xs"><p>{t('loopExplorer.forkCreated')}</p><Button size="sm" variant="outline" onClick={() => onOpenRun?.(forkControl.created!)} disabled={!onOpenRun}>{t('loopExplorer.openFork')}</Button><code className="ml-2">{forkControl.created}</code></div>}
+      </>}
       </>}
       <LoopOverviewStrip
         chips={chips}
         iteration={iterationInfo}
         onChipClick={focusSegment}
         variant={variant}
+        reachedOnly={view === 'detail'}
       />
 
       {/* Step-grouped log */}
@@ -350,6 +437,7 @@ export function LoopStepExplorer({
             key={seg.key}
             segment={seg}
             status={segStatuses[i]}
+            held={hold && i === model.segments.length - 1 && seg.end?.status !== 'ok' ? hold : null}
             collapsed={!effectiveExpanded.has(seg.key)}
             filter={filter}
             onToggle={handleToggle}

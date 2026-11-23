@@ -149,7 +149,7 @@ describe('JiraConnectedCard — discard status picker', () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalled())
   })
 
-  it('renders the On Review mapping row and patches on_review when a status is selected', async () => {
+  it('renders the On review mapping row and patches on_review when a status is selected', async () => {
     const onChanged = vi.fn()
     render(<JiraConnectedCard state={makeState(null)} onChanged={onChanged} />)
 

@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, act } from '../../../../test-utils'
+import { render, screen, waitFor, act, fireEvent } from '../../../../test-utils'
 import userEvent from '@testing-library/user-event'
 import { InteractiveJobComposer } from '../InteractiveJobComposer'
 
@@ -55,19 +55,19 @@ describe('InteractiveJobComposer', () => {
   describe('settle-mode matrix', () => {
     it("'finalize' keeps today's Finalize button (no auto hint, no wrap-up)", () => {
       render(<InteractiveJobComposer jobId="j1" settleMode="finalize" />)
-      expect(screen.getByText('Finalize Job')).toBeInTheDocument()
+      expect(screen.getByText('Finalize job')).toBeInTheDocument()
       expect(screen.queryByText('Wrap up now')).not.toBeInTheDocument()
       expect(screen.queryByText(/finishes on its own/i)).not.toBeInTheDocument()
     })
 
     it("absent settleMode falls back to 'finalize' (legacy payloads)", () => {
       render(<InteractiveJobComposer jobId="j1" />)
-      expect(screen.getByText('Finalize Job')).toBeInTheDocument()
+      expect(screen.getByText('Finalize job')).toBeInTheDocument()
     })
 
     it("'auto' shows the quiet hint + 'Wrap up now' secondary, NOT Finalize", () => {
       render(<InteractiveJobComposer jobId="j1" settleMode="auto" />)
-      expect(screen.queryByText('Finalize Job')).not.toBeInTheDocument()
+      expect(screen.queryByText('Finalize job')).not.toBeInTheDocument()
       expect(screen.getByText(/finishes on its own/i)).toBeInTheDocument()
       expect(screen.getByText('Wrap up now')).toBeInTheDocument()
     })
@@ -211,10 +211,10 @@ describe('InteractiveJobComposer', () => {
   })
 
   describe('settle actions', () => {
-    it('Finalize Job POSTs /finalize and shows the finalize toast', async () => {
+    it('Finalize job POSTs /finalize and shows the finalize toast', async () => {
       const user = userEvent.setup()
       render(<InteractiveJobComposer jobId="j1" settleMode="finalize" />)
-      await user.click(screen.getByText('Finalize Job'))
+      await user.click(screen.getByText('Finalize job'))
       await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith('/api/jobs/j1/finalize', expect.objectContaining({ method: 'POST' }))
       })
@@ -245,36 +245,31 @@ describe('InteractiveJobComposer', () => {
       const user = userEvent.setup()
       global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: 'boom' }) })
       render(<InteractiveJobComposer jobId="j1" settleMode="finalize" />)
-      await user.click(screen.getByText('Finalize Job'))
+      await user.click(screen.getByText('Finalize job'))
       await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalled())
-      expect(screen.getByText('Finalize Job')).toBeInTheDocument()
+      expect(screen.getByText('Finalize job')).toBeInTheDocument()
     })
   })
 })
 
+// A pending question or approval has ONE place in the run window: the question
+// card docked above the log (RunQuestionDock). The composer steps aside.
 describe('Core workflow human controls',()=>{
   beforeEach(()=>{vi.clearAllMocks();wsHandlers.clear();global.fetch=vi.fn().mockResolvedValue({ok:true,json:async()=>({ok:true})})})
-  it('does not turn typed text into approval and sends explicit approval for the selected interrupt',async()=>{
-    const user=userEvent.setup()
-    render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" pendingInterrupts={[{id:'a1',nodePath:'archive',kind:'approval',value:{prompt:'Archive this change?'}}]} />)
-    expect(screen.getByText('Archive this change?')).toBeInTheDocument()
-    await user.type(screen.getByRole('textbox'),'yes{Enter}')
-    expect(global.fetch).not.toHaveBeenCalled()
-    await user.click(screen.getByRole('button',{name:'Approve and continue'}))
-    await waitFor(()=>expect(global.fetch).toHaveBeenCalledWith('/api/jobs/run-1/messages',expect.objectContaining({body:JSON.stringify({text:'yes',interruptId:'a1',approve:true})})))
+  it('steps aside while an approval or a question is pending: no interrupt picker, no node ids, no second copy of the question',()=>{
+    const { container } = render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" pendingInterrupts={[{id:'a1',nodePath:'archive',kind:'approval',value:{prompt:'Archive this change?'}},{id:'q2',nodePath:'map[1]/ask',kind:'question'}]} />)
+    expect(container.textContent).toBe('')
+    expect(screen.queryByRole('combobox')).toBeNull()
+    expect(screen.queryByText(/map\[1\]\/ask|archive ·/)).toBeNull()
   })
-  it('requires selection among concurrent questions and sends its exact interrupt id',async()=>{
-    const user=userEvent.setup()
-    render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" pendingInterrupts={[{id:'q1',nodePath:'map[0]/ask',kind:'question'},{id:'q2',nodePath:'map[1]/ask',kind:'question'}]} />)
-    await user.type(screen.getByRole('textbox'),'Answer')
-    expect(screen.getByRole('button',{name:'Send'})).toBeDisabled()
-    await user.selectOptions(screen.getByRole('combobox'),'q2');await user.click(screen.getByRole('button',{name:'Send'}))
-    await waitFor(()=>expect(global.fetch).toHaveBeenCalledWith('/api/jobs/run-1/messages',expect.objectContaining({body:JSON.stringify({text:'Answer',interruptId:'q2'})})))
+  it('comes back for steering once the question is answered (job.interactive clears it)',async()=>{
+    render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" pendingInterrupts={[{id:'q1',nodePath:'ask',kind:'question'}]} />)
+    expect(screen.queryByTestId('interactive-job-composer')).toBeNull()
+    act(()=>{ for (const fn of wsHandlers.values()) fn({type:'job.interactive',jobId:'run-1',acceptingTurns:true,pendingInterrupts:[],question:null}) })
+    expect(await screen.findByTestId('interactive-job-composer')).toBeInTheDocument()
   })
 })
 
-// A Core continuation paused on a question: the loop has no step session, so the
-// composer must answer the question instead of steering into a 409.
 describe('runtime continuation question', () => {
   type Runtime = NonNullable<React.ComponentProps<typeof InteractiveJobComposer>['runtime']>
   const pausedRun = { runId: 'run-1', status: 'paused', canResume: true, canCancel: true, active: false, recoverableSteps: [], pendingQuestion: { stepId: 'clarify', question: 'Reveal Failure reasons or open Details?' } }
@@ -286,26 +281,10 @@ describe('runtime continuation question', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true }) })
   })
 
-  it('shows the question and answers it through the runtime, never as a step message', async () => {
-    const runtime = runtimeState({ answers: { 'run-1': 'Reveal Failure reasons' } })
-    render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" initialAcceptingTurns={false} runtime={runtime} />)
-    expect(screen.getByTestId('composer-runtime-question')).toHaveTextContent('Reveal Failure reasons or open Details?')
-    expect(screen.queryByText('Waiting for the next step…')).not.toBeInTheDocument()
-    expect(screen.queryByText('Settle this step')).not.toBeInTheDocument()
-    const box = screen.getByRole('textbox')
-    expect(box).not.toBeDisabled()
-    expect(box).toHaveValue('Reveal Failure reasons')
-    await userEvent.click(screen.getByRole('button', { name: /Answer and resume/ }))
-    expect(runtime.act).toHaveBeenCalledWith(pausedRun, 'answer')
+  it('leaves an answerable runtime question to its card (never a step message, never twice)', () => {
+    const { container } = render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" initialAcceptingTurns={false} runtime={runtimeState()} />)
+    expect(container.textContent).toBe('')
     expect(global.fetch).not.toHaveBeenCalled()
-  })
-
-  it('edits the shared answer draft and keeps Answer disabled while empty', async () => {
-    const runtime = runtimeState()
-    render(<InteractiveJobComposer jobId="run-1" settleMode="auto" kind="loop-step" runtime={runtime} />)
-    expect(screen.getByRole('button', { name: /Answer and resume/ })).toBeDisabled()
-    await userEvent.type(screen.getByRole('textbox'), 'x')
-    expect(runtime.setAnswer).toHaveBeenCalledWith('run-1', 'x')
   })
 
   it('falls back to steering when the run has nothing to answer', () => {

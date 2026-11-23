@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
+  groupSettleEvidence,
+  type DeliverySettleEvidence,
+  readChangeSummary,
   projectDefinitionRuntimeEvidence,
   healRuntimeEvidence,
   CONFIDENCE_RAW_CAP,
@@ -527,8 +530,8 @@ describe('programmatic-runtime evidence (core-host pipeline dir)', () => {
     const unit = out.units[0]
     expect(unit.sentinel).toBe('absent')
     expect(unit.runtime?.commands).toEqual([
-      { label: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 673, required: true, hostRun: true, outputTail: 'UI tests: 70 passed, 0 failed' },
-      { label: 'lint', outcome: 'failed', exitCode: null, durationMs: null, required: true, hostRun: false, outputTail: null },
+      { label: 'npm test', commandLine: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 673, required: true, hostRun: true, outputTail: 'UI tests: 70 passed, 0 failed' },
+      { label: 'lint', commandLine: 'npm run lint', outcome: 'failed', exitCode: null, durationMs: null, required: true, hostRun: false, outputTail: null },
     ])
     expect(unit.runtime?.checks.map((c) => [c.name, c.hostRun, c.status])).toEqual([['primary: npm test', true, 'passed'], ['Contract Layer review', false, 'passed']])
     expect(unit.runtime?.findings).toEqual(['Faithful port.', 'All tasks traceable.'])
@@ -598,6 +601,20 @@ describe('Core definition delivery evidence', () => {
       { ...scopedReview, nodePath: 'checks', kind: 'implementation-step', output: { phase: 'verify', receiptId: 'receipt', commands: [{ command: 'npm test', exitCode: 0 }] } },
     ])
     expect(projectDefinitionRuntimeEvidence(probe)).toMatchObject({ review: { approved: true, score: 88 }, commands: [{ outcome: 'passed' }] })
+  })
+
+  it('projects the verify command line, its measured duration and its output tail', () => {
+    const probe = definitionProbe([{ nodePath: 'verify', scopeId: 'root', kind: 'verify', status: 'succeeded', attemptId: 'a3',
+      output: { receiptId: 'receipt', commands: [{ command: 'node', args: ['--test', 'test/'], exitCode: 0, durationMs: 1840, output: '# pass 4\n# fail 0\n' }] } }])
+    expect(projectDefinitionRuntimeEvidence(probe)?.commands).toEqual([
+      { label: 'node --test test/', outcome: 'passed', exitCode: 0, durationMs: 1840, required: true, hostRun: true, outputTail: '# pass 4\n# fail 0' },
+    ])
+  })
+
+  it('keeps the repository each verify command ran in', () => {
+    const probe = definitionProbe([{ nodePath: 'verify', scopeId: 'root', kind: 'verify', status: 'succeeded', attemptId: 'a3',
+      output: { receiptId: 'receipt', commands: [{ repositoryId: 'web', command: 'npm', args: ['test'], exitCode: 0 }, { command: 'npm', args: ['test'], exitCode: 0 }] } }])
+    expect(projectDefinitionRuntimeEvidence(probe)?.commands.map((command) => command.repositoryId)).toEqual(['web', undefined])
   })
 
   it('projects confirmed verification commands and implementation review without inventing durations or output', () => {
@@ -781,3 +798,47 @@ describe('reviewer finding locations (Core contract 5.9)', () => {
     expect(old && 'findingLocations' in old).toBe(false)
   })
 })
+
+describe('delivered change summary (OpenSpec proposal)', () => {
+  const fs = require('fs') as typeof import('fs')
+  const os = require('os') as typeof import('os')
+  const path = require('path') as typeof import('path')
+  const io = { readFile: (p: string) => fs.readFileSync(p, 'utf8'), listDir: (p: string) => fs.readdirSync(p), fileExists: (p: string) => fs.existsSync(p), fileMtimeMs: (p: string) => fs.statSync(p).mtimeMs }
+  it('reads Why and What Changes from the run\'s own (newest) proposal, archived or active', () => {
+    const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'change-summary-'))
+    try {
+      const old = path.join(wt, 'openspec/changes/archive/2026-01-02-older-change')
+      const mine = path.join(wt, 'openspec/changes/archive/2026-11-19-add-weeks')
+      fs.mkdirSync(old, { recursive: true }); fs.mkdirSync(mine, { recursive: true })
+      fs.writeFileSync(path.join(old, 'proposal.md'), '## Why\n\nolder\n\n## What Changes\n\n- older\n')
+      fs.utimesSync(path.join(old, 'proposal.md'), new Date(1000), new Date(1000))
+      fs.writeFileSync(path.join(mine, 'proposal.md'), '# Proposal\n\n## Why\n\nCallers convert days by hand.\n\n## What Changes\n\n- `parse()` accepts `w` and `d`.\n- No **BREAKING** changes.\n\n## Impact\n\n- src/index.js\n')
+      expect(readChangeSummary(wt, io)).toEqual({ change: 'add-weeks', why: 'Callers convert days by hand.', whatChanges: '- `parse()` accepts `w` and `d`.\n- No **BREAKING** changes.' })
+    } finally { fs.rmSync(wt, { recursive: true, force: true }) }
+  })
+  it('is null without a proposal or without either section', () => {
+    const wt = fs.mkdtempSync(path.join(os.tmpdir(), 'change-summary-'))
+    try {
+      expect(readChangeSummary(wt, io)).toBeNull()
+      fs.mkdirSync(path.join(wt, 'openspec/changes/c'), { recursive: true })
+      fs.writeFileSync(path.join(wt, 'openspec/changes/c/proposal.md'), '# Proposal\n\n## Impact\n\n- x\n')
+      expect(readChangeSummary(wt, io)).toBeNull()
+    } finally { fs.rmSync(wt, { recursive: true, force: true }) }
+  })
+})
+
+describe('groupSettleEvidence', () => {
+  const unit = (runId: string, ticketId = 1) => ({ ticketId, runId, reviewerStepId: 'reviewer', sentinel: 'absent', sentinelDetail: null, verifyTail: null, confidence: null } as unknown as DeliverySettleEvidence['units'][number])
+  const evidence = (harvest: DeliverySettleEvidence['harvest'], harvestedAt: string, units: DeliverySettleEvidence['units']): DeliverySettleEvidence => ({ schemaVersion: 1, harvest, harvestedAt, units })
+  it('keeps one unit per ticket and run, the weakest harvest and the latest time', () => {
+    const grouped = groupSettleEvidence([evidence('ok', '2026-01-01T00:00:01.000Z', [unit('r1')]), null, evidence('partial', '2026-01-01T00:00:02.000Z', [unit('r1'), unit('r1', 2)])])
+    expect(grouped?.units.map((u) => [u.ticketId, u.runId])).toEqual([[1, 'r1'], [2, 'r1']])
+    expect(grouped?.harvest).toBe('partial')
+    expect(grouped?.harvestedAt).toBe('2026-01-01T00:00:02.000Z')
+  })
+  it('is null when no repository recorded evidence', () => {
+    expect(groupSettleEvidence([null, null])).toBeNull()
+    expect(groupSettleEvidence([])).toBeNull()
+  })
+})
+

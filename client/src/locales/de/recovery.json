@@ -10,9 +10,14 @@
     },
     "provider_limit": "Das Nutzungslimit des KI-Anbieters ist erreicht",
     "environment": "Die Umgebung kann die Prüfungen nicht ausführen",
+    "port_in_use": {
+      "port": "Ein anderer Prozess belegte bereits Port {{port}}",
+      "plain": "Ein anderer Prozess belegte bereits den Port, den der Lauf brauchte"
+    },
     "blocked": {
       "phase": "Der Lauf ist in der Phase {{phase}} blockiert",
-      "plain": "Der Lauf ist blockiert"
+      "plain": "Der Lauf ist blockiert",
+      "corrections": "Die automatischen Korrekturen sind aufgebraucht"
     },
     "timeout": {
       "phase": "Die Phase {{phase}} hat ihre Zeit überschritten",
@@ -26,31 +31,55 @@
       "phase": "Der Agent hat in der Phase {{phase}} unerwartet gestoppt",
       "plain": "Der Agent hat unerwartet gestoppt"
     },
-    "unknown": "Unbekannte Ursache"
+    "provider_unavailable": {
+      "phase": "Der Dienst des Anbieters war in der Phase {{phase}} nicht erreichbar",
+      "plain": "Der Dienst des Anbieters war nicht erreichbar"
+    },
+    "incomplete_tasks": "Einige freigegebene Aufgaben blieben unerledigt",
+    "spec_invalid": "OpenSpec hat die Spezifikation der Änderung abgelehnt",
+    "workflow_protocol": {
+      "role": "Das Modell für {{role}} hat erforderliche OpenSpec-Schritte übersprungen",
+      "plain": "Das Modell hat erforderliche OpenSpec-Schritte übersprungen"
+    },
+    "unknown": "Unbekannte Ursache",
+    "stepFailed": "Der Schritt {{phase}} ist fehlgeschlagen"
   },
   "why": {
     "provider_limit": {
-      "reset": "Es wird {{resetAt}} zurückgesetzt. Danach fortsetzen.",
-      "noReset": "Warte, bis das Limit zurückgesetzt ist, und setze dann fort."
+      "resetsAt": "Es wird um {{time}} zurückgesetzt. Setze dann fort oder nutze einen anderen Anbieter.",
+      "reset": "Es wird {{resetAt}} zurückgesetzt. Setze dann fort oder nutze einen anderen Anbieter.",
+      "noReset": "Warte, bis das Limit zurückgesetzt ist, und setze dann fort, oder nutze einen anderen Anbieter."
     },
     "environment": "Die Änderung selbst ist nicht das Problem. Der Rechner braucht zuerst etwas.",
+    "port_in_use": "Nicht die Änderung ist das Problem: Etwas anderes belegte den Port. Beende es oder lass das Projekt PORT lesen (jeder Lauf bekommt einen eigenen) und starte erneut.",
     "tests_failed": "Die Prüfungen schlagen auch nach den Korrekturen fehl.",
     "blocked": "Ein Limit oder eine Entscheidung hat ihn gestoppt. Er ist nicht abgestürzt.",
     "timeout": "Er hat sein Zeitlimit erreicht, bevor er fertig war.",
     "tool_inactivity": "Er hat zu lange keine Werkzeuge benutzt und nicht geantwortet.",
     "crash": "Der Anbieterprozess oder seine Verbindung ist mitten im Lauf ausgefallen.",
-    "unknown": "Die App weiß nicht, warum er gestoppt hat, und rät nicht."
+    "provider_unavailable": "Der Dienst des Anbieters hat kurz nicht geantwortet, auch nicht nach etwa einer Minute Wiederholungen durch Specrails. An der Arbeit ist nichts falsch.",
+    "incomplete_tasks": "Alles andere ist erledigt. Fortsetzen erledigt den Rest mit dem Browser und seinen Werkzeugen; eine Prüfung, die nur ein Mensch machen kann, kann stattdessen zur Prüfung gehen.",
+    "spec_invalid": "Plan oder Spezifikation haben OpenSpec nicht bestanden, und die Planung konnte das nicht reparieren.",
+    "workflow_protocol": {
+      "plain": "Es hat seinen Zug ohne die Schritte beendet, die Specrails verlangt, auch nach einer Erinnerung. Die Arbeit vor diesem Schritt bleibt erhalten: setze ab dort fort.",
+      "stronger": "{{model}} ist ein kleines Modell und hat seinen Zug ohne die Schritte beendet, die Specrails verlangt, auch nach einer Erinnerung. Setze ab diesem Schritt fort; passiert es wieder, wähle {{stronger}} für diese Rolle."
+    },
+    "unknown": "Die Aufzeichnungen des Laufs nennen keine Ursache. Eine KI-Auswertung des Logs findet sie meist.",
+    "correctionsExhausted": "Der Reviewer verlangt nach {{count}} automatischen Korrekturen weiterhin eine Änderung. Nichts ist abgestürzt: Die Ausführung hat angehalten, bevor sie mehr ausgibt."
   },
   "remedies": {
-    "label": "Wege zur Wiederherstellung"
+    "label": "Wege zur Wiederherstellung",
+    "more": "Weitere Wege"
   },
   "remedy": {
-    "resume": "Fortsetzen",
-    "resumeFrom": "Ab {{phase}} fortsetzen",
-    "retry": "Erneut ausführen",
+    "retry": "Neu beginnen",
     "editSpec": "Spec bearbeiten und neu starten",
     "fixEnvironment": "Umgebung reparieren",
-    "openLogs": "Protokoll am Fehler öffnen"
+    "openLogs": "Protokoll am Fehler öffnen",
+    "continueToReview": "Weiter zum Review",
+    "continue": "Fortsetzen",
+    "continueFrom": "Ab {{phase}} fortsetzen",
+    "copyEnvFiles": ".env dieses Projekts in Läufe kopieren"
   },
   "environment": {
     "command": "Befehl",
@@ -73,5 +102,139 @@
     "apply": "Ein Python-{{version}}-venv für Prüfungen verwenden",
     "saved": "In den Projekteinstellungen gespeichert. Der nächste Start erstellt das venv vor seinen Prüfungen.",
     "failed": "Die Einstellungen konnten nicht gespeichert werden. Öffne die Projekteinstellungen, um sie anzupassen."
+  },
+  "analysis": {
+    "title": "KI-Analyse",
+    "offer": "Lass die KI das Protokoll lesen und erklären, warum dieser Lauf gestoppt hat.",
+    "run": "Mit KI analysieren",
+    "retry": "Erneut versuchen",
+    "running": "Protokoll wird gelesen, um die Ursache zu finden…",
+    "failed": "Die KI-Analyse wurde nicht abgeschlossen.",
+    "evidence": "Aus dem Protokoll",
+    "nextSteps": "Der Plan zur Behebung",
+    "failedStep": "Schritt: {{step}}",
+    "by": "KI-Analyse mit {{model}}. Sie liest das Protokoll; prüfe die zitierten Zeilen.",
+    "stale": "Das Protokoll hat sich seit dieser Analyse geändert.",
+    "regenerate": "Erneut analysieren",
+    "category": {
+      "providerLimit": "Kontingent- oder Nutzungslimit",
+      "missingArtifact": "Fehlendes Artefakt",
+      "configuration": "Konfiguration",
+      "tests": "Tests",
+      "environment": "Umgebung",
+      "agentError": "Agentenfehler",
+      "interrupted": "Unterbrochen",
+      "incompleteTasks": "Unerledigte Aufgaben",
+      "other": "Sonstiges"
+    },
+    "interrupted": "Die Analyse wurde unterbrochen (die App wurde währenddessen neu gestartet). Versuche es erneut.",
+    "action": {
+      "changeModel": "Modell ändern",
+      "changeModelFor": "Modell für {{role}} ändern"
+    },
+    "continueCarriesPlan": "Sie müssen nichts auswählen: Fortsetzen (oben) gibt diese Schritte an den Agenten weiter und führt sie aus."
+  },
+  "facts": {
+    "label": "Wo es fehlschlug",
+    "step": "Schritt",
+    "attempt": "Versuch",
+    "iteration": "Iteration",
+    "time": "Zeit"
+  },
+  "incomplete": {
+    "title": "Unerledigte Aufgaben"
+  },
+  "ai": {
+    "label": "Laut KI-Analyse",
+    "running": "Die KI liest das Log, um die Ursache zu finden…"
+  },
+  "remedyResult": {
+    "continued": "Weiter zum Review, der Rest als Prüfungen von Hand.",
+    "notResumed": "Der fortgesetzte Lauf ist nicht gestartet",
+    "failed": "Der Lauf konnte nicht fortgesetzt werden",
+    "continuing": "Der Lauf wird fortgesetzt.",
+    "continuingFrom": "Fortsetzung ab dem Schritt {{step}}.",
+    "envFilesCopied": "{{files}} in den Lauf kopiert. Es geht weiter.",
+    "envFilesUnavailable": "Dieses Projekt hat keine .env-Datei zum Kopieren. Lege sie in deinem Checkout an und versuche es erneut.",
+    "continuingWith": "Wird fortgesetzt mit: {{label}}",
+    "continuingWithInstruction": "Wird mit deiner Anweisung fortgesetzt."
+  },
+  "consequence": {
+    "continue": "Behält alles und macht beim fehlgeschlagenen Schritt weiter.",
+    "continueTasks": "Behält alles und erledigt nur das Fehlende, mit dem Browser und Installationshinweisen.",
+    "continueEnvironment": "Behält alles; der Agent erfährt, was fehlt, installiert es und macht weiter.",
+    "continueLimit": "Behält alles und macht weiter, sobald der Anbieter wieder Anfragen annimmt.",
+    "continueTransient": "Behält alles und führt denselben Schritt erneut aus.",
+    "continueStopped": "Macht dort weiter, wo er angehalten wurde, im selben Worktree, mit allem bisher Erledigten.",
+    "continueToReview": "Schickt ihn jetzt zur Prüfung, das Übrige als Prüfungen von Hand.",
+    "editSpec": "Öffnet die Spec; eine Änderung daran startet einen neuen Lauf.",
+    "fixEnvironment": "Zeigt, was die Maschine braucht, und den auszuführenden Befehl.",
+    "openLogs": "Springt im Log zum fehlgeschlagenen Schritt.",
+    "retry": "Ein neuer Lauf ab der Basis. Die Arbeit dieses Versuchs wird nicht übernommen; sie bleibt im alten Worktree.",
+    "analyze": "Die KI liest das Log und erklärt, warum er stoppte.",
+    "copyEnvFiles": "Schaltet die Einstellung für dieses Projekt ein und macht weiter. Agenten in seinen Läufen können diese Dateien lesen; sie werden nie committet oder in Reviews angezeigt.",
+    "continueCorrections": "Gibt dem Korrektor 3 neue Korrekturen mit der Forderung des Reviewers und prüft dann erneut."
+  },
+  "stopped": {
+    "headline": "Du hast diesen Lauf angehalten",
+    "why": "Nichts geht verloren.",
+    "whyNoContinue": "Seine Arbeit bleibt in seinem Worktree. Neu beginnen startet ihn erneut ab der Basis."
+  },
+  "lineage": {
+    "title": "Versuche",
+    "explain": "Jeder Versuch hat den vorigen fortgesetzt und seine Arbeit behalten. Der neueste steht für alle.",
+    "attempt": "Versuch {{attempt}} von {{total}}",
+    "attemptShort": "Versuch {{attempt}}",
+    "continuedFromStep": "fortgesetzt ab dem Schritt {{step}} von Versuch {{attempt}}",
+    "continuedFrom": "fortgesetzt von Versuch {{attempt}}",
+    "supersededBy": "Versuch {{attempt}} hat übernommen",
+    "automatic": "Specrails hat automatisch fortgesetzt",
+    "this": "dieser",
+    "open": "Öffnen",
+    "fromStep": "Ab dem Schritt {{step}}",
+    "byAutomatic": "Specrails hat automatisch fortgesetzt",
+    "byPerson": "Von dir fortgesetzt",
+    "byReview": "Mit Prüfungen von Hand zur Prüfung geschickt",
+    "guidance": "An den Agenten gesendete Hinweise",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "Schätzung nach Preisliste, keine abgerechneten Kosten"
+  },
+  "resolution": {
+    "title": "Wähle, wie es weitergeht",
+    "intro": "Jede Option sagt, was sie tut und was passieren kann. Ein Klick setzt den Lauf fort.",
+    "recommended": "Empfohlen",
+    "whatMayHappen": "Was passieren kann:",
+    "risk": {
+      "low": "Geringes Risiko",
+      "medium": "Etwas Risiko",
+      "high": "Hohes Risiko"
+    },
+    "other": "Andere Anweisung…",
+    "otherLabel": "Was soll der Agent tun?",
+    "otherPlaceholder": "Zum Beispiel: Electron in den Schließ-Tests ohne Debugger starten und nur den Exit-Code prüfen",
+    "send": "Mit dieser Anweisung fortsetzen",
+    "sending": "Wird fortgesetzt…",
+    "keepTrying": {
+      "label": "Unverändert weiter versuchen",
+      "does": "Setzt mit demselben Ansatz und einer neuen Korrekturrunde fort.",
+      "consequence": "Er bleibt wahrscheinlich wieder genauso stehen; jeder Versuch hat bisher etwa {{cost}} gekostet.",
+      "consequenceNoCost": "Er bleibt wahrscheinlich wieder genauso stehen."
+    }
+  },
+  "repeat": {
+    "title_one": "{{count}}-mal auf dieselbe Weise gestoppt",
+    "title_other": "{{count}}-mal hintereinander auf dieselbe Weise gestoppt",
+    "spend_one": "{{count}} Versuch, bisher {{cost}}",
+    "spend_other": "{{count}} Versuche, bisher {{cost}}",
+    "attempts_one": "Bisher {{count}} Versuch",
+    "attempts_other": "Bisher {{count}} Versuche",
+    "advice": "Unverändert fortzusetzen stoppt wahrscheinlich wieder hier. Wähle unten einen Weg nach vorn.",
+    "adviceNoOptions": "Unverändert fortzusetzen stoppt wahrscheinlich wieder hier. Die KI-Analyse unten schlägt Wege nach vorn vor.",
+    "adviceAlone": "Unverändert fortzusetzen stoppt wahrscheinlich wieder hier."
+  },
+  "flaky": {
+    "title_one": "Dieser Test wirkt instabil",
+    "title_other": "Diese Tests wirken instabil",
+    "explain": "Sie liefen in früheren Runden oder mit demselben Code durch und scheitern jetzt am Timing. Beim Fortsetzen wird der Agent gebeten, sie deterministisch zu machen, nicht die Timeouts zu verlängern."
   }
 }

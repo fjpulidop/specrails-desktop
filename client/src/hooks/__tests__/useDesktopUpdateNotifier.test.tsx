@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, waitFor, render, screen, fireEvent } from '../../test-utils'
+import { act, renderHook, waitFor, render, screen, fireEvent } from '../../test-utils'
 
 const customMock = vi.fn()
 const dismissMock = vi.fn()
@@ -29,7 +29,21 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }))
 
-import { useDesktopUpdateNotifier, DesktopUpdateToast } from '../useDesktopUpdateNotifier'
+// The idle gate resolves when the test says so.
+const idle = vi.hoisted(() => ({ resolve: null as null | (() => void) }))
+vi.mock('../../lib/startup-queue', () => ({
+  whenIdle: () => new Promise<void>((resolve) => { idle.resolve = resolve }),
+}))
+
+const activeWorkMock = vi.fn()
+const noteUpdateRestartMock = vi.fn()
+vi.mock('../../lib/continuity-api', () => ({
+  fetchActiveWork: (...args: unknown[]) => activeWorkMock(...args),
+  noteUpdateRestart: (...args: unknown[]) => noteUpdateRestartMock(...args),
+}))
+
+import { useDesktopUpdateNotifier, DesktopUpdateToast, desktopUpdateOffer } from '../useDesktopUpdateNotifier'
+import { DesktopUpdateChip } from '../../components/DesktopUpdateChip'
 
 type ToastUpdate = Parameters<typeof DesktopUpdateToast>[0]['update']
 type DownloadEventArg = Parameters<Parameters<ToastUpdate['downloadAndInstall']>[0]>[0]
@@ -50,7 +64,9 @@ describe('useDesktopUpdateNotifier', () => {
     checkMock.mockReset()
     relaunchMock.mockReset()
     invokeMock.mockReset()
+    idle.resolve = null
     localStorage.clear()
+    desktopUpdateOffer.set(null)
     ;(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {}
     checkMock.mockResolvedValue(createTauriUpdate())
   })
@@ -59,29 +75,22 @@ describe('useDesktopUpdateNotifier', () => {
     delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__
   })
 
-  it('calls toast.custom with unstyled:true and the documented options', async () => {
+  it('offers a found update only once the app is idle, never as a toast', async () => {
     renderHook(() => useDesktopUpdateNotifier())
-
-    await waitFor(() => {
-      expect(customMock).toHaveBeenCalled()
-    })
-
-    const [, options] = customMock.mock.calls[0]
-    expect(options).toMatchObject({
-      id: 'specrails-desktop-desktop-update',
-      duration: Infinity,
-      dismissible: false,
-      unstyled: true,
-      closeButton: false,
-    })
+    await waitFor(() => expect(idle.resolve).not.toBeNull())
+    expect(desktopUpdateOffer.get()).toBeNull()
+    act(() => idle.resolve!())
+    await waitFor(() => expect(desktopUpdateOffer.get()?.version).toBe('99.0.0-test'))
+    expect(customMock).not.toHaveBeenCalled()
   })
 
-  it('does not surface a toast for a previously-dismissed version', async () => {
+  it('does not offer a previously-dismissed version', async () => {
     localStorage.setItem('specrails-desktop:dismissedDesktopUpdateVersion', '99.0.0-test')
     renderHook(() => useDesktopUpdateNotifier())
 
     await new Promise((resolve) => setTimeout(resolve, 30))
-    expect(customMock).not.toHaveBeenCalled()
+    expect(idle.resolve).toBeNull()
+    expect(desktopUpdateOffer.get()).toBeNull()
   })
 
   it('does nothing outside a Tauri runtime when mock mode is off', async () => {
@@ -90,10 +99,10 @@ describe('useDesktopUpdateNotifier', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 30))
     expect(checkMock).not.toHaveBeenCalled()
-    expect(customMock).not.toHaveBeenCalled()
+    expect(desktopUpdateOffer.get()).toBeNull()
   })
 
-  it('swallows a failed update check without surfacing a toast', async () => {
+  it('swallows a failed update check without an offer', async () => {
     checkMock.mockRejectedValue(new Error('network down'))
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
@@ -102,13 +111,38 @@ describe('useDesktopUpdateNotifier', () => {
     await waitFor(() => {
       expect(warnSpy).toHaveBeenCalled()
     })
-    expect(customMock).not.toHaveBeenCalled()
+    expect(desktopUpdateOffer.get()).toBeNull()
     warnSpy.mockRestore()
+  })
+})
+
+describe('DesktopUpdateChip', () => {
+  beforeEach(() => { localStorage.clear(); desktopUpdateOffer.set(null) })
+
+  it('is absent without an offer; a click opens the card, Escape hides it, Dismiss drops the offer', () => {
+    const view = render(<DesktopUpdateChip />)
+    expect(view.container).toBeEmptyDOMElement()
+    act(() => desktopUpdateOffer.set(createTauriUpdate()))
+    const chip = screen.getByRole('button', { name: 'Specrails 99.0.0-test is available. Show the update' })
+    const card = screen.getByTestId('desktop-update-card')
+    expect(card).not.toBeVisible()
+    fireEvent.click(chip)
+    expect(card).toBeVisible()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(card).not.toBeVisible()
+    fireEvent.click(chip)
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(desktopUpdateOffer.get()).toBeNull()
+    expect(screen.queryByTestId('desktop-update-chip')).not.toBeInTheDocument()
   })
 })
 
 describe('DesktopUpdateToast', () => {
   beforeEach(() => {
+    activeWorkMock.mockReset()
+    activeWorkMock.mockResolvedValue({ missions: 0, runs: 0, total: 0 })
+    noteUpdateRestartMock.mockReset()
+    noteUpdateRestartMock.mockResolvedValue(undefined)
     dismissMock.mockReset()
     successMock.mockReset()
     relaunchMock.mockReset()
@@ -187,7 +221,8 @@ describe('DesktopUpdateToast', () => {
     const restart = await screen.findByRole('button', { name: 'Restart' })
     expect(screen.getByText('Update ready')).toBeInTheDocument()
     fireEvent.click(restart)
-    expect(invokeMock).toHaveBeenCalledWith('restart_app')
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('restart_app'))
+    expect(noteUpdateRestartMock).toHaveBeenCalled()
     expect(relaunchMock).not.toHaveBeenCalled()
   })
 
@@ -220,8 +255,7 @@ describe('DesktopUpdateToast', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Update' }))
     const restart = await screen.findByRole('button', { name: 'Restart' })
     fireEvent.click(restart)
-    expect(successMock).toHaveBeenCalled()
-    expect(dismissMock).toHaveBeenCalledWith('specrails-desktop-desktop-update')
+    await waitFor(() => expect(successMock).toHaveBeenCalled())
     expect(invokeMock).not.toHaveBeenCalled()
   })
 
@@ -241,13 +275,14 @@ describe('DesktopUpdateToast', () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
-  it('persists the dismissed version and closes the toast on Dismiss', () => {
+  it('persists the dismissed version and drops the offer on Dismiss', () => {
     const onClose = vi.fn()
-    render(<DesktopUpdateToast update={createTauriUpdate()} onClose={onClose} />)
+    const onDismiss = vi.fn()
+    render(<DesktopUpdateToast update={createTauriUpdate()} onClose={onClose} onDismiss={onDismiss} />)
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
 
     expect(localStorage.getItem('specrails-desktop:dismissedDesktopUpdateVersion')).toBe('99.0.0-test')
-    expect(dismissMock).toHaveBeenCalledWith('specrails-desktop-desktop-update')
+    expect(onDismiss).toHaveBeenCalled()
     expect(onClose).toHaveBeenCalled()
   })
 
@@ -264,8 +299,48 @@ describe('DesktopUpdateToast', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Update' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Later' }))
 
-    expect(dismissMock).toHaveBeenCalledWith('specrails-desktop-desktop-update')
     expect(localStorage.getItem('specrails-desktop:dismissedDesktopUpdateVersion')).toBeNull()
     expect(onClose).toHaveBeenCalled()
+  })
+
+  describe('install when nothing is running', () => {
+    function readyUpdate(): ToastUpdate {
+      return {
+        currentVersion: '1.50.0',
+        version: '99.0.0-test',
+        downloadAndInstall: vi.fn(async (onEvent: (e: DownloadEventArg) => void) => { onEvent({ event: 'Finished' } as DownloadEventArg) }),
+      }
+    }
+
+    it('says what a restart would stop and waits until it is idle', async () => {
+      activeWorkMock.mockResolvedValue({ missions: 2, runs: 1, total: 3 })
+      render(<DesktopUpdateToast update={readyUpdate()} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Update' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Restart' }))
+      expect(await screen.findByText('Work is still running')).toBeInTheDocument()
+      expect(screen.getByText('Restarting now stops 2 mission turns · 1 run.')).toBeInTheDocument()
+      expect(invokeMock).not.toHaveBeenCalled()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Install when nothing is running' }))
+      expect(await screen.findByText('Waiting to restart')).toBeInTheDocument()
+      expect(invokeMock).not.toHaveBeenCalled()
+      // The last turn ends: the card restarts by itself (polling).
+      activeWorkMock.mockResolvedValue({ missions: 0, runs: 0, total: 0 })
+      await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('restart_app'), { timeout: 8000 })
+      expect(noteUpdateRestartMock).toHaveBeenCalled()
+    }, 15_000)
+
+    it('Restart now overrides the wait; Cancel goes back to ready', async () => {
+      activeWorkMock.mockResolvedValue({ missions: 1, runs: 0, total: 1 })
+      render(<DesktopUpdateToast update={readyUpdate()} />)
+      fireEvent.click(screen.getByRole('button', { name: 'Update' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Restart' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Install when nothing is running' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
+      expect(await screen.findByText('Update ready')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Restart' }))
+      fireEvent.click(await screen.findByRole('button', { name: 'Restart now' }))
+      await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('restart_app'))
+    })
   })
 })

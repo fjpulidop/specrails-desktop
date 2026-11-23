@@ -112,6 +112,9 @@ export function pauseChainsOnDiscard(deps: PrDecisionDeps, row: RailPrDeliveryRo
       const other = chainGetDelivery(deps.db, id)
       if (!other) return null
       const s = chainSnapshotOf(other)
+      // A merged previous spec lives in the integration branch (its own branch
+      // may be gone): the head rewinds there, never to a deleted branch.
+      if (s.decision === 'merged' || s.decision === 'completed') return null
       return s.branch ?? s.units.find((u) => u.succeeded && u.branch)?.branch ?? null
     }
     const paused = pauseChainsForDiscardedHead(deps.db, row.id, branchOf)

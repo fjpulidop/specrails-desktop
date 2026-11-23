@@ -1,4 +1,5 @@
 import { readRuntimeExpiration } from '../../agent-runtime/runtime/agent-runtime-retention-records'
+import { saveRetainedBudgetPause } from './loop-budget-pauses'
 /**
  * Loop runs store — per-project record (jobs.sqlite `loop_runs`) of each
  * executed loop. The manager creates a row at launch, updates counters as it
@@ -55,6 +56,8 @@ export interface LoopRunRow {
   restart_reason?: string | null
   /** JSON FailureDiagnosis of a failed / blocked / stalled run (migration 84). */
   failure_diagnosis?: string | null
+  /** Time spent held (question, approval, restart, limit, budget), summed at each resume (migration 97). */
+  held_ms?: number
 }
 
 export interface DefinitionRunMetadata {
@@ -137,11 +140,35 @@ export function recordDefinitionCheckpoint(db: DbInstance, runId: string, checkp
   })()
 }
 
+/**
+ * Core resumed (or started) the run: the last checkpoint's pause is over. Its
+ * pending questions or approvals were answered or are being re-asked by the
+ * running process, so the stored status must stop advertising them while the
+ * run works (a GET kept showing the old question for a whole resumed run).
+ * Core's next runtime-result writes the full checkpoint again.
+ */
+export function recordDefinitionRunning(db: DbInstance, runId: string, eventCursor: number): void {
+  const row = getLoopRun(db, runId)
+  if (!row || row.engine_version !== 2) return
+  let prior: DefinitionCheckpoint = {}
+  try { prior = row.runtime_status_json ? JSON.parse(row.runtime_status_json) as DefinitionCheckpoint : {} } catch { prior = {} }
+  if (prior.status === 'running' && !(prior.pendingInterrupts?.length)) return
+  recordDefinitionCheckpoint(db, runId, {
+    ...(prior.revision === undefined ? {} : { revision: prior.revision }),
+    eventCursor: Math.max(eventCursor, row.core_event_cursor ?? 0),
+    status: 'running',
+    pendingInterrupts: [],
+  })
+}
+
 /** Startup preserves the job and launch ownership; no terminal callback is queued. */
 export function markDefinitionRestart(db: DbInstance, runId: string, checkpoint: DefinitionCheckpoint = {}): void {
   db.transaction(() => {
     if (!readDefinitionRun(db, runId)) throw new Error('Frozen definition run is missing')
     recordDefinitionCheckpoint(db, runId, checkpoint)
+    // A run parked at its budget stays held by it: the restart's generic Resume must not continue it.
+    const before = db.prepare('SELECT status, restart_reason FROM loop_runs WHERE id=?').get(runId) as { status: string; restart_reason: string | null } | undefined
+    if (before?.status === 'paused' && before.restart_reason === 'budget_paused') saveRetainedBudgetPause(db, runId)
     db.prepare("UPDATE loop_runs SET status='paused',final_outcome=NULL,finished_at=NULL,restart_reason='restart' WHERE id=? AND status IN ('running','paused')").run(runId)
   })()
 }
@@ -712,14 +739,25 @@ export function finishLoopRun(
 
 /** `reason` marks a non-decision pause on `restart_reason` (e.g. `budget_paused`);
  *  resumeLoopRun clears it. A human-decision pause leaves it untouched. */
-export function pauseLoopRun(db: DbInstance, id: string, counters?: Partial<LoopRunCounters>, reason?: 'budget_paused'): LoopRunRow | undefined {
+export function pauseLoopRun(db: DbInstance, id: string, counters?: Partial<LoopRunCounters>, reason?: 'budget_paused' | 'limit_paused' | 'user_paused'): LoopRunRow | undefined {
   if (counters) updateLoopRunCounters(db, id, counters)
   db.prepare(`UPDATE loop_runs SET status = 'paused', restart_reason = COALESCE(?, restart_reason) WHERE id = ? AND status = 'running'`).run(reason ?? null, id)
   return getLoopRun(db, id)
 }
 
-export function resumeLoopRun(db: DbInstance, id: string): LoopRunRow | undefined {
-  db.prepare(`UPDATE loop_runs SET status = 'running', restart_reason = NULL WHERE id = ? AND status = 'paused'`).run(id)
+export function resumeLoopRun(db: DbInstance, id: string, now: Date = new Date()): LoopRunRow | undefined {
+  // The held time ends now: it began with the run's last recorded event (the pause
+  // notice, or the last step output before a restart). Summed into held_ms.
+  const resumed = db.prepare(`UPDATE loop_runs SET status = 'running', restart_reason = NULL,
+      held_ms = COALESCE(held_ms, 0) + COALESCE(MAX(0, CAST(ROUND((julianday(?) - julianday((SELECT MAX(e.timestamp) FROM events e WHERE e.job_id = loop_runs.id))) * 86400000) AS INTEGER)), 0)
+    WHERE id = ? AND status = 'paused'`).run(now.toISOString(), id).changes > 0
+  // A delivery a restart or a Continue fork left "waiting for workflow recovery" is building
+  // again the moment its run resumes; it said so for the whole continued attempt.
+  if (resumed) {
+    db.prepare(`UPDATE rail_pr_deliveries SET status_code = 'implementation_running', status_detail = NULL
+                 WHERE decision = 'building' AND status_code = 'restart_pending'
+                   AND EXISTS (SELECT 1 FROM json_each(rail_pr_deliveries.run_ids) WHERE json_each.value = ?)`).run(id)
+  }
   return getLoopRun(db, id)
 }
 
@@ -876,7 +914,9 @@ export function reconcileOrphanLoopRuns(
       }
       if (run.engine_version === 2 && run.run_request_json) {
         const state = definitionStates?.get(run.id)
-        if (state !== null && (!state?.status || ['running', 'paused', 'interrupted'].includes(state.status))) {
+        // A run paused on a provider usage limit holds Core's failed attempt on purpose: it stays retained to resume at the reset.
+        const limitPaused = state?.status === 'failed' && db.prepare('SELECT 1 FROM queue_state WHERE key = ?').get(`limit_pause:${run.id}`) !== undefined
+        if (state !== null && (!state?.status || limitPaused || ['running', 'paused', 'interrupted'].includes(state.status))) {
           markDefinitionRestart(db, run.id, state ?? { status: 'unavailable', reason: 'Original Core status could not be read' })
           continue
         }
@@ -904,3 +944,21 @@ export function reconcileOrphanLoopRuns(
   })
   return reconcile() as number
 }
+
+/** The run-log marker a run writes when it has to wait for capacity (LoopRunManager._admit). */
+export const QUEUED_LOG_PREFIX = '⏳ Queued ('
+
+/**
+ * A definition run that waited for capacity and never reached Core: it has no
+ * Core context and its log has the queued marker but no Core event. A restart
+ * that stopped it leaves nothing for Core to resume or report.
+ */
+export function definitionRunNeverReachedCore(db: DbInstance, runId: string): boolean {
+  if (readDefinitionRun(db, runId)?.metadata.contextPath) return false
+  const row = db.prepare(`SELECT
+      EXISTS (SELECT 1 FROM events WHERE job_id = ? AND event_type = 'log' AND json_extract(payload, '$.line') LIKE ?) AS queued,
+      EXISTS (SELECT 1 FROM events WHERE job_id = ? AND event_type IN ('runtime-graph', 'workflow-event')) AS core`)
+    .get(runId, `${QUEUED_LOG_PREFIX}%`, runId) as { queued: number; core: number }
+  return row.queued === 1 && row.core === 0
+}
+

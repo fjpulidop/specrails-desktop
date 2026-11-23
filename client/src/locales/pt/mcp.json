@@ -1,8 +1,8 @@
 {
   "heading": "Servidor MCP",
   "explainer": {
-    "what": "Um servidor MCP (Model Context Protocol) permite que ferramentas de IA externas — como o Claude Desktop, o Cursor ou qualquer cliente MCP — comuniquem diretamente com o Specrails. Elas podem explorar os seus projetos, ler especificações e, se você permitir, iniciar trabalhos, tudo através de uma única ligação local segura.",
-    "how": "Está ativado por predefinição: copie a configuração de cliente abaixo para a sua ferramenta de IA. O Specrails só escuta na sua própria máquina — nada fica exposto à internet.",
+    "what": "Um servidor MCP (Model Context Protocol) permite que outras ferramentas de IA, como o Claude Desktop, o Cursor ou qualquer cliente MCP, comuniquem diretamente com o Specrails. Elas podem explorar os seus projetos, ler specs e, se você permitir, iniciar trabalho. Tudo passa por uma única ligação local segura.",
+    "how": "Vem ativado por padrão. Conecte o Claude Code ou o Codex abaixo, ou copie a configuração do cliente para outra ferramenta de IA. O Specrails só escuta na sua própria máquina; nada fica exposto à internet.",
     "grants": "Todos os níveis de permissão estão ativos por predefinição. Desmarque um nível para restringir o que os clientes podem fazer, uma capacidade de cada vez."
   },
   "enable": {
@@ -20,20 +20,20 @@
   },
   "tiers": {
     "heading": "Níveis de permissão",
-    "description": "Cada nível que um cliente pode usar. A leitura está sempre ativa; o resto está ativo por predefinição — desligue qualquer um para restringir os clientes.",
+    "description": "Cada nível que um cliente pode usar. A leitura está sempre ativa e os outros estão ativos por padrão. Desligue qualquer um para restringir os clientes.",
     "read": "Leitura",
     "readHelp": "Explorar projetos, especificações e análises. Sempre permitido.",
     "write": "Escrita",
     "writeHelp": "Criar e editar specs.",
     "aiSpawn": "Iniciar IA",
-    "aiSpawnHelp": "Iniciar rails e trabalhos de IA que executam a CLI.",
+    "aiSpawnHelp": "Iniciar rails e execuções com as suas CLIs de IA.",
     "destructive": "Destrutivo",
     "destructiveHelp": "Eliminar specs e outros dados do projeto.",
     "updateFailed": "Não foi possível atualizar as permissões"
   },
   "config": {
     "heading": "Configuração do cliente",
-    "description": "Cole isto no seu cliente MCP. Não contém nenhum segredo: o token é copiado separadamente.",
+    "description": "Cole isto no seu cliente MCP. Não contém nenhum segredo; o token é copiado separadamente.",
     "copyConfig": "Copiar configuração",
     "configCopied": "Configuração copiada",
     "copyFailed": "Falha ao copiar"
@@ -63,7 +63,7 @@
     "sourceDiscovered": "de {{provider}}",
     "sourceCustom": "personalizado",
     "orphan": "não encontrado na configuração de origem",
-    "codexNative": "nativo do codex — sempre ativo",
+    "codexNative": "Codex nativo · sempre ativo",
     "empty": "Nenhum servidor MCP encontrado. Adicione um servidor personalizado ou registre um com seu CLI de IA.",
     "addCustom": "Adicionar personalizado",
     "remove": "Remover servidor",
@@ -84,7 +84,7 @@
       "addVar": "Adicionar variável",
       "envKey": "CHAVE",
       "envValue": "valor",
-      "nameInvalid": "Apenas letras, dígitos, pontos e hífens — e 'specrails' é reservado",
+      "nameInvalid": "Use apenas letras, dígitos, pontos e hífens. 'specrails' é reservado.",
       "nameTaken": "Já existe um servidor personalizado com esse nome"
     },
     "errors": {
@@ -98,5 +98,47 @@
     "removeConfirmTitle": "Remover {{name}}?",
     "removeConfirmBody": "O agente de missão deixa de carregar este servidor para todos os fornecedores. Um servidor detetado permanece na configuração do seu fornecedor de IA e pode ser reativado.",
     "formProviderToggle": "Ativar para {{provider}}"
+  },
+  "connect": {
+    "heading": "Conectar Claude Code ou Codex",
+    "description": "Um clique registra o Specrails na configuração do próprio cliente (com backup antes, sem gravar token) e verifica a conexão.",
+    "unavailable": "Esta instalação não inclui a ponte MCP.",
+    "state": {
+      "connected": "Conectado",
+      "outdated": "Caminho antigo",
+      "not_connected": "Não conectado",
+      "conflict": "Nome em uso"
+    },
+    "notInstalled": "Não encontrado neste computador",
+    "connect": "Conectar {{client}}",
+    "connecting": "Conectando…",
+    "update": "Atualizar",
+    "disconnect": "Desconectar",
+    "copyCommand": "Copiar comando",
+    "commandCopied": "Comando copiado",
+    "verified": "Verificado · {{tools}} ferramentas · ≈{{tokens}} tokens",
+    "verifyError": "Salvo, mas a verificação falhou: {{error}}",
+    "enableToVerify": "Salvo. Ligue o servidor MCP para verificar a conexão.",
+    "backup": "Backup: {{path}}",
+    "next": {
+      "claude": "Abra uma nova sessão do Claude Code (ou use /mcp) para carregar o Specrails.",
+      "codex": "Abra uma nova sessão do Codex para carregar o Specrails."
+    },
+    "connected": "{{client}} está conectado ao Specrails",
+    "disconnected": "{{client}} não carrega mais o Specrails",
+    "failed": "Não foi possível conectar {{client}}",
+    "verifyFailed": "{{client}} foi salvo, mas a verificação da conexão falhou",
+    "replaceTitle": "Substituir o servidor \"specrails\" existente?",
+    "replaceBody": "{{client}} já tem um servidor chamado \"specrails\" em {{path}} que não é este app. Substituir? O arquivo recebe um backup antes.",
+    "replace": "Substituir"
+  },
+  "preferences": {
+    "threshold": "Perguntar antes de gastar",
+    "thresholdHelp": "Uma IA conectada pergunta antes quando o trabalho que inicia pode custar mais que isso ou inicia mais de uma execução. PRs, merges e exclusões sempre perguntam.",
+    "thresholdInvalid": "Digite um valor de 0 a {{max}}",
+    "v2": "Ferramentas MCP simplificadas",
+    "v2Help": "15 ferramentas com os próximos passos prontos, espera sem consultas repetidas e respostas no seu idioma. Ativadas por padrão; desative para dar aos clientes o conjunto de ferramentas anterior. Vale para novas sessões do cliente.",
+    "v2Forced": "Definido por SPECRAILS_MCP_V2 no ambiente.",
+    "saveFailed": "Não foi possível salvar a configuração do MCP"
   }
 }

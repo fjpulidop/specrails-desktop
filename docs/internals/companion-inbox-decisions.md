@@ -23,6 +23,14 @@ Code: [mobile-inbox.ts](../../server/mobile/mobile-inbox.ts) (routes and the pur
 The server computes the offered actions per item (`companion.actions`) so the phone never
 shows what the gateway would refuse. `enabled: false` means the permission tier is off.
 
+## Snooze and Done
+
+`POST /v1/inbox/dismissals {itemId, version, until?}` snoozes an item until `until` (at most 30 days) or,
+without `until`, marks it Done while its `version` is unchanged; `DELETE /v1/inbox/dismissals/:itemId`
+brings it back. The record is app-wide (`desktop_settings.inbox_dismissals`, `server/mobile/mobile-inbox.ts`)
+and shared with MCP `specrails_inbox(snooze|done)`. `GET /v1/inbox` hides dismissed items; `?all=1` lists
+them with a `dismissed` marker. The desktop inbox keeps its own per-viewer dismissals.
+
 ## Not exposed
 
 Merge, Discard, Publish, force-push, settings, delete, raising a spend cap and Jira retry have

@@ -1,0 +1,110 @@
+{
+  "title": "Tablero en vivo",
+  "description": "Todas las ejecuciones de todos los proyectos, en directo",
+  "shortcutHint": "Ábrelo o ciérralo con {{shortcut}}",
+  "stale": "Puede que este tablero no esté al día.",
+  "loading": "Leyendo tus proyectos…",
+  "openInWindow": "Abrir en ventana",
+  "summary": {
+    "needsYou_one": "{{count}} pendiente",
+    "needsYou_other": "{{count}} pendientes",
+    "inProgress_one": "{{count}} en curso",
+    "inProgress_other": "{{count}} en curso",
+    "today": "hoy {{cost}}",
+    "todayEstimated": "hoy ~{{cost}} (incluye estimaciones)",
+    "paused_one": "{{count}} en pausa",
+    "paused_other": "{{count}} en pausa"
+  },
+  "layout": {
+    "label": "Disposición",
+    "status": "Por estado",
+    "mission": "Por misión"
+  },
+  "columns": {
+    "needs": "Requiere atención",
+    "working": "En curso",
+    "done": "Terminado hoy",
+    "doneHint": "Se vacía a medianoche",
+    "openInbox": "Abrir Pendientes"
+  },
+  "columnEmpty": {
+    "needs": "Nada te espera.",
+    "working": "No hay nada en marcha.",
+    "done": "Hoy aún no ha terminado nada."
+  },
+  "filters": {
+    "label": "Filtros",
+    "project": "Proyecto",
+    "kind": "Tipo",
+    "engine": "Motor",
+    "allProjects": "Todos los proyectos"
+  },
+  "kinds": {
+    "rail": "Rails",
+    "loop": "Loops",
+    "intent": "Intent",
+    "job": "Trabajos"
+  },
+  "kind": {
+    "rail": "Rail {{n}}",
+    "railUnknown": "Rail",
+    "loop": "Loop",
+    "intent": "Intent",
+    "job": "Trabajo"
+  },
+  "lane": {
+    "noMission": "Fuera de una misión",
+    "noMissionHint": "Lanzado desde el tablero, un loop o un trabajo",
+    "untitled": "Misión sin título",
+    "mission": "misión",
+    "projects_one": "{{count}} proyecto",
+    "projects_other": "{{count}} proyectos",
+    "runs_one": "{{count}} ejecución",
+    "runs_other": "{{count}} ejecuciones",
+    "today": "{{cost}} hoy"
+  },
+  "card": {
+    "now": "ahora mismo",
+    "waiting": "esperando {{age}}",
+    "queuedFor": "en cola {{age}}",
+    "queued": "Esperando para empezar",
+    "steps": "{{done}} de {{total}} pasos hechos",
+    "open": "Abrir",
+    "openReview": "Abrir revisión",
+    "untitled": "Ejecución sin título",
+    "untitledIntent": "Sesión de Intent",
+    "question": "Pregunta",
+    "actionLabel": "{{action}}: {{title}}",
+    "costEstimated": "~{{cost}}",
+    "costEstimatedHint": "Estimación según tarifa, no coste facturado",
+    "costIncludesEstimate": "Incluye {{cost}} estimado según tarifa, no facturado",
+    "mergeConflicts_one": "Choca con la base en {{count}} archivo",
+    "mergeConflicts_other": "Choca con la base en {{count}} archivos",
+    "mergeSiblings_one": "Choca con {{count}} ejecución más",
+    "mergeSiblings_other": "Choca con {{count}} ejecuciones más",
+    "baseMoved_one": "La base avanzó {{count}} commit",
+    "baseMoved_other": "La base avanzó {{count}} commits",
+    "mergeChip": {
+      "conflicts_one": "{{count}} conflicto",
+      "conflicts_other": "{{count}} conflictos",
+      "siblings_one": "Choca con {{count}} ejecución",
+      "siblings_other": "Choca con {{count}} ejecuciones",
+      "baseMoved": "Base avanzada"
+    },
+    "attempt": "intento {{number}}",
+    "attemptCost": "Este intento: {{cost}}. El coste de la tarjeta cubre los {{of}} intentos."
+  },
+  "empty": {
+    "title": "No hay nada en marcha",
+    "description": "Aquí aparecen las ejecuciones de todos tus proyectos en cuanto empiezan: rails, loops, sesiones de Intent y trabajos."
+  },
+  "emptyFiltered": {
+    "title": "Nada coincide con estos filtros",
+    "clear": "Quitar filtros"
+  },
+  "error": {
+    "title": "No se pudo cargar el tablero en vivo",
+    "description": "La app no pudo leer tus proyectos. Inténtalo de nuevo en un momento.",
+    "retry": "Reintentar"
+  }
+}

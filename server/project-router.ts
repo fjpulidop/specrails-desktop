@@ -13,18 +13,20 @@ import { createPluginsRouter } from './plugins-router'
 import { createCodeExplorerRouter, filterCodeExplorerActivityPaths } from './modules/code/runtime/code-explorer-router'
 import { listCodeActivity, parseCodeActivityQuery, CodeActivityQueryError } from './modules/code/runtime/code-activity'
 import { createJiraRouter } from './jira-router'
-import { resolveTicketStoragePath, mutateStore, type Ticket } from './modules/specs/runtime/ticket-store'
+import { mutateStore, type Ticket } from './modules/specs/runtime/ticket-store'
 import type { LocalTicket } from './types'
-import { resolveProjectExecution } from './workspace-resolution'
+import { resolveProjectExecution, resolveProjectTicketsPath } from './workspace-resolution'
 import { workspacePathFor } from './workspace-manager'
 import { readBlueprint, writeBlueprintPair } from './modules/builder/runtime/blueprint-render'
 import { readMilestoneProgress, resolveBlueprintWorkspace } from './modules/builder/runtime/milestone-progress'
+import { runHoldSources } from './modules/loops/runtime/loop-run-hold'
 import { coerceBlueprint } from './modules/builder/runtime/blueprint-draft-parser'
 import { analyzeBuilderSpecBatch, firstBuilderSpecQualityDetail } from './modules/builder/runtime/blueprint-spec-quality'
 import { FileStoryManager, buildStorySystemPrompt } from './modules/code/runtime/file-story-manager'
 import { createFileSummaryGenerator } from './modules/code/runtime/file-summary-generator'
 import { getAdapter } from './providers'
 import { milestoneLaunchSettings, milestoneGenerationSettings, saveMilestoneGenerationSelection, validateMilestoneGenerationSelection, type MilestoneGenerationSelection } from './modules/builder/runtime/milestone-generation-settings'
+import { readMilestoneEngineOverride, saveMilestoneEngineOverride } from './modules/builder/runtime/milestone-engine-preference'
 import { getDesktopSetting } from './desktop-db'
 import { registerJobsRoutes } from './project-router-jobs'
 import { registerSpendingRoutes } from './project-router-spending'
@@ -38,6 +40,7 @@ import { registerGitRoutes } from './project-router-git'
 import { registerRulesRoutes } from './project-router-rules'
 import { registerSearchRoutes } from './project-router-search'
 import { formatDescriptionWithCriteria, type ProjectRoutesDeps } from './project-router-helpers'
+import { awaitProcessAdmission, isProjectAdmissionPending, ProcessAdmissionClosedError } from './process-admission'
 
 // Re-export the spec helpers from their new home so existing importers
 // (`import { ... } from './project-router'`) keep working unchanged.
@@ -73,6 +76,20 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     }
     registry.touchProject(projectId)
     req.projectCtx = ctx
+    // A project that was just registered (or reloaded) is still being reconciled
+    // for a moment before it admits work: a request that changes it waits for that,
+    // bounded, instead of answering 409 for the first seconds after registration.
+    if (req.method !== 'GET' && req.method !== 'HEAD' && isProjectAdmissionPending(projectId)) {
+      void awaitProcessAdmission(projectId).then(() => {
+        if (registry.getContext(projectId) !== ctx) { res.status(404).json({ error: 'Project not found' }); return }
+        next()
+      }, (error: unknown) => {
+        if (!(error instanceof ProcessAdmissionClosedError)) { next(error); return }
+        res.setHeader('Retry-After', '2')
+        res.status(409).json({ error: 'project_recovery_in_progress', retryable: true })
+      })
+      return
+    }
     next()
   })
 
@@ -269,7 +286,45 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     if (error) { res.status(400).json({ error }); return }
     const { provider, model, reasoningEffort } = req.body as MilestoneGenerationSelection
     saveMilestoneGenerationSelection(db, { provider, model, reasoningEffort })
+    // A live chain's next rail now runs on it: the chain row says so.
+    ctx(req).milestoneProgress?.schedule()
     res.json(milestoneGenerationSettings(db, project))
+  })
+
+  // "Use another configuration only for M<n>" without generating (the popover
+  // records it at generation time): read every milestone's own engine, or set
+  // (`engine`) / clear (`engine: null`) one. The live chain's next rail follows.
+  const milestoneEngines = (req: Request) => {
+    const { db, project } = ctx(req)
+    const workspace = resolveBlueprintWorkspace({ slug: project.slug, path: project.path })
+    const blueprint = workspace ? readBlueprint(workspace) : null
+    if (!blueprint) return null
+    return Object.fromEntries(blueprint.milestones.map((m) => [m.id, readMilestoneEngineOverride(db, m.id)]))
+  }
+
+  router.get('/:projectId/blueprint/milestone-engines', (req: Request, res: Response) => {
+    const overrides = milestoneEngines(req)
+    if (!overrides) { res.status(404).json({ error: 'no blueprint for this project' }); return }
+    res.json({ overrides })
+  })
+
+  router.put('/:projectId/blueprint/milestone-engines', (req: Request, res: Response) => {
+    const { db, project } = ctx(req)
+    const body = (req.body ?? {}) as { milestoneId?: unknown; engine?: unknown }
+    const milestoneId = typeof body.milestoneId === 'string' && /^m[0-9]{1,3}$/i.test(body.milestoneId) ? body.milestoneId.toLowerCase() : null
+    if (!milestoneId) { res.status(400).json({ error: 'milestoneId (e.g. "m2") is required' }); return }
+    if (body.engine === undefined) { res.status(400).json({ error: 'engine (or null to follow the usual configuration) is required' }); return }
+    const overrides = milestoneEngines(req)
+    if (!overrides) { res.status(404).json({ error: 'no blueprint for this project' }); return }
+    if (!(milestoneId in overrides)) { res.status(404).json({ error: `milestone ${milestoneId} not found in the blueprint` }); return }
+    if (body.engine !== null) {
+      const error = validateMilestoneGenerationSelection(project, body.engine)
+      if (error) { res.status(400).json({ error }); return }
+    }
+    const engine = body.engine as MilestoneGenerationSelection | null
+    saveMilestoneEngineOverride(db, milestoneId, engine ? { provider: engine.provider, model: engine.model, reasoningEffort: engine.reasoningEffort ?? null } : null)
+    ctx(req).milestoneProgress?.schedule()
+    res.json({ overrides: milestoneEngines(req) })
   })
 
   router.get('/:projectId/blueprint', (req: Request, res: Response) => {
@@ -286,6 +341,7 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
       railJobs: projectCtx.railJobs,
       railLoopRuns: projectCtx.railLoopRuns,
       chains: projectCtx.milestoneChains ? () => projectCtx.milestoneChains!.listActive() : undefined,
+      holdSources: () => runHoldSources(projectCtx),
     })
     if (!snapshot) {
       res.status(404).json({ error: 'no blueprint for this project' })
@@ -338,7 +394,9 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
     const chains = ctx(req).milestoneChains
     if (!chains) { res.status(503).json({ error: 'milestone_chain_unavailable' }); return }
     try {
-      const result = await chains.resume(String(req.params.id))
+      const from = (req.body as { from?: unknown } | undefined)?.from
+      if (from !== undefined && from !== 'failed_step' && from !== 'start' && from !== 'recommended') { res.status(400).json({ error: 'invalid_resume_from' }); return }
+      const result = await chains.resume(String(req.params.id), from ? { from } : {})
       res.status(result.status).json(result.ok ? { chain: result.chain } : { error: result.error, ...(result.detail ? { detail: result.detail } : {}) })
     } catch (err) {
       console.error('[project-router] chain resume error:', err)
@@ -375,8 +433,7 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
   // storagePath). Existing in-repo projects are byte-identical.
   const ticketPath = (req: Request): string => {
     const project = ctx(req).project
-    const exec = resolveProjectExecution({ slug: project.slug, path: project.path })
-    return exec.relocated ? exec.ticketsPath : resolveTicketStoragePath(project.path)
+    return resolveProjectTicketsPath({ slug: project.slug, path: project.path })
   }
   // Milestone batch commit (add-project-builder D7): insert one blueprint
   // milestone's generated specs as `M<n>`-labeled todo tickets, flip that

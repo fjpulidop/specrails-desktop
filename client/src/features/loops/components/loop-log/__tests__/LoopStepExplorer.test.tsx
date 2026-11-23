@@ -191,6 +191,33 @@ describe('LoopStepExplorer', () => {
     expect(screen.queryByTestId('resume-follow-pill')).not.toBeInTheDocument()
   })
 
+  it('follow mode on a settled failed run opens and scrolls to the last failed step, not the terminal node', () => {
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {})
+    const events = [
+      graphEv(),
+      stepEv(1, 'ai-step', '🤖 Implement', { nodeId: 'ai1', iteration: 0 }),
+      logEv('implement output'),
+      endEv(1, { nodeId: 'ai1', status: 'failed', exitCode: 3 }),
+      stepEv(2, 'decider', '🔍 Loop Decider (iteration 1)', { nodeId: 'dec', iteration: 1 }),
+      logEv('decider output'),
+      endEv(2, { nodeId: 'dec' }),
+    ]
+    render(<LoopStepExplorer events={events} jobStatus="failed" view="detail" />)
+    expect(screen.getByText('implement output')).toBeInTheDocument()
+    expect(screen.queryByText('decider output')).not.toBeInTheDocument()
+    const failed = screen.getAllByTestId('loop-step-section')[0]
+    expect(failed.getAttribute('data-status')).toBe('failed')
+    expect(scroll.mock.instances).toContain(failed)
+    scroll.mockRestore()
+  })
+
+  it('detail view strip shows only reached steps with a "not reached" caption', () => {
+    render(<LoopStepExplorer events={liveRunEvents()} jobStatus="running" view="detail" />)
+    const chips = screen.getAllByTestId('loop-node-chip')
+    expect(chips.map((c) => c.getAttribute('data-state'))).not.toContain('pending')
+    expect(screen.getByTestId('loop-not-reached')).toHaveTextContent('1 not reached')
+  })
+
   it('decider chip shows the verdict arrow when decided', () => {
     const events = [
       graphEv(),
@@ -364,5 +391,25 @@ describe('LoopStepExplorer', () => {
   it('loading state mirrors LogViewer', () => {
     render(<LoopStepExplorer events={[]} jobStatus="running" isLoading />)
     expect(screen.getByText(/Loading logs/i)).toBeInTheDocument()
+  })
+})
+
+describe('LoopStepExplorer graph view of a run held before its first step', () => {
+  const hold = { state: 'paused' as const, label: 'Spending limit' }
+  it('says no step ran instead of drawing a map of steps that never happened', () => {
+    render(<LoopStepExplorer events={[logEv('▶ Loop started'), graphEv()]} jobStatus="paused" hold={hold} view="graph" />)
+    expect(screen.getByTestId('loop-not-started')).toHaveTextContent('Spending limit. No step has run yet.')
+    expect(screen.queryByTestId('loop-overview-strip')).toBeNull()
+  })
+
+  it('shows the hold\'s own card when the surface gives one', () => {
+    render(<LoopStepExplorer events={[logEv('▶ Loop started'), graphEv()]} jobStatus="paused" hold={hold} view="graph" notStarted={<div data-testid="hold-card" />} />)
+    expect(screen.getByTestId('hold-card')).toBeInTheDocument()
+    expect(screen.queryByTestId('loop-not-started')).toBeNull()
+  })
+
+  it('draws the map as soon as a step ran', () => {
+    render(<LoopStepExplorer events={[graphEv(), stepEv(0, 'ai-step', 'Implement', { nodeId: 'ai1' })]} jobStatus="paused" hold={hold} view="graph" notStarted={<div data-testid="hold-card" />} />)
+    expect(screen.queryByTestId('hold-card')).toBeNull()
   })
 })

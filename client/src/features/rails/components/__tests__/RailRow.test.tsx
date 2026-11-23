@@ -111,6 +111,21 @@ describe('RailRow', () => {
     expect(onDelete).toHaveBeenCalled()
   })
 
+  it('shows a running rail with the pulsing info lamp and an info card border, never success', () => {
+    const { container } = renderRailRow({ ...defaultProps, status: 'running', density: 'compact' } as any)
+    const dot = screen.getByRole('img', { name: /running/i })
+    expect(dot).toHaveAttribute('data-run-state', 'working')
+    expect(dot.querySelector('[data-live-ring]')).not.toBeNull()
+    const card = container.querySelector('[data-testid="rail-row-compact-rail-1"]')!
+    expect(card.className).toContain('border-accent-info/40')
+    expect(container.innerHTML).not.toContain('bg-accent-success')
+  })
+
+  it('shows an idle rail as a hollow queued lamp', () => {
+    renderRailRow({ ...defaultProps, status: 'idle' })
+    expect(screen.getByRole('img', { name: /idle/i })).toHaveAttribute('data-run-state', 'queued')
+  })
+
   it('running status disables delete', () => {
     renderRailRow({ ...defaultProps, status: 'running', jiggleMode: true })
     expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument()
@@ -203,7 +218,7 @@ describe('RailRow', () => {
       const chip = screen.getByTestId('rail-roles-chip')
       expect(chip).toHaveTextContent('Per-role engines')
       expect(chip).toHaveAttribute('title', expect.stringContaining('verifier and decider'))
-      expect((screen.getByTestId('rail-engine-selector') as HTMLSelectElement).value).toBe('claude')
+      expect(screen.getByTestId('rail-engine-selector')).toHaveTextContent('Claude')
       expect(screen.queryByTestId('loop-model-selector')).not.toBeInTheDocument()
       expect(screen.queryByTestId('rail-effort-selector')).not.toBeInTheDocument()
       expect(screen.queryByTestId('rail-profile-selector')).not.toBeInTheDocument()
@@ -225,13 +240,14 @@ describe('RailRow', () => {
     } as any)
     expect(screen.queryByTestId('rail-model-selector')).not.toBeInTheDocument()
     expect(screen.queryByTestId('loop-model-selector')).not.toBeInTheDocument()
+    fireEvent.pointerDown(screen.getByTestId('rail-loop-selector'), { button: 0, ctrlKey: false, pointerType: 'mouse' })
     expect(screen.getByRole('option', { name: 'Implement' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Freestyle' })).not.toBeInTheDocument()
   })
 
   it.each(['freestyle', 'sdd-quick-openspec', 'revision'])('reads a rail still selecting the retired factory:%s as Implement', (suffix) => {
     renderRailRow({ ...defaultProps, aiEngine: 'claude', providers: ['claude'], mode: 'loop', selectedLoopId: `factory:${suffix}`, onLoopChange: vi.fn() } as any)
-    expect(screen.getByTestId('rail-loop-selector')).toHaveValue('factory:implement')
+    expect(screen.getByTestId('rail-loop-selector')).toHaveTextContent(/^Implement$/)
   })
 
   it('shows Kimi loop effort only while the effective model is K3', () => {
@@ -289,9 +305,10 @@ describe('RailRow spec triage preselection (launch-triage)', () => {
   it('preselects the recommended loop and marks it while the rail has no explicit pick', () => {
     renderRailRow({ ...base, tickets: [triaged(1, 'factory:implement')] } as any)
     const selector = screen.getByTestId('rail-loop-selector')
-    expect(selector).toHaveValue('factory:implement')
+    expect(selector).toHaveTextContent(/^Implement · recommended$/)
     expect(selector).toHaveAttribute('data-recommended', 'true')
-    expect(within(selector).getByRole('option', { name: 'Implement · recommended' })).toBeInTheDocument()
+    fireEvent.pointerDown(selector, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    expect(within(screen.getByRole('listbox')).getByRole('option', { name: 'Implement · recommended' })).toBeInTheDocument()
   })
 
   it('lets an explicit choice override the recommendation', () => {
@@ -303,7 +320,7 @@ describe('RailRow spec triage preselection (launch-triage)', () => {
   it.each(['factory:freestyle', 'factory:sdd-quick-openspec'])('never preselects a retired loop a stale triage still recommends (%s)', (loop) => {
     renderRailRow({ ...base, tickets: [triaged(1, loop)] } as any)
     const selector = screen.getByTestId('rail-loop-selector')
-    expect(selector).toHaveValue('factory:implement')
+    expect(selector).toHaveTextContent(/^Implement$/)
     expect(selector).not.toHaveAttribute('data-recommended')
   })
 })

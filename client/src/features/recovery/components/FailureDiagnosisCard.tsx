@@ -1,14 +1,19 @@
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Check, CircleHelp, Copy, FilePenLine, Gauge, OctagonAlert, Play, RotateCcw, ScrollText, TimerOff, Unplug, Wrench, XCircle, type LucideIcon,
-} from 'lucide-react'
+  Cable, Check, CircleHelp, ClipboardCheck, CloudOff, Copy, FileKey, FilePenLine, Gauge, ListChecks, OctagonAlert, Play, RotateCcw, ScrollText, Sparkles, TimerOff, Unplug, Wrench, XCircle, type LucideIcon } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
+import { OverflowActions } from '../../../components/ui/overflow-actions'
 import { EnvironmentPlanOffer } from './EnvironmentPlanOffer'
 import { cn } from '../../../lib/utils'
+import { formatResetTime } from '../../provider-quota/lib/format-reset'
+import { modelLabel } from '../../../lib/model-label'
+import type { FailureAnalysisState } from '../hooks/useFailureAnalysis'
+import { formatUsd } from '../../../lib/format-usd'
+import type { ChainResolution, ContinueMode } from '../lib/resolution'
 import {
-  availableRemedies, headlineKey, humanizePhase, whyKey,
-  type FailureDiagnosis, type RemedyHandlers, type RemedyId,
+  availableRemedies, consequenceKey, headlineKey, humanizePhase, offersStartOver, recordedStepError, whyKey,
+  type FailureDiagnosis, type RemedyHandler, type RemedyHandlers, type RemedyId,
 } from '../lib/failure-diagnosis'
 
 type Tone = 'failed' | 'caution' | 'neutral'
@@ -17,11 +22,16 @@ type Tone = 'failed' | 'caution' | 'neutral'
 const KIND_LOOK: Record<FailureDiagnosis['kind'], { icon: LucideIcon; tone: Tone }> = {
   tests_failed: { icon: XCircle, tone: 'failed' },
   provider_limit: { icon: Gauge, tone: 'caution' },
+  provider_unavailable: { icon: CloudOff, tone: 'caution' },
   environment: { icon: Wrench, tone: 'caution' },
+  port_in_use: { icon: Cable, tone: 'caution' },
   blocked: { icon: OctagonAlert, tone: 'caution' },
   timeout: { icon: TimerOff, tone: 'caution' },
   tool_inactivity: { icon: TimerOff, tone: 'caution' },
   crash: { icon: Unplug, tone: 'failed' },
+  incomplete_tasks: { icon: ListChecks, tone: 'caution' },
+  spec_invalid: { icon: FilePenLine, tone: 'failed' },
+  workflow_protocol: { icon: ListChecks, tone: 'caution' },
   unknown: { icon: CircleHelp, tone: 'neutral' },
 }
 
@@ -32,29 +42,100 @@ const TONE_CLASS: Record<Tone, { box: string; icon: string }> = {
 }
 
 const REMEDY_ICON: Record<RemedyId, LucideIcon> = {
-  resume: Play,
+  continue: Play,
   retry: RotateCcw,
   'edit-spec': FilePenLine,
   'fix-environment': Wrench,
   'open-logs': ScrollText,
+  'continue-to-review': ClipboardCheck,
+  'copy-env-files': FileKey,
 }
+
+/** One remedy as the person sees it: a button and, under it, what it does to their work. */
+export interface RemedyView {
+  id: string
+  label: string
+  icon: LucideIcon
+  consequence: string
+  handler: RemedyHandler
+  primary: boolean
+  expanded?: boolean
+  onClick?: () => void
+}
+
+/**
+ * The remedies of a failed or stopped run: each button with its one-line
+ * consequence under it, and "Start over" apart in a menu with its warning
+ * (it does not carry this attempt's work over).
+ */
+export function RemedyActions({ remedies, startOver, lead }: { remedies: readonly RemedyView[]; startOver?: RemedyHandler | null; lead?: ReactNode }) {
+  const { t } = useTranslation('recovery')
+  if (remedies.length === 0 && !startOver && !lead) return null
+  return (
+    <div role="group" aria-label={t('remedies.label')} className="flex flex-wrap items-start gap-x-3 gap-y-2" data-testid="failure-remedies">
+      {lead}
+      {remedies.map((remedy) => {
+        const Icon = remedy.icon
+        const busy = !!remedy.handler.busy
+        const consequenceId = `remedy-consequence-${remedy.id}`
+        return (
+          <div key={remedy.id} className="flex max-w-[17rem] flex-col items-start gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={remedy.primary ? 'default' : 'outline'}
+              data-testid={`failure-remedy-${remedy.id}`}
+              data-primary={remedy.primary ? '' : undefined}
+              disabled={busy || remedy.handler.disabled}
+              aria-busy={busy || undefined}
+              aria-expanded={remedy.expanded}
+              aria-describedby={consequenceId}
+              onClick={() => (remedy.onClick ? remedy.onClick() : remedy.handler.run())}
+            >
+              <Icon className="mr-1 h-3 w-3" aria-hidden />
+              {remedy.label}
+            </Button>
+            <span id={consequenceId} className="text-caption text-muted-foreground" data-testid={`failure-remedy-consequence-${remedy.id}`}>{remedy.consequence}</span>
+          </div>
+        )
+      })}
+      {startOver && (
+        <OverflowActions
+          label={t('remedies.more')}
+          testId="failure-remedy-more"
+          className="mt-0.5"
+          items={[{ id: 'start-over', testId: 'failure-remedy-retry', label: t('remedy.retry'), hint: t('consequence.retry'), icon: <RotateCcw className="h-3 w-3" />, onSelect: () => startOver.run(), disabled: startOver.busy || startOver.disabled }]}
+        />
+      )}
+    </div>
+  )
+}
+
+/** `fix-environment` → `fixEnvironment`: the remedy's i18n key. */
+const remedyKey = (id: RemedyId): string => id.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())
 
 /** The headline and the "why" line as plain words, shared by the card and the inbox row. */
 export function useDiagnosisText(diagnosis: FailureDiagnosis): { headline: string; why: string | null; phaseName(id: string): string } {
-  const { t } = useTranslation('recovery')
+  const { t, i18n } = useTranslation('recovery')
   const { t: tRuntime } = useTranslation('agentRuntime')
   // Core's step ids are role names (`reviewer`, `fixer`); anything else is made readable.
   const phaseName = (id: string): string => tRuntime(`roles.${id}`, { defaultValue: humanizePhase(id) ?? id })
   const head = headlineKey(diagnosis, diagnosis.phase ? phaseName(diagnosis.phase) : null)
   const why = whyKey(diagnosis)
-  return { headline: t(head.key, head.params), why: why ? t(why.key, why.params) : null, phaseName }
+  const whyParams = why && typeof why.params.resetsAt === 'string' ? { ...why.params, time: formatResetTime(why.params.resetsAt, i18n.language) }
+    // A model slug (`haiku`) reads as its product name.
+    : why && typeof why.params.model === 'string' ? { ...why.params, model: modelLabel(why.params.model).text || why.params.model }
+      : why?.params
+  const headParams = typeof head.params.role === 'string' ? { ...head.params, role: phaseName(head.params.role) } : head.params
+  return { headline: t(head.key, headParams), why: why ? t(why.key, whyParams) : null, phaseName }
 }
 
 function EnvironmentPanel({ diagnosis }: { diagnosis: FailureDiagnosis }) {
   const { t } = useTranslation('recovery')
   const [copied, setCopied] = useState(false)
   const blocker = diagnosis.blocker
-  const command = blocker ? [blocker.command, ...blocker.args].filter(Boolean).join(' ') : ''
+  // A machine-wide install the run asked for is the one command the person runs; else the failing check.
+  const command = blocker?.install ?? (blocker ? [blocker.command, ...blocker.args].filter(Boolean).join(' ') : '')
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(command)
@@ -82,7 +163,7 @@ function EnvironmentPanel({ diagnosis }: { diagnosis: FailureDiagnosis }) {
                 </button>
                 {copied && <span role="status" className="text-caption text-accent-success">{t('environment.copied')}</span>}
               </div>
-              <pre className="mt-0.5 whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-foreground">{command}{blocker.cwd ? `  # ${t('environment.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
+              <pre className="mt-0.5 whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-foreground">{command}{blocker.cwd && !blocker.install ? `  # ${t('environment.inDirectory', { cwd: blocker.cwd })}` : ''}</pre>
             </div>
           )}
           <p><span className="font-medium">{t('environment.requiredAction')}:</span> {blocker.requiredAction}</p>
@@ -95,13 +176,88 @@ function EnvironmentPanel({ diagnosis }: { diagnosis: FailureDiagnosis }) {
   )
 }
 
+/** What is known about where the run failed; anything unknown stays out. */
+export interface FailureFacts {
+  step?: string | null
+  attempt?: number | null
+  iteration?: number | null
+  /** ISO timestamp of the failure. */
+  at?: string | null
+}
+
+function FactsRow({ facts, step }: { facts: FailureFacts; step: string | null }) {
+  const { t, i18n } = useTranslation('recovery')
+  const at = facts.at ? new Date(facts.at) : null
+  const time = at && !Number.isNaN(at.getTime())
+    ? new Intl.DateTimeFormat(i18n.language, { dateStyle: 'short', timeStyle: 'medium' }).format(at)
+    : null
+  const items: Array<[string, string]> = []
+  if (step) items.push([t('facts.step'), step])
+  if (facts.attempt != null) items.push([t('facts.attempt'), String(facts.attempt)])
+  if (facts.iteration != null) items.push([t('facts.iteration'), String(facts.iteration)])
+  if (time) items.push([t('facts.time'), time])
+  if (items.length === 0) return null
+  return (
+    <dl data-testid="failure-facts" aria-label={t('facts.label')} className="flex flex-wrap gap-x-4 gap-y-1 text-caption">
+      {items.map(([term, value]) => (
+        <div key={term} className="flex items-baseline gap-1.5">
+          <dt className="text-muted-foreground">{term}</dt>
+          <dd className="text-foreground num">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 export interface FailureDiagnosisCardProps {
   diagnosis: FailureDiagnosis
   /** What this surface can really run. A remedy without a handler is not offered. */
   handlers: RemedyHandlers
   /** Raw tail of the log, shown only when the cause is unknown. */
   logTail?: readonly string[]
+  /** Where and when the run failed, from the run's own records. */
+  facts?: FailureFacts
+  /** The AI reading of the same run. When the app's own records name no cause, the card leads
+   *  with the AI's (labelled as such) or offers to ask for one, instead of an unexplained unknown. */
+  ai?: { state: FailureAnalysisState; run(): void }
+  /** How Continue shows (`continueMode`): after a repeated stop it never leads, and steps aside for the options. */
+  continueMode?: ContinueMode
+  /** The chain's spend and whether it keeps stopping the same way (says so above the remedies). */
+  chain?: ChainResolution | null
+  /** "Continue with another provider" (a run that settled on a usage limit), drawn beside the remedies; gets the step it goes on from. */
+  renderSwitch?: (step: string | null) => ReactNode
   className?: string
+}
+
+/** The chain stopped the same way again: how many times, what it cost, and where the ways forward are. */
+function RepeatNotice({ chain, optionsBelow, analysisBelow }: { chain: ChainResolution; optionsBelow: boolean; analysisBelow: boolean }) {
+  const { t, i18n } = useTranslation('recovery')
+  const cost = chain.costUsd !== null && chain.costUsd > 0 ? formatUsd(chain.costUsd, i18n.language) : null
+  // "3 attempts so far" under "Stopped the same way 3 times" says nothing new: only a cost or a different count earns the line.
+  const spend = cost ? t('repeat.spend', { count: chain.attempts, cost: chain.costEstimated ? `~${cost}` : cost })
+    : chain.attempts !== chain.times ? t('repeat.attempts', { count: chain.attempts }) : null
+  // Point at the AI analysis only while there is one to read (it can still be running, or have failed).
+  const advice = optionsBelow ? t('repeat.advice') : analysisBelow ? t('repeat.adviceNoOptions') : t('repeat.adviceAlone')
+  return (
+    <div data-testid="failure-repeat" role="note" className="space-y-0.5 rounded-control border border-accent-warning/40 bg-background/40 px-3 py-2">
+      <p className="text-label text-foreground">{t('repeat.title', { count: chain.times })}</p>
+      {spend && <p className="text-caption text-muted-foreground num" data-testid="failure-repeat-spend">{spend}</p>}
+      <p className="text-caption text-muted-foreground">{advice}</p>
+    </div>
+  )
+}
+
+function FlakyTests({ tests }: { tests: readonly string[] }) {
+  const { t } = useTranslation('recovery')
+  return (
+    <div data-testid="failure-flaky-tests" className="rounded-control border border-border/50 bg-background/40 px-3 py-2">
+      <p className="text-caption font-semibold text-muted-foreground">{t('flaky.title', { count: tests.length })}</p>
+      <ul className="mt-1 list-disc space-y-0.5 pl-4 text-body text-foreground">
+        {tests.map((test) => <li key={test} className="break-words font-mono text-caption">{test}</li>)}
+      </ul>
+      <p className="mt-1 text-caption text-muted-foreground">{t('flaky.explain')}</p>
+    </div>
+  )
 }
 
 /**
@@ -110,20 +266,39 @@ export interface FailureDiagnosisCardProps {
  * to actions the app already has. An unknown cause says so and shows the raw
  * log tail instead of guessing.
  */
-export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], className }: FailureDiagnosisCardProps) {
+export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], facts, ai, continueMode = 'primary', chain, renderSwitch, className }: FailureDiagnosisCardProps) {
   const { t } = useTranslation('recovery')
   const headingId = useId()
   const [envOpen, setEnvOpen] = useState(false)
   const { headline, why, phaseName } = useDiagnosisText(diagnosis)
-  const look = KIND_LOOK[diagnosis.kind]
+  // After a repeated stop with options to pick, "keep trying" is one of them: Continue is not offered twice.
+  const remedies = availableRemedies(diagnosis, handlers).filter((id) => id !== 'continue' || continueMode !== 'hidden')
+  // An unknown cause with the runtime's own record of the failed step is not
+  // a mystery: say which step failed and the runtime's words for why.
+  const recorded = diagnosis.kind === 'unknown' ? recordedStepError(logTail) : null
+  const unknown = diagnosis.kind === 'unknown' && !recorded
+  const aiReady = unknown && ai?.state.status === 'ready' ? ai.state.analysis : null
+  const aiBusy = unknown && !aiReady && (ai?.state.status === 'running' || ai?.state.status === 'loading')
+  // A recorded step failure is a failure, whatever the classifier could not name.
+  const look = recorded ? { icon: XCircle, tone: 'failed' as Tone } : KIND_LOOK[diagnosis.kind]
   const tone = TONE_CLASS[look.tone]
   const Icon = look.icon
-  const remedies = availableRemedies(diagnosis, handlers)
-  const unknown = diagnosis.kind === 'unknown'
+  const factStep = recorded ? phaseName(recorded.step) : facts?.step ? phaseName(facts.step) : diagnosis.phase ? phaseName(diagnosis.phase) : null
   const label = (id: RemedyId): string => {
-    if (id === 'resume') return diagnosis.resumablePhase ? t('remedy.resumeFrom', { phase: phaseName(diagnosis.resumablePhase) }) : t('remedy.resume')
-    return t(`remedy.${id === 'edit-spec' ? 'editSpec' : id === 'fix-environment' ? 'fixEnvironment' : id === 'open-logs' ? 'openLogs' : id}`)
+    if (id === 'continue') return diagnosis.resumablePhase ? t('remedy.continueFrom', { phase: phaseName(diagnosis.resumablePhase) }) : t('remedy.continue')
+    return t(`remedy.${remedyKey(id)}`)
   }
+  const analyzeLeads = unknown && !aiReady && !!ai
+  const views: RemedyView[] = remedies.map((id, index) => {
+    const handler = handlers[id] ?? { run: () => {} }
+    return {
+      id, label: label(id), icon: REMEDY_ICON[id], consequence: t(consequenceKey(id, diagnosis)), handler,
+      // A repeated stop never leads with more of the same: the options below lead instead.
+      primary: index === 0 && !analyzeLeads && continueMode === 'primary',
+      ...(id === 'fix-environment' ? { expanded: envOpen, onClick: () => setEnvOpen((open) => !open) } : {}),
+    }
+  })
+  const startOver = offersStartOver(diagnosis, handlers) ? handlers.retry! : null
   return (
     <section
       role="region"
@@ -131,57 +306,67 @@ export function FailureDiagnosisCard({ diagnosis, handlers, logTail = [], classN
       data-testid="failure-diagnosis-card"
       data-kind={diagnosis.kind}
       data-confidence={diagnosis.confidence}
+      data-tone={look.tone}
       className={cn('space-y-2.5 rounded-card border px-3.5 py-3', tone.box, className)}
     >
       <div className="flex items-start gap-2.5">
         <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', tone.icon)} aria-hidden />
         <div className="min-w-0 flex-1 space-y-0.5">
-          <p id={headingId} className="text-strong text-foreground" data-testid="failure-headline">{headline}</p>
-          {unknown && <p className="text-body text-muted-foreground">{t('why.unknown')}</p>}
+          {aiReady && (
+            <p className="inline-flex items-center gap-1 text-caption font-medium text-accent-primary" data-testid="failure-ai-label">
+              <Sparkles className="h-3 w-3" aria-hidden />{t('ai.label')}
+            </p>
+          )}
+          <p id={headingId} className="text-strong text-foreground" data-testid="failure-headline">{recorded ? t('headline.stepFailed', { phase: phaseName(recorded.step) }) : aiReady ? aiReady.headline : headline}</p>
+          {recorded && <p className="text-body text-foreground break-words" data-testid="failure-recorded-error">{recorded.reason}</p>}
+          {aiReady && <p className="text-body text-foreground break-words" data-testid="failure-ai-cause">{aiReady.cause}</p>}
+          {aiBusy && <p role="status" className="text-body text-muted-foreground" data-testid="failure-ai-running">{t('ai.running')}</p>}
+          {unknown && !aiReady && !aiBusy && <p className="text-body text-muted-foreground" data-testid="failure-unknown-why">{t('why.unknown')}</p>}
           {why && <p className="text-body text-muted-foreground" data-testid="failure-why">{why}</p>}
-          {diagnosis.detail && !unknown && diagnosis.kind !== 'environment' && <p className="text-caption text-muted-foreground" data-testid="failure-detail">{diagnosis.detail}</p>}
+          {diagnosis.detail && diagnosis.kind !== 'unknown' && diagnosis.kind !== 'environment' && <p className="text-caption text-muted-foreground" data-testid="failure-detail">{diagnosis.detail}</p>}
+          {facts && <div className="pt-1"><FactsRow facts={facts} step={factStep} /></div>}
         </div>
       </div>
 
-      {unknown && logTail.length > 0 && (
-        <details open className="rounded-control border border-border/50 bg-background/40 px-3 py-2">
+      {diagnosis.kind === 'unknown' && logTail.length > 0 && (
+        <details open={unknown || !!recorded} className="rounded-control border border-border/50 bg-background/40 px-3 py-2">
           <summary className="cursor-pointer text-caption font-medium text-muted-foreground">{t('logTail.title')}</summary>
           <pre data-testid="failure-log-tail" className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-caption leading-relaxed text-foreground">{logTail.join('\n')}</pre>
         </details>
       )}
+
+      {diagnosis.kind === 'incomplete_tasks' && diagnosis.incompleteTasks && diagnosis.incompleteTasks.length > 0 && (
+        <div data-testid="failure-incomplete-tasks" className="rounded-control border border-border/50 bg-background/40 px-3 py-2">
+          <p className="text-caption font-semibold text-muted-foreground">{t('incomplete.title')}</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-body text-foreground">
+            {diagnosis.incompleteTasks.map((task) => <li key={task} className="break-words">{task}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {diagnosis.flakyTests && diagnosis.flakyTests.length > 0 && <FlakyTests tests={diagnosis.flakyTests} />}
+
+      {chain?.repeated && <RepeatNotice chain={chain} optionsBelow={continueMode === 'hidden'} analysisBelow={ai?.state.status === 'ready'} />}
 
       {envOpen && diagnosis.kind === 'environment' && <EnvironmentPanel diagnosis={diagnosis} />}
 
       {/* A remedy the host can apply itself (a venv for a pinned Python), where the cause can be the interpreter. */}
       {(diagnosis.kind === 'environment' || diagnosis.kind === 'tests_failed') && <EnvironmentPlanOffer />}
 
-      {remedies.length > 0 && (
-        <div role="group" aria-label={t('remedies.label')} className="flex flex-wrap items-center gap-1.5">
-          {remedies.map((id, index) => {
-            const handler = handlers[id]
-            const RemedyIcon = REMEDY_ICON[id]
-            const busy = !!handler?.busy
-            const isEnv = id === 'fix-environment'
-            return (
-              <Button
-                key={id}
-                type="button"
-                size="sm"
-                variant={index === 0 ? 'default' : 'outline'}
-                data-testid={`failure-remedy-${id}`}
-                data-primary={index === 0 ? '' : undefined}
-                disabled={busy || handler?.disabled}
-                aria-busy={busy || undefined}
-                aria-expanded={isEnv ? envOpen : undefined}
-                onClick={() => (isEnv ? setEnvOpen((open) => !open) : handler?.run())}
-              >
-                <RemedyIcon className="mr-1 h-3 w-3" aria-hidden />
-                {label(id)}
-              </Button>
-            )
-          })}
-        </div>
-      )}
+      <RemedyActions
+        remedies={views}
+        startOver={startOver}
+        lead={analyzeLeads ? (
+          <div className="flex max-w-[17rem] flex-col items-start gap-1">
+            <Button type="button" size="sm" variant="default" data-testid="failure-remedy-analyze" data-primary="" disabled={aiBusy} aria-busy={aiBusy || undefined} onClick={() => ai!.run()}>
+              <Sparkles className="mr-1 h-3 w-3" aria-hidden />
+              {t('analysis.run')}
+            </Button>
+            <span className="text-caption text-muted-foreground">{t('consequence.analyze')}</span>
+          </div>
+        ) : null}
+      />
+      {renderSwitch?.(diagnosis.resumablePhase ? phaseName(diagnosis.resumablePhase) : factStep)}
     </section>
   )
 }

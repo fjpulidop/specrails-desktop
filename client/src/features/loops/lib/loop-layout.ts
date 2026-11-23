@@ -53,8 +53,12 @@ function rankFromStart(nodes: Node<LoopNodeData>[], edges: MiniEdge[]): Map<stri
 export function layoutLoop(
   nodes: Node<LoopNodeData>[],
   edges: MiniEdge[],
-  mode: LayoutMode
+  mode: LayoutMode,
+  /** Rank and sibling distances; the runtime graph asks for room for edge labels between ranks. */
+  spacing: { rowGap?: number; crossGap?: number } = {},
 ): Node<LoopNodeData>[] {
+  const rowGap = spacing.rowGap ?? ROW_GAP
+  const crossGap = spacing.crossGap ?? CROSS_GAP
   if (mode === 'grid') {
     return nodes.map((n) => ({
       ...n,
@@ -75,8 +79,8 @@ export function layoutLoop(
   for (const [r, group] of [...byRank.entries()].sort((a, b) => a[0] - b[0])) {
     group.forEach((n, i) => {
       // Centre each rank's siblings around 0 on the cross axis.
-      const cross = (i - (group.length - 1) / 2) * CROSS_GAP
-      const position = mode === 'vertical' ? { x: cross, y: r * ROW_GAP } : { x: r * ROW_GAP, y: cross }
+      const cross = (i - (group.length - 1) / 2) * crossGap
+      const position = mode === 'vertical' ? { x: cross, y: r * rowGap } : { x: r * rowGap, y: cross }
       out.push({ ...n, position })
     })
   }

@@ -31,6 +31,14 @@ Follow-up (2026-10-21): mission agents now run with each provider's native
 read-only boundary while keeping MCP tools callable. See
 [read-only missions](mission-read-only-policy.md).
 
+Follow-up (2026-11-18): every tool result is now a response envelope (JSON text
+and `structuredContent`) with a relayable summary, follow-up calls and stable
+error codes; external destructive calls need `confirm:true` (or `dryRun:true`);
+`specrails_mission(subagent_start)` requires AI-spawn; and three tools were
+added for other AI clients and lightweight surfaces: `specrails_status`,
+`specrails_inbox` and `specrails_missions`, plus `specrails_jobs(diagnose_failure/logs)`.
+See [MCP response envelope](mcp-response-envelope.md).
+
 ## New investigation workflow
 
 1. Identify the intended project from the conversation pin or durable catalog.

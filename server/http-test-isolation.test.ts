@@ -40,7 +40,7 @@ it('does not redirect explicitly addressed HTTP endpoints', async () => {
 })
 
 it('starts hand-rolled fetch fixtures on the exact IPv4 loopback they request', async () => {
-  const { listenOnLoopback } = await import('./loopback-test-server')
+  const { listenOnLoopback } = await import('./__fixtures__/loopback-test-server')
   const fixture = await listenOnLoopback(createServer((_req, res) => res.end(JSON.stringify({ owner: 'loopback fixture' }))))
   try {
     expect(fixture.server.address()).toMatchObject({ address: '127.0.0.1', family: 'IPv4' })

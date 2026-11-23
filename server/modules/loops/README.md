@@ -28,8 +28,10 @@ subdirectories, where present, enforce inward dependency rules.
 - [runtime/loop-factory.ts](runtime/loop-factory.ts)
 - [runtime/loop-graph.ts](runtime/loop-graph.ts)
 - [runtime/loop-role-engines.ts](runtime/loop-role-engines.ts)
+- [runtime/loop-run-hold.ts](runtime/loop-run-hold.ts): why a run whose job row stays `running` is not working (restart, interrupted write, usage limit, budget, question). `GET /jobs` and `GET /jobs/:id` return it as `hold`; every client surface reads the job through it (`jobStatusLook(job)`), so a stopped run never shows as running. Runs startup recovery has not reconciled yet (`ProjectContext.restartPendingRunIds`) read as paused by the restart from the first request
 - [runtime/loop-run-manager.ts](runtime/loop-run-manager.ts)
 - [runtime/loop-runs-store.ts](runtime/loop-runs-store.ts)
+- [runtime/run-attempts.ts](runtime/run-attempts.ts): attempt chains along `fork_of`, the one superseded-attempt rule every list shares, and the `run_continuations` record
 - [runtime/loop-turn-limits.ts](runtime/loop-turn-limits.ts) — effective per-step Maximum turns (`GET /loops/:id` `turnLimits`; `null` = no limit on a Core advertising `unlimitedTurns`, where Implement/PR-CI write roles also drop their 300 ceiling) and the turn-limit failure hint the runtime bridge appends
 - [runtime/loops-router.ts](runtime/loops-router.ts)
 - [runtime/loops-store.ts](runtime/loops-store.ts)
@@ -73,7 +75,16 @@ progress check, so an intentionally unchanged candidate is no longer reported as
 `correction-stalled`. As for the developer (`developer-blocker-kind`),
 `fixer-blocker-kind` ends at `fixer-blocked` only for what the person must provide
 (`credential`, `network`, `environment-variable`); any other fixer blocker goes to
-`verify`, so a stale or unreproduced one cannot end the run without the host's own check. Developer and fixer turns receive
+`verify`, so a stale or unreproduced one cannot end the run without the host's own check.
+An unchanged fixer candidate is not a stall yet when it repaired the environment instead of the
+code (a missing dev tool installed into the ignored `node_modules`, a gitignored env file):
+`correction-environment` (`ENVIRONMENT_REPAIR_EXPR`) sends it back to `verify` once per candidate
+(`mark-environment-reverify`) when verification failed and Core reported the surviving failure as
+environmental (`environmentRepairSignal`, `$outputs.verify.environmentFailure`) or the fixer filled
+its optional `environmentRepair`. The fixer turn already spent its correction attempt, so the budget
+still bounds the loop, and a second unchanged correction on the same candidate stalls. With Core
+`reviewTriage: 2` the reviewer prompt asks for `[advice] ` / `[out-of-scope] ` findings, which Core
+moves to `reviewNotes` (shown in the review packet) so they never start a correction round. Developer and fixer turns receive
 `verificationProposalsFrom: 'architect'` so write roles see the complete host plan.
 A failed `validate` (OpenSpec validation or archive preflight) or a `freeze` the artifact
 contract refuses (for example tasks that edit frozen artifacts) sends the architect back
@@ -89,6 +100,11 @@ reaches it), and the reviewer judges criteria by that evidence. With Core's `ver
 developer: a broken setup or host precondition ends at `host-blocked-baseline` before any AI spend,
 and `{{outputs.baseline.summary}}` tells the developer, fixer and reviewer which failures predate
 the change.
+With Core's `questionOptions: 1` the architect also returns `questionOptions` (ending with
+`not-here`), `recommendedOption` and `questionWhy`, the `clarify` question carries them
+(`optionsFrom: 'architect'`, `endsRun: ['not-here']`) and a rejected approval ends at `rejected`
+with the person's reason; every pause a person answers is rendered as one card
+([run questions](../../../docs/internals/run-questions.md)).
 `configurableImplementGraph(capabilities)` omits `hostBlockers`, `setup`, `blockerFrom`
 and the `blocked` edges on an older Core; `effectivePieceOutcomes` in `loop-graph.ts`
 (and the client `effectiveOutcomes`) advertise `blocked` for `verify` only with the flag.
@@ -119,6 +135,42 @@ prepare → strict preflight → apply/tests → strict validation → archive (
 phases). `failureRecovery` allows one in-run phase retry or an artifact-only repair
 followed by revalidation; it never resets run budgets or changes the frozen target.
 See [scope, recovery and metrics](../../../docs/internals/spec-addenda.md#quick-sdd-scope-and-efficiency).
+
+## Run execution structure
+
+`runtime/loop-run-manager.ts` is the public entry: `LoopRunManager` owns the
+resident per-run state (spawned children, interactive sessions, pauses,
+cancellation, definition claims, run caps) and re-exports the contract and
+helpers below, so consumers keep importing from it. `_run` only orchestrates
+admit → launch → execute → settle over a shared `LoopRunContext`
+(`loop-run-context.ts`: the narrow `LoopRunHost` port, resolved limits,
+mutable run state and the `NodeStep` routing result).
+
+| Unit | Responsibility |
+| --- | --- |
+| `loop-run-contract.ts` | Executor port, request/result, run-event payloads, budget-pause types |
+| `loop-run-launch.ts` | Request freezing, limits, launch transaction, run header and `loop_graph`, run cap |
+| `loop-run-events.ts` | Seq allocator, `loop_step` / `loop_step_end` / log / raw-frame emission |
+| `loop-run-ledger.ts` | Stage `loop_step_recovery` before a spawn; record the settled step and totals |
+| `loop-step-accounting.ts` | `ai_invocations` rows and orphan step recovery (startup, teardown, settle) |
+| `loop-run-pauses.ts` | Human-decision, `budget_paused`, `limit_paused` and `user_paused` pauses |
+| `loop-limit-pauses.ts` | Durable `limit_paused` record (`queue_state` `limit_pause:<runId>`: provider, `resumeAt`, automatic resume) that survives a restart |
+| `loop-user-pauses.ts` | The person's Pause of a Core definition run: durable record (`queue_state` `user_pause:<runId>`) written when Pause is asked, stamped when Core parks at the next step boundary (`runtime pause`, reason `requested`, unique request ids), cleared by any resume or the settlement. While it exists the run holds as `paused` by you (`hold.byYou`), gives its capacity slot back, survives a restart as paused and never resumes by itself (startup recovery skips it); Resume continues the same attempt in place. `LoopRunManager.requestUserPause` / `resumeUserPause` / `userPauseControl` |
+| `loop-budget-pauses.ts` | Durable record (`queue_state` `budget_pause:<runId>`) that a restart retained a run parked at its budget, so the run stays held by the budget instead of a generic restart Resume; cleared when a resume moves the run on; `budget_hold:<runId>` records which cap holds it and when it resets |
+| `loop-budget-reset-resume.ts` | A run held on the DAILY budget resumes by itself at the budget's own reset (`resetsAt`, local/UTC midnight per scope), setting `resume_runs_on_daily_reset` (default on, `resumeOnDailyReset` option). Resident: `awaitBudget` schedules it on the wake-aware clock and re-checks every cap when it fires. Retained over a restart: `budget_hold:<runId>` (which cap, when it resets) is scheduled at startup (`scheduleRetainedDailyBudgetResumes`) and resumes through the person's Resume path (budget gate, capacity admission). Never a run paused by you, held by its per-run cap or a weekly/monthly cap. Log line + `run-budget-reset-resume` run event |
+| `loop-budget-resume.ts` | Per-run cap gate for resuming such a retained run (`{ runCap: 'ignore' }` / `{ runCap: 'once' }` / `{ runCapUsd: n }`, 409 while the cap stands), same answers as a resident budget pause |
+| `loop-run-turn-estimates.ts` | What a Core run's next AI step is expected to cost, for the per-run cap. A turn already started cannot be stopped, so the cap is enforced BEFORE a step, against that step's estimate: its largest earlier turn in this run, else the median of its turns in the project's recent runs on the same provider/model (`runtime-efficiency-event` role-context rows joined to `ai_invocations`), else a rate-card estimate of a typical turn of its kind. The next step comes from Core's `runtime-graph` (nodes + edges; the loop definition before Core starts): AI nodes reachable through non-AI nodes, preferring steps the run has not run (a way back is a retry), the most expensive one when it branches. Checked before Core starts the first AI step, armed as a cooperative pause while each AI step runs (this step's + the next step's estimate), and decided at the pause with what the step really cost. A Core graph without edges, and legacy traversal, keep the largest-turn projection. **Run this step once** (`{ once: true }`) waives the cap until the next AI step starts |
+| `loop-legacy-traversal.ts` | Engine-1 traversal: between-step guards and node dispatch |
+| `loop-node-ai-step.ts`, `loop-node-shell.ts`, `loop-node-decider.ts` | One executor per executable node kind |
+| `loop-phase-recovery.ts` | Single in-run `failureRecovery` retry/repair routing |
+| `loop-ai-step-signals.ts`, `loop-run-vars.ts` | Pure step judgments; history, `{{run.*}}` variables, change identity |
+| `loop-interactive-ai-step.ts` | Resident interactive session for one AI step |
+| `loop-definition-execution.ts` | Core definition delegation (engine 2) |
+| `loop-run-settlement.ts` | Accounting reconciliation, outcome acceptance, `finishLoopRunAndJob`, terminal broadcasts |
+
+`loop-run-characterization.test.ts` pins full run traces (event order, seqs,
+payloads, broadcasts, accounting rows, terminal rows) and traversal routing;
+a snapshot change there is a behaviour change.
 
 ## Template catalog
 
@@ -154,7 +206,7 @@ and again on `GET /loops` and `GET /loops/factory`; it is idempotent
   missing row runs the current code default. Edited graphs pass graph validation
   and `assertEngineSupport` before any run or worktree is allocated.
 - Built-ins are edited through the normal `PUT`/`publish` flow. `PUT` is allowed
-  while a run uses a built-in: `LoopRunManager._run` clones the request graph and
+  while a run uses a built-in: `normalizeLoopRunRequest` (`loop-run-launch.ts`) clones the request graph and
   definition runs resume from their frozen request, so an edit cannot reach a live
   run. Other loops keep the running guard. `DELETE` and `unpublish` return
   `409 builtin_loop`. `POST /loops/:id/restore-builtin` resets a built-in to the
@@ -357,6 +409,11 @@ A verification node ending with outcome `fail` is displayed as failed even when
 the workflow operation itself completed. Core retains the failed-check diagnostics
 and stops three repeated failures on an unchanged candidate instead of spending
 further fixer turns on that same state.
+Before it reports, the recipe's developer checks its own tests the way the reviewer
+will (`DEVELOPER_SELF_REVIEW`): every delta-spec scenario and every example, input or
+error case tasks.md names has a test, then the configured checks run again. Most first
+reviews that rejected a candidate named such a gap, and each one cost a fixer, verify and
+review round.
 The configurable Implement recipe stops after any correction that leaves the
 candidate unchanged, including a rejected review whose host checks passed.
 Changed corrections must pass host verification and review again. A scoped counter
@@ -376,3 +433,51 @@ diagnostics do not install dependencies or certify a failing candidate.
 Default instructions allow proven minimal
 test compatibility repairs in admitted workspaces, preserve safety assertions,
 and require focused reproduction with original exit codes and negative cases.
+
+## Paused at a provider usage limit
+
+A step the provider refuses on its usage limit (typed report from
+[provider-quota](../provider-quota/README.md), else the provider-limit
+classifier) closes as failed and the run pauses (`limit_paused`) instead of
+settling. Legacy steps (`loop-node-ai-step.ts`) retry the same step in the same
+session after the reset, or, when the person continues on another provider,
+in a fresh session of that provider whose prompt carries the run record as
+historical data; later steps keep that provider (`state.engineOverride`).
+Core workflow runs (`loop-definition-execution.ts`, port `awaitProviderLimit`
+of `runDefinitionLoop`) resume the retained Core run, which runs the refused
+step again. When the retained Core advertises `routeOverrides` and the project
+has another usable provider that does not share the limited one's quota (and is
+not refusing too), the pause also offers **Continue now with another provider**
+(`loop-provider-switch.ts`): `switchRoles` are the roles whose current route
+(frozen `desktop-runtime-config.json` plus the overrides Core accepted,
+`agent-runtime-route-overrides.ts`) spends that quota, `switchTargets` the
+providers with their starting model/effort (the project's route for those roles
+on that provider, else the provider default). The person's choice is validated
+server-side (`POST …/limit {action:'switch', provider, model, effort, remember}`),
+answers the pause (so the automatic resume for the old provider is gone), moves
+the capacity slot to the new provider (`admission.reassign`) and resumes Core
+with `--route-overrides`: the refused step and every later step of those roles
+run there with a fresh session; the worktree is kept and the frozen files are
+never edited. `Remember for this project` also saves the routes as the
+project's agent runtime role routes. The run log and the `provider_switched`
+run event say `Switched to <Provider>/<model> (<effort>) after <Old>'s usage
+limit`. A run retained over a restart switches through the retained-run resume
+(`routeOverrides` resume control). An older Core offers no switch. A run that
+already SETTLED on the limit (an older Core failed it, or the pauses ran out)
+offers the same choice on its failure card (`loop-provider-switch-settled.ts`):
+the refusing provider comes from the diagnosis, the run's own refusal lines or
+the AI analysis, and `POST …/remedy {remedy:'continue', switch}` forks the next
+attempt from the same step as Continue with the moved routes on the fork itself
+(Core `forkRouteOverrides`), then resumes it with the same request (Core applies
+it once; an older Core with only `routeOverrides` moves them there). The
+fork's first resume logs the switch, emits `provider_switched` and admits the
+run on the new provider. The pause resumes by itself at
+`resumeAt` (default on, per-run off switch) on the wake-aware clock, never
+during sleep or a dark wake. After a restart a Core run is retained paused and
+resumed at `resumeAt` (`project-context-recovery.ts`); a legacy run cannot
+survive a restart and its record is dropped. At most `MAX_LIMIT_PAUSES` (3)
+pauses per run; then it settles `stalled` / `provider_limit` as before. Tests:
+`loop-run-manager.test.ts` (usage limit), `loop-definition-run.test.ts`,
+`loop-definition-store.test.ts`, `project-router-loop-runs.test.ts`,
+`loop-provider-switch.test.ts`, `loop-provider-switch-paired.test.ts` (real Core),
+`loop-provider-switch-settled.test.ts`, `loop-provider-switch-settled-paired.test.ts` (real Core).

@@ -80,5 +80,6 @@ export type PrDeliveryStatusCode =
   /** pr-ci-loop: the CI loop stopped before the checks turned green; the PR is unchanged beyond what it pushed. */
   | 'ci_needs_attention'
 
-export type PrDecisionOperation = 'checkout' | 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry'
+/** `refresh-on-base`: the automatic base refresh merges the integrated base into the delivery (and an agent resolves its conflicts). */
+export type PrDecisionOperation = 'checkout' | 'create-pr' | 'publish' | 'discard' | 'dismiss' | 'poll-merge' | 'reopen' | 'merge-local' | 'acknowledge-no-changes' | 'recover-and-retry' | 'refresh-on-base'
 

@@ -1,19 +1,19 @@
 {
   "language": {
     "title": "Language",
-    "description": "Desktop-wide UI language. Applies instantly — no restart needed.",
+    "description": "App-wide UI language. Applies instantly — no restart needed.",
     "selectLabel": "Interface language",
     "updateFailed": "Could not save the language preference"
   },
   "page": {
-    "title": "Project Settings",
+    "title": "Project settings",
     "loadFailed": "Couldn't load the project configuration"
   },
   "errors": {
     "saveFailed": "Failed to save"
   },
   "telemetry": {
-    "title": "Pipeline Telemetry",
+    "title": "Pipeline telemetry",
     "description": "Capture token usage, phase durations, and subagent activity for diagnostic export. On by default.",
     "toggleLabel": "Enable pipeline telemetry",
     "toggleDescription": "When on, OTEL data from pipeline jobs is captured locally. Use the <mono>Export diagnostic</mono> button on any job card to download.",
@@ -22,7 +22,7 @@
     "saveFailed": "Failed to save telemetry setting"
   },
   "prePrompt": {
-    "title": "Rail Pre-prompt",
+    "title": "Rail pre-prompt",
     "description": "Extra project-specific instructions appended to implement rail jobs after the spec context and before the run.",
     "label": "Pre-prompt",
     "placeholder": "Example: Prefer incremental changes, keep migrations backward compatible, and add tests for every rail change.",
@@ -34,18 +34,25 @@
   },
   "budget": {
     "title": "Spend limits",
-    "description": "Set a daily spend limit for this project. The queue auto-pauses when the limit is hit.",
+    "description": "Set a daily spend limit for this project. Runs pause when it is reached.",
     "dailyLabel": "Daily limit",
-    "dailyHelper": "Spend is counted over the last 24 hours. The queue pauses when the limit is reached.",
-    "perJobLabel": "Per-job cost alert (USD)",
-    "perJobHelper": "Alert when a single job in this project exceeds this amount.",
+    "dailyHelper": "Spend is counted over the last 24 hours. Runs pause when the limit is reached.",
+    "perJobLabel": "Per-run cost alert (USD)",
+    "perJobHelper": "Get an alert when a single run in this project costs more than this.",
     "perJobPlaceholder": "e.g. 0.50",
     "invalidNumber": "Enter a positive number or leave blank to disable",
-    "perJobAlertDisabled": "Per-job cost alert disabled",
-    "alertSet": "Alert set for jobs over {{amount}}",
+    "perJobAlertDisabled": "Per-run cost alert off",
+    "alertSet": "Alert set for runs over {{amount}}",
     "saveThresholdFailed": "Failed to save threshold",
     "dailyCurrent": "Currently {{amount}} a day",
-    "dailyNone": "No daily limit set"
+    "dailyNone": "No daily limit set",
+    "resumeOnDailyReset": {
+      "label": "Resume runs held by the daily limit when the day resets",
+      "helper": "At the daily reset, a run that only the daily limit held continues by itself, once there is capacity. A run you paused, or one its own per-run limit still holds, keeps waiting for you.",
+      "enabled": "Runs held by the daily limit will resume when the day resets",
+      "disabled": "Runs held by the daily limit will wait for you",
+      "saveFailed": "Could not save the setting"
+    }
   },
   "desktop": {
     "nav": {
@@ -61,30 +68,32 @@
       "webhooks": "Webhooks",
       "about": "About",
       "effects": "Effects",
-      "subscriptionUsage": "Subscription usage"
+      "subscriptionUsage": "Subscription usage",
+      "notifications": "Notifications",
+      "storage": "Storage"
     },
-    "title": "Desktop Settings",
-    "description": "Appearance, AI providers, updates and Desktop-wide preferences.",
-    "registeredProjects": "Registered Projects",
+    "title": "Settings",
+    "description": "Appearance, AI providers, updates and app-wide preferences.",
+    "registeredProjects": "Registered projects",
     "noProjects": "No projects registered yet",
     "techUrlDescription": "Base URL for the specrails-tech API (default: http://localhost:3000)",
     "techUrlSaved": "specrails-tech URL saved",
     "techUrlSaveFailed": "Failed to save URL",
     "budgetAlertsHeading": "Spend limits & alerts",
-    "dailyBudgetLabel": "Desktop daily limit",
-    "dailyBudgetHelper": "Global daily spend limit across all projects. Queues auto-pause when exceeded.",
-    "perJobHelper": "Alert when a single job exceeds this amount. Leave blank to disable.",
-    "costAlertsDisabled": "Cost alerts disabled",
+    "dailyBudgetLabel": "App-wide daily limit",
+    "dailyBudgetHelper": "One daily spend limit across all projects. Runs pause when it is reached.",
+    "perJobHelper": "Get an alert when a single run costs more than this. Leave blank for no alert.",
+    "costAlertsDisabled": "Cost alerts off",
     "projectRemoved": "Project removed",
     "projectRemoveFailed": "Failed to remove project",
     "onboardingHeading": "Onboarding",
-    "platformTour": "Platform Tour",
+    "platformTour": "Platform tour",
     "platformTourDescription": "Replay the welcome wizard to review key features.",
-    "replayTour": "Replay Tour",
-    "infoHeading": "Desktop Information",
+    "replayTour": "Replay tour",
+    "infoHeading": "About",
     "infoPort": "Port",
     "infoProjects": "Projects",
-    "infoDb": "Desktop DB",
+    "infoDb": "Database",
     "removeProjectConfirmTitle": "Remove {{name}}?",
     "removeProjectConfirmBody": "{{name}} is unregistered from Specrails and its running work stops. The repository files on disk are not deleted; you can add the folder again later.",
     "navLabel": "Settings sections",
@@ -95,21 +104,11 @@
     },
     "unsavedChanges": "Unsaved changes",
     "dailyBudgetCurrent": "Currently {{amount}} a day",
-    "dailyBudgetNone": "No daily limit set"
-  },
-  "notifications": {
-    "heading": "OS Notifications",
-    "description": "Show native desktop notifications when jobs complete or fail. Notifications only appear when the tab is not focused.",
-    "enableLabel": "Enable OS Notifications",
-    "notifyOn": "Notify on:",
-    "filterAll": "All (completed & failed)",
-    "filterCompleted": "Completed only",
-    "filterFailed": "Failed only",
-    "enabledToast": "OS notifications enabled",
-    "disabledToast": "OS notifications disabled"
+    "dailyBudgetNone": "No daily limit set",
+    "infoVersion": "Version"
   },
   "webhooks": {
-    "heading": "Outbound Webhooks",
+    "heading": "Outbound webhooks",
     "description": "Notify external tools (Slack, Zapier, CI/CD) on Desktop events. Requests are signed via <code>X-Specrails-Signature</code> when a secret is set.",
     "eventJobCompleted": "Job completed",
     "eventJobFailed": "Job failed",
@@ -119,7 +118,7 @@
     "sendTestPing": "Send test ping",
     "addHeading": "Add webhook",
     "secretPlaceholder": "Signing secret (optional)",
-    "addButton": "Add Webhook",
+    "addButton": "Add webhook",
     "urlRequired": "URL is required",
     "selectEvent": "Select at least one event",
     "added": "Webhook added",
@@ -135,7 +134,7 @@
   },
   "terminal": {
     "title": "Terminal panel",
-    "desktopDescription": "Desktop-wide defaults applied to every project unless a per-project override is set.",
+    "desktopDescription": "App-wide defaults applied to every project unless a per-project override is set.",
     "projectDescription": "Per-project overrides for the terminal panel. Leave a field unchanged to inherit the Desktop default.",
     "fontFamily": "Font family",
     "fontSize": "Font size ({{min}}–{{max}})",
@@ -164,7 +163,7 @@
   "appearance": {
     "taglines": {
       "dracula": "The original — dark purple-tinted with vivid neon accents",
-      "aurora-light": "Premium light — Linear-inspired indigo on warm off-white",
+      "aurora-light": "Daylight drafting table — ink on warm paper, depth from soft shadows",
       "obsidian-dark": "Graphite pro — neutral near-black with one muted violet accent",
       "specrails": "Brand theme — deep navy-indigo with saturated cyan accents",
       "code-rain": "Phosphor terminal — soft mint on green-tinted near-black",
@@ -177,7 +176,7 @@
   },
   "mobile": {
     "heading": "Mobile companion",
-    "description": "Control Specrails from the SpecRails Companion app on your phone, 100% over your local network. Off by default. A paired phone can answer questions, resume, retry and create draft PRs from the inbox, as far as the MCP permission tiers allow; merging, discarding and settings stay on this computer.",
+    "description": "Control Specrails from the Specrails Companion app on your phone, 100% over your local network. Off by default. A paired phone can answer questions, resume, retry and create draft PRs from the inbox, as far as the MCP permission tiers allow; merging, discarding and settings stay on this computer.",
     "accessOn": "Mobile access on",
     "accessOff": "Mobile access off",
     "listeningOnPort": "Listening on port {{port}}",
@@ -190,7 +189,7 @@
     "identityReset": "Mobile identity reset",
     "enableFailed": "Could not enable mobile access",
     "disableFailed": "Could not disable mobile access",
-    "windowsFirewall": "Windows Firewall will ask to allow the SpecRails server on first enable — choose “Allow on private networks”.",
+    "windowsFirewall": "Windows Firewall will ask to allow the Specrails server on first enable — choose “Allow on private networks”.",
     "pairedDevices": "Paired devices",
     "noDevices": "No devices paired yet.",
     "revokeDevice": "Revoke {{name}}",
@@ -511,7 +510,7 @@
   },
   "budgetMoved": "Limits are edited in Analytics ▸ Spend limits.",
   "openBudget": "Open Spend limits",
-  "openSettings": "Open Settings",
+  "openSettings": "Open settings",
   "accessibility": {
     "density": {
       "title": "Density",
@@ -533,5 +532,114 @@
       "full": "Full motion",
       "fullHint": "Animate even if the OS asks for less"
     }
+  },
+  "missionConnectors": {
+    "title": "Connectors in missions",
+    "description": "Missions can use the connectors and MCP servers you already set up in each provider. All of them start on; turn off the ones your missions do not need.",
+    "refresh": "Refresh",
+    "measure": "Measure sizes",
+    "measuring": "Measuring…",
+    "loadFailed": "Could not list the provider connectors.",
+    "measureFailed": "Could not measure the connectors.",
+    "saveFailed": "Could not update {{name}}.",
+    "empty": "No connectors or MCP servers found in your providers.",
+    "appliesNextTurn": "A change applies on the next mission turn. That turn rebuilds the provider’s prompt cache once, so it costs a little more.",
+    "claudeListStale": "Claude Code did not answer, so this list shows the account connectors it remembers.",
+    "waitsForToolSearch": "Your own MCP servers load in Claude missions once Claude can look tools up on demand (needs a Core update).",
+    "notLoadedYet": "Not loaded yet",
+    "toggleLabel": "Use {{name}} in {{provider}} missions",
+    "sizeTitle": "Approximate size of the tool definitions if the provider sends them in full",
+    "size_one": "{{count}} tool · ≈{{tokens}} tokens",
+    "size_other": "{{count}} tools · ≈{{tokens}} tokens",
+    "kind": {
+      "account-connector": "Account connector",
+      "mcp-server": "MCP server"
+    },
+    "status": {
+      "needsAuth": "Needs sign-in in the provider",
+      "failed": "Did not connect"
+    },
+    "lock": {
+      "specrails-duplicate": "Same server as Specrails’ own MCP: always left out (missions already have it).",
+      "disabled-in-provider": "Turned off in your {{provider}} config.",
+      "external-mcp": "Added through External MCP servers (Settings ▸ MCP).",
+      "unsupported": "{{provider}} loads it itself; Specrails cannot turn it off."
+    },
+    "providerNote": {
+      "claude": "claude.ai account connectors and the MCP servers in ~/.claude.json. Claude sends a connector’s full tool definitions with every request.",
+      "codex": "Servers in ~/.codex/config.toml. Codex loads tool definitions only when the agent looks them up.",
+      "gemini": "Servers in ~/.gemini/settings.json.",
+      "kimi": "Servers in ~/.kimi-code/mcp.json."
+    }
+  },
+  "attention": {
+    "heading": "Notifications",
+    "description": "Items that need your attention: a system notification when you're away, a toast when you're elsewhere in the app, nothing when it's already on screen.",
+    "enable": "Notify me",
+    "enableHint": "Turn off to stop every notification and toast below.",
+    "categoriesLegend": "Tell me about",
+    "categories": {
+      "question": {
+        "label": "Questions and replies",
+        "hint": "An agent waits for your answer, or a mission replied"
+      },
+      "review": {
+        "label": "Reviews ready",
+        "hint": "A delivery or pull request waits for your decision"
+      },
+      "failed": {
+        "label": "Failures",
+        "hint": "A run failed, got blocked or stopped moving"
+      },
+      "budget": {
+        "label": "Spending limits",
+        "hint": "A run paused at a spending limit or at the provider's usage limit"
+      },
+      "done": {
+        "label": "Finished jobs",
+        "hint": "A job completed (only while you're away from the app)"
+      }
+    },
+    "sound": "Play a sound",
+    "soundHint": "The system's notification sound",
+    "dockBadge": "Dock badge",
+    "dockBadgeHint": "The app icon shows how many inbox items you haven't seen",
+    "dockBadgeDesktopOnly": "In the desktop app, the app icon shows how many inbox items you haven't seen",
+    "projectsHeading": "Projects",
+    "projectsDescription": "Turn a project off to mute its notifications. Its items still show in the inbox.",
+    "saveFailed": "Couldn't save the notification settings"
+  },
+  "autoContinue": {
+    "title": "Continue failed runs",
+    "description": "When a run fails for a cause Specrails knows how to fix, it continues it once by itself and says so in the run’s history.",
+    "toggleLabel": "Continue automatically, once",
+    "stateOn": "On: Specrails continues a fixable failure once.",
+    "stateOff": "Off: a failed run waits for you to continue it.",
+    "explainWhen": "Unfinished tasks, a missing tool, a provider error of the moment or a stall: the next attempt keeps all the work and gets the guidance it needs.",
+    "explainNever": "Never for credentials or secrets, policy denials, spend limits, usage limits, a stop you chose or the same failure twice.",
+    "enabled": "Specrails will continue fixable failures once",
+    "disabled": "Failed runs will wait for you",
+    "saveFailed": "Could not save the setting"
+  },
+  "machineInstalls": {
+    "title": "Remembered installs",
+    "description": "Machine-wide installs you approved for a run. Specrails runs them again without asking; revoke one to be asked next time.",
+    "empty": "Nothing remembered yet. When a run needs a tool installed machine-wide, it asks you first.",
+    "approvedAt": "Approved {{date}}",
+    "uses_one": "Used once",
+    "uses_other": "Used {{count}} times",
+    "revoke": "Revoke",
+    "revoked": "Approval revoked. Specrails will ask before running it again.",
+    "revokeFailed": "Could not revoke the approval",
+    "loadFailed": "Could not load the remembered installs"
+  },
+  "envFiles": {
+    "title": "Environment files in runs",
+    "description": "Copies this project's gitignored .env files (.env, .env.local, .env.test and other .env.<name>) from each repository into every run's worktree, so tests that need them can run. Off by default.",
+    "label": "Copy this project's .env files into runs",
+    "consequence": "Agents in this project's runs can read these files. They are never committed or shown in reviews.",
+    "enabled": "Runs now get this project's .env files",
+    "disabled": "Runs no longer get this project's .env files",
+    "saveFailed": "Could not save the environment files setting"
   }
 }

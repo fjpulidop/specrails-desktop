@@ -32,9 +32,12 @@ export function useDefinitionFork(runId: string | undefined, projectId?: string)
       if (recovery.forkRequest && (recovery.forkRequest.fromNodePath !== cut.fromNodePath || recovery.forkRequest.scopeId !== cut.scopeId || recovery.forkRequest.visit !== cut.visit)) throw new Error(t('loopExplorer.forkPending'))
       const body = recovery.forkRequest ?? { ...cut, requestId: crypto.randomUUID() }
       const response = await fetch(`${endpoint}/fork`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      const result = await response.json() as { loopRunId?: string; detail?: string }
+      const result = await response.json() as { loopRunId?: string; detail?: string; resumed?: boolean; resumeError?: string; resumeDetail?: string }
       if (!response.ok || !result.loopRunId) throw new Error(result.detail ?? t('loopExplorer.forkFailed'))
-      if (current.current === owner) setCreated(result.loopRunId)
+      if (current.current !== owner) return
+      setCreated(result.loopRunId)
+      // The server resumes the linked run itself; only a failed auto-resume needs the user.
+      if (result.resumed === false) setError(t('loopExplorer.forkResumeFailed', { detail: result.resumeDetail ?? result.resumeError ?? '' }))
     } catch (failure) { if (current.current === owner) setError(failure instanceof Error ? failure.message : t('loopExplorer.forkFailed')) }
     finally { if (current.current === owner) { inFlight.current = false; setBusy(false) } }
   }

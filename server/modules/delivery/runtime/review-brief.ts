@@ -39,6 +39,10 @@ export interface DeliveryReviewBrief {
   divergences: ReviewDivergence[]
 }
 
+/** A reviewer finding Core's review triage took out of the run (`reviewNotes`): advice, a follow-up
+ *  outside the change, a host-only check... The person reads it; no correction round acted on it. */
+export interface ReviewNote { kind: string; issue: string; reason: string | null }
+
 /** Where the record was read from (provenance stays visible for audits). */
 export type ReviewBriefSource = 'pipeline' | 'definition' | 'confidence-score'
 
@@ -55,6 +59,8 @@ export interface DeliveryReviewBriefRecord {
   diagnostic: string | null
   /** Entries Desktop discarded because they did not match the contract. */
   droppedEntries: number
+  /** Findings review triage kept out of the run (absent on records written before it existed). */
+  notes?: ReviewNote[]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -108,7 +114,9 @@ export function normalizeReviewBrief(value: unknown): { brief: DeliveryReviewBri
     if (!whatToLookAt || !REVIEW_RISK_SEVERITIES.includes(item.severity as ReviewRiskSeverity)) return null
     return { severity: item.severity as ReviewRiskSeverity, area: text(item.area, 40), whatToLookAt, ref: text(item.ref) }
   }, counter)
-  const humanChecks = list(value.humanChecks, (item) => text(item), counter)
+  // A check that asks the person to run `git status` / `git diff` is not a person's check: the change
+  // set already answers which files changed (a read-only reviewer that could not run git said so).
+  const humanChecks = list(value.humanChecks, (item) => { const check = text(item); return check && !GIT_STATE_CHECK.test(check) ? check : null }, counter)
   const divergences = list(value.divergences, (item) => {
     if (!isRecord(item)) return null
     const capability = text(item.capability), requirement = text(item.requirement), observed = text(item.observed)
@@ -119,6 +127,9 @@ export function normalizeReviewBrief(value: unknown): { brief: DeliveryReviewBri
     dropped: counter.dropped,
   }
 }
+
+/** A human check that only asks the person to read the checkout's git state. */
+export const GIT_STATE_CHECK = /\bgit\s+(?:-C\s+\S+\s+)?(?:status|diff|ls-files)\b/i
 
 /** Stable severity order: high, medium, low; original order within a severity. */
 export function sortRisks<T extends { severity: ReviewRiskSeverity }>(risks: readonly T[]): T[] {
@@ -183,14 +194,28 @@ function recordFrom(
  * a reviewer implementation step, or a reviewer role turn). Returns null when
  * the output carries neither a brief nor a brief diagnostic (older Core).
  */
-export function reviewBriefFromReviewerOutput(output: unknown, source: ReviewBriefSource = 'definition'): DeliveryReviewBriefRecord | null {
+export function reviewBriefFromReviewerOutput(output: unknown, source: ReviewBriefSource = 'definition', rawNotes?: unknown): DeliveryReviewBriefRecord | null {
   if (!isRecord(output)) return null
-  if (!('brief' in output) && !('briefDiagnostic' in output)) return null
-  return recordFrom(source, output.brief, output.briefDiagnostic, {
+  const notes = reviewNotes(rawNotes)
+  if (!('brief' in output) && !('briefDiagnostic' in output) && !notes.length) return null
+  const record = recordFrom(source, output.brief, output.briefDiagnostic, {
     approved: typeof output.approved === 'boolean' ? output.approved : null,
     score: score(output.score),
     recordedAt: null,
   })
+  return notes.length ? { ...record, notes } : record
+}
+
+/** Core review triage notes (`output.reviewNotes` of a reviewer role turn), bounded; malformed entries are skipped. */
+export function reviewNotes(value: unknown): ReviewNote[] {
+  if (!Array.isArray(value)) return []
+  const out: ReviewNote[] = []
+  for (const item of value) {
+    if (!isRecord(item)) continue
+    const issue = text(item.issue), kind = text(item.kind, 40)
+    if (issue && kind && out.length < LIST_LIMIT) out.push({ kind, issue, reason: text(item.reason) })
+  }
+  return out
 }
 
 /** Compact per-delivery risk summary for cards and analytics. */
@@ -233,6 +258,8 @@ export interface PacketWhatToLookAt {
   untested: PerTicket<ReviewUntested>[]
   humanChecks: PerTicket<{ text: string }>[]
   divergences: PerTicket<ReviewDivergence>[]
+  /** Reviewer findings no correction round acted on (Core review triage): advice, out of scope, host-only checks. */
+  reviewNotes: PerTicket<ReviewNote>[]
   /** Units whose brief was dropped by Core or unreadable by Desktop. */
   diagnostics: PerTicket<{ message: string }>[]
   /** Contract-violating entries Desktop skipped (0 for a well-formed brief). */
@@ -241,13 +268,14 @@ export interface PacketWhatToLookAt {
 
 /** Merge every unit's brief into the packet section; null when there is nothing to show. */
 export function buildWhatToLookAt(units: ReadonlyArray<{ ticketId: number; reviewBrief?: DeliveryReviewBriefRecord | null }>): PacketWhatToLookAt | null {
-  const out: PacketWhatToLookAt = { risks: [], behaviourChanges: [], invariantsTouched: [], untested: [], humanChecks: [], divergences: [], diagnostics: [], droppedEntries: 0 }
+  const out: PacketWhatToLookAt = { risks: [], behaviourChanges: [], invariantsTouched: [], untested: [], humanChecks: [], divergences: [], reviewNotes: [], diagnostics: [], droppedEntries: 0 }
   for (const unit of units) {
     const record = unit.reviewBrief
     if (!record) continue
     const ticketId = unit.ticketId
     if (record.diagnostic) out.diagnostics.push({ ticketId, message: record.diagnostic })
     out.droppedEntries += record.droppedEntries || 0
+    out.reviewNotes.push(...(record.notes ?? []).map((entry) => ({ ...entry, ticketId })))
     const brief = record.brief
     if (!brief) continue
     out.risks.push(...brief.risks.map((entry) => ({ ...entry, ticketId })))
@@ -259,7 +287,7 @@ export function buildWhatToLookAt(units: ReadonlyArray<{ ticketId: number; revie
   }
   out.risks = sortRisks(out.risks)
   const empty = out.risks.length + out.behaviourChanges.length + out.invariantsTouched.length + out.untested.length
-    + out.humanChecks.length + out.divergences.length + out.diagnostics.length === 0
+    + out.humanChecks.length + out.divergences.length + out.reviewNotes.length + out.diagnostics.length === 0
   return empty ? null : out
 }
 

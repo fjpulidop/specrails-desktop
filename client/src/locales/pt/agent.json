@@ -317,7 +317,8 @@
       "reopen": "Reabrindo…",
       "merge-local": "Integrando localmente…",
       "recover-and-retry": "A criar o commit e a tentar novamente o push do resultado preservado…",
-      "acknowledge-no-changes": "Marcando como concluído…"
+      "acknowledge-no-changes": "Marcando como concluído…",
+      "refresh-on-base": "A atualizar sobre a nova base…"
     },
     "markDone": "Marcar como concluídas",
     "refine": "Refinar",
@@ -346,7 +347,7 @@
       "building": "A implementar num worktree isolado…",
       "buildingInPlace": "Implementando na pasta do projeto…",
       "buildingExistingPr": "A aplicar alterações numa PR existente…",
-      "paused": "Precisa de decisão humana",
+      "paused": "Pausado",
       "on_review": "Implementação pronta para revisão",
       "pr_draft": "PR em rascunho criada",
       "pr_draft_degraded": "Entrega da PR incompleta",
@@ -410,7 +411,7 @@
     "confirmDiscard": "Confirmar descarte?",
     "mergedNote": "Merge concluído. Specs movidas para Concluído",
     "discardedNote": "Descartada. Specs devolvidas ao backlog",
-    "implementationFailedNote": "A execução de implementação falhou antes de produzir algo entregável. Abra o log da execução para inspecionar a falha e descarte este cartão antes de relançar.",
+    "implementationFailedNote": "A execução parou antes de ter algo para entregar. Abra o log para ver o motivo.",
     "dismiss": "Encerrar acompanhamento",
     "discardLocalResult": "Descartar resultado local",
     "retryPush": "Tentar push novamente",
@@ -428,8 +429,6 @@
     "retryPushNote": "A implementação foi concluída com sucesso e as alterações estão seguras localmente. Tente novamente apenas o push.",
     "cleanupIncomplete_one": "Limpeza incompleta ({{count}} aviso)",
     "cleanupIncomplete_other": "Limpeza incompleta ({{count}} avisos)",
-    "safetyArchiveTitle": "Arquivo de segurança ({{count}})",
-    "safetyArchiveHint": "Os ficheiros temporários do espaço de trabalho foram preservados fora da PR por precaução. Pode inspecioná-los ou removê-los manualmente.",
     "confirm": {
       "recoverAndRetryTitle": "Fazer commit e enviar o resultado preservado?",
       "recoverAndRetryBody": "O Specrails utilizará apenas o worktree isolado ou o ramo registado compatível com avanço rápido para {{branch}}. Se necessário, criará um commit com os ficheiros entregáveis e enviará esse commit exato apenas se a PR continuar aberta nos ramos de origem e destino esperados. A pasta principal do projeto e as respetivas alterações sem commit não serão afetadas.",
@@ -442,7 +441,7 @@
       "mergeLocalTitle": "Integrar localmente?",
       "mergeLocalBody": "As branches entregues serão integradas em {{base}} localmente. As alterações existentes são preservadas; alterações sobrepostas podem precisar de resolução antes da integração.",
       "freshDiscardTitle": "Descartar esta entrega?",
-      "freshDiscardBody": "A PR será fechada sem excluir o branch remoto. Apenas branches locais e worktrees pertencentes ao SpecRails que ainda estejam no commit registrado serão removidos; qualquer item alterado será preservado com um aviso. As specs voltarão ao backlog. Os recursos locais removidos não podem ser recuperados.",
+      "freshDiscardBody": "A PR será fechada sem excluir o branch remoto. Apenas branches locais e worktrees pertencentes ao Specrails que ainda estejam no commit registrado serão removidos; qualquer item alterado será preservado com um aviso. As specs voltarão ao backlog. Os recursos locais removidos não podem ser recuperados.",
       "implementationFailedDiscardTitle": "Descartar esta entrega com falha?",
       "implementationFailedDiscardBody": "O cartão será fechado e as specs voltarão ao backlog. O trabalho local e os branches serão preservados para inspeção. Apenas recursos comprovadamente seguros para limpeza poderão ser removidos.",
       "dismissTitle": "Encerrar este acompanhamento?",
@@ -544,7 +543,11 @@
       "failing_pr": "{{pr}}: checks com falha: {{checks}}"
     },
     "ciBuildingHint": "Aguarda os checks, corrige as falhas de código e envia para o mesmo PR. Falhas que não são do código são relatadas, não repetidas.",
-    "runStoppedNote": "Você interrompeu esta execução antes de entregar algo. Reinicie quando quiser continuar."
+    "runStoppedNote": "Parou esta execução antes de entregar. Continuar retoma onde parou, no mesmo worktree.",
+    "runStoppedNoteNoContinue": "Parou esta execução antes de entregar. O seu trabalho fica no worktree.",
+    "continue": "Continuar",
+    "startOver": "Começar de novo",
+    "startOverHint": "Uma execução nova a partir da base; o trabalho desta tentativa fica no worktree antigo."
   },
   "specDraft": {
     "heading": "Rascunho da spec",
@@ -815,7 +818,8 @@
       "feature_unavailable": "O Intent não está disponível",
       "daily_budget_exceeded": "Orçamento diário atingido. Nada foi iniciado.",
       "review_wip_limit_reached": "Limite de revisão atingido. Nada foi iniciado.",
-      "repository_has_no_commits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar uma cópia isolada do projeto."
+      "repository_has_no_commits": "Este repositório ainda não tem commits. Faça um primeiro commit para que o Specrails possa criar uma cópia isolada do projeto.",
+      "launch_preflight_blocked": "Corrija a verificação que falhou antes de lançar."
     },
     "stub": {
       "launched": "Lançado → Rail {{rail}}",
@@ -934,7 +938,26 @@
     "add": "Adicionar conversa em vista dividida",
     "close": "Fechar vista dividida",
     "loadFailed": "Não foi possível carregar esta conversa.",
-    "retry": "Tentar novamente"
+    "retry": "Tentar novamente",
+    "openRight": "Abrir à direita",
+    "openBelow": "Abrir abaixo",
+    "layoutMenu": "Dividir e organizar painéis",
+    "splitRight": "Dividir à direita",
+    "splitDown": "Dividir abaixo",
+    "moveLeft": "Mover para a esquerda",
+    "moveRight": "Mover para a direita",
+    "moveUp": "Mover para cima",
+    "moveDown": "Mover para baixo",
+    "swap": "Trocar com",
+    "maximize": "Maximizar painel",
+    "restore": "Restaurar layout",
+    "equalize": "Igualar painéis",
+    "closePane": "Fechar painel",
+    "noMissions": "Não há outras missões para abrir",
+    "noRoom": "Sem espaço para este layout",
+    "stacks": "Empilha",
+    "resize": "Redimensionar {{first}} e {{second}}",
+    "panes": "Missões abertas"
   },
   "runtimeSelector": {
     "label": "Modelo e esforço",
@@ -1389,7 +1412,7 @@
     "paused": "Pausado. Aguardando você",
     "pausedReason": "Pausado: {{reason}}",
     "decision": {
-      "approval": "Aguardando sua aprovação",
+      "approval": "Requer atenção",
       "changes": "O revisor pediu alterações",
       "on_review": "Pronto para sua revisão",
       "pr_draft": "PR em rascunho pronta para publicar",
@@ -1434,7 +1457,7 @@
     "announce": {
       "settled": "{{run}} terminou",
       "shown": "Mostrando {{run}}: {{state}}",
-      "needsYou": "{{run}} precisa de você"
+      "needsYou": "{{run}} requer sua atenção"
     },
     "event": {
       "launched": "Iniciado em {{run}}",
@@ -1452,7 +1475,7 @@
       "discarded": "{{run}} foi descartado",
       "changes": "{{run}}: o revisor pediu alterações"
     },
-    "needsYou": "precisa de você",
+    "needsYou": "requer sua atenção",
     "opensCard": "Abre o cartão da execução para você confirmar lá",
     "open": {
       "decision": "Abrir a decisão",
@@ -1537,11 +1560,7 @@
     "greeting": "O que deve ser entregue a seguir em {{project}}?",
     "greetingNoProject": "O que deve ser entregue a seguir?",
     "statusTodo_one": "{{count}} a fazer",
-    "statusTodo_other": "{{count}} a fazer",
-    "statusReview_one": "{{count}} aguardando revisão",
-    "statusReview_other": "{{count}} aguardando revisão",
-    "statusRunning_one": "{{count}} em execução",
-    "statusRunning_other": "{{count}} em execução"
+    "statusTodo_other": "{{count}} a fazer"
   },
   "prCi": {
     "title": "Acompanhar e corrigir o CI do PR {{pr}}",
@@ -1568,7 +1587,7 @@
     "startFailed": "Não foi possível iniciar o loop de CI.",
     "dismissFailed": "Não foi possível guardar a sua escolha. Tente novamente.",
     "startedToast": "Acompanhamento do CI iniciado no trilho {{index}}",
-    "fixCi": "Corrigir CI / Conflitos",
+    "fixCi": "Corrigir CI / conflitos",
     "fixCiTooltip": "Esperar pelos checks, corrigir falhas e conflitos e enviar para este PR até ficar verde",
     "step": {
       "checks": "Esperando pelo CI",
@@ -1586,7 +1605,7 @@
     "noCiMany": "Os PRs {{pr}} não têm checks de CI",
     "needsAttentionMany": "Os PRs {{pr}} foram enviados; o CI ainda não está verde",
     "dismissedMany": "O acompanhamento do CI dos PRs {{pr}} não foi iniciado.",
-    "retry": "Corrigir CI / Conflitos de novo",
+    "retry": "Corrigir CI / conflitos de novo",
     "openLog": "Ver o log"
   },
   "missionResources": {
@@ -1620,5 +1639,68 @@
     "history": "Histórico",
     "peakValue": "Pico {{value}}",
     "historyHint": "Um ponto a cada 3 s enquanto a missão trabalhava. Passe o mouse sobre uma linha para ver a hora e o valor."
+  },
+  "contextUsage": {
+    "open": "Contexto usado: {{percent}}%",
+    "title": "Contexto",
+    "description": "Quão cheio está o contexto da sessão do provedor desta missão, conforme informado pelo provedor.",
+    "tokens": "{{used}} / {{window}}",
+    "percent": "{{percent}}%",
+    "model": "Modelo",
+    "sourceResponse": "Medido a partir da última resposta",
+    "sourceSessionFile": "Lido da sessão do {{provider}}",
+    "compacted": "O provedor compactou o contexto durante o último turno.",
+    "highNote": "O provedor compacta o contexto automaticamente quando ele enche. Iniciar uma nova sessão com um resumo também pode ajudar.",
+    "openUnknown": "Contexto: proporção da janela desconhecida",
+    "tokensUsedOnly": "{{used}} tokens usados",
+    "windowUnknown": "O provedor não informou a janela de contexto, então a proporção usada é desconhecida.",
+    "usageUnknown": "O uso do contexto é desconhecido logo após o provedor compactá-lo."
+  },
+  "sessionRenew": {
+    "action": "Recomeçar com um resumo",
+    "hint": "Escreve um resumo desta missão; sua próxima mensagem inicia uma nova sessão que conhece apenas esse resumo.",
+    "confirmBody": "O Specrails vai escrever um resumo desta missão (objetivo, decisões, estado atual, próximos passos). Sua próxima mensagem iniciará uma nova sessão do provedor que conhece apenas esse resumo. A conversa permanece no histórico.",
+    "confirm": "Recomeçar",
+    "cancel": "Cancelar",
+    "running": "Escrevendo o resumo…",
+    "retry": "Tentar novamente",
+    "blockedBusy": "Disponível quando o turno atual terminar.",
+    "blockedMode": "Indisponível neste modo: ele usa a própria sessão.",
+    "marker": "Sessão renovada · resumo",
+    "markerDetail": "O que a nova sessão sabe",
+    "showSummary": "Mostrar o resumo",
+    "hideSummary": "Ocultar o resumo",
+    "basedOn": "Com base em toda a conversa",
+    "basedOnPartial": "Com base nas últimas {{included}} de {{total}} mensagens",
+    "errors": {
+      "MISSION_BUSY": "Aguarde o turno atual terminar e tente novamente.",
+      "MISSION_IN_INTENT": "Esta missão está em Intent, que usa a própria sessão. Saia do Intent para iniciar uma nova sessão.",
+      "MISSION_ARCHIVED": "Restaure esta missão arquivada antes de iniciar uma nova sessão.",
+      "NOTHING_TO_SUMMARIZE": "Ainda não há conversa para resumir.",
+      "RENEWAL_CANCELLED": "A nova sessão foi cancelada.",
+      "generic": "Não foi possível escrever o resumo.",
+      "SHUTTING_DOWN": "O Specrails reiniciou enquanto escrevia o resumo. Nada mudou; tente novamente."
+    }
+  },
+  "ask": {
+    "menu": "Perguntar sobre isto",
+    "title": "Perguntar sobre isto",
+    "description": "Uma conversa à parte sobre o texto selecionado, com o contexto anterior desta missão. A missão não é alterada.",
+    "selection": "Texto selecionado",
+    "showAll": "Mostrar tudo",
+    "showLess": "Mostrar menos",
+    "thread": "Conversa à parte",
+    "running": "Pensando…",
+    "failed": "Não foi possível obter uma resposta. Tente novamente.",
+    "retry": "Tentar novamente",
+    "inputLabel": "Pergunta sobre o texto selecionado",
+    "placeholder": "Pergunte algo ou pressione Enter para uma explicação · não é salvo",
+    "placeholderFollowUp": "Faça outra pergunta · não é salvo",
+    "send": "Perguntar",
+    "footer": "Respondido com {{model}} · fechar descarta esta conversa",
+    "footerPending": "Usa {{model}} · fechar descarta esta conversa",
+    "answer": "Resposta",
+    "defaultQuestion": "Explique o que isto significa neste contexto.",
+    "providerDefault": "modelo padrão de {{provider}}"
   }
 }

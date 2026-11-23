@@ -22,6 +22,17 @@ Selecciona líneas pulsando sus números (Mayús-clic amplía el rango), elige *
 
 **Abrir en el editor** abre el archivo, en la línea seleccionada, en VS Code, Cursor o un IDE de JetBrains. Elige el editor en **Ajustes → Código → Editor**. El archivo se abre desde tu propia copia del proyecto, donde puede que la rama de la revisión no esté activa.
 
+## Ve los conflictos antes de fusionar {#merge-preview}
+
+Cada entrega que te espera se compara con su rama base **tal como está ahora** (el último `origin/<base>` traído), sin tocar tu checkout: Git fusiona las dos en memoria y no se escribe nada en tu repositorio. La tarjeta del rail, el paquete de revisión y el live board indican entonces:
+
+- **Choca con main en …**: el cambio ya no entra limpio; se listan los archivos. Se muestra con el aspecto de aviso.
+- **Choca con el Rail N en …**: otra entrega que espera sobre la misma base cambia las mismas líneas, así que la que se fusione en segundo lugar tendrá conflictos.
+- **main avanzó N commits desde que se creó esta rama**: la base avanzó; plantéate actualizar la rama antes de decidir.
+- **Ya está en main**: el cambio ya entró (por ejemplo tras un squash merge).
+
+En el tablero en vivo el resultado es un chip corto (**2 conflictos**, **Choca con 1 ejecución**, **Base avanzada**) cuya frase completa aparece al pasar el puntero por encima o al darle el foco. La vista previa se actualiza cuando una entrega cambia de estado o termina una ejecución. Cuando Specrails fusiona varios resultados por su cuenta, fusiona primero los que entran limpios. Hace falta Git 2.38 o posterior; con un Git más antiguo la vista previa indica que no está disponible.
+
 ## Elige qué pasa con una entrega {#pr-decision}
 
 Una ejecución terminada te pide una sola cosa: qué hacer con su resultado. La tarjeta muestra un botón principal para el siguiente paso (crear el PR, publicarlo o verificarlo) y, a su lado, **Revisar**, que abre el paquete de revisión en lenguaje claro. Todo lo demás está en **Más acciones**:

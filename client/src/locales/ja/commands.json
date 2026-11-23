@@ -6,6 +6,7 @@
     "noResults": "結果が見つかりません。",
     "activeBadge": "アクティブ",
     "groups": {
+      "jumpBackIn": "再開する",
       "projects": "プロジェクト",
       "missions": "ミッション",
       "spec": "スペック",
@@ -25,7 +26,7 @@
       "desktopAnalytics": "Desktop 分析",
       "projectAnalytics": "プロジェクト分析",
       "activityFeed": "アクティビティフィード",
-      "desktopSettings": "Desktop 設定",
+      "desktopSettings": "設定",
       "docs": "ドキュメント",
       "replayTour": "ツアーをもう一度見る"
     },
@@ -68,7 +69,7 @@
       "switchTheme": "テーマを切り替え",
       "switchToMission": "ミッションモードに切り替え",
       "switchToBoard": "ボードモードに切り替え",
-      "openAppSettings": "アプリ設定を開く",
+      "openAppSettings": "設定を開く",
       "openProjectSettings": "プロジェクト設定を開く",
       "switchProject": "プロジェクトを切り替え",
       "runLoop": "ループを実行",
@@ -94,7 +95,7 @@
         "themeTitle": "テーマ",
         "themePlaceholder": "テーマを選択...",
         "noThemes": "利用できるテーマがありません。",
-        "appSettingsTitle": "アプリ設定",
+        "appSettingsTitle": "設定",
         "projectSettingsTitle": "プロジェクト設定",
         "sectionPlaceholder": "セクションを選択...",
         "noSections": "セクションがありません。",
@@ -149,7 +150,11 @@
       "copyPrDescriptionN": "#{{id}} の PR 説明をコピー",
       "exportHandoff": "引き継ぎをエクスポート",
       "copyPrDescription": "PR 説明をコピー",
-      "moveFocusedSpec": "フォーカス中のスペックを移動…"
+      "moveFocusedSpec": "フォーカス中のスペックを移動…",
+      "openLiveBoard": "ライブボードを開く",
+      "openLiveBoardKeywords": "ライブ, ボード, 実行, 進行中, すべてのプロジェクト, ミッション, 状態",
+      "toggleKeepAwake": "コンピューターをスリープさせない（オン / オフ）",
+      "toggleKeepAwakeKeywords": "スリープ防止, スリープ, 起動したまま"
     },
     "scopes": {
       "remove": "範囲を解除",
@@ -212,7 +217,7 @@
       }
     },
     "settings": {
-      "appScope": "Desktop 設定",
+      "appScope": "設定",
       "projectScope": "プロジェクト設定",
       "entries": {
         "theme": {
@@ -247,6 +252,10 @@
           "label": "サブエージェント（Desktop）",
           "keywords": "サブエージェント, subagents, ネイティブ, 委任, 並列"
         },
+        "missionConnectors": {
+          "label": "ミッションのコネクタ",
+          "keywords": "コネクタ, mcp, claude.ai, codex, サーバー, google drive, ツール"
+        },
         "mobileCompanion": {
           "label": "モバイルコンパニオン",
           "keywords": "モバイル, コンパニオン, スマホ, ペアリング, qr, ipad, リモート, mobile"
@@ -258,6 +267,10 @@
         "budgetAlerts": {
           "label": "1日の予算とコスト通知",
           "keywords": "予算, 1日, コスト, 支出, 上限, 通知, 金額, budget"
+        },
+        "resumeOnDailyReset": {
+          "label": "日次リセット時に実行を再開",
+          "keywords": "予算, 日次, リセット, 深夜, 再開, 保留, 実行, 自動"
         },
         "notifications": {
           "label": "OS 通知",
@@ -282,6 +295,10 @@
         "about": {
           "label": "Desktop の情報",
           "keywords": "情報, について, ポート, データベース, バージョン, about"
+        },
+        "reportProblem": {
+          "label": "問題を報告",
+          "keywords": "報告, 問題, バグ, クラッシュ, ログ, 診断, zip, サポート"
         },
         "repositories": {
           "label": "リポジトリ",
@@ -350,9 +367,30 @@
         "reduceMotion": {
           "label": "視覚効果を減らす",
           "keywords": "視覚効果を減らす, アニメーション, アクセシビリティ, 前庭, 落ち着き, トランジション, motion"
+        },
+        "retainedWorktrees": {
+          "label": "ディスクに残っている実行用ワークツリー",
+          "keywords": "ストレージ, ディスク, ワークツリー, worktree, クリーンアップ, 容量, ブランチ, 削除"
+        },
+        "safetyArchives": {
+          "label": "PR の外に保管されたファイル",
+          "keywords": "ストレージ, ディスク, セーフティアーカイブ, 保管, 隔離, クリーンアップ, 削除"
+        },
+        "autoContinue": {
+          "label": "失敗した実行を自動で続行",
+          "keywords": "続行, 再試行, 失敗した実行, 自動, 復旧"
+        },
+        "machineInstalls": {
+          "label": "記憶したインストール",
+          "keywords": "インストール, brew, マシン全体, ツール, 承認, 取り消し"
+        },
+        "envFiles": {
+          "label": "実行での環境ファイル",
+          "keywords": "env ファイル, .env, dotenv, APP_KEY, シークレット, 環境, ワークツリー"
         }
       }
-    }
+    },
+    "jumpAttempt": "試行 {{number}}"
   },
   "toasts": {
     "queued": "{{name}} をキューに追加しました",
@@ -403,6 +441,7 @@
       "navigateProjectPageWithAgents": "プロジェクトページへ移動 (ダッシュボード/ジョブ/分析/エージェント/設定)",
       "navigateProjectPage": "プロジェクトページへ移動 (ダッシュボード/ジョブ/分析/設定)",
       "switchProject": "位置でプロジェクトを切り替え",
+      "paletteJumpBackIn": "⌘K パレットを開いているときに「再開する」の行を開く",
       "goDashboard": "ダッシュボードへ移動",
       "goActivity": "アクティビティ / ジョブへ移動",
       "goAnalytics": "分析へ移動",
@@ -424,7 +463,12 @@
       "boardSelectClick": "ボード: クリックで切り替え、Shift+クリックで範囲選択",
       "boardSelectColumn": "ボード: 列内のスペックをすべて選択",
       "boardClearSelection": "ボード: 選択を解除",
-      "boardMove": "ボード:フォーカス中のスペックを移動(ステータスまたはレール)"
+      "boardMove": "ボード:フォーカス中のスペックを移動(ステータスまたはレール)",
+      "openLiveBoard": "ライブボードを開く（すべてのプロジェクトの実行）",
+      "splitFocusPane": "次 / 前のミッションペインへ移動",
+      "splitMaximize": "選択中のミッションペインを最大化 / 元に戻す",
+      "splitEqualize": "ミッションペインを均等にする",
+      "splitClose": "選択中のミッションペインを閉じる"
     },
     "searchLabel": "ショートカットとガイドを検索",
     "searchPlaceholder": "ショートカットとガイドを検索…",
@@ -440,7 +484,9 @@
       "downloading": "アップデートをダウンロード中",
       "installing": "アップデートをインストール中",
       "ready": "アップデート準備完了",
-      "error": "アップデートに失敗しました"
+      "error": "アップデートに失敗しました",
+      "busy": "実行中の作業があります",
+      "waiting": "再起動を待機中"
     },
     "desc": {
       "available": "Specrails の新しいバージョンをインストールできます。",
@@ -448,12 +494,15 @@
       "progress": "{{percent}}% · {{total}} 中 {{downloaded}}",
       "installing": "署名を検証して仕上げています…",
       "ready": "再起動するとバージョン {{version}} が起動します。",
-      "errorFallback": "アップデートを完了できませんでした。もう一度お試しください。"
+      "errorFallback": "アップデートを完了できませんでした。もう一度お試しください。",
+      "busy": "今再起動すると {{what}} が停止します。",
+      "waiting": "実行中の作業がなくなったら再起動します · {{what}}"
     },
     "pill": {
       "downloading": "ダウンロード中",
       "installing": "インストール中",
-      "ready": "準備完了"
+      "ready": "準備完了",
+      "waiting": "待機中"
     },
     "actions": {
       "restart": "再起動",
@@ -461,7 +510,10 @@
       "update": "アップデート",
       "installing": "インストール中…",
       "tryAgain": "再試行",
-      "dismiss": "閉じる"
+      "dismiss": "閉じる",
+      "whenIdle": "何も実行されていないときにインストール",
+      "restartNow": "今すぐ再起動",
+      "cancelWait": "キャンセル"
     },
     "mockReady": "モックアップデート準備完了 — 再起動はスキップされました",
     "errors": {
@@ -470,6 +522,17 @@
     "units": {
       "kb": "{{value}} KB",
       "mb": "{{value}} MB"
+    },
+    "work": {
+      "missions_one": "ミッションのターン {{count}} 件",
+      "missions_other": "ミッションのターン {{count}} 件",
+      "runs_one": "実行 {{count}} 件",
+      "runs_other": "実行 {{count}} 件",
+      "something": "進行中の作業"
+    },
+    "chip": {
+      "text": "アップデート",
+      "label": "Specrails {{version}} が利用できます。アップデートを表示"
     }
   },
   "notifications": {
@@ -483,8 +546,43 @@
     "jobStuckStopped": "実行を停止しました",
     "jobStuckStopFailed": "実行を停止できませんでした",
     "providerLimit": "プロバイダーの利用上限に達しました",
-    "providerLimitBody": "{{provider}} がリクエストを拒否しました：利用上限に達しています — {{resetsAt}} にリセット。実行は停止しました。リセット後に再起動するか「復旧して再試行」してください。",
-    "providerLimitBodyNoReset": "{{provider}} がリクエストを拒否しました：利用上限に達しています。実行は停止しました。上限のリセット後に再起動してください。"
+    "providerLimitBody": "{{provider}} がリクエストを拒否しました：利用上限に達しています — {{resetsAt}} にリセット。実行は一時停止中で、リセット後に自動で再開します。今すぐ別のプロバイダーで続けることもできます。",
+    "providerLimitBodyNoReset": "{{provider}} がリクエストを拒否しました：利用上限に達しています。実行は一時停止中です。上限のリセット後に再開するか、今すぐ別のプロバイダーで続けてください。",
+    "attention": {
+      "open": "開く",
+      "openInbox": "受信トレイを開く",
+      "actions": {
+        "answer": "回答",
+        "review": "確認",
+        "view": "表示",
+        "open": "開く"
+      },
+      "single": {
+        "question": "{{subject}} があなたの回答を待っています",
+        "approval": "{{subject}} の承認が必要です",
+        "review": "{{subject}} のレビュー準備ができました",
+        "stopped": "{{subject}} が停止しました",
+        "stuck": "{{subject}}：実行が進んでいません",
+        "paused": "{{subject}} は上限により一時停止中です",
+        "pausedByYou": "{{subject}} は一時停止中です（あなたが停止）",
+        "held": "{{subject}} は一時停止中です",
+        "done": "{{subject}} が完了しました",
+        "generic": "{{subject}} の対応が必要です"
+      },
+      "pending_one": "未対応の項目が {{count}} 件あります",
+      "pending_other": "未対応の項目が {{count}} 件あります",
+      "breakdown": "未対応：{{list}}",
+      "group": {
+        "question_one": "質問 {{count}} 件",
+        "question_other": "質問 {{count}} 件",
+        "approval_one": "承認 {{count}} 件",
+        "approval_other": "承認 {{count}} 件",
+        "review_one": "レビュー {{count}} 件",
+        "review_other": "レビュー {{count}} 件"
+      },
+      "missionReplied": "{{title}} が返信しました",
+      "untitledMission": "あなたのミッション"
+    }
   },
   "templates": {
     "emptyState": {

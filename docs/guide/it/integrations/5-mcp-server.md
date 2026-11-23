@@ -1,7 +1,5 @@
 # Controlla Specrails da qualsiasi AI (server MCP) {#mcp-server}
 
-> **For agents (English):** use the [current connection runbook](../../../agents/mcp.md) for Claude and Codex. It includes verified bridge discovery, registration and read-only checks.
-
 Specrails può esporre **se stesso** a qualsiasi assistente AI che parli il [Model Context Protocol](https://modelcontextprotocol.io) — Claude Desktop, Claude Code, Cursor, Cline o un tuo agente. Attivalo, punta il tuo assistente verso Specrails e potrai pilotare l'intera app chiacchierando: *"elenca i miei progetti", "crea una spec per il login social nel progetto API", "lancia il rail 0 e dimmi quando ha finito", "quanto ho speso questa settimana?"*. Il tuo assistente richiama gli strumenti di Specrails dietro le quinte, al posto tuo che clicchi qua e là.
 
 Questa è la direzione opposta rispetto alle funzionalità dei plugin e degli "MCP approvati da me": quelle permettono a Specrails di *usare* altri server MCP; questa permette ad altre app di usare **Specrails**.
@@ -21,29 +19,33 @@ Resti tu a controllare *cosa* può fare un'AI esterna tramite una serie di livel
 
 Tutti e quattro i livelli sono concessi fin da subito, quindi un assistente collegato può guidare l'intera app da subito. Deseleziona qualsiasi livello che preferisci tenere per te; se poi il tuo assistente prova a fare qualcosa coperto da quel livello, Specrails rifiuta con un messaggio chiaro che ti indica quale livello riattivare.
 
-## Collegare il tuo assistente
+## Collega Claude Code o Codex in un passo
 
-Il pannello mostra un blocco di configurazione pronto da incollare. Il percorso più semplice e universale è il **bridge** incluso (`specrails-mcp`): il tuo assistente lo esegue e quello fa da tramite verso Specrails per te. Il bridge legge il token di accesso in locale, quindi **il token non compare mai nella configurazione del tuo assistente**.
+Apri **Impostazioni ▸ MCP** e fai clic su **Collega** accanto a Claude Code o Codex, oppure esegui un comando nel terminale:
 
-In un client come Claude Desktop o Cursor, la configurazione si presenta così:
-
-```json
-{ "mcpServers": { "specrails": { "command": "specrails-mcp" } } }
+```bash
+specrails-desktop mcp connect --client claude   # o codex
 ```
 
-I client che supportano i server MCP HTTP remoti possono invece puntare direttamente a `http://127.0.0.1:4200/api/mcp` con il token preso dal pannello.
+Specrails si aggiunge alla configurazione del client, conserva un backup del file, non scrive alcun token di accesso e verifica subito la connessione (vedi quanti strumenti ha trovato). Ripeterlo non fa danni. Poi apri una nuova sessione di Claude Code o Codex. **Copia comando** mostra il comando del client se preferisci eseguirlo tu; per altri assistenti, usa **Copia configurazione**.
 
-# Codex CLI (stdio — registra il comando bridge mostrato in Impostazioni ▸ MCP)
-codex mcp add specrails -- <comando bridge da Impostazioni ▸ MCP>
-```
+Se qualcosa non funziona, esegui `specrails-desktop mcp doctor`. Controlla tutto in una volta (l'app, il file del token di accesso, il bridge e il Node che lo esegue, la voce di ogni client e una connessione reale) e indica la soluzione per ogni problema. Si limita a guardare; non cambia niente. Dopo un aggiornamento di Node (per esempio con Homebrew), ripeti **Collega** se il tuo assistente non trova più Specrails.
 
-Funziona anche l'header `Authorization: Bearer <token>`. Se hai cambiato la porta dell'app, sostituisci `4200`.
+**Chiedi prima di spendere** (nello stesso pannello, 0,50 $ per impostazione predefinita) è l'importo oltre il quale un assistente collegato deve chiederti prima di avviare un lavoro a pagamento. Merge, PR ed eliminazioni chiedono sempre. Il tuo assistente riceve un set semplice di 15 strumenti con i prossimi passi già pronti, attesa senza interrogazioni ripetute, risposte nella tua lingua e prompt come *start-my-day*, *review-waiting*, *ship-milestone* e *why-stuck*. Se un tuo vecchio script ha bisogno degli strumenti precedenti, disattiva **Strumenti MCP semplificati** nello stesso pannello; le missioni di Specrails non cambiano.
 
-Una volta collegato, il tuo assistente vede **22 strumenti** che coprono l'intera app — progetti, spec, rail e job, chat/Explore, agenti, plugin, Jira, loop, l'esploratore del codice, le analisi, le impostazioni — incluso uno strumento **guida** integrato che legge per primo, così capisce come funziona Specrails senza che tu debba spiegargli nulla.
+Ogni decisione ti arriva come un breve menu: le opzioni, ognuna con cosa succede se la scegli, la consigliata per prima e in fondo "Altro — scrivilo". Rispondi da tastiera con il numero (o l'opzione), oppure con parole tue. Se il tuo client può mostrare un proprio modulo, Specrails te lo chiede direttamente lì; un'opzione che unisce, apre una PR o spende denaro chiede comunque il tuo sì.
 
-Prima di agire, l'assistente può usare `specrails_context` per consultare lo stato attuale del progetto, delle spec, delle esecuzioni e di Git. Le sezioni non disponibili vengono indicate esplicitamente; non significano che il progetto sia vuoto. `specrails_code(search)` cerca testo nel codice sorgente e `read_file` legge intervalli precisi di righe, indicando come continuare quando resta altro contenuto.
+## Solo per agenti: collegare il tuo client
 
-Ogni sessione MCP esterna mantiene la propria selezione del progetto. In modalità Missione, il progetto predefinito è quello fissato alla conversazione, che modifichi nell'interfaccia della missione; una selezione MCP non può sostituirlo. Un `projectId` esplicito permette di indirizzare intenzionalmente un'operazione a un altro progetto.
+Quando una persona chiede a un agente di collegarsi, leggi la [guida di collegamento MCP](https://github.com/fjpulidop/specrails-desktop/blob/main/docs/agents/mcp.md). Copre il collegamento con un comando, la registrazione manuale in Claude Code e Codex, la verifica e la risoluzione dei problemi. La sola registrazione non prova il collegamento: completa `initialize`, `tools/list` e una chiamata in sola lettura.
+
+Per una panoramica veloce, l'assistente chiama `specrails_overview`: cosa è in esecuzione, cosa ti aspetta, i fallimenti recenti, la spesa di oggi e CPU e memoria della macchina, in una sola chiamata. `specrails_inbox` legge e risponde alla casella **Da gestire**, `specrails_missions` elenca le tue missioni e invia loro messaggi, `specrails_specs` e `specrails_rails` mostrano backlog e rail di un progetto, `specrails_insights` la tua spesa e i tuoi limiti, e `specrails_wait` aspetta che un'esecuzione finisca invece di chiedere di continuo. Un'esecuzione fallita arriva con la sua diagnosi e la fine del suo log.
+
+Ogni risposta inizia con un breve riepilogo in linguaggio semplice e i possibili passi successivi, con quello consigliato evidenziato, e gli errori dicono cosa è andato storto e se riprovare serve. Prima di qualcosa di irreversibile, o di un lavoro a pagamento oltre il tuo limite, l'assistente ti mostra un'anteprima e ti chiede prima. Il tuo sì vale solo per quell'azione esatta e scade se nel frattempo cambia qualcosa.
+
+Prima di agire, l'assistente può chiedere a `specrails_overview` un riepilogo aggiornato di un progetto: spec, esecuzioni e stato Git. Le sezioni non disponibili sono segnalate esplicitamente; non significano che il progetto sia vuoto. Può anche cercare e leggere il tuo codice sorgente, riga per riga, senza modificarlo.
+
+Ogni sessione MCP esterna mantiene la propria selezione del progetto. In modalità Missione, il progetto predefinito è quello fissato nella conversazione, che cambi dall'interfaccia della missione; una selezione MCP non può sovrascriverlo. Indicare un altro progetto in una chiamata punta a quel progetto di proposito.
 
 ## Cosa puoi farci
 
@@ -63,16 +65,16 @@ Deseleziona **Distruttivo** e potrà lavorare tutta la notte senza mai eliminare
 > *"Controlla tutti i miei progetti. Dimmi quali hanno spec nel backlog e nessun rail in esecuzione, e avvia in ognuno quella a priorità più alta."*
 
 **Senza mani mentre programmi.** Pilota Specrails dal tuo editor o a voce, senza cambiare finestra:
-> *"Lancia il rail 0 con Opus per il ticket #42 e dimmi quando ha finito."*
+> *"Lancia il rail 0 con Opus per la spec #42 e dimmi quando ha finito."*
 
 **Chiedi di costi e cronologia.** Le tue analisi, in linguaggio naturale:
-> *"Dove ho speso di più in AI questa settimana, per progetto e per modello? Mostrami i cinque ticket più costosi."*
+> *"Dove ho speso di più in AI questa settimana, per progetto e per modello? Mostrami le cinque spec più costose."*
 
 **Il tuo standup quotidiano.**
 > *"Scrivi il mio standup: quali rail hanno girato ieri, cosa è stato completato, cosa è fallito, costo totale — come elenco puntato pronto da incollare in Slack."*
 
 **Capire il codice.** Senza bisogno di un editor:
-> *"Quali file ha toccato il ticket #38? Riassumi in una riga cosa è cambiato in ognuno."*
+> *"Quali file ha toccato la spec #38? Riassumi in una riga cosa è cambiato in ognuno."*
 
 Dato che il tuo assistente legge per prima la guida integrata, raramente devi nominare strumenti o spec — descrivi il risultato e lui calcola le chiamate da fare.
 
@@ -80,7 +82,7 @@ Dato che il tuo assistente legge per prima la guida integrata, raramente devi no
 
 - **Specrails deve essere in esecuzione.** Il server MCP vive dentro l'app, quindi il tuo assistente può raggiungerlo solo finché Specrails è aperto. Grazie all'icona nella barra di sistema, chiudere la finestra lo mantiene attivo in background — solo **Esci** dall'icona (barra dei menu su Mac / barra di sistema su Windows) lo ferma davvero.
 - **Le azioni lunghe trasmettono in streaming.** Lanciare un rail o generare una spec restituisce subito il controllo e termina in background; il tuo assistente può "tenerlo d'occhio" e riferirti quando si conclude.
-- **Sicurezza.** L'MCP usa un proprio token di accesso, separato da tutto il resto, e ascolta soltanto sulla tua macchina (loopback). Puoi copiare o rigenerare quel token in qualsiasi momento dal pannello.
-- **Non esposto (v1).** Per sicurezza, alcune capacità ad alto rischio sono volutamente escluse: eseguire comandi shell nel terminale, il browser integrato, la modifica dei file nell'app e l'installazione dei prerequisiti di sistema. Tutto ciò che *gestisce* Specrails è disponibile; l'accesso diretto alla macchina no.
+- **Sicurezza.** L'MCP usa un proprio token di accesso, separato da tutto il resto, e ascolta soltanto sulla tua macchina (loopback). Il token non può impersonare la modalità Agente fornendo header di livello, progetto o conversazione: l'agente integrato usa una capacità privata, di breve durata, emessa dal server. Puoi copiare o rigenerare il token con i suoi limiti in qualsiasi momento dal pannello.
+- **Non esposto (v1).** Per sicurezza, i client MCP esterni non possono eseguire comandi shell grezzi nel terminale, usare il browser integrato, modificare file nell'app o installare prerequisiti di sistema. La modalità Agente ha un percorso autenticato separato per i comandi in background di lunga durata confermati con il permesso Autonomo; i client esterni non possono ottenerlo abilitando Distruttivo. Tutto il resto che *gestisce* Specrails è disponibile.
 
 Puoi disattivare l'MCP in qualsiasi momento dallo stesso pannello — il tuo assistente perde semplicemente l'accesso e nient'altro cambia.

@@ -9,7 +9,7 @@
  * estimate that is never added to, or shown as, a billed figure.
  */
 import type { DbInstance } from '../../../db/types'
-import { projectDailySpend } from '../adapters/budget-storage'
+import { appLedgerRowsSince, dailySpendPoints, projectDailySpend, type AppLedgerSource } from '../adapters/budget-storage'
 import {
   CAP_PERIODS, TRAILING_DAYS, fromCents, periodEnd, periodStart, projectMonthEnd, toCents,
   type CapPeriod, type MonthProjection,
@@ -63,9 +63,18 @@ export function toProjectionView(projection: MonthProjection | null): Projection
   }
 }
 
-function periodSpend(sources: readonly SpendSource[], period: CapPeriod, at: Date): PeriodSpend {
+function periodSpend(sources: readonly SpendSource[], period: CapPeriod, at: Date, appLedger?: AppLedgerSource): PeriodSpend {
   const since = periodStart(period, at).toISOString()
   const byProvider = new Map<string, ProviderSpend>()
+  // Agent turns (missions, Intent) count like any project row, per provider.
+  for (const row of appLedgerRowsSince(appLedger, since)) {
+    const entry = byProvider.get(row.provider) ?? { provider: row.provider, usd: 0, estimatedUsd: 0, invocations: 0, turns: 0 }
+    entry.usd += row.total_cost_usd ?? 0
+    if (row.total_cost_usd_estimated === 1) entry.estimatedUsd += row.total_cost_usd ?? 0
+    entry.invocations += 1
+    entry.turns += row.num_turns ?? 0
+    byProvider.set(row.provider, entry)
+  }
   for (const { db, projectId } of sources) {
     let rows: Array<{ provider: string; usd: number; est: number; n: number; turns: number }>
     try {
@@ -93,21 +102,28 @@ function periodSpend(sources: readonly SpendSource[], period: CapPeriod, at: Dat
 }
 
 /** Month-end projection for a set of projects: the trailing burn of all of them combined. */
-export function projectSpend(sources: readonly SpendSource[], at: Date, monthToDateCents: number): MonthProjection | null {
+export function projectSpend(sources: readonly SpendSource[], at: Date, monthToDateCents: number, appLedger?: AppLedgerSource): MonthProjection | null {
   const since = new Date(at.getFullYear(), at.getMonth(), at.getDate() - TRAILING_DAYS).toISOString()
   const byDay = new Map<string, number>()
+  const add = (points: ReturnType<typeof dailySpendPoints>): void => { for (const point of points) byDay.set(point.day, (byDay.get(point.day) ?? 0) + point.cents) }
   for (const { db, projectId } of sources) {
-    try { for (const point of projectDailySpend(db, projectId, since)) byDay.set(point.day, (byDay.get(point.day) ?? 0) + point.cents) } catch { /* skipped */ }
+    try { add(projectDailySpend(db, projectId, since)) } catch { /* skipped */ }
   }
+  add(dailySpendPoints(appLedgerRowsSince(appLedger, since)))
   return projectMonthEnd([...byDay].map(([day, cents]) => ({ day, cents })), at, monthToDateCents)
 }
 
-export function readSpendOverview(sources: readonly SpendSource[], at: Date = new Date()): SpendOverview {
+/**
+ * `appLedger` adds the app-level agent turns (missions, Intent) in the caller's
+ * scope: the turns pinned to the project for a project overview, every turn
+ * for the app-wide one — the same scope the caps enforce.
+ */
+export function readSpendOverview(sources: readonly SpendSource[], at: Date = new Date(), appLedger?: AppLedgerSource): SpendOverview {
   const spend = {} as Record<CapPeriod, PeriodSpend>
-  for (const period of CAP_PERIODS) spend[period] = periodSpend(sources, period, at)
+  for (const period of CAP_PERIODS) spend[period] = periodSpend(sources, period, at, appLedger)
   return {
     generatedAt: at.toISOString(),
     spend,
-    projection: toProjectionView(projectSpend(sources, at, toCents(spend.month.usd))),
+    projection: toProjectionView(projectSpend(sources, at, toCents(spend.month.usd), appLedger)),
   }
 }

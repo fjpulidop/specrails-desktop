@@ -4,7 +4,7 @@ import os from 'os'
 import path from 'path'
 import { spawnSync } from 'child_process'
 
-import { CoreUpdateManager, fetchChannelFromRegistry } from './core-update-manager'
+import { CoreUpdateManager, defaultNpmInstall, fetchChannelFromRegistry } from './core-update-manager'
 import { frameworkRoot, readCurrentFrameworkVersion } from './framework-manager'
 import { managedCoreRoot, resolveCoreRuntime } from './core-runtime'
 
@@ -361,6 +361,16 @@ describe('CoreUpdateManager', () => {
       expect(res.error).toMatch(/unavailable/i)
     })
 
+    it('surfaces an async npm install failure (e.g. timeout) as a failed result and releases the update slot', async () => {
+      bundle('4.8.0')
+      const m = new CoreUpdateManager({ home, npmInstall: async () => { throw new Error('npm install timed out after 180 s') } })
+      const res = await m.update('4.9.0')
+      expect(res).toEqual({ ok: false, error: 'npm install timed out after 180 s' })
+      expect(readCurrentFrameworkVersion(home)).toBeNull()
+      // Not stuck in "updating": a retry runs again.
+      expect((await m.update('4.9.0')).error).not.toMatch(/already in progress/)
+    })
+
     it('rejects when there is no valid target version', async () => {
       bundle('4.8.0')
       const m = new CoreUpdateManager({ home })
@@ -421,7 +431,7 @@ describe('CoreUpdateManager', () => {
         makeFramework: () =>
           ({
             bundledVersion: () => '4.9.0',
-            materialize: () => ({ ran: true, version: '4.9.0', providers: [], errors: [] }),
+            materializeAsync: async () => ({ ran: true, version: '4.9.0', providers: [], errors: [] }),
             swapCurrentDetailed: () => {
               swapAttempted = true
               return { ok: false, detail: null }
@@ -446,4 +456,34 @@ describe('CoreUpdateManager', () => {
       expect(res.error).toMatch(/cli\.js/)
     })
   })
+})
+
+describe('defaultNpmInstall (non-blocking)', () => {
+  let cwd: string
+  beforeEach(() => { cwd = mkdtempSync(path.join(os.tmpdir(), 'npm-install-')) })
+  afterEach(() => { rmSync(cwd, { recursive: true, force: true }) })
+  const node = process.execPath
+
+  it('writes the isolated package.json and resolves when the installer exits 0, without blocking the loop', async () => {
+    let ticks = 0
+    const timer = setInterval(() => { ticks += 1 }, 10)
+    try {
+      await defaultNpmInstall('specrails-core@9.9.9', cwd, { command: node, args: ['-e', 'setTimeout(() => process.exit(0), 300)'] })
+    } finally { clearInterval(timer) }
+    expect(JSON.parse(readFileSync(path.join(cwd, 'package.json'), 'utf8')).name).toBe('core-update-stage')
+    expect(ticks).toBeGreaterThan(5)
+  })
+
+  it('rejects with the installer stderr on failure', async () => {
+    await expect(defaultNpmInstall('x@1.0.0', cwd, { command: node, args: ['-e', 'process.stderr.write("E404 not found"); process.exit(1)'] }))
+      .rejects.toThrow(/exited with 1: E404 not found/)
+  })
+
+  it('kills the installer and rejects on timeout', async () => {
+    const started = Date.now()
+    await expect(defaultNpmInstall('x@1.0.0', cwd, { command: node, args: ['-e', 'setTimeout(() => {}, 60000)'], timeoutMs: 200 }))
+      .rejects.toThrow(/timed out/)
+    expect(Date.now() - started).toBeLessThan(5_000)
+  })
+
 })

@@ -678,6 +678,10 @@ export function SpecsBoard({
   // Whether either status dimension is narrowing the view (drives the empty
   // states + header count pill).
   const statusNarrowed = statusFilter !== 'active' || activeJiraStatus !== null
+  // Specs on a rail leave this column: an empty column with specs on the rails says where they are.
+  const railSpecCount = useMemo(() => new Set(rails.flatMap((rail) => rail.ticketIds)).size, [rails])
+  const boardEmpty = tickets.length + doneTickets.length === 0
+  const allOnRails = boardEmpty && railSpecCount > 0
   const hasLastGoodData = tickets.length + doneTickets.length > 0
   const totalSpecs = tickets.length + doneTickets.length
   const shownCount = visibleActiveTickets.length + (showDoneBucket ? visibleDoneTickets.length : 0)
@@ -1089,7 +1093,9 @@ export function SpecsBoard({
                 <p className="text-sm">
                   {isOver
                     ? t('board.dropHere')
-                    : tickets.length + doneTickets.length === 0
+                    : allOnRails
+                      ? t('board.emptyAllOnRails')
+                    : boardEmpty
                       ? t('board.emptyNoSpecs')
                       : q !== ''
                         ? t('board.emptyNoSearchMatch', { query: search.trim() })
@@ -1099,13 +1105,16 @@ export function SpecsBoard({
                           ? t('board.emptyNoStatusMatch')
                           : t('board.emptyNoActiveSpecs')}
                 </p>
-                {!isOver && tickets.length + doneTickets.length === 0 && (
+                {!isOver && allOnRails && (
+                  <p className="text-xs mt-1" data-testid="specs-board-all-on-rails">{t('board.emptyAllOnRailsHint', { count: railSpecCount })}</p>
+                )}
+                {!isOver && boardEmpty && !allOnRails && (
                   <>
                     <p className="text-xs mt-1">{t('board.emptyHint')}</p>
                     <HelpHint topic="specsBoard" variant="link" className="mt-2" />
                   </>
                 )}
-                {!isOver && tickets.length + doneTickets.length > 0 && (!noFilters || statusNarrowed) && (
+                {!isOver && !boardEmpty && (!noFilters || statusNarrowed) && (
                   <Button
                     variant="ghost"
                     size="sm"

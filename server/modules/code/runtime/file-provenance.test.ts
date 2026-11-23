@@ -19,6 +19,9 @@ import {
   listProvenanceByPath,
   listUntracked,
   broadcastProvenanceUpdated,
+  captureProvenance,
+  withWorktreeCapture,
+  pendingWorktreeCaptures,
   type DiffEntry,
   type ProvenanceRow,
 } from './file-provenance'
@@ -59,12 +62,12 @@ function initGitRepo(): string {
 }
 
 describe('snapshotWorkingTree', () => {
-  it('returns a sha for a dirty repo and captures untracked files', () => {
+  it('returns a sha for a dirty repo and captures untracked files', async () => {
     const dir = initGitRepo()
     try {
       appendFileSync(join(dir, 'a.txt'), 'change\n')
       writeFileSync(join(dir, 'b.txt'), 'new\n')
-      const snap = snapshotWorkingTree(dir)
+      const snap = await snapshotWorkingTree(dir)
       expect(snap.ref).toMatch(/^[0-9a-f]{40}$/)
       expect(snap.untracked).toContain('b.txt')
     } finally {
@@ -72,10 +75,10 @@ describe('snapshotWorkingTree', () => {
     }
   })
 
-  it('returns empty ref and empty untracked for a clean repo', () => {
+  it('returns empty ref and empty untracked for a clean repo', async () => {
     const dir = initGitRepo()
     try {
-      const snap = snapshotWorkingTree(dir)
+      const snap = await snapshotWorkingTree(dir)
       expect(snap.ref).toBe('')
       expect(snap.untracked).toEqual([])
     } finally {
@@ -83,11 +86,11 @@ describe('snapshotWorkingTree', () => {
     }
   })
 
-  it('freezes the HEAD sha even when the tree is clean (no stash ref)', () => {
+  it('freezes the HEAD sha even when the tree is clean (no stash ref)', async () => {
     const dir = initGitRepo()
     try {
       const head = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
-      const snap = snapshotWorkingTree(dir)
+      const snap = await snapshotWorkingTree(dir)
       expect(snap.ref).toBe('')
       expect(snap.headSha).toBe(head)
     } finally {
@@ -97,16 +100,16 @@ describe('snapshotWorkingTree', () => {
 })
 
 describe('resolveHeadSha', () => {
-  it('returns the 40-char HEAD sha inside a repo and "" outside one', () => {
+  it('returns the 40-char HEAD sha inside a repo and "" outside one', async () => {
     const dir = initGitRepo()
     try {
-      expect(resolveHeadSha(dir)).toMatch(/^[0-9a-f]{40}$/)
+      expect(await resolveHeadSha(dir)).toMatch(/^[0-9a-f]{40}$/)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
     const nonRepo = mkdtempSync(join(tmpdir(), 'fp-norepo-'))
     try {
-      expect(resolveHeadSha(nonRepo)).toBe('')
+      expect(await resolveHeadSha(nonRepo)).toBe('')
     } finally {
       rmSync(nonRepo, { recursive: true, force: true })
     }
@@ -114,7 +117,7 @@ describe('resolveHeadSha', () => {
 })
 
 describe('diffAgainstSnapshot', () => {
-  it('parses A, M, D entries from a snapshot ref', () => {
+  it('parses A, M, D entries from a snapshot ref', async () => {
     const dir = initGitRepo()
     try {
       writeFileSync(join(dir, 'm.txt'), 'orig\n')
@@ -131,7 +134,7 @@ describe('diffAgainstSnapshot', () => {
       writeFileSync(join(dir, 'added.txt'), 'new\n')
       execSync('git add -A', { cwd: dir })
 
-      const entries = diffAgainstSnapshot(dir, baselineRef)
+      const entries = await diffAgainstSnapshot(dir, baselineRef)
       const byPath = new Map(entries.map((e) => [e.path, e]))
       expect(byPath.get('m.txt')?.status).toBe('M')
       expect(byPath.get('d.txt')?.status).toBe('D')
@@ -141,11 +144,11 @@ describe('diffAgainstSnapshot', () => {
     }
   })
 
-  it('clean tree + committing job: recovers the delta via the frozen headSha (regression for lost provenance)', () => {
+  it('clean tree + committing job: recovers the delta via the frozen headSha (regression for lost provenance)', async () => {
     const dir = initGitRepo()
     try {
       // Clean tree at snapshot time → no stash ref, headSha frozen at pre-job HEAD.
-      const snap = snapshotWorkingTree(dir)
+      const snap = await snapshotWorkingTree(dir)
       expect(snap.ref).toBe('')
 
       // Job creates + modifies + COMMITS its output, advancing HEAD past the work.
@@ -156,25 +159,25 @@ describe('diffAgainstSnapshot', () => {
 
       // Old behavior (no baseSha) diffs against the ADVANCED live HEAD → empty,
       // which is exactly how all provenance was silently lost.
-      const stale = diffAgainstSnapshot(dir, snap.ref, snap.untracked)
+      const stale = await diffAgainstSnapshot(dir, snap.ref, snap.untracked)
       expect(stale).toEqual([])
 
       // Fixed: passing the frozen headSha recovers created + modified rows.
-      const entries = diffAgainstSnapshot(dir, snap.ref, snap.untracked, snap.headSha)
+      const entries = await diffAgainstSnapshot(dir, snap.ref, snap.untracked, snap.headSha)
       const byPath = new Map(entries.map((e) => [e.path, e]))
       expect(byPath.get('feature.txt')?.status).toBe('A')
       expect(byPath.get('a.txt')?.status).toBe('M')
 
       // Patches are likewise recovered (collectDiffPatches honours baseSha).
-      const patches = collectDiffPatches(dir, snap.ref, entries, snap.headSha)
+      const patches = await collectDiffPatches(dir, snap.ref, entries, snap.headSha)
       expect(patches.get('a.txt')?.patch).toContain('edit by job')
-      expect(collectDiffPatches(dir, snap.ref, entries).get('a.txt')).toBeUndefined()
+      expect((await collectDiffPatches(dir, snap.ref, entries)).get('a.txt')).toBeUndefined()
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
   })
 
-  it('parses R rename entries', () => {
+  it('parses R rename entries', async () => {
     const dir = initGitRepo()
     try {
       writeFileSync(join(dir, 'old.txt'), 'x'.repeat(200))
@@ -185,7 +188,7 @@ describe('diffAgainstSnapshot', () => {
       renameSync(join(dir, 'old.txt'), join(dir, 'new.txt'))
       execSync('git add -A', { cwd: dir })
 
-      const entries = diffAgainstSnapshot(dir, baselineRef)
+      const entries = await diffAgainstSnapshot(dir, baselineRef)
       const r = entries.find((e) => e.status === 'R')
       expect(r).toBeDefined()
       expect(r?.path).toBe('new.txt')
@@ -195,17 +198,17 @@ describe('diffAgainstSnapshot', () => {
     }
   })
 
-  it('returns [] for an empty diff', () => {
+  it('returns [] for an empty diff', async () => {
     const dir = initGitRepo()
     try {
-      const entries = diffAgainstSnapshot(dir, '')
+      const entries = await diffAgainstSnapshot(dir, '')
       expect(entries).toEqual([])
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
   })
 
-  it('records rail-created untracked files even when the tree was DIRTY at snapshot time', () => {
+  it('records rail-created untracked files even when the tree was DIRTY at snapshot time', async () => {
     // Regression: a dirty tree yields a non-empty stash ref; the old code only
     // ran `git ls-files --others` when the ref was empty, so new untracked files
     // a rail created were silently lost. Pre-existing untracked files must NOT be
@@ -215,7 +218,7 @@ describe('diffAgainstSnapshot', () => {
       // Dirty the tree: modify a tracked file AND leave a pre-existing untracked file.
       appendFileSync(join(dir, 'a.txt'), 'dirty\n')
       writeFileSync(join(dir, 'preexisting.txt'), 'was here before\n')
-      const snap = snapshotWorkingTree(dir)
+      const snap = await snapshotWorkingTree(dir)
       expect(snap.ref).toMatch(/^[0-9a-f]{40}$/) // dirty → real ref
       expect(snap.untracked).toContain('preexisting.txt')
 
@@ -223,7 +226,7 @@ describe('diffAgainstSnapshot', () => {
       writeFileSync(join(dir, 'rail-new.txt'), 'created by rail\n')
       appendFileSync(join(dir, 'a.txt'), 'rail edit\n')
 
-      const entries = diffAgainstSnapshot(dir, snap.ref, snap.untracked)
+      const entries = await diffAgainstSnapshot(dir, snap.ref, snap.untracked)
       const byPath = new Map(entries.map((e) => [e.path, e]))
       expect(byPath.get('rail-new.txt')?.status).toBe('A') // recorded as created
       expect(byPath.get('a.txt')?.status).toBe('M')
@@ -233,7 +236,7 @@ describe('diffAgainstSnapshot', () => {
     }
   })
 
-  it('maps a typechange (T) status to modified and never desyncs the parser', () => {
+  it('maps a typechange (T) status to modified and never desyncs the parser', async () => {
     // Replace a regular file with a symlink → git reports `T`. The next changed
     // file must still be parsed correctly (no off-by-one corruption).
     const dir = initGitRepo()
@@ -248,7 +251,7 @@ describe('diffAgainstSnapshot', () => {
       appendFileSync(join(dir, 'sib.txt'), 'more\n')
       execSync('git add -A', { cwd: dir })
 
-      const entries = diffAgainstSnapshot(dir, baselineRef)
+      const entries = await diffAgainstSnapshot(dir, baselineRef)
       const byPath = new Map(entries.map((e) => [e.path, e]))
       expect(byPath.get('a.txt')?.status).toBe('M') // T → M
       expect(byPath.get('sib.txt')?.status).toBe('M')
@@ -261,13 +264,13 @@ describe('diffAgainstSnapshot', () => {
 })
 
 describe('listUntracked', () => {
-  it('lists untracked non-ignored files and excludes ignored ones', () => {
+  it('lists untracked non-ignored files and excludes ignored ones', async () => {
     const dir = initGitRepo()
     try {
       writeFileSync(join(dir, '.gitignore'), 'ignored.txt\n')
       writeFileSync(join(dir, 'untracked.txt'), 'x\n')
       writeFileSync(join(dir, 'ignored.txt'), 'y\n')
-      const list = listUntracked(dir)
+      const list = await listUntracked(dir)
       expect(list).toContain('untracked.txt')
       expect(list).toContain('.gitignore')
       expect(list).not.toContain('ignored.txt')
@@ -276,10 +279,10 @@ describe('listUntracked', () => {
     }
   })
 
-  it('returns [] outside a git repo', () => {
+  it('returns [] outside a git repo', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'fp-nogit-'))
     try {
-      expect(listUntracked(dir)).toEqual([])
+      expect(await listUntracked(dir)).toEqual([])
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -287,27 +290,27 @@ describe('listUntracked', () => {
 })
 
 describe('collectDiffPatches', () => {
-  it('captures a patch for a modified tracked file', () => {
+  it('captures a patch for a modified tracked file', async () => {
     const dir = initGitRepo()
     try {
       const baselineRef = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
       appendFileSync(join(dir, 'a.txt'), 'change\n')
-      const diff = diffAgainstSnapshot(dir, baselineRef)
-      const patches = collectDiffPatches(dir, baselineRef, diff)
+      const diff = await diffAgainstSnapshot(dir, baselineRef)
+      const patches = await collectDiffPatches(dir, baselineRef, diff)
       expect(patches.get('a.txt')?.patch).toContain('+change')
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
   })
 
-  it('synthesizes an added-file patch with the no-newline marker for untracked files', () => {
+  it('synthesizes an added-file patch with the no-newline marker for untracked files', async () => {
     const dir = initGitRepo()
     try {
       // Clean tree → empty snapshot ref → untracked files surface as 'A'.
       writeFileSync(join(dir, 'no-eol.txt'), 'line1\nline2') // no trailing newline
       writeFileSync(join(dir, 'eol.txt'), 'a\nb\n') // trailing newline
-      const diff = diffAgainstSnapshot(dir, '')
-      const patches = collectDiffPatches(dir, '', diff)
+      const diff = await diffAgainstSnapshot(dir, '')
+      const patches = await collectDiffPatches(dir, '', diff)
       const noEol = patches.get('no-eol.txt')?.patch ?? ''
       const eol = patches.get('eol.txt')?.patch ?? ''
       expect(noEol).toContain('+line2')
@@ -324,7 +327,7 @@ describe('recordProvenanceForJob', () => {
   let db: DbInstance
   beforeEach(() => { db = initTestDb() })
 
-  it('normalises A -> created, M -> modified, D -> deleted', () => {
+  it('normalises A -> created, M -> modified, D -> deleted', async () => {
     const diff: DiffEntry[] = [
       { path: 'new.ts', status: 'A' },
       { path: 'mod.ts', status: 'M' },
@@ -337,7 +340,7 @@ describe('recordProvenanceForJob', () => {
     expect(rows[2]).toMatchObject({ file_path: 'gone.ts', kind: 'deleted' })
   })
 
-  it('R -> modified at new path + deleted at renamedFrom', () => {
+  it('R -> modified at new path + deleted at renamedFrom', async () => {
     const diff: DiffEntry[] = [{ path: 'B.ts', status: 'R', renamedFrom: 'A.ts' }]
     const rows = recordProvenanceForJob(db, 'p1', 'job-1', 7, diff, 2000)
     expect(rows).toHaveLength(2)
@@ -345,14 +348,14 @@ describe('recordProvenanceForJob', () => {
     expect(rows[1]).toMatchObject({ file_path: 'A.ts', kind: 'deleted', ticket_id: 7, job_id: 'job-1' })
   })
 
-  it('empty diff is a no-op fast path', () => {
+  it('empty diff is a no-op fast path', async () => {
     const rows = recordProvenanceForJob(db, 'p1', 'job-1', 1, [], 1000)
     expect(rows).toEqual([])
     const count = db.prepare('SELECT COUNT(*) AS n FROM file_provenance').get() as { n: number }
     expect(count.n).toBe(0)
   })
 
-  it('rolls back when a CHECK constraint violates inside the transaction', () => {
+  it('rolls back when a CHECK constraint violates inside the transaction', async () => {
     recordProvenanceForJob(db, 'p1', 'job-0', null, [{ path: 'pre.ts', status: 'A' }], 500)
     const before = (db.prepare('SELECT COUNT(*) AS n FROM file_provenance').get() as { n: number }).n
     expect(before).toBe(1)
@@ -371,12 +374,12 @@ describe('recordProvenanceForJob', () => {
     expect(after).toBe(1)
   })
 
-  it('null ticket_id is allowed', () => {
+  it('null ticket_id is allowed', async () => {
     const rows = recordProvenanceForJob(db, 'p1', 'job-1', null, [{ path: 'x.ts', status: 'A' }], 100)
     expect(rows[0].ticket_id).toBeNull()
   })
 
-  it('stores optional patches keyed to provenance rows', () => {
+  it('stores optional patches keyed to provenance rows', async () => {
     const patches = new Map([['x.ts', { patch: 'diff --git a/x.ts b/x.ts\n+hello', truncated: false }]])
     recordProvenanceForJob(db, 'p1', 'job-1', 1, [{ path: 'x.ts', status: 'M' }], 100, patches)
     expect(getProvenanceDiff(db, 'p1', 'job-1', 'x.ts')).toEqual({
@@ -387,7 +390,7 @@ describe('recordProvenanceForJob', () => {
 })
 
 describe('agent actions audit from provenance', () => {
-  it('writes one hashed write row per provenance row, never the diff itself', () => {
+  it('writes one hashed write row per provenance row, never the diff itself', async () => {
     const db = initDb(':memory:')
     try {
       const patch = 'diff --git a/x.ts b/x.ts\n+secret-line'
@@ -401,7 +404,7 @@ describe('agent actions audit from provenance', () => {
     } finally { db.close() }
   })
 
-  it('a database without the audit table still records provenance', () => {
+  it('a database without the audit table still records provenance', async () => {
     const db = initTestDb()
     expect(recordProvenanceForJob(db, 'p1', 'job-1', 1, [{ path: 'x.ts', status: 'A' }], 100)).toHaveLength(1)
   })
@@ -411,7 +414,7 @@ describe('list queries', () => {
   let db: DbInstance
   beforeEach(() => { db = initTestDb() })
 
-  it('listProvenanceByTicket returns rows ORDER BY at DESC', () => {
+  it('listProvenanceByTicket returns rows ORDER BY at DESC', async () => {
     recordProvenanceForJob(db, 'p1', 'j1', 5, [{ path: 'a.ts', status: 'A' }], 100)
     recordProvenanceForJob(db, 'p1', 'j2', 5, [{ path: 'b.ts', status: 'M' }], 300)
     recordProvenanceForJob(db, 'p1', 'j3', 5, [{ path: 'c.ts', status: 'A' }], 200)
@@ -422,7 +425,7 @@ describe('list queries', () => {
     expect(rows.map((r) => r.at)).toEqual([300, 200, 100])
   })
 
-  it('listProvenanceByPath returns rows ORDER BY at DESC', () => {
+  it('listProvenanceByPath returns rows ORDER BY at DESC', async () => {
     recordProvenanceForJob(db, 'p1', 'j1', 1, [{ path: 'shared.ts', status: 'A' }], 100)
     recordProvenanceForJob(db, 'p1', 'j2', 2, [{ path: 'shared.ts', status: 'M' }], 300)
     recordProvenanceForJob(db, 'p1', 'j3', 3, [{ path: 'shared.ts', status: 'M' }], 200)
@@ -435,7 +438,7 @@ describe('list queries', () => {
 })
 
 describe('broadcastProvenanceUpdated', () => {
-  it('calls broadcast once with the right shape', () => {
+  it('calls broadcast once with the right shape', async () => {
     const broadcast = vi.fn()
     const row: ProvenanceRow = {
       id: 1,
@@ -458,7 +461,7 @@ describe('broadcastProvenanceUpdated', () => {
     })
   })
 
-  it('empty diff path emits no broadcast (caller responsibility, no inserted rows to iterate)', () => {
+  it('empty diff path emits no broadcast (caller responsibility, no inserted rows to iterate)', async () => {
     const broadcast = vi.fn()
     const db = initTestDb()
     const rows = recordProvenanceForJob(db, 'p1', 'j1', 1, [], 1)
@@ -479,6 +482,88 @@ describe('gitExecEnv', () => {
       expect(env.GIT_DIR).toBeUndefined()
     } finally {
       process.env.PATH = before
+    }
+  })
+})
+
+describe('async capture contract', () => {
+  it('snapshot rejects when git itself is missing (callers run without provenance)', async () => {
+    const dir = initGitRepo()
+    const before = process.env.PATH
+    try {
+      process.env.PATH = join(dir, 'no-such-bin')
+      await expect(snapshotWorkingTree(dir)).rejects.toThrow(/ENOENT|not found/i)
+    } finally {
+      process.env.PATH = before
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('degrades a non-repo to an empty snapshot instead of rejecting', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'fp-norepo-'))
+    try {
+      expect(await snapshotWorkingTree(dir)).toEqual({ ref: '', untracked: [], headSha: '' })
+      expect(await captureProvenance(dir, { ref: '', untracked: [], headSha: '' })).toEqual({ diff: [], patches: new Map() })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('captureProvenance returns the same diff and patches as the two-step capture', async () => {
+    const dir = initGitRepo()
+    try {
+      appendFileSync(join(dir, 'a.txt'), 'pre-existing\n')
+      const snap = await snapshotWorkingTree(dir)
+      writeFileSync(join(dir, 'c.txt'), 'created\n')
+      appendFileSync(join(dir, 'a.txt'), 'by the job\n')
+      const captured = await captureProvenance(dir, snap)
+      const diff = await diffAgainstSnapshot(dir, snap.ref, snap.untracked, snap.headSha)
+      expect(captured.diff).toEqual(diff)
+      expect([...captured.patches.keys()].sort()).toEqual(['a.txt', 'c.txt'])
+      expect(captured.patches.get('a.txt')?.patch).toContain('+by the job')
+      expect(captured.patches.get('a.txt')?.patch).not.toContain('+pre-existing')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('serialises captures per worktree in call order, without blocking other worktrees', async () => {
+    const order: string[] = []
+    let releaseFirst!: () => void
+    const first = withWorktreeCapture('/repo/a', () => new Promise<void>((resolve) => {
+      order.push('a1:start')
+      releaseFirst = () => { order.push('a1:end'); resolve() }
+    }))
+    const second = withWorktreeCapture('/repo/a/', async () => { order.push('a2') })
+    const other = withWorktreeCapture('/repo/b', async () => { order.push('b1') })
+    await other
+    await new Promise((r) => setImmediate(r))
+    expect(order).toEqual(['a1:start', 'b1'])
+    releaseFirst()
+    await Promise.all([first, second])
+    expect(order).toEqual(['a1:start', 'b1', 'a1:end', 'a2'])
+    await new Promise((r) => setImmediate(r))
+    expect(pendingWorktreeCaptures()).toBe(0)
+  })
+
+  it('a failed capture does not wedge the worktree queue', async () => {
+    await expect(withWorktreeCapture('/repo/c', async () => { throw new Error('boom') })).rejects.toThrow('boom')
+    await expect(withWorktreeCapture('/repo/c', async () => 'next')).resolves.toBe('next')
+  })
+
+  it('a finish capture queued first is read before the next snapshot of the same tree', async () => {
+    const dir = initGitRepo()
+    try {
+      const snap = await snapshotWorkingTree(dir)
+      writeFileSync(join(dir, 'job1.txt'), 'job one\n')
+      // Settle (claims the slot) then immediately start the successor's snapshot.
+      const finish = captureProvenance(dir, snap)
+      const next = snapshotWorkingTree(dir)
+      const [captured, nextSnap] = await Promise.all([finish, next])
+      expect(captured.diff).toEqual([{ path: 'job1.txt', status: 'A' }])
+      expect(nextSnap.untracked).toContain('job1.txt')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
     }
   })
 })

@@ -1,0 +1,109 @@
+{
+  "statusBar": {
+    "rejected": "Limit erreicht",
+    "rejectedUntil": "Limit · Reset {{time}}"
+  },
+  "window": {
+    "fiveHour": "5 Stunden",
+    "weekly": "Woche",
+    "default": "Nutzung"
+  },
+  "attention": {
+    "warningTitle": "{{provider}}-Nutzung bei {{percent}} %",
+    "warningBody": "{{provider}} hat {{percent}} % seines Limits ({{window}}) verbraucht. Neue Läufe können am Limit pausieren.",
+    "rejectedTitle": "Nutzungslimit von {{provider}} erreicht",
+    "rejectedBody": "{{provider}} lehnt Anfragen bis {{time}} ab. Am Limit pausierte Läufe setzen dann von selbst fort.",
+    "rejectedBodyNoReset": "{{provider}} lehnt Anfragen ab, bis sein Limit zurückgesetzt wird."
+  },
+  "preflight": {
+    "label": "Prüfungen vor dem Start",
+    "checking": "Wird geprüft…",
+    "recheck": "Erneut prüfen",
+    "disk": {
+      "ok": "{{free}} frei",
+      "warn": "Nur {{free}} frei",
+      "fail": "Nur {{free}} frei",
+      "failHint": "Gib Speicher dort frei, wo die Worktrees liegen, und prüfe dann erneut.",
+      "unknown": "Speicherplatz unbekannt"
+    },
+    "provider": {
+      "signed-in": "{{provider}} angemeldet",
+      "signed-out": "{{provider}} abgemeldet",
+      "missing": "{{provider}} nicht installiert",
+      "unknown": "Anmeldung bei {{provider}} unbekannt",
+      "signedOutHint": "Melde dich vor dem Start bei {{provider}} an."
+    },
+    "github": {
+      "signed-in": "GitHub angemeldet",
+      "signed-out": "GitHub abgemeldet",
+      "missing": "GitHub CLI nicht installiert",
+      "unknown": "GitHub-Anmeldung unbekannt",
+      "signedOutHint": "Pull Requests werden nicht geöffnet. Melde dich mit gh auth login an.",
+      "missingHint": "Pull Requests werden nicht geöffnet. Installiere die GitHub CLI, um sie zu öffnen."
+    },
+    "quota": {
+      "ok": "{{provider}} {{percent}} % genutzt",
+      "warning": "{{provider}} {{percent}} % genutzt",
+      "critical": "{{provider}} {{percent}} % genutzt",
+      "rejected": "{{provider}} am Limit",
+      "rejectedUntil": "{{provider}} am Limit bis {{time}}",
+      "unknown": "{{provider}}-Nutzung unbekannt",
+      "nearLimitHint": "Läufe können am Limit pausieren. Nach dem Reset laufen sie von selbst weiter.",
+      "rejectedHint": "Jetzt gestartete Läufe warten und beginnen nach dem Reset.",
+      "rejectedNoResetHint": "Es hat nicht gesagt, wann das Limit zurückgesetzt wird. Läufe warten bis dahin."
+    },
+    "headless": {
+      "ok": "{{framework}}-Fenster bleiben während der Läufe verborgen",
+      "warn": "{{framework}}-Fenster können sich während der Läufe öffnen",
+      "warnHint": "Damit sie verborgen bleiben, müssen Launcher und Tests des Projekts SPECRAILS_HEADLESS beachten."
+    },
+    "blocking": "Behebe die fehlgeschlagene Prüfung vor dem Start.",
+    "quotaWarning_one": "{{provider}} hat {{percent}} % seines Limits ({{window}}) verbraucht. {{count}} Rail kann am Limit pausieren; er setzt nach dem Reset von selbst fort.",
+    "quotaWarning_other": "{{provider}} hat {{percent}} % seines Limits ({{window}}) verbraucht. {{count}} Rails können am Limit pausieren; sie setzen nach dem Reset von selbst fort.",
+    "quotaRejected_one": "{{provider}} lehnt Anfragen bis {{time}} ab. Der Rail wartet und beginnt nach dem Reset.",
+    "quotaRejected_other": "{{provider}} lehnt Anfragen bis {{time}} ab. Die Rails warten und beginnen nach dem Reset.",
+    "quotaRejectedNoReset": "{{provider}} lehnt Anfragen gerade ab und hat nicht gesagt, wann sein Limit zurückgesetzt wird."
+  },
+  "pause": {
+    "title": "Am Nutzungslimit von {{provider}} pausiert",
+    "resumesAt": "Setzt um {{time}} von selbst fort (in {{in}}).",
+    "resumesAtPassed": "Setzt von selbst fort, sobald der Computer wach ist.",
+    "resetsAt": "Das Limit wird um {{time}} zurückgesetzt. Automatisches Fortsetzen ist aus.",
+    "noReset": "{{provider}} hat nicht gesagt, wann das Limit zurückgesetzt wird.",
+    "resumeNow": "Jetzt fortsetzen",
+    "autoOn": "Um {{time}} fortsetzen",
+    "autoOff": "Nicht von selbst fortsetzen",
+    "continueWith": "Jetzt mit {{provider}} fortsetzen",
+    "failed": "Der pausierte Lauf konnte nicht aktualisiert werden: {{detail}}",
+    "switch": {
+      "title": "Jetzt mit einem anderen Anbieter fortfahren",
+      "provider": "Anbieter",
+      "model": "Modell",
+      "effort": "Denkaufwand",
+      "consequence": "Das gilt für den Rest dieses Laufs: Der unterbrochene Schritt und alle späteren Schritte, die {{from}} genutzt haben, wechseln zu {{provider}}. Die Arbeit im Worktree bleibt erhalten. Das Gespräch des Schritts wird nicht zwischen Anbietern übernommen, daher startet der Schritt mit einer neuen Sitzung.",
+      "settingsKept": "Die Projekteinstellungen ändern sich nicht.",
+      "settingsUpdated": "Die Agent-Einstellungen des Projekts leiten diese Rollen ab jetzt ebenfalls an {{provider}}.",
+      "remember": "Für dieses Projekt merken",
+      "resume": "Mit {{provider}} fortsetzen"
+    }
+  },
+  "mission": {
+    "title": "Nutzungslimit von {{provider}} erreicht",
+    "body": "{{provider}} lehnt Anfragen bis {{time}} ab.",
+    "bodyNoReset": "{{provider}} lehnt Anfragen ab, bis sein Limit zurückgesetzt wird.",
+    "continueAt": "Um {{time}} fortsetzen",
+    "scheduled": "Setzt um {{time}} von selbst fort.",
+    "cancel": "Abbrechen",
+    "continueWith": "Jetzt mit {{provider}} fortsetzen",
+    "continuePrompt": "Mach dort weiter, wo der vorherige Agent an seinem Nutzungslimit aufgehört hat. Prüfe, was schon erledigt ist, bevor du einen Schritt wiederholst.",
+    "failed": "Die Mission konnte nicht geplant werden: {{detail}}"
+  },
+  "settledSwitch": {
+    "title": "Mit einem anderen Anbieter fortsetzen",
+    "consequence": "Der nächste Versuch setzt dort fort, wo dieser angehalten hat, und jeder Schritt, der {{from}} verwendet hat, läuft für den Rest des Laufs auf {{provider}}. Die Arbeit im Worktree bleibt erhalten; der Schritt beginnt mit einer neuen Sitzung, weil seine Unterhaltung nicht zwischen Anbietern übertragen wird.",
+    "consequenceFrom": "Der nächste Versuch setzt beim Schritt {{step}} fort, und jeder Schritt, der {{from}} verwendet hat, läuft für den Rest des Laufs auf {{provider}}. Die Arbeit im Worktree bleibt erhalten; der Schritt beginnt mit einer neuen Sitzung, weil seine Unterhaltung nicht zwischen Anbietern übertragen wird.",
+    "resume": "Mit {{provider}} fortsetzen",
+    "continuing": "Wird mit {{provider}} fortgesetzt",
+    "failed": "Fortsetzen mit {{provider}} nicht möglich"
+  }
+}

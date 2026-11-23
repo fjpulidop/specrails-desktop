@@ -267,6 +267,7 @@
       "planned": "已规划",
       "committed": "可启动",
       "running": "进行中",
+      "paused": "已暂停",
       "delivered": "已交付 — 等待审阅",
       "done": "已完成"
     },
@@ -286,7 +287,35 @@
       "running": "运行中 · {{elapsed}}",
       "review": "审阅",
       "open": "打开轨道",
-      "noDelivery": "尚无交付"
+      "noDelivery": "尚无交付",
+      "held": {
+        "pausedByYou": "已由你暂停",
+        "paused": "已暂停",
+        "question": "等待你的回答",
+        "approval": "等待你的批准",
+        "budget": "因支出上限暂停",
+        "provider_limit": "因用量限制暂停",
+        "restart": "因重启暂停",
+        "interrupted": "已中断",
+        "queued": "等待资源"
+      },
+      "heldHint": {
+        "pausedByYou": "你暂停了此运行；在你恢复之前不会运行任何内容",
+        "paused": "运行已暂停；请在运行中恢复",
+        "question": "运行向你提出了问题；请在运行中回答",
+        "approval": "运行等待你的批准；请在运行中决定",
+        "budget": "运行已达到支出上限；请提高上限或在运行中恢复",
+        "provider_limit": "提供商因用量限制拒绝；限制重置后自动恢复",
+        "restart": "运行期间应用已重启；将从停止处继续",
+        "interrupted": "某个步骤被中断；请在运行中恢复",
+        "queued": "已启动；有空闲名额时会自动开始"
+      },
+      "ranFor": "停止前运行了 {{elapsed}}",
+      "resume": "恢复",
+      "answer": "回答",
+      "resumed": "运行已恢复",
+      "resumeFailed": "无法恢复运行",
+      "engine": "运行于 {{engine}}"
     },
     "chain": {
       "title": "顺序链",
@@ -294,10 +323,14 @@
       "progress": "第 {{k}}/{{n}} 条轨道",
       "waiting": "等待第 {{k}} 条轨道结束",
       "stackedOn": "下一条轨道基于 {{branch}}",
-      "paused": "已暂停 — {{reason}}",
+      "paused": "已暂停：{{reason}}",
       "completed": "所有轨道已启动",
       "cancelled": "链已取消",
       "resume": "恢复",
+      "resumeFromFailedStep": "从失败的步骤继续",
+      "resumeFromFailedStepHint": "继续同一次运行，只重新执行被中断的步骤",
+      "resumeFromStart": "从头开始",
+      "resumeFromStartHint": "在新的运行中重新执行整个 spec",
       "cancel": "取消链",
       "resumed": "链已恢复",
       "resumeFailed": "无法恢复链",
@@ -312,8 +345,8 @@
         "run_lost": "重启后找不到运行中的轨道",
         "unknown": "已暂停",
         "provider_limit": "已达到提供商用量限额",
-        "rail_limit_reached": "每条轨道都有等待你决定的 PR — 合并或放弃待处理的 PR 以释放轨道，然后继续",
-        "integration_failed": "规格集成失败（{{detail}}）；继续将重试集成"
+        "rail_limit_reached": "每条轨道都有等待你决定的 PR，合并或放弃待处理的 PR 以释放轨道，然后继续",
+        "integration_failed": "规格集成失败（{{detail}}）"
       },
       "checkpoint": "第 {{k}}/{{n}} 条轨道已交付 — 启动第 {{next}} 条？",
       "launchNext": "启动下一条轨道",
@@ -325,8 +358,80 @@
       "autoOn": "已开启自动继续 — 后续轨道将自动启动",
       "autoOff": "已关闭自动继续 — 每条轨道启动前都会询问",
       "autoFailed": "无法更新链",
-      "integrating": "正在集成此规格，然后再启动下一个",
-      "cancelFailed": "无法取消该链"
+      "cancelFailed": "无法取消该链",
+      "offer": {
+        "complete": "完成该链",
+        "next": "继续下一个规格（{{specTitle}}）",
+        "launch": "启动 {{specTitle}}",
+        "retry": "重试 {{spec}}",
+        "resume_failed_step": "从失败的步骤恢复 {{spec}}",
+        "retry_from_start": "从头重试 {{spec}}",
+        "resume_run": "恢复 {{spec}} 的运行",
+        "follow_run": "跟进 {{spec}} 的运行",
+        "answer_run": "跟进 {{spec}} 的运行（等待你的回答）",
+        "integrate": "集成 {{spec}} 并继续",
+        "rebuild": "在更新后的基线上重新运行 {{spec}}"
+      },
+      "offerHint": {
+        "complete": "所有规格都已交付或完成",
+        "next": "{{paused}} 已交付；不会重复运行",
+        "launch": "为 {{spec}} 启动一次新的运行",
+        "retry": "上一次尝试失败；在新的运行中重新执行",
+        "resume_failed_step": "继续同一次运行；只重新执行被中断的步骤",
+        "retry_from_start": "在新的运行中重新执行整个规格",
+        "resume_run": "同一次尝试从下一步继续",
+        "follow_run": "已有运行在处理 {{spec}}；该链会等待它，而不是再启动一个",
+        "answer_run": "该运行正在等待回答或批准；请在运行中回复",
+        "integrate": "像该链自己的轨道一样，将 {{spec}} 的交付合并到集成分支，然后继续",
+        "rebuild": "其交付与之后集成的内容冲突；新的运行将从更新后的基线开始"
+      },
+      "offerShort": {
+        "complete": "完成",
+        "next": "继续 {{spec}}",
+        "launch": "启动 {{spec}}",
+        "retry": "重试 {{spec}}",
+        "resume_failed_step": "恢复 {{spec}}",
+        "retry_from_start": "重试 {{spec}}",
+        "resume_run": "恢复 {{spec}} 的运行",
+        "follow_run": "跟进 {{spec}}",
+        "answer_run": "跟进 {{spec}}",
+        "integrate": "集成 {{spec}}",
+        "rebuild": "重做 {{spec}}"
+      },
+      "moreOptions": "更多选项",
+      "pausedSpecDelivered": "{{paused}} 已交付",
+      "nextStep": "下一步：{{step}}",
+      "integrationDetails": {
+        "conflict": "与更新后的基线冲突",
+        "conflict_unresolved": "与更新后的基线冲突，自动更新未能解决",
+        "conflict_refresh_limit": "两次自动更新后仍与基线冲突",
+        "merge_failed": "Git 无法合并"
+      },
+      "held": {
+        "pausedByYou": "你暂停了 Rail {{k}}",
+        "paused": "Rail {{k}} 已暂停",
+        "question": "Rail {{k}} 等待你的回答",
+        "approval": "Rail {{k}} 等待你的批准",
+        "budget": "Rail {{k}} 因支出上限暂停",
+        "provider_limit": "Rail {{k}} 因用量限制暂停",
+        "restart": "Rail {{k}} 因重启暂停",
+        "interrupted": "Rail {{k}} 已中断",
+        "queued": "Rail {{k}} 等待资源"
+      },
+      "answerRun": "在 Rail {{k}} 的运行中回答",
+      "nextEngine": "下一个 Rail：{{engine}}",
+      "nextEngineChanged": "下一个 Rail 将使用新配置：{{engine}}",
+      "engineSource": {
+        "milestone": "此里程碑的专属配置",
+        "usual": "你的常用配置",
+        "launch": "启动时选择的配置"
+      },
+      "integrationPhase": {
+        "integrating": "正在集成此规格，然后再启动下一个",
+        "refreshing": "它与之后集成的内容冲突。正在基于新基线更新",
+        "resolving": "代理正在解决它与新基线的冲突",
+        "reverifying": "已基于新基线更新。集成前再次验证"
+      }
     },
     "toast": {
       "title": "{{milestone}} — {{event}}",

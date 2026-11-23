@@ -63,5 +63,13 @@
     "limitUnknown": "Límite mensual no disponible",
     "resets": "Se reinicia el {{time}}",
     "progress": "Consumo mensual de Claude"
+  },
+  "statusBar": {
+    "label": "Uso del plan: {{provider}} al {{percent}} %. Ver detalles",
+    "rejectedLabel": "Uso del plan: límite de {{provider}} alcanzado. Ver detalles"
+  },
+  "today": {
+    "title": "Gastado hoy",
+    "estimated": "Incluye estimaciones de proveedores que no informan del precio"
   }
 }

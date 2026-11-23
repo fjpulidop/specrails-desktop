@@ -78,4 +78,4 @@ Nicht immer. Eine kleine, in sich geschlossene Spec kann die KI auch ohne ihn pr
 
 - [Spec hinzufügen – Explore-Modus](add-spec-explore-mode.md) – woher Entwürfe kommen.
 - [Spec hinzufügen – Quick-Modus](add-spec-quick-mode.md) – der Contract-Layer-Schalter im Quick-Modus.
-- [Pipelines ausführen](running-pipelines.md) – setze eine Spec um, sobald sie bereit ist.
+- [Pipelines ausführen](../pipeline/rails-and-jobs) – setze eine Spec um, sobald sie bereit ist.

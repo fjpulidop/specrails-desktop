@@ -39,6 +39,24 @@ export interface PhaseDefinition {
   description: string
 }
 
+export type JobHoldKind = 'restart' | 'interrupted' | 'provider_limit' | 'budget' | 'question' | 'approval' | 'paused' | 'queued'
+
+/** A stopped run that still owns its job row (server `loop-run-hold.ts`). */
+export interface JobHold {
+  kind: JobHoldKind
+  /** The workflow step that was working when it stopped (`developer`); null when unknown. */
+  step: string | null
+  /** When it stopped (its last recorded activity, ISO); null when unknown. */
+  since: string | null
+  resumeAt?: string | null
+  /** `queued`: what the launched run waits for before it starts (server capacity `WaitingFor`). */
+  waitingFor?: string
+  /** `queued`: 1 = next to start. */
+  position?: number
+  /** `paused`: the person paused it (Pause); only their Resume continues it. */
+  byYou?: boolean
+}
+
 export interface JobSummary {
   id: string
   command: string
@@ -83,11 +101,30 @@ export interface JobSummary {
    *  this between ai-steps (no session ⇒ POST /messages would 409); live flips
    *  ride the `job.interactive` WS event. GET /jobs/:id only. */
   interactiveAcceptingTurns?: boolean
+  /**
+   * Why a job whose row says `running` is not working right now (a loop run the
+   * app restart paused, an interrupted write, a usage limit, the budget, a
+   * question). Absent while it genuinely works. List and detail endpoints. Read
+   * with `jobHoldOf`; every surface shows the job through it, never the raw row.
+   */
+  hold?: JobHold | null
+  /** The person's Pause / Resume of a running Core definition run (server `userPauseControl`); absent: Stop is the only control. */
+  pauseControl?: 'pause' | 'pausing' | 'resume'
+  /** Loop runs: time spent held (question, approval, restart, limit, budget) before the last resume. */
+  heldMs?: number
   /** True when a loop run is paused awaiting a human decision. GET /jobs/:id only. */
   loopPaused?: boolean
   /** Human-decision pause reason from the loop engine. GET /jobs/:id only. */
   loopPauseReason?: string | null
+  /** `budget_paused` | `limit_paused` when the pause is not a human decision. GET /jobs/:id only. */
+  loopPauseKind?: string | null
+  /** `limit_paused`: the provider usage limit the run waits for. GET /jobs/:id only. */
+  loopPauseLimit?: unknown
+  /** `budget_paused`: the limit the run is held at (`readDailyBudgetInfo`), with the next step's estimate at a per-run limit. GET /jobs/:id only. */
+  loopPauseBudget?: unknown
   pendingInterrupts?: Array<{id: string;nodePath: string;kind: 'question' | 'approval' | 'gate'; value?: unknown}>
+  /** The question card a paused run waits on (GET /jobs/:id). */
+  question?: unknown
   /**
    * Tickets referenced by the job's command, resolved against the project's
    * local ticket store at request time. Only populated by GET /jobs/:id;
@@ -97,6 +134,8 @@ export interface JobSummary {
   /** First spec the job refers to and its title (list endpoint only; absent when the spec is gone). */
   ticketId?: number
   ticketTitle?: string
+  /** A continued run's place in its attempt chain (list endpoint only); earlier attempts are folded into it. */
+  attempt?: { number: number; of: number; firstRunId?: string }
 }
 
 export interface EventRow {
@@ -214,6 +253,10 @@ export interface DesktopProjectStats {
   totalJobs: number
   successRate: number
   avgDurationMs: number | null
+  /** 'app' = the Home & Blueprint row (agent turns pinned to no loaded project). */
+  kind?: 'project' | 'app'
+  /** Agent-ledger turns (missions, Intent) included in this row's cost. */
+  agentTurns?: number
 }
 
 export interface DesktopAnalyticsResponse {
@@ -242,6 +285,15 @@ export interface DesktopAnalyticsResponse {
     costUsd: number
     estimatedCostUsd?: number
     unpricedCount?: number
+  }>
+  /** The window's spend in the five spend categories (absent on older servers). */
+  byCategory?: Array<{
+    category: 'implementation' | 'missions' | 'specs' | 'code' | 'support'
+    costUsd: number
+    estimatedCostUsd: number
+    count: number
+    tokens: number
+    unpricedCount: number
   }>
 }
 
@@ -367,6 +419,8 @@ export interface RailPrUnitOutcome {
   finalSha?: string | null
   changed?: boolean
   failureCode?: string | null
+  /** The unit's own settlement detail, apart from the delivery's statusDetail. */
+  failureDetail?: string | null
   branchOwnership?: 'created' | 'preexisting' | 'borrowed-pr'
   worktreePath?: string | null
 }
@@ -405,7 +459,8 @@ export interface RailPrStateSnapshot {
    * referenced replacement failed before allocation completed. */
   restoredFromDeliveryId?: string | null
   /** Leased in-flight decision-side effect owned by another surface/process. */
-  operation?: RailPrDecisionAction | 'checkout' | null
+  /** `refresh-on-base`: the automatic base refresh is merging the integrated base into it. */
+  operation?: RailPrDecisionAction | 'checkout' | 'refresh-on-base' | null
   /** Bounded cleanup failures that remain after a terminal action. */
   cleanupWarnings?: string[]
   /** Persistent same-filesystem overlay archives retained outside the PR so
@@ -495,7 +550,7 @@ export interface LocalTicket {
   created_at: string
   updated_at: string
   created_by: string
-  source: 'manual' | 'product-backlog' | 'propose-spec' | 'get-backlog-specs' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow' | 'rules'
+  source: 'manual' | 'product-backlog' | 'hub' | 'propose-spec' | 'get-backlog-specs' | 'explore-draft' | 'specs-smash' | 'free-prompt' | 'mcp' | 'jira' | 'project-builder' | 'flow' | 'rules'
   /** Display key of the linked Jira issue (e.g. "PROJ-123"), present only for Jira-sourced specs. */
   jira_key?: string | null
   /** Browser URL of the linked Jira issue. */
@@ -546,6 +601,8 @@ export interface PacketProofItem {
   values?: Record<string, string | number>
   /** Verbatim agent output — only ever rendered inside a labelled block. */
   rawExcerpt?: string
+  /** Earlier runs of this same verification, superseded by this final one: history, never proof. */
+  earlier?: Array<{ passed: boolean; exitCode: number | string; seconds: number | string; rawExcerpt?: string }>
 }
 
 export interface PacketTicketSection {
@@ -555,6 +612,9 @@ export interface PacketTicketSection {
   solution: string | null
   /** Solution content beyond the visible digest (markdown). */
   solutionOverflow?: string | null
+  /** The delivered OpenSpec proposal's `## What Changes` / `## Why` (agent-authored, reviewed). */
+  whatChanged?: string | null
+  whyChanged?: string | null
   labels: string[]
   implementationOutcome: string | null
   deliveryOutcome: string | null
@@ -650,6 +710,8 @@ export interface PacketWhatToLookAt {
   untested: Array<{ ticketId: number; path: string; why: string | null }>
   humanChecks: Array<{ ticketId: number; text: string }>
   divergences: Array<{ ticketId: number; capability: string; requirement: string; observed: string }>
+  /** Reviewer findings Core's review triage kept out of the run (advice, out of scope, ...); absent from older servers. */
+  reviewNotes?: Array<{ ticketId: number; kind: string; issue: string; reason: string | null }>
   diagnostics: Array<{ ticketId: number; message: string }>
   droppedEntries: number
 }

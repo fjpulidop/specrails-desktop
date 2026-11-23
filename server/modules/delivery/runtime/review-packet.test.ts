@@ -85,6 +85,16 @@ function delivery(over: {
   return composeReviewPacket({ db, row: getPrDelivery(db, 'del-1')! })
 }
 
+describe('what the delivery changed', () => {
+  it('shows the delivered proposal\'s What Changes and Why for its ticket', () => {
+    const packet = delivery({ evidence: evidence({ changeSummary: { change: 'add-weeks', why: 'Callers convert days by hand.', whatChanges: '- `parse()` accepts `w` and `d`.' } }) })
+    expect(packet.sections[0]).toMatchObject({ whatChanged: '- `parse()` accepts `w` and `d`.', whyChanged: 'Callers convert days by hand.' })
+  })
+  it('stays null without a harvested proposal', () => {
+    expect(delivery().sections[0]).toMatchObject({ whatChanged: null, whyChanged: null })
+  })
+})
+
 describe('selectVariant', () => {
   const row = (over: Record<string, unknown>) => ({
     decision: 'on_review', implementation_outcome: 'succeeded', delivery_outcome: 'ready', status_code: null,
@@ -290,6 +300,28 @@ describe('composeReviewPacket — watch out', () => {
       evidence: evidence({ confidence: { changeName: 'c', overall: 96, aspects: {}, flags: [], raw: null } }),
     })
     expect(packet.watchOut).toEqual([])
+  })
+
+  it.each([
+    ['Java', 'src/main/java/bench/Money.java', 'src/test/java/bench/MoneyTest.java'],
+    ['Go', 'server.go', 'server_test.go'],
+    ['Python', 'app/temps.py', 'tests/test_temps.py'],
+    ['Swift', 'Sources/Habits/Habit.swift', 'Tests/HabitsTests/HabitTests.swift'],
+    ['Rust', 'src/lib.rs', 'tests/echo.rs'],
+  ])('counts %s tests as tests: no false "no tests" watch-out or proof', (_stack, code, test) => {
+    churn([{ path: code }, { path: test }, { path: 'openspec/specs/cap/spec.md' }])
+    const packet = delivery({
+      evidence: evidence({ confidence: { changeName: 'c', overall: 96, aspects: {}, flags: [], raw: null } }),
+    })
+    expect(packet.watchOut).toEqual([])
+    expect(packet.proof.map((item) => item.code)).not.toContain('proof.noTestFilesChanged')
+    expect(packet.sections[0]?.churn?.testFilesTouched ?? [test]).toEqual([test])
+  })
+
+  it('does not count OpenSpec artifacts as code that needs tests', () => {
+    churn([{ path: 'openspec/changes/c/proposal.md' }, { path: 'openspec/specs/cap/spec.md' }, { path: 'README.md' }])
+    const packet = delivery()
+    expect(packet.watchOut.map((item) => item.code)).not.toContain('watch.noTestsForChangedCode')
   })
 
   it('does not warn about missing tests on a no-change run', () => {
@@ -574,6 +606,41 @@ describe('programmatic-runtime evidence in the proof', () => {
     expect(byCode('proof.reviewerFinding')).toEqual([expect.objectContaining({ rawExcerpt: 'Faithful port.' })])
     expect(byCode('proof.reviewerScore')).toEqual([expect.objectContaining({ tier: 'reviewer-score', values: { overall: 92 } })])
     expect(packet.confidence?.overall).toBe(92)
+  })
+
+  it('a delivered packet proves the final verification and keeps earlier failed runs as collapsed history', () => {
+    const retried = { ...runtime, commands: [
+      { label: 'node --test test/', outcome: 'failed', exitCode: 1, durationMs: 1200, required: true, hostRun: true, outputTail: 'not ok 3 - clears four lines' },
+      { label: 'node --test test/', outcome: 'passed', exitCode: 0, durationMs: 900, required: true, hostRun: true, outputTail: 'ok 3 - clears four lines' },
+    ] }
+    const packet = delivery({ evidence: evidence({ sentinel: 'absent', verifyTail: null, runtime: retried }) })
+    expect(packet.variant).not.toBe('failed')
+    expect(packet.proof.filter((p) => p.code === 'proof.hostCommandFailed')).toEqual([])
+    const [final] = packet.proof.filter((p) => p.code === 'proof.hostCommandPassed')
+    expect(final).toMatchObject({ values: { label: 'node --test test/', exitCode: 0, seconds: 1 }, rawExcerpt: 'ok 3 - clears four lines',
+      earlier: [{ passed: false, exitCode: 1, seconds: 1, rawExcerpt: 'not ok 3 - clears four lines' }] })
+  })
+
+  it('proves the LAST passing run, not the baseline taken before the change', () => {
+    const baselineThenFinal = { ...runtime, commands: [
+      { label: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 1000, required: true, hostRun: true, outputTail: 'baseline: 3 tests' },
+      { label: 'npm test', outcome: 'failed', exitCode: 1, durationMs: 1000, required: true, hostRun: true, outputTail: 'not ok 4' },
+      { label: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 2000, required: true, hostRun: true, outputTail: 'final: 5 tests' },
+    ] }
+    const packet = delivery({ evidence: evidence({ sentinel: 'absent', verifyTail: null, runtime: baselineThenFinal }) })
+    const passed = packet.proof.filter((p) => p.code === 'proof.hostCommandPassed')
+    expect(passed).toHaveLength(1)
+    expect(passed[0]).toMatchObject({ rawExcerpt: 'final: 5 tests', values: { seconds: 2 } })
+  })
+
+  it('labels a passed check that only reads file text as a file-content check, not a run of the code', () => {
+    const weak = { ...runtime, commands: [
+      { label: 'Health.cs has Heal', commandLine: `python3 -c import pathlib; assert 'Heal(' in pathlib.Path('Assets/Scripts/Health.cs').read_text()`, outcome: 'passed', exitCode: 0, durationMs: 40, required: true, hostRun: true, outputTail: null },
+      { label: 'npm test', commandLine: 'npm test', outcome: 'passed', exitCode: 0, durationMs: 900, required: true, hostRun: true, outputTail: 'ok' },
+    ] }
+    const packet = delivery({ evidence: evidence({ sentinel: 'absent', verifyTail: null, runtime: weak }) })
+    expect(packet.proof.filter((p) => p.code === 'proof.hostStaticCheckPassed')).toEqual([expect.objectContaining({ tier: 'app-verified', values: { label: 'Health.cs has Heal', exitCode: 0, seconds: 1 } })])
+    expect(packet.proof.filter((p) => p.code === 'proof.hostCommandPassed').map((p) => p.values?.label)).toEqual(['npm test'])
   })
 
   it('still says nothing was reported when neither sentinel nor runtime evidence exists', () => {

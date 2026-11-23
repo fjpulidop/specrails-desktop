@@ -1,70 +1,68 @@
-import { createQueueBudgetStorage } from '../adapters/budget-storage'
 import { isLegacySlashCommand, recordLegacyLaunch } from '../../loops/runtime/legacy-launch-telemetry'
-import { enforceDailyBudgets, localDayStartIso, type CapStatus } from '..'
+import type { CapStatus } from '..'
 import { createDurableUsageReader } from '../adapters/usage-reader'
 import { normalizePendingQueue, isDependencySatisfied, recordJobInvocations, recoverJobUsage, sanitizeRecoveredResult, type JobAccountingInput } from '..'
 import { ChildProcess } from 'child_process'
-import fsNode from 'fs'
-import pathNode from 'path'
-import { createInterface } from 'readline'
 import type { Interface as ReadlineInterface } from 'readline'
 import { newId as uuidv4 } from '../../../ids'
 import { treeKillSafe } from '../../../util/win-spawn'
 import type { WsMessage, LogMessage, Job, PhaseDefinition, JobPriority } from '../../../types'
 import { PRIORITY_WEIGHT, VALID_PRIORITIES } from '../../../types'
 import { isRailPrDeliveryEnabled } from '../../delivery/runtime/rail-isolation'
-import { injectRepoMapEnv } from '../../../repo-map'
+import { withRunPortEnv } from '../../terminals/runtime/run-port-leases'
 import { spawnAiCli } from '../../../util/cli-prompt'
-import { extractDisplayText } from '../../../util/stream-display'
 import { createStreamAuditTap, type AgentAuditRecorder } from '../../audit'
 import { resetPhases, setActivePhases } from '../../../hooks'
 import { recordInvocation, type InvocationStatus } from '../../accounting/runtime/ai-invocations'
 import { isCodeExplorerEnabled, isInteractiveJobsEnabled } from '../../../feature-flags'
-import {
-  snapshotWorkingTree,
-  diffAgainstSnapshot,
-  collectDiffPatches,
-  recordProvenanceForJob,
-  broadcastProvenanceUpdated,
-  type WorkingTreeSnapshot,
-} from '../../code/runtime/file-provenance'
+import { snapshotWorkingTree, type WorkingTreeSnapshot } from '../../code/runtime/file-provenance'
 import { finaliseInvocationResult } from '../../accounting/runtime/result-event'
 import { randomUUID } from 'crypto'
 import { buildCodexPluginArgs } from '../../../plugins/codex-spawn'
-import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId } from '../../../providers'
+import { getAdapter, type ProviderAdapter, type AdapterEvent, type ProviderId, type SpawnOptions, type ReasoningEffort } from '../../../providers'
 import {
   buildProviderEnv,
   buildProviderRepoAccessArgs,
-  providerEnvAllowlist,
   formatProviderCommand,
-  isReasoningEffortValidForModel,
-  parseStreamEvents,
 } from '../../../providers/runtime'
-import {
-  GLOBAL_DEFAULTS_PROFILE_NAME,
-  mergeProfileWithAgentDefaults,
-  synthesizeProfileFromDefaults,
-  type ResolvedProviderAgentDefaults,
-} from '../../agents/runtime/agent-defaults'
-import { createCodexOtelBridge, type CodexOtelBridge } from '../../accounting/runtime/codex-otel-bridge'
-import { createJob, deleteQueuedJob, finishJob, appendEvent, skipJob, getProjectSettings, getFreestylePrePrompt, DEFAULT_FREESTYLE_PRE_PROMPT, upsertQueuedJob } from '../../../db'
+import type { ResolvedProviderAgentDefaults } from '../../agents/runtime/agent-defaults'
+import { createJob, deleteQueuedJob, finishJob, skipJob, upsertQueuedJob } from '../../../db'
 import type { DbInstance, JobResult, QueuedJobRecord } from '../../../db'
 import { InteractiveJobSession, type SettleInfo, type InteractiveSpawnSpec } from './interactive-job-session'
 import type { CommandInfo } from '../../../config'
-import { attachmentManager, USER_ATTACHMENT_SYSTEM_NOTE } from '../../../attachment-manager'
-import { extractTicketIdsFromCommand, readStore, resolveTicketStoragePath } from '../../specs/runtime/ticket-store'
-import { descriptionWithNonGoals } from '../../specs/domain/non-goals'
-import { broadcastSpecAddendaChange, claimSpecAddendaForRun } from '../../specs/runtime/spec-addenda'
+import { extractTicketIdsFromCommand } from '../../specs/runtime/ticket-store'
 import { binaryOnPath } from '../../../binary-probe'
 import { ensureFrameworkCommandSubtrees } from '../../../workspace-manager'
 import { ensureClaudeTrusted } from '../../../claude-trust'
-import { resolveProjectExecution, type ProjectExecution } from '../../../workspace-resolution'
-import { resolveProjectAgentEnv, worktreeEnvPassthroughWarning } from '../../../project-env'
-import { readCurrentFrameworkVersion } from '../../../framework-manager'
-import { ensureOpenspecShim, prependShimToPath, removeOpenspecShim, openspecShimDir } from '../../../openspec-shim'
+import type { ProjectExecution } from '../../../workspace-resolution'
+import { ensureOpenspecShim, prependShimToPath, removeOpenspecShim } from '../../../openspec-shim'
 import { resolveHome } from '../../../artifact-registry'
 
 import { buildTelemetryEnv } from '../../../providers/telemetry-env'
+import {
+  buildJobSystemAppend,
+  buildImplementAttachmentContext,
+  buildSpecAddendaBriefing,
+  buildFreestylePrompt,
+} from './job-prompt'
+import { resolveJobProfile, resolveFallbackRailModel, resolveGlobalRailEffort } from './job-spawn-profile'
+import { buildBaseJobSpawnEnv, resolveJobPlugins, applyPluginSpawnEnv } from './job-spawn-env'
+import { attachJobOutputStream, type JobOutputStreamHost } from './job-output-stream'
+import { recordJobProvenance } from './job-provenance'
+import { deriveOneShotExitOutcome } from './job-terminal-outcome'
+import { toQueuedJobRecord, readRestorableQueuedRows, restoredQueuedJob } from './queued-job-store'
+import { resolveQueueExecution, resolveQueueTicketsPath, sweepStaleOpenspecShims } from './queue-execution-context'
+import {
+  TERMINAL_STATUSES,
+  decodeOrphanRecoveryPayload,
+  type DecodedOrphanRecovery,
+  type JobFinishedOptions,
+  type OrphanRecoveryDescendant,
+  type OrphanRecoveryPayload,
+  type OrphanRecoveryRow,
+  type StageTerminalIntent,
+} from './orphan-recovery-payload'
+import { enforceQueueBudgets, emitJobCostAlerts } from './queue-budget-enforcement'
 import { projectSupportsProfiles } from '../../../project-profile-support'
 import { distributeIntEvenly } from '../../../util/distribute-int'
 
@@ -82,10 +80,26 @@ function maxNullable(
   return Math.max(safeLeft, safeRight)
 }
 
-
 const LOG_BUFFER_MAX = 5000
 const LOG_BUFFER_DROP = 1000
 export const DEFAULT_ZOMBIE_TIMEOUT_MS = 1_800_000 // 30 minutes
+
+/** Output of the spawn-plan stage of `_startJob` (transport, prompt, argv). */
+interface JobSpawnPlan {
+  isFreestyle: boolean
+  /** Undefined when the adapter does not declare persistent stdin. */
+  spawnInteractive: boolean | undefined
+  interactiveSettleMode: 'finalize' | 'auto'
+  systemAppend: string
+  railPrompt: string
+  railModel: string
+  globalRailEffort: ReasoningEffort | undefined
+  railExtraArgs: string[]
+  railSpawnOptions: SpawnOptions
+  args: string[]
+  profileName: string | null
+  profileSnapshotPath: string | null
+}
 
 // ─── Error classes ────────────────────────────────────────────────────────────
 
@@ -125,8 +139,6 @@ export class InvalidJobDependencyError extends Error {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const TERMINAL_STATUSES = new Set(['completed', 'failed', 'canceled', 'zombie_terminated', 'skipped'])
 
 /** Match an Freestyle rail command: `/specrails:freestyle #5 …` (or `/sr:…`). */
 export const FREESTYLE_COMMAND_RE = /^\/(specrails|sr):freestyle\b/
@@ -169,89 +181,6 @@ export interface DurableEnqueueAdmission {
   commit: (db: DbInstance, job: Job) => void
 }
 
-interface OrphanRecoveryPayload {
-  id: string
-  command: string
-  ticketIds: number[]
-  pipelineId: string | null
-  startedAt: string
-  finishedAt: string
-  provider: string
-  model: string | null
-  tokensIn: number | null
-  tokensOut: number | null
-  tokensCacheRead: number | null
-  tokensCacheCreate: number | null
-  totalCostUsd: number | null
-  totalCostUsdEstimated: number | null
-  numTurns: number | null
-  durationMs: number | null
-  durationApiMs: number | null
-  sessionId: string | null
-  /** Explicit terminal semantics for current outbox rows. Payloads written by
-   * older builds omit these fields and replay as failed/aborted. */
-  terminalStatus?: Exclude<Job['status'], 'queued' | 'running'>
-  invocationStatus?: InvocationStatus
-  ticketCompletionStatus?: 'done' | 'on_review'
-  exitCode?: number | null
-  /** Force-failed job whose child is still alive. Keep the completed outbox row
-   * until its late close durably replaces the partial usage snapshot. */
-  awaitingLateReconciliation?: boolean
-  /** Exact recursive pre-start descendants captured before the parent becomes
-   * deletable. Old payloads omit it and use dependency links as fallback. */
-  descendants?: OrphanRecoveryDescendant[]
-  causalOwnership?: boolean
-}
-
-interface OrphanRecoveryDescendant {
-  id: string
-  command: string
-  parentId: string
-  pipelineId: string | null
-  priority: JobPriority
-  causalOwnership?: boolean
-}
-
-interface OrphanRecoveryRow {
-  job_id: string
-  payload: string
-  accounting_completed: number
-  callback_completed: number
-  terminal_completed: number
-}
-
-interface JobFinishedOptions {
-  ticketCompletionStatus?: 'done' | 'on_review'
-  /** Marks an at-least-once delivery from the durable orphan outbox. */
-  recoveryReplay?: boolean
-  /** Durable callback inputs. Recovery must not depend on a deletable jobs row. */
-  recoveryCommand?: string
-  recoveryTicketIds?: number[]
-  recoveryDurationMs?: number | null
-  recoveryCausalOwnership?: boolean
-}
-
-interface StageTerminalIntent {
-  status: Exclude<Job['status'], 'queued' | 'running'>
-  invocationStatus: InvocationStatus
-  provider: string
-  finishedAt: string
-  exitCode: number | null
-  result?: Partial<JobResult>
-  interactive?: boolean
-  ticketCompletionStatus?: 'done' | 'on_review'
-  /** True for work that never reached a provider (queued cancel/skip). */
-  accountingCompleted?: boolean
-  /** A caller that already terminalized descendants in the same transaction
-   * still leaves this false: replay delivers their callbacks idempotently. */
-  terminalCompleted?: boolean
-  descendants?: OrphanRecoveryDescendant[]
-  /** Queued cancellation may have an unresolved queued parent that cannot be
-   * referenced from jobs yet; pass null while retaining descendant ownership. */
-  dependsOnJobId?: string | null
-  awaitingLateReconciliation?: boolean
-}
-
 interface PendingLateReconciliation {
   code: number | null
   adapterEvents: readonly AdapterEvent[]
@@ -291,6 +220,8 @@ export class QueueManager {
   private _getCostAlertThreshold: (() => number | null) | null
   private _getDesktopDailyBudget: (() => { budget: number | null; totalSpend: number }) | null
   private _getPeriodCapBreaches: (() => CapStatus[]) | null
+  /** desktop.sqlite: the agent turns pinned to this project count against its daily budget. */
+  private _appLedgerDb: DbInstance | null
   private _adapter: ProviderAdapter
   /** Effective model to use when spawning processes. For Claude the adapter
    *  reads its own config; this is the override that gets passed via `--model`.
@@ -338,6 +269,8 @@ export class QueueManager {
   /** Pre-spawn working-tree snapshot refs keyed by jobId — read at exit time
    *  by the Code-Explorer provenance hook. Cleared on job exit. */
   private _snapshotRefs: Map<string, WorkingTreeSnapshot>
+  /** Settle-time provenance captures still running (see _recordProvenance). */
+  private readonly _pendingProvenance = new Set<Promise<void>>()
   /** Per-job resolved execution context (relocate-artifacts gate), captured at
    *  spawn time so `_onJobExit`'s provenance hook uses the SAME repoDir the
    *  snapshot used (= project.path, never the workspace). Cleared on job exit. */
@@ -413,10 +346,13 @@ export class QueueManager {
       /** Weekly/monthly caps (project + app-wide) that are reached right now.
        *  Enforced exactly like the daily budget: the queue pauses. */
       getPeriodCapBreaches?: () => CapStatus[]
+      /** App-level agent ledger (desktop.sqlite): mission / Intent turns pinned to
+       *  this project count against the project's daily budget, like the gate. */
+      appLedgerDb?: DbInstance
       /** Agent actions audit (batched, never blocking). Absent ⇒ no audit rows. */
       agentAudit?: Pick<AgentAuditRecorder, 'record'> | null
       provider?: ProviderId
-      /** Effective model for codex spawns. If omitted, falls back to 'gpt-6.1-sol'. */
+      /** Effective model for codex spawns. If omitted, falls back to 'gpt-6.2-sol'. */
       resolvedModel?: string
       /** Global Specrails Agents defaults layer (app Settings ▸ Specrails
        *  Agents). Resolved AT SPAWN TIME so a settings change applies to the
@@ -483,6 +419,7 @@ export class QueueManager {
     this._getCostAlertThreshold = options?.getCostAlertThreshold ?? null
     this._getDesktopDailyBudget = options?.getDesktopDailyBudget ?? null
     this._getPeriodCapBreaches = options?.getPeriodCapBreaches ?? null
+    this._appLedgerDb = options?.appLedgerDb ?? null
     this._adapter = getAdapter(options?.provider ?? 'claude')
     this._resolvedModel = options?.resolvedModel ?? null
     this._agentDefaults = options?.agentDefaults ?? null
@@ -663,7 +600,7 @@ export class QueueManager {
       ).get()
       if (running) return false
       for (const row of rows) {
-        const { payload } = this._decodeRecoveryPayload(row.job_id, row.payload)
+        const { payload } = decodeOrphanRecoveryPayload(row.job_id, row.payload)
         if (
           row.accounting_completed === 0 ||
           row.callback_completed === 0 ||
@@ -718,7 +655,7 @@ export class QueueManager {
       awaitingLateReconciliation: input.awaitingLateReconciliation,
     }
     const encoded = JSON.stringify(
-      this._decodeRecoveryPayload(job.id, JSON.stringify(payload)).payload,
+      decodeOrphanRecoveryPayload(job.id, JSON.stringify(payload)).payload,
     )
     const stage = db.transaction(() => {
       // Works for both a running row and an async pre-spawn admission. The
@@ -1455,6 +1392,20 @@ export class QueueManager {
     return [...this._logBuffer]
   }
 
+  /** Live job children (active spawn, resident interactive sessions, force-failed survivors) with the job
+   *  command as label. Read-only, for app-wide resource metering. */
+  listProcessRoots(): Array<{ jobId: string; pid: number; label: string }> {
+    const roots: Array<{ jobId: string; pid: number; label: string }> = []
+    const add = (jobId: string | null, pid: number | null | undefined) => {
+      if (!jobId || typeof pid !== 'number' || pid <= 0 || roots.some(r => r.pid === pid)) return
+      roots.push({ jobId, pid, label: this._jobs.get(jobId)?.command ?? jobId })
+    }
+    add(this._activeJobId, this._activeProcess?.pid)
+    for (const [jobId, session] of this._interactiveSessions) add(jobId, session.processPid())
+    for (const [jobId, proc] of this._forceFailedProcesses) add(jobId, proc.pid)
+    return roots
+  }
+
   /** True while an interactive session is resident for this job. */
   isInteractiveJob(jobId: string): boolean {
     return this._interactiveSessions.has(jobId)
@@ -1534,155 +1485,20 @@ export class QueueManager {
     })
   }
 
-  /**
-   * Local calendar-day start, expressed as a UTC-ISO instant so it compares
-   * correctly against the UTC-ISO `started_at` strings (which sort
-   * lexicographically). Fixes the UTC `date('now')` boundary that bucketed spend
-   * near local midnight on the wrong day (MED-5). Overridable in tests via the
-   * injected clock is unnecessary — it reads the real local day.
-   */
-  private _localDayStartIso(): string {
-    return localDayStartIso(new Date())
-  }
-
-  /**
-   * Evaluate the per-project and app-level daily budgets and pause the queue when
-   * exceeded. Called on every terminal job exit (MED-5). Best-effort: never
-   * throws (the DB may have been closed mid-job).
-   */
+  /** Daily/period cap enforcement on every terminal exit (MED-5); see
+   *  queue-budget-enforcement.ts. Best-effort: never throws. */
   private _enforceDailyBudget(): void {
-    const db = this._db
-    if (!db) return
-    try {
-      const storage = createQueueBudgetStorage(db)
-      enforceDailyBudgets({
-        project: () => storage.project(this._projectId, () => this._localDayStartIso()),
-        desktop: this._getDesktopDailyBudget ? () => this._getDesktopDailyBudget!() : undefined,
-        exceeded: (scope, { budget, totalSpend }) => {
-          const wasPaused = this._paused
-          this._paused = true
-          if (!wasPaused) storage.pause()
-          if (scope === 'project') {
-            this._broadcast({ type: 'daily_budget_exceeded', projectId: '', dailySpend: totalSpend, budget, queuePaused: true })
-            try {
-              this._onBudgetExceeded?.('daily_budget_exceeded', { dailySpend: totalSpend, budget, queuePaused: true })
-            } catch { /* webhook delivery is best-effort */ }
-          } else {
-            this._broadcast({ type: 'desktop_daily_budget_exceeded', projectId: '', desktopDailySpend: totalSpend, desktopBudget: budget, queuePaused: true })
-            try {
-              this._onBudgetExceeded?.('desktop_daily_budget_exceeded', { desktopDailySpend: totalSpend, desktopBudget: budget, queuePaused: true })
-            } catch { /* webhook delivery is best-effort */ }
-          }
-        },
-      })
-      // Weekly/monthly caps: same effect as the daily budget (pause + event),
-      // reported with the period so a webhook/UI can say which cap was reached.
-      for (const cap of this._getPeriodCapBreaches?.() ?? []) {
-        if (!cap.exhausted || cap.period === 'day') continue
-        const wasPaused = this._paused
-        this._paused = true
-        if (!wasPaused) storage.pause()
-        if (cap.scope === 'project') {
-          this._broadcast({ type: 'daily_budget_exceeded', projectId: '', dailySpend: cap.spentUsd, budget: cap.budgetUsd, queuePaused: true, period: cap.period })
-          try { this._onBudgetExceeded?.('daily_budget_exceeded', { dailySpend: cap.spentUsd, budget: cap.budgetUsd, queuePaused: true, period: cap.period }) } catch { /* webhook delivery is best-effort */ }
-        } else {
-          this._broadcast({ type: 'desktop_daily_budget_exceeded', projectId: '', desktopDailySpend: cap.spentUsd, desktopBudget: cap.budgetUsd, queuePaused: true, period: cap.period })
-          try { this._onBudgetExceeded?.('desktop_daily_budget_exceeded', { desktopDailySpend: cap.spentUsd, desktopBudget: cap.budgetUsd, queuePaused: true, period: cap.period }) } catch { /* webhook delivery is best-effort */ }
-        }
-      }
-    } catch (err) {
-      console.error('[queue-manager] daily-budget enforcement failed (db unavailable?):', err)
-    }
-  }
-
-  private _buildImplementAttachmentContext(command: string): string {
-    if (!this._cwd || !this._projectSlug) return ''
-
-    const ticketIds = this._extractTicketIds(command)
-    if (ticketIds.length === 0) return ''
-
-    try {
-      const store = readStore(this._resolveTicketsPath())
-      const sections: string[] = []
-
-      for (const ticketId of ticketIds) {
-        const storeAttachmentIds = new Set(
-          (store.tickets[String(ticketId)]?.attachments ?? []).map((attachment) => attachment.id),
-        )
-        const diskAttachmentIds = attachmentManager
-          .list(this._projectSlug, ticketId)
-          .map((attachment) => attachment.id)
-        const attachmentIds = Array.from(new Set([...storeAttachmentIds, ...diskAttachmentIds]))
-        if (attachmentIds.length === 0) continue
-
-        const blocks = attachmentManager.getPromptBlocksSync(this._projectSlug, ticketId, attachmentIds)
-        if (blocks.length === 0) continue
-
-        sections.push(`## Ticket #${ticketId} Attached Resources\n\n${blocks.join('\n\n')}`)
-      }
-
-      if (sections.length === 0) return ''
-
-      return '\n\nIMPORTANT: Referenced ticket attachments are also part of the spec context. ' +
-        `You have explicit permission to read local attachment files stored under ~/.specrails/projects/${this._projectSlug}/attachments/<ticketId>/.\n\n` +
-        `${USER_ATTACHMENT_SYSTEM_NOTE}\n\n` +
-        'If a <user-attachment> block contains only a local file path, open that file directly before implementing.\n\n' +
-        sections.join('\n\n')
-    } catch (err) {
-      console.warn(`[queue-manager] failed to build attachment context: ${(err as Error).message}`)
-      return ''
-    }
-  }
-
-  /**
-   * Spec addenda briefing for a job (spec-addenda): claims (idempotently, keyed
-   * on the job id) the open addenda of every ticket the command references and
-   * renders the deterministic briefing. Best-effort: an unreadable store ⇒ ''.
-   */
-  private _buildSpecAddendaBriefing(command: string, jobId: string): string {
-    if (!this._cwd) return ''
-    const ticketIds = this._extractTicketIds(command)
-    if (ticketIds.length === 0) return ''
-    try {
-      const claimed = claimSpecAddendaForRun(this._resolveTicketsPath(), ticketIds, jobId)
-      if (claimed.store && this._projectId) {
-        broadcastSpecAddendaChange((msg) => this._broadcast(msg as unknown as WsMessage), this._projectId, claimed)
-      }
-      return claimed.briefing
-    } catch (err) {
-      console.warn(`[queue-manager] failed to build spec addenda briefing: ${(err as Error).message}`)
-      return ''
-    }
-  }
-
-  /**
-   * Build the Claude prompt for an Freestyle job. Freestyle does NOT invoke
-   * a slash command: it sends the resolved pre-prompt followed by the full spec
-   * text of every ticket referenced in the command. Fully reconstructible from
-   * the command (`/specrails:freestyle #<id> …`) + the local ticket store, so a
-   * queued job survives a server restart without losing the prompt.
-   */
-  private _buildFreestylePrompt(command: string): string {
-    const pre = this._db ? getFreestylePrePrompt(this._db) : DEFAULT_FREESTYLE_PRE_PROMPT
-    const ticketIds = this._extractTicketIds(command)
-    const specs: string[] = []
-    if (this._cwd) {
-      try {
-        const store = readStore(this._resolveTicketsPath())
-        for (const ticketId of ticketIds) {
-          const ticket = store.tickets[String(ticketId)]
-          if (!ticket) continue
-          const body = descriptionWithNonGoals(ticket.description, ticket.nonGoals).trim()
-          specs.push(`# Spec #${ticketId}: ${ticket.title}\n\n${body || '_(no description)_'}`)
-        }
-      } catch (err) {
-        console.warn(`[queue-manager] failed to read specs for freestyle: ${(err as Error).message}`)
-      }
-    }
-    const specBlock = specs.length > 0
-      ? specs.join('\n\n---\n\n')
-      : `(No spec content found for ${ticketIds.map((id) => `#${id}`).join(', ') || 'this rail'}.)`
-    return `${pre}\n\n---\n\n${specBlock}`
+    enforceQueueBudgets({
+      db: this._db,
+      appLedgerDb: this._appLedgerDb,
+      projectId: this._projectId,
+      getDesktopDailyBudget: this._getDesktopDailyBudget,
+      getPeriodCapBreaches: this._getPeriodCapBreaches,
+      isPaused: () => this._paused,
+      markPaused: () => { this._paused = true },
+      broadcast: (msg) => this._broadcast(msg),
+      onBudgetExceeded: this._onBudgetExceeded,
+    })
   }
 
   private _drainQueue(): void {
@@ -1908,31 +1724,9 @@ export class QueueManager {
     }
   }
 
-  /**
-   * Startup sweep of stale per-job openspec shim dirs left on disk by rails that
-   * crashed/were killed before this code shipped the terminal-path cleanup (or
-   * by an ungraceful server exit). Best-effort: removes every `<jobId>` subdir
-   * under `~/.specrails/projects/<slug>/openspec-shim/`. The dirs are pure
-   * regeneratable PATH shims (no state), so an over-eager sweep is harmless —
-   * the next spawn re-materialises its own. No-op when no slug is set.
-   */
+  /** Startup sweep of stale per-job openspec shim dirs (best-effort). */
   private _sweepStaleOpenspecShims(): void {
-    if (!this._projectSlug) return
-    try {
-      const home = resolveHome()
-      const shimRoot = pathNode.dirname(openspecShimDir(this._projectSlug, '_', home))
-      if (!fsNode.existsSync(shimRoot)) return
-      for (const entry of fsNode.readdirSync(shimRoot, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue
-        try {
-          fsNode.rmSync(pathNode.join(shimRoot, entry.name), { recursive: true, force: true })
-        } catch {
-          /* best-effort per-entry */
-        }
-      }
-    } catch {
-      /* best-effort: a missing shim root / unreadable dir is fine */
-    }
+    sweepStaleOpenspecShims(this._projectSlug)
   }
 
   /**
@@ -1963,45 +1757,14 @@ export class QueueManager {
     this._jobInteractiveSelection.delete(jobId)
   }
 
-  /**
-   * Resolve the relocate-artifacts execution context for this manager's project.
-   * The gate: relocated only when a registry entry exists AND core has populated
-   * the workspace; otherwise legacy (cwd = project.path, empty env) — preserving
-   * byte-identical behaviour for every existing in-repo project. Falls back to a
-   * legacy resolution rooted at `this._cwd` when slug/cwd are unavailable
-   * (non-Super contexts / tests that construct the manager without a slug).
-   */
+  /** Relocate-artifacts execution context (workspace or legacy repo cwd). */
   private _resolveExecution(): ProjectExecution {
-    const repoDir = this._cwd ?? process.cwd()
-    if (!this._projectSlug || !this._cwd) {
-      return {
-        relocated: false,
-        cwd: repoDir,
-        repoDir,
-        workspaceDir: null,
-        ticketsPath: pathNode.join(repoDir, '.specrails', 'local-tickets.json'),
-        backlogConfigPath: pathNode.join(repoDir, '.specrails', 'backlog-config.json'),
-        profilesDir: pathNode.join(repoDir, '.specrails', 'profiles'),
-        pluginsStateDir: pathNode.join(repoDir, '.specrails', 'plugins'),
-        fileSummariesDir: pathNode.join(repoDir, '.specrails', 'file-summaries'),
-        specrailsDir: pathNode.join(repoDir, '.specrails'),
-        stateDir: pathNode.join(repoDir, '.claude'),
-        env: {},
-      }
-    }
-    return resolveProjectExecution({ slug: this._projectSlug, path: this._cwd })
+    return resolveQueueExecution(this._projectSlug, this._cwd)
   }
 
-  /**
-   * Resolve the local-tickets.json path honouring the relocate-artifacts gate.
-   * Relocated ⇒ the registry entry's ticketsPath (workspace). Legacy ⇒
-   * `resolveTicketStoragePath(this._cwd)` which preserves the
-   * integration-contract.json custom-storagePath behaviour for existing repos.
-   */
+  /** local-tickets.json path honouring the relocate-artifacts gate. */
   private _resolveTicketsPath(): string {
-    const exec = this._resolveExecution()
-    if (exec.relocated) return exec.ticketsPath
-    return resolveTicketStoragePath(this._cwd ?? process.cwd())
+    return resolveQueueTicketsPath(this._projectSlug, this._cwd)
   }
 
   /**
@@ -2258,9 +2021,107 @@ export class QueueManager {
     )
   }
 
+  /**
+   * Start the job holding the synchronously-reserved slot. Each stage below is
+   * a straight move of the former monolithic body, in the original order:
+   * admission → execution context → running mark → spawn plan (prompt,
+   * model, profile, argv) → env → plugins → provider env → (interactive hand
+   * off | provenance snapshot → durable promotion → spawn & reservation →
+   * stream handling). Every await is followed by a slot-ownership check.
+   */
   private async _startJob(jobId: string): Promise<void> {
     const lifecycleGeneration = this._lifecycleGeneration
-    if (!this._canContinueStart(jobId, lifecycleGeneration)) return
+    const canContinue = (): boolean => this._canContinueStart(jobId, lifecycleGeneration)
+    const job = this._admitReservedStart(jobId, lifecycleGeneration)
+    if (!job) return
+
+    const { adapter, execution } = this._prepareJobExecution(jobId)
+    this._markJobRunning(job)
+    const plan = this._buildSpawnPlan(job, jobId, adapter, execution)
+
+    const base = buildBaseJobSpawnEnv({
+      adapter,
+      execution,
+      jobId,
+      db: this._db,
+      projectId: this._projectId,
+      desktopPort: this._desktopPort,
+      profileName: plan.profileName,
+      profileSnapshotPath: plan.profileSnapshotPath,
+    })
+    // Awaited only when plugin verification actually runs: an ineligible spawn
+    // stays synchronous with its slot reservation (no extra microtask).
+    const pendingPlugins = resolveJobPlugins({
+      adapter,
+      execution,
+      jobId,
+      projectId: this._projectId,
+      projectSlug: this._projectSlug,
+      cwd: this._cwd,
+      legacyProviderId: this._adapter.id,
+      resolver: this._resolvePluginsForSpawn,
+      broadcast: this._broadcast,
+      canContinue,
+    })
+    const plugins = pendingPlugins instanceof Promise ? await pendingPlugins : pendingPlugins
+    // Covers resolver throws as well as future awaits added to the block above.
+    if (!plugins || !canContinue()) return
+    let spawnEnv = applyPluginSpawnEnv(base.spawnEnv, {
+      adapter,
+      jobId,
+      db: this._db,
+      projectId: this._projectId,
+      desktopPort: this._desktopPort,
+      frameworkVersion: base.frameworkVersion,
+      profileName: plan.profileName,
+      plugins,
+    })
+    spawnEnv = this._applyProviderSpawnEnv(jobId, adapter, execution, spawnEnv)
+
+    if (plan.spawnInteractive) {
+      await this._handOffInteractiveJob(job, jobId, adapter, execution, plan, spawnEnv, canContinue)
+      return
+    }
+
+    // Code-Explorer pre-spawn snapshot. Captures the working-tree state via
+    // `git stash create --include-untracked` so the post-exit hook can diff
+    // against it. Gated by SPECRAILS_CODE_EXPLORER — when off, no-op.
+    // CRITICAL: snapshot the REPO working tree (execution.repoDir), never the
+    // workspace — else a relocated job would diff an empty workspace and silently
+    // record zero "touched by AI" files.
+    // The capture is an async git child (never a stall of the event loop),
+    // awaited before spawn and serialised per worktree behind a predecessor's
+    // settle diff, so the job can never touch the tree before its snapshot.
+    if (isCodeExplorerEnabled()) {
+      if (!(await this._captureSpawnSnapshot(jobId, execution, canContinue))) return
+    }
+
+    // Durably promote queued → running BEFORE the provider process exists. If
+    // spawn throws, the normal _failWedgedJob path marks this row failed; if the
+    // app crashes after this point, startup recovers a running orphan instead of
+    // replaying the queued admission alongside a possibly-live old child.
+    if (!canContinue()) return
+    this._promoteToRunning(job, jobId, adapter)
+
+    const child = this._spawnAndReserve(job, jobId, adapter, execution, plan, spawnEnv)
+    attachJobOutputStream(this._outputStreamHost(), {
+      jobId,
+      child,
+      adapter,
+      model: plan.railModel,
+      projectId: this._projectId,
+      desktopPort: this._desktopPort,
+      telemetryEnabled: base.telemetryEnabled,
+      environmentNotice: base.environmentNotice,
+    })
+
+    this._broadcastQueueState()
+  }
+
+  /** Stage 1 — admission: the job must still be the queued owner of the slot
+   *  reserved by _drainQueue; otherwise release the slot and keep draining. */
+  private _admitReservedStart(jobId: string, lifecycleGeneration: number): Job | null {
+    if (!this._canContinueStart(jobId, lifecycleGeneration)) return null
     const job = this._jobs.get(jobId)
     if (!job || job.status !== 'queued') {
       // Job vanished between the synchronous slot reservation in _drainQueue and
@@ -2268,9 +2129,14 @@ export class QueueManager {
       // reserved slot and move on. Never relaunch a terminal/running id.
       if (this._activeJobId === jobId) this._activeJobId = null
       this._drainQueue()
-      return
+      return null
     }
+    return job
+  }
 
+  /** Stage 2 — pin the job's adapter and resolve its execution context
+   *  (relocated workspace or legacy repo cwd), with best-effort repairs. */
+  private _prepareJobExecution(jobId: string): { adapter: ProviderAdapter; execution: ProjectExecution } {
     // Per-job adapter (multi-provider). `this._adapter` stays the project
     // primary; everything in this spawn (binary, argv, model, profile, OTEL,
     // plugins, result parsing, ai_invocations.provider) flows from `adapter`.
@@ -2290,7 +2156,6 @@ export class QueueManager {
     // job so the post-exit provenance hook uses the SAME repoDir.
     const execution = this._resolveExecution()
     this._jobExecution.set(jobId, execution)
-    const spawnCwd = execution.cwd
 
     // Windows repair: a relocated workspace whose dir-linked subtrees
     // (commands/skills/rules) were left unreadable by the broken `current`
@@ -2314,7 +2179,12 @@ export class QueueManager {
     } catch {
       /* best-effort */
     }
+    return { adapter, execution }
+  }
 
+  /** Stage 3 — in-memory running mark (durable promotion happens just before
+   *  the child exists) and the command's phase tracker. */
+  private _markJobRunning(job: Job): void {
     job.status = 'running'
     job.startedAt = new Date().toISOString()
     job.queuePosition = null
@@ -2329,7 +2199,10 @@ export class QueueManager {
     } else {
       resetPhases(phaseScopeId, this._broadcast)
     }
+  }
 
+  /** Stage 4 — transport, prompt, system prompt, model, profile and argv. */
+  private _buildSpawnPlan(job: Job, jobId: string, adapter: ProviderAdapter, execution: ProjectExecution): JobSpawnPlan {
     const commandToRun = job.command.trim()
 
     // ─── Interactive-by-default gate (spawn-time, restart-durable) ──────────
@@ -2356,98 +2229,18 @@ export class QueueManager {
     // moment a turn result lands with nothing queued behind it.
     const interactiveSettleMode: 'finalize' | 'auto' = isFreestyle ? 'finalize' : 'auto'
 
-    // Build supplementary context (output chaining + headless mode) that goes
-    // into --append-system-prompt, keeping the user prompt clean.
-    let systemAppend = ''
+    const ticketStore = { cwd: this._cwd, ticketsPath: () => this._resolveTicketsPath() }
+    const systemAppend = buildJobSystemAppend({
+      execution,
+      command: job.command,
+      commandToRun,
+      parentResultText: job.dependsOnJobId ? this._jobs.get(job.dependsOnJobId)?.resultText : undefined,
+      spawnInteractive,
+      db: this._db,
+      buildAttachmentContext: () =>
+        buildImplementAttachmentContext({ ...ticketStore, projectSlug: this._projectSlug }, commandToRun),
+    })
 
-    // Repository orientation (relocated projects only). The rail spawns from the
-    // WORKSPACE cwd, which holds only `.specrails/` config — NOT the source code.
-    // The repo is reachable via `--add-dir <repoDir>` (injected below) and the
-    // `./project` link. The framework templates point at `${SPECRAILS_REPO_DIR:-.}`,
-    // but the agent's Read/Grep/Glob/Edit tools do NOT expand that shell-var form
-    // (and PowerShell/cmd.exe don't expand POSIX `${VAR:-default}` either) — so on
-    // Windows the agent reads a bogus literal path, falls back to the empty
-    // workspace cwd, finds only framework files, and hallucinates a wrong/"global"
-    // project. Tell it the concrete absolute repo path explicitly. Mirrors the
-    // Explore-cwd orientation. Legacy (non-relocated) ⇒ cwd IS the repo ⇒ skipped
-    // (byte-identical). The `\${` keeps the shell-var form literal in this string.
-    if (execution.relocated && execution.repoDir) {
-      systemAppend +=
-        `REPOSITORY LOCATION — READ THIS FIRST:\n` +
-        `This pipeline runs from a workspace directory that contains ONLY specrails ` +
-        `configuration (.specrails/, agent definitions) — NOT your project's source code. ` +
-        `Your project's source repository is at this ABSOLUTE path:\n` +
-        `  ${execution.repoDir}\n` +
-        `It is also exposed to your tools as an additional working directory (via --add-dir) ` +
-        `and mounted in this cwd as ./project. Use the absolute repo path above (or ./project) ` +
-        `for ALL source reads, edits, greps and globs. Your Read/Grep/Glob/Edit tools do NOT ` +
-        `expand shell variables — NEVER pass a literal "\${SPECRAILS_REPO_DIR:-.}" or ` +
-        `"\${SPECRAILS_REPO_DIR}" as a path; substitute the absolute path above instead. ` +
-        `The spec/ticket store (.specrails/local-tickets.json) lives in THIS workspace cwd. ` +
-        `Do NOT look for source files under this cwd — they exist only under the repository ` +
-        `path above.\n\n`
-    }
-
-    // Output chaining: inject previous step's output as context for dependent jobs
-    if (job.dependsOnJobId) {
-      const parentJob = this._jobs.get(job.dependsOnJobId)
-      if (parentJob?.resultText) {
-        const prevOutput = parentJob.resultText
-        const truncated = prevOutput.length > 10000
-          ? prevOutput.slice(0, 10000) + '\n\n[output truncated]'
-          : prevOutput
-        systemAppend += `Previous step output:\n\n${truncated}\n\n---\n\nNow execute the following command.\n\n`
-      }
-    }
-
-    // Headless mode: when --yes is in the command, instruct Claude to auto-proceed.
-    // For a LEGACY one-shot spawn stdin is genuinely disconnected; for an
-    // INTERACTIVE session stdin IS connected (a human may inject guidance), so
-    // the wording softens — autonomous by default, steering welcome — without
-    // re-opening approval prompts.
-    if (job.command.includes('--yes')) {
-      systemAppend += spawnInteractive
-        ? '\n\nCRITICAL — AUTONOMOUS MODE WITH LIVE GUIDANCE (--yes flag):\n' +
-          'This pipeline runs autonomously end-to-end, but a human operator MAY inject guidance messages while it runs (stdin IS connected).\n' +
-          '- NEVER stop to ask for approval, confirmation, review, or feedback. When options exist, choose the RECOMMENDED one and proceed.\n' +
-          '- Auto-approve all proposals, designs, and artifacts; skip instructions that say "wait for user" or "present for review".\n' +
-          '- If a human message arrives mid-run, treat it as steering: incorporate the guidance and continue the plan without pausing.\n' +
-          '- Answer direct questions from the human concisely, then resume the remaining work until the plan is complete.'
-        : '\n\nCRITICAL — FULLY AUTONOMOUS MODE (--yes flag):\n' +
-          'This pipeline is running headless with NO human operator. stdin is disconnected — nobody can reply.\n' +
-          '- NEVER ask for approval, confirmation, review, or feedback. There is nobody to answer.\n' +
-          '- NEVER output prompts like "Reply with approved", "Do you want to proceed?", "Please confirm", or "Ready for review".\n' +
-          '- NEVER stop between pipeline phases to wait for input. Run ALL phases end-to-end without pausing.\n' +
-          '- When there are multiple options or decisions, always choose the RECOMMENDED option and proceed.\n' +
-          '- Auto-approve all proposals, designs, and artifacts. Treat everything as "approved" by default.\n' +
-          '- Skip any instructions that say "wait for user", "present for review", or "ask the user".\n' +
-          '- The pipeline must complete fully from start to finish in a single uninterrupted run.'
-    }
-
-    // Local ticket store: implement jobs must read specs from
-    // .specrails/local-tickets.json — never from external trackers like Jira/Linear.
-    // (`batch-implement` stays matched only for historical/replayed commands.)
-    if (/\/(specrails|sr):(implement|batch-implement)\b/.test(commandToRun)) {
-      systemAppend += '\n\nIMPORTANT: The ticket/spec data for this project is stored locally in .specrails/local-tickets.json. ' +
-        'You MUST read specs from this file. Do NOT attempt to fetch tickets from Jira, Linear, GitHub Issues, or any other external tracker. ' +
-        'The #<id> references in the command correspond to ticket IDs inside .specrails/local-tickets.json. ' +
-        'Do NOT require jq to inspect this file; on Windows or when jq is unavailable, use PowerShell (`Get-Content .specrails/local-tickets.json -Raw | ConvertFrom-Json`) or Node.js built-ins. ' +
-        'When running tests, use the project-defined scripts and package manager commands as-is; do NOT add Jest-only flags such as --runInBand to Vitest commands.'
-
-      const attachmentContext = this._buildImplementAttachmentContext(commandToRun)
-      if (attachmentContext) {
-        systemAppend += attachmentContext
-      }
-
-      const prePrompt = this._db ? getProjectSettings(this._db).prePrompt.trim() : ''
-      if (prePrompt) {
-        systemAppend += '\n\nPROJECT PRE-PROMPT:\n' +
-          'Apply the following project-specific instructions in addition to the ticket/spec and its attached resources.\n\n' +
-          prePrompt
-      }
-    }
-
-    const binary = adapter.binary
     // Adapter-specific slash-command syntax:
     //  - claude: native `/specrails:foo` recognised by Claude CLI directly,
     //    so we pass the command verbatim and the system prompt rides along
@@ -2465,7 +2258,7 @@ export class QueueManager {
     // `freestyle` before this point.
     // (`isFreestyle` itself is resolved above, before the systemAppend build.)
     let railPrompt = isFreestyle
-      ? this._buildFreestylePrompt(commandToRun)
+      ? buildFreestylePrompt({ ...ticketStore, db: this._db }, commandToRun)
       : formatProviderCommand(adapter, commandToRun, execution.cwd)
     // Spec addenda (spec-addenda): every ticket-referencing job carries the
     // specs' open addenda as a briefing APPENDED after the command (so it rides
@@ -2473,7 +2266,11 @@ export class QueueManager {
     // Read + claimed at SPAWN time from the store — restart-durable, and the
     // same path the loop engine takes, so implement/SDD Quick/freestyle/legacy
     // all see the identical text.
-    const addendaBriefing = this._buildSpecAddendaBriefing(commandToRun, jobId)
+    const addendaBriefing = buildSpecAddendaBriefing(
+      { ...ticketStore, projectId: this._projectId, broadcast: this._broadcast },
+      commandToRun,
+      jobId,
+    )
     if (addendaBriefing) railPrompt = `${railPrompt}\n\n${addendaBriefing}`
     // Per-job model override (consumed once) takes precedence — used by the
     // freestyle model picker so the user can choose haiku/sonnet/opus per launch.
@@ -2483,12 +2280,7 @@ export class QueueManager {
     // choice, ABOVE the built-in adapter default.
     let globalAgentDefaults: ResolvedProviderAgentDefaults | null = null
     try { globalAgentDefaults = this._agentDefaults?.(adapter.id) ?? null } catch { globalAgentDefaults = null }
-    const claudeProjectSettings = adapter.id === 'claude' && this._db ? getProjectSettings(this._db) : null
-    const fallbackRailModel = claudeProjectSettings
-      ? (claudeProjectSettings.orchestratorModelExplicit
-        ? claudeProjectSettings.orchestratorModel
-        : globalAgentDefaults?.pipelineModel ?? claudeProjectSettings.orchestratorModel)
-      : (this._resolvedModel ?? globalAgentDefaults?.pipelineModel ?? adapter.defaultModel())
+    const fallbackRailModel = resolveFallbackRailModel(adapter, this._db, this._resolvedModel, globalAgentDefaults)
     // Relocate-artifacts: when relocated, claude is spawned from the workspace
     // so add `--add-dir <repoDir>` so its tools can still reach repo files by
     // absolute path. (gemini/codex get env-only tweaks at spawn time below.)
@@ -2496,76 +2288,24 @@ export class QueueManager {
       ? buildProviderRepoAccessArgs(adapter, [execution.repoDir])
       : []
     railExtraArgs.push(...buildCodexPluginArgs({ providerId: adapter.id, stateRoot: execution.cwd, repositoryPath: execution.repoDir, legacyProviderId: this._adapter.id }))
-    // Resolve agent profile (if any) and snapshot per-job before spawn.
-    // Super mode only (projectId + projectSlug + cwd all present).
-    // Skipped when the adapter does not honour `SPECRAILS_PROFILE_PATH` AND
-    // when the project's installed specrails-core is older than the
-    // provider's minimum core version (legacy fallback). Codex skill rails
-    // ship in specrails-core 4.6.0+; the projectSupportsProfiles probe today
-    // checks the claude minimum (4.1.0) — extending it per-provider is
-    // tracked in OpenSpec change task §13.
-    let profileSnapshotPath: string | null = null
-    let profileName: string | null = null
-    let profileOrchestratorModel: string | null = null
-    if (adapter.capabilities.profileEnvSupport && this._projectId && this._projectSlug && this._cwd) {
-      try {
-        const selection = this._jobProfileSelection.get(jobId) // undefined|null|string
-        // When relocated, core + `.specrails/profiles` live in the workspace
-        // (execution.cwd); legacy reads from the repo (execution.cwd === repo).
-        const coreSupports = projectSupportsProfiles(execution.cwd)
-        if (selection !== null && coreSupports) {
-          // selection is string (explicit) or undefined (default resolution)
-          const {
-            resolveProfile,
-            snapshotForJob,
-            persistJobProfile,
-          } = require('../../agents/runtime/profile-manager') as typeof import('../../agents/runtime/profile-manager')
-          let resolved = resolveProfile(execution.cwd, selection ?? undefined, adapter.id)
-          // Global agent defaults: fill per-agent model gaps in the resolved
-          // profile, or synthesize a baseline profile when the project has
-          // none. Explicit profile choices always win; inert when the global
-          // layer is off (byte-identical legacy behaviour).
-          if (globalAgentDefaults && adapter.capabilities.profiles === true) {
-            if (resolved) {
-              const merged = mergeProfileWithAgentDefaults(resolved.profile, globalAgentDefaults)
-              if (merged.changed) resolved = { name: resolved.name, profile: merged.profile }
-            } else if (Object.keys(globalAgentDefaults.agentModels).length > 0) {
-              resolved = {
-                name: GLOBAL_DEFAULTS_PROFILE_NAME,
-                profile: synthesizeProfileFromDefaults(adapter, globalAgentDefaults),
-              }
-            }
-          }
-          if (resolved) {
-            profileSnapshotPath = snapshotForJob(this._projectSlug, jobId, resolved)
-            profileName = resolved.name
-            profileOrchestratorModel = resolved.profile.orchestrator.model
-            if (this._db) {
-              persistJobProfile(this._db, jobId, resolved)
-            }
-          }
-        }
-      } catch (err) {
-        // Profile resolution failures are non-fatal — rail falls back to
-        // legacy behavior. The error is visible in logs for debugging.
-        console.warn(`[queue-manager] profile resolution failed for job ${jobId}: ${(err as Error).message}`)
-      }
-    }
+    const profile = resolveJobProfile({
+      adapter,
+      execution,
+      jobId,
+      projectId: this._projectId,
+      projectSlug: this._projectSlug,
+      cwd: this._cwd,
+      db: this._db,
+      selection: this._jobProfileSelection.get(jobId),
+      globalAgentDefaults,
+    })
 
     // One authoritative model for both transports:
     // explicit per-job override > resolved profile orchestrator > project/default.
     // resolveProfile validates the profile model against this adapter's catalog.
-    const railModel = modelOverride ?? profileOrchestratorModel ?? fallbackRailModel
-    // Pipeline-level reasoning effort from the global layer (rails never had a
-    // per-job effort knob, so this is purely additive). Validated against the
-    // FINAL model — claude/codex sub-agents inherit the process-level effort,
-    // kimi rides its env knob via buildProviderEnv, gemini has no effort.
-    const globalRailEffort =
-      globalAgentDefaults?.pipelineEffort
-        && isReasoningEffortValidForModel(adapter, railModel, globalAgentDefaults.pipelineEffort)
-        ? globalAgentDefaults.pipelineEffort
-        : undefined
-    const railSpawnOptions = {
+    const railModel = modelOverride ?? profile.profileOrchestratorModel ?? fallbackRailModel
+    const globalRailEffort = resolveGlobalRailEffort(adapter, railModel, globalAgentDefaults)
+    const railSpawnOptions: SpawnOptions = {
       prompt: railPrompt,
       systemPrompt: systemAppend || undefined,
       model: railModel,
@@ -2574,147 +2314,29 @@ export class QueueManager {
     }
     const args = adapter.buildArgs('rail-job', railSpawnOptions)
 
-    // Read pipelineTelemetryEnabled at spawn time (not constructor time) so
-    // toggling the setting takes effect on the next job without restarting.
-    // OTEL env injection is gated on `adapter.capabilities.nativeOtelEnv`:
-    // claude honours OTEL_* env vars natively; codex does not and instead
-    // gets signals synthesised by the codex-otel-bridge attached below.
-    let spawnEnv: NodeJS.ProcessEnv = process.env
-    // Per-project agent environment: the passthrough overlay (names stored,
-    // values read at spawn time with login-shell recovery) and, in `minimal`
-    // mode, the allowlist filter. Apply this before Specrails' own env overlays
-    // so internal SPECRAILS_* control-plane values always win.
-    let environmentNotice: string | null = null
-    if (this._db) {
-      spawnEnv = resolveProjectAgentEnv(this._db, { providerAllowlist: providerEnvAllowlist(adapter) })
-      // One value-free line naming unresolved configured names (written to the
-      // job log once the readers exist). The run proceeds without them.
-      environmentNotice = worktreeEnvPassthroughWarning(this._db, spawnEnv)
+    return {
+      isFreestyle,
+      spawnInteractive,
+      interactiveSettleMode,
+      systemAppend,
+      railPrompt,
+      railModel,
+      globalRailEffort,
+      railExtraArgs,
+      railSpawnOptions,
+      args,
+      profileName: profile.profileName,
+      profileSnapshotPath: profile.profileSnapshotPath,
     }
-    const telemetryEnabled = !!(this._projectId && this._db && getProjectSettings(this._db).pipelineTelemetryEnabled)
-    // Resolve the framework version ONCE at spawn time — `framework/current`
-    // is read from `~/.specrails/framework/current`. A concurrent atomic swap
-    // (FrameworkManager.swapCurrent) does not disturb this job: we captured the
-    // version here and the per-job snapshot resolved its handles from this
-    // value. GATED on `execution.relocated`: a LEGACY (in-repo) job does NOT
-    // assemble from `framework/current`, so stamping it with a sibling project's
-    // materialized framework version would be wrong telemetry. Null otherwise.
-    const frameworkVersion = execution.relocated ? readCurrentFrameworkVersion() : null
-    if (telemetryEnabled && adapter.capabilities.nativeOtelEnv && this._projectId) {
-      const extra: Record<string, string> = {}
-      if (profileName) extra['specrails.profile_name'] = profileName
-      if (profileName) extra['specrails.profile_schema_version'] = '1'
-      if (frameworkVersion) extra['specrails.framework_version'] = frameworkVersion
-      spawnEnv = {
-        ...spawnEnv,
-        ...buildTelemetryEnv(jobId, this._projectId, this._desktopPort, extra, adapter.id),
-      }
-    }
-    // Inject the profile path whenever the adapter honours it (was: claude-
-    // only). The codex skill rails read SPECRAILS_PROFILE_PATH the same way.
-    if (profileSnapshotPath) {
-      spawnEnv = { ...spawnEnv, SPECRAILS_PROFILE_PATH: profileSnapshotPath }
-    }
+  }
 
-    // Deterministic repo map (zero-AI, best-effort) — orients the pipeline's
-    // exploration phase so it doesn't spend its first turns on `ls`/`find`.
-    spawnEnv = injectRepoMapEnv(spawnEnv, execution.repoDir)
-
-    // ─── Plugin resolution + snapshot ──────────────────────────────────────
-    // Active = installed + verify ok; degraded = installed but verify failed
-    // or timed out. Degraded does NOT block spawn — rail proceeds, UI gets
-    // a `plugin.degraded` event so the user can reinstall.
-    //
-    // Project-json providers (Claude, Kimi, Gemini) resolve only the plugin
-    // installations scoped to this rail's effective provider. CLI-managed MCP
-    // registries remain outside this snapshot path.
-    let pluginActive: Array<{ name: string; version: string }> = []
-    let pluginDegraded: Array<{ name: string; reason: string }> = []
-    let pluginSnapshotPath: string | null = null
-    if (adapter.mcpRegistration === 'project-json' && this._projectId && this._projectSlug && this._cwd) {
-      try {
-        let resolver = this._resolvePluginsForSpawn
-        let snapshotter: typeof import('../../../plugins/rail-integration')['snapshotPluginsForJob'] | null = null
-        if (!resolver) {
-          const pluginIntegration = require('../../../plugins/rail-integration') as typeof import('../../../plugins/rail-integration')
-          resolver = pluginIntegration.resolvePluginsForSpawn
-          snapshotter = pluginIntegration.snapshotPluginsForJob
-        }
-        // Relocated ⇒ `.mcp.json`/plugin state live in the workspace (execution.cwd).
-        const resolution = await resolver(
-          execution.cwd,
-          this._projectId,
-          jobId,
-          adapter.id,
-          this._adapter.id,
-          this._projectSlug,
-        )
-        // shutdown() may have run while plugin verification was awaiting. Never
-        // snapshot, broadcast, or spawn for a manager generation that no longer
-        // owns this active slot.
-        if (!this._canContinueStart(jobId, lifecycleGeneration)) return
-        pluginActive = resolution.active
-        pluginDegraded = resolution.degraded
-        if (pluginActive.length > 0 || pluginDegraded.length > 0) {
-          // The injected resolver normally returns an empty test fixture. Load
-          // the snapshotter lazily only if its result actually needs one.
-          snapshotter ??= (require('../../../plugins/rail-integration') as typeof import('../../../plugins/rail-integration')).snapshotPluginsForJob
-          pluginSnapshotPath = snapshotter(
-            this._projectSlug, jobId, this._projectId, pluginActive, pluginDegraded,
-          )
-        }
-        for (const d of pluginDegraded) {
-          this._broadcast({
-            type: 'plugin.degraded',
-            projectId: this._projectId,
-            name: d.name,
-            providerId: adapter.id,
-            reason: d.reason,
-            jobId,
-            timestamp: new Date().toISOString(),
-          })
-        }
-      } catch (err) {
-        console.warn(`[queue-manager] plugin resolution failed for job ${jobId}: ${(err as Error).message}`)
-      }
-    }
-    // Covers resolver throws as well as future awaits added to the block above.
-    if (!this._canContinueStart(jobId, lifecycleGeneration)) return
-    if (pluginActive.length > 0 && pluginSnapshotPath) {
-      spawnEnv = {
-        ...spawnEnv,
-        SPECRAILS_PLUGINS_ACTIVE: pluginActive.map((p) => p.name).join(','),
-        SPECRAILS_PLUGINS_SNAPSHOT: pluginSnapshotPath,
-      }
-    }
-    // Add OTEL attrs when telemetry already on AND the adapter accepts env
-    // injection. Codex spawns receive these attributes via the bridge's
-    // resource attribute block instead (see codex-otel-bridge.ts).
-    if (adapter.capabilities.nativeOtelEnv && this._projectId && this._db) {
-      const settings = getProjectSettings(this._db)
-      if (settings.pipelineTelemetryEnabled && (pluginActive.length > 0 || pluginDegraded.length > 0)) {
-        const extra: Record<string, string> = {}
-        // Re-thread the resolved framework version (this block rebuilds the
-        // whole telemetry env, so it must carry the same attr as the first one).
-        if (frameworkVersion) extra['specrails.framework_version'] = frameworkVersion
-        if (profileName) extra['specrails.profile_name'] = profileName
-        if (profileName) extra['specrails.profile_schema_version'] = '1'
-        if (pluginActive.length > 0) {
-          extra['specrails.plugins.active'] = JSON.stringify(pluginActive.map((p) => p.name))
-          extra['specrails.plugins.versions'] = JSON.stringify(
-            Object.fromEntries(pluginActive.map((p) => [p.name, p.version])),
-          )
-        }
-        if (pluginDegraded.length > 0) {
-          extra['specrails.plugins.degraded'] = JSON.stringify(pluginDegraded.map((d) => d.name))
-        }
-        spawnEnv = {
-          ...spawnEnv,
-          ...buildTelemetryEnv(jobId, this._projectId, this._desktopPort, extra),
-        }
-      }
-    }
-
+  /** Stage 5c — provider/relocation/PR-delivery env overlays (after plugins). */
+  private _applyProviderSpawnEnv(
+    jobId: string,
+    adapter: ProviderAdapter,
+    execution: ProjectExecution,
+    spawnEnv: NodeJS.ProcessEnv,
+  ): NodeJS.ProcessEnv {
     // Provider-specific filesystem prep before a headless rail spawn. Gemini
     // uses this to pre-acknowledge the project's custom subagents so they load
     // in `gemini -p` mode (else invoke_agent reports "Subagent not found" and the
@@ -2722,7 +2344,7 @@ export class QueueManager {
     // Runs in the SPAWN cwd (workspace when relocated) — gemini acks the
     // project's subagents where it will actually discover them.
     try {
-      adapter.prepareHeadlessSpawn?.(spawnCwd)
+      adapter.prepareHeadlessSpawn?.(execution.cwd)
     } catch (err) {
       /* c8 ignore next -- best-effort prep; a failure is non-fatal */
       console.warn(`[queue-manager] headless-spawn prep failed: ${(err as Error).message}`)
@@ -2768,77 +2390,92 @@ export class QueueManager {
     // completed job promotes its tickets to on_review (ask-first) instead of
     // done. A mid-flight env flip can never split one job across the two
     // methodologies.
+    // A job spawned in a run worktree gets that worktree's port block (PORT + SPECRAILS_RUN_PORT*).
+    spawnEnv = withRunPortEnv(spawnEnv, execution.env.SPECRAILS_REPO_DIR ?? execution.cwd)
+
     const prDelivery = isRailPrDeliveryEnabled()
     this._jobPrDelivery.set(jobId, prDelivery)
     if (prDelivery) {
       spawnEnv = { ...spawnEnv, SPECRAILS_GIT_AUTO: 'false' }
     }
+    return spawnEnv
+  }
 
-    // ─── Interactive branch (default for persistent-stdin providers) ───────
-    // Hand off to a resident persistent-stdin session instead of the one-shot
-    // spawn below. Freestyle keeps 'finalize' settle-mode (idles until the
-    // human Finalizes); every other command runs 'auto' (the session settles
-    // itself the moment a turn result lands with nothing queued). Code-Explorer
-    // provenance is captured around the SESSION lifecycle exactly like the
-    // one-shot path: pre-spawn snapshot here, diff at settle.
-    if (spawnInteractive) {
-      if (!this._canContinueStart(jobId, lifecycleGeneration)) return
-      if (isCodeExplorerEnabled()) {
-        try {
-          const snap = snapshotWorkingTree(execution.repoDir)
-          this._snapshotRefs.set(jobId, snap)
-        } catch (err) {
-          console.warn(`[queue-manager] provenance snapshot failed: ${(err as Error).message}`)
-        }
-      }
-      const interactiveSpawnOptions = {
-        // chat-stream feeds the prompt over stdin per-turn, so the argv `prompt`
-        // is unused — pass empty to satisfy the shared SpawnOptions shape.
-        prompt: '',
-        // Freestyle's prose prompt brings no system prompt of its own, so the
-        // supplementary context rides `--system-prompt` (byte-identical to the
-        // pre-flip interactive-freestyle spawn). A slash-command job's EXPANDED
-        // command brings its own system prompt — mirror the legacy rail-job
-        // spawn and APPEND on top of the CLI default instead of replacing it.
-        systemPrompt: isFreestyle ? (systemAppend || undefined) : undefined,
-        model: railModel,
-        ...(globalRailEffort ? { reasoning_effort: globalRailEffort } : {}),
-        extraArgs: !isFreestyle && systemAppend
-          ? ['--append-system-prompt', systemAppend, ...(railExtraArgs ?? [])]
-          : (railExtraArgs.length > 0 ? railExtraArgs : undefined),
-      }
-      const interactiveArgs = adapter.buildArgs('chat-stream', interactiveSpawnOptions)
-      this._startInteractiveJob(
-        jobId,
-        job,
-        adapter,
-        { binary, args: interactiveArgs, cwd: spawnCwd, env: buildProviderEnv(adapter, interactiveSpawnOptions, spawnEnv) },
-        railPrompt,
-        interactiveSettleMode,
-      )
-      return
+  /**
+   * Provenance snapshot before any child may touch the tree (snapshot before
+   * spawn; queued behind a predecessor's settle diff of the same worktree).
+   * Returns false when the start lost slot ownership while capturing.
+   */
+  private async _captureSpawnSnapshot(
+    jobId: string,
+    execution: ProjectExecution,
+    canContinue: () => boolean,
+  ): Promise<boolean> {
+    try {
+      const snap = await snapshotWorkingTree(execution.repoDir)
+      if (!canContinue()) return false
+      this._snapshotRefs.set(jobId, snap)
+    } catch (err) {
+      console.warn(`[queue-manager] provenance snapshot failed: ${(err as Error).message}`)
     }
+    return true
+  }
 
-    // Code-Explorer pre-spawn snapshot. Captures the working-tree state via
-    // `git stash create --include-untracked` so the post-exit hook can diff
-    // against it. Gated by SPECRAILS_CODE_EXPLORER — when off, no-op.
-    // CRITICAL: snapshot the REPO working tree (execution.repoDir), never the
-    // workspace — else a relocated job would diff an empty workspace and silently
-    // record zero "touched by AI" files.
+  /**
+   * Interactive branch (default for persistent-stdin providers). Hand off to a
+   * resident persistent-stdin session instead of the one-shot spawn. Freestyle
+   * keeps 'finalize' settle-mode (idles until the human Finalizes); every other
+   * command runs 'auto' (the session settles itself the moment a turn result
+   * lands with nothing queued). Code-Explorer provenance is captured around the
+   * SESSION lifecycle exactly like the one-shot path: pre-spawn snapshot here,
+   * diff at settle.
+   */
+  private async _handOffInteractiveJob(
+    job: Job,
+    jobId: string,
+    adapter: ProviderAdapter,
+    execution: ProjectExecution,
+    plan: JobSpawnPlan,
+    spawnEnv: NodeJS.ProcessEnv,
+    canContinue: () => boolean,
+  ): Promise<void> {
+    if (!canContinue()) return
     if (isCodeExplorerEnabled()) {
-      try {
-        const snap = snapshotWorkingTree(execution.repoDir)
-        this._snapshotRefs.set(jobId, snap)
-      } catch (err) {
-        console.warn(`[queue-manager] provenance snapshot failed: ${(err as Error).message}`)
-      }
+      // Async capture, awaited BEFORE the session spawns; queued behind any
+      // in-flight capture of the same worktree (a predecessor's settle diff).
+      if (!(await this._captureSpawnSnapshot(jobId, execution, canContinue))) return
+      if (!canContinue()) return
     }
+    const { isFreestyle, systemAppend, railModel, globalRailEffort, railExtraArgs } = plan
+    const interactiveSpawnOptions = {
+      // chat-stream feeds the prompt over stdin per-turn, so the argv `prompt`
+      // is unused — pass empty to satisfy the shared SpawnOptions shape.
+      prompt: '',
+      // Freestyle's prose prompt brings no system prompt of its own, so the
+      // supplementary context rides `--system-prompt` (byte-identical to the
+      // pre-flip interactive-freestyle spawn). A slash-command job's EXPANDED
+      // command brings its own system prompt — mirror the legacy rail-job
+      // spawn and APPEND on top of the CLI default instead of replacing it.
+      systemPrompt: isFreestyle ? (systemAppend || undefined) : undefined,
+      model: railModel,
+      ...(globalRailEffort ? { reasoning_effort: globalRailEffort } : {}),
+      extraArgs: !isFreestyle && systemAppend
+        ? ['--append-system-prompt', systemAppend, ...(railExtraArgs ?? [])]
+        : (railExtraArgs.length > 0 ? railExtraArgs : undefined),
+    }
+    const interactiveArgs = adapter.buildArgs('chat-stream', interactiveSpawnOptions)
+    this._startInteractiveJob(
+      jobId,
+      job,
+      adapter,
+      { binary: adapter.binary, args: interactiveArgs, cwd: execution.cwd, env: buildProviderEnv(adapter, interactiveSpawnOptions, spawnEnv) },
+      plan.railPrompt,
+      plan.interactiveSettleMode,
+    )
+  }
 
-    // Durably promote queued → running BEFORE the provider process exists. If
-    // spawn throws, the normal _failWedgedJob path marks this row failed; if the
-    // app crashes after this point, startup recovers a running orphan instead of
-    // replaying the queued admission alongside a possibly-live old child.
-    if (!this._canContinueStart(jobId, lifecycleGeneration)) return
+  /** Durable queued → running promotion; consumes pending selections. */
+  private _promoteToRunning(job: Job, jobId: string, adapter: ProviderAdapter): void {
     if (this._db) {
       createJob(this._db, {
         id: jobId,
@@ -2852,13 +2489,25 @@ export class QueueManager {
       })
     }
     this._consumePendingSelections(jobId)
+  }
 
+  /** Stage 6 — spawn the one-shot child, take the process reservation, honour
+   *  a pre-spawn cancel and arm the inactivity watchdog. */
+  private _spawnAndReserve(
+    job: Job,
+    jobId: string,
+    adapter: ProviderAdapter,
+    execution: ProjectExecution,
+    plan: JobSpawnPlan,
+    spawnEnv: NodeJS.ProcessEnv,
+  ): ChildProcess {
+    const binary = adapter.binary
     // spawnAiCli reroutes multi-line argv values through stdin on Windows.
     this._recordLegacySlashLaunch(job)
-    const child = spawnAiCli(binary, args, {
-      env: buildProviderEnv(adapter, railSpawnOptions, spawnEnv),
+    const child = spawnAiCli(binary, plan.args, {
+      env: buildProviderEnv(adapter, plan.railSpawnOptions, spawnEnv),
       stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: spawnCwd,
+      cwd: execution.cwd,
     })
 
     this._activeProcess = child
@@ -2888,208 +2537,43 @@ export class QueueManager {
     this._resetZombieTimer(jobId)
     child.stdout!.on('data', () => { this._resetZombieTimer(jobId) })
     child.stderr!.on('data', () => { this._resetZombieTimer(jobId) })
+    return child
+  }
 
-    let eventSeq = 0
-    let lastResultEvent: Record<string, unknown> | null = null
-    let rawPersistenceFailed = false
-    const persistEvent = (
-      event: { event_type: string; source?: string | null; payload: string },
-      critical = true,
-    ): { seq: number; persisted: boolean } => {
-      const seq = eventSeq++
-      const db = this._db
-      // A force-failed child may continue emitting after its durable job became
-      // terminal (and its history may already be deleted). Keep parsing usage
-      // in memory for late reconciliation, but never write child events through
-      // a terminal/missing FK or let storage failure escape readline.
-      if (!db) return { seq, persisted: true }
-      if (
-        this._jobs.get(jobId)?.status !== 'running' && !this._forceFailedRowJobs.has(jobId)
-      ) return { seq, persisted: false }
-      try {
-        appendEvent(db, jobId, seq, event)
-      } catch (err) {
-        console.error(`[queue-manager] event persistence failed for ${jobId}:`, err)
-        if (critical && !rawPersistenceFailed) {
-          rawPersistenceFailed = true
-          this._paused = true
-          this._persistQueueState()
-          this._broadcastQueueState()
-          if (this._activeJobId === jobId) {
-            this._persistenceFailedJobs.add(jobId)
-            this._kill(jobId)
-          } else {
-            const surviving = this._forceFailedProcesses.get(jobId)
-            if (surviving?.pid) {
-              try { treeKillSafe(surviving.pid, 'SIGTERM', () => { /* best-effort */ }) } catch { /* best-effort */ }
-            }
+  /** Stage 7 host — the live QueueManager state the output stream may touch. */
+  private _outputStreamHost(): JobOutputStreamHost {
+    return {
+      db: () => this._db,
+      isDisposed: () => this._disposed,
+      acceptsEvents: (jobId) =>
+        this._jobs.get(jobId)?.status === 'running' || this._forceFailedRowJobs.has(jobId),
+      failStopOnEventPersistence: (jobId) => {
+        this._paused = true
+        this._persistQueueState()
+        this._broadcastQueueState()
+        if (this._activeJobId === jobId) {
+          this._persistenceFailedJobs.add(jobId)
+          this._kill(jobId)
+        } else {
+          const surviving = this._forceFailedProcesses.get(jobId)
+          if (surviving?.pid) {
+            try { treeKillSafe(surviving.pid, 'SIGTERM', () => { /* best-effort */ }) } catch { /* best-effort */ }
           }
         }
-        return { seq, persisted: false }
-      }
-      return { seq, persisted: true }
-    }
-
-    // Accumulator of parsed AdapterEvent for finaliseInvocationResult on close.
-    const adapterEvents: AdapterEvent[] = []
-    // Expose the (growing) accumulator + adapter/model so shutdown() can flush an
-    // aborted, cost-estimated ai_invocations row if this job is still in flight
-    // when the manager is torn down (CRIT-3). Cleared on every terminal path.
-    this._jobLiveAccounting.set(jobId, { events: adapterEvents, adapter, model: railModel })
-
-    // Synthetic OTEL bridge for providers whose CLI does not honour OTEL_*
-    // env vars (codex today). Lifecycle bound to the spawn's close handler.
-    let otelBridge: CodexOtelBridge | null = null
-    if (telemetryEnabled && !adapter.capabilities.nativeOtelEnv && this._projectId) {
-      otelBridge = createCodexOtelBridge({
-        jobId,
-        projectId: this._projectId,
-        desktopPort: this._desktopPort,
-        model: railModel,
-      })
-    }
-
-    // ── Batched broadcast for high-frequency messages (log + event) ──────
-    // Collects messages and flushes every ~80ms instead of one WS send per line.
-    const pendingBroadcast: WsMessage[] = []
-    let flushTimer: ReturnType<typeof setTimeout> | null = null
-    const FLUSH_INTERVAL_MS = 80
-
-    const batchedBroadcast = (msg: WsMessage): void => {
-      if (this._disposed) return
-      pendingBroadcast.push(msg)
-      if (!flushTimer) {
-        flushTimer = setTimeout(() => {
-          flushTimer = null
-          if (this._disposed) { pendingBroadcast.length = 0; return }
-          const batch = pendingBroadcast.splice(0)
-          for (const m of batch) this._broadcast(m)
-        }, FLUSH_INTERVAL_MS)
-      }
-    }
-
-    const flushPending = (): void => {
-      if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
-      const batch = pendingBroadcast.splice(0)
-      if (this._disposed) return
-      for (const m of batch) this._broadcast(m)
-    }
-
-    const emitLine = (source: 'stdout' | 'stderr', line: string): void => {
-      const msg: LogMessage = {
-        type: 'log',
-        source,
-        line,
-        timestamp: new Date().toISOString(),
-        processId: jobId,
-      }
-      this._logBuffer.push(msg)
-      if (this._logBuffer.length > LOG_BUFFER_MAX) {
-        this._logBuffer.splice(0, LOG_BUFFER_DROP)
-      }
-      batchedBroadcast(msg)
-    }
-
-    const stdoutReader = createInterface({ input: child.stdout!, crlfDelay: Infinity })
-    const stderrReader = createInterface({ input: child.stderr!, crlfDelay: Infinity })
-    this._jobReaders.set(jobId, { stdout: stdoutReader, stderr: stderrReader })
-
-    if (environmentNotice) {
-      persistEvent({ event_type: 'log', source: 'stderr', payload: JSON.stringify({ line: environmentNotice }) }, false)
-      emitLine('stderr', environmentNotice)
-    }
-
-    // Agent actions audit: observes parsed provider frames; never throws.
-    const auditTap = this._agentAudit ? createStreamAuditTap(this._agentAudit, { runId: jobId, jobId }) : null
-    stdoutReader.on('line', (line) => {
-      if (this._disposed) return
-      let parsed: Record<string, unknown> | null = null
-      try { parsed = JSON.parse(line) } catch { /* plain text */ }
-      if (parsed && auditTap) auditTap(parsed)
-
-      // Feed the adapter for the canonical event shape used by
-      // finaliseInvocationResult and (optionally) the OTEL bridge. Done
-      // alongside the raw event persistence below, NOT in place of it: the
-      // raw event log is what feeds the live Job Detail UI and the
-      // telemetry export ZIP for non-bridge providers.
-      const adapterEventsForLine = parseStreamEvents(adapter, line)
-      for (const adapterEv of adapterEventsForLine) {
-        adapterEvents.push(adapterEv)
-        otelBridge?.consumeEvent(adapterEv)
-      }
-
-      if (parsed) {
-        const eventType = (parsed.type as string) ?? (parsed.role as string) ?? 'unknown'
-        const persisted = persistEvent({
-          event_type: eventType,
-          source: 'stdout',
-          payload: line,
-        })
-        if (!persisted.persisted) return
-        batchedBroadcast({
-          type: 'event',
-          jobId,
-          event_type: eventType,
-          source: 'stdout',
-          payload: line,
-          timestamp: new Date().toISOString(),
-          seq: persisted.seq,
-        })
-        if (eventType === 'result') {
-          lastResultEvent = parsed
+      },
+      broadcast: (msg) => this._broadcast(msg),
+      appendLog: (msg) => {
+        this._logBuffer.push(msg)
+        if (this._logBuffer.length > LOG_BUFFER_MAX) {
+          this._logBuffer.splice(0, LOG_BUFFER_DROP)
         }
-        const displayText = extractDisplayText(parsed)
-        if (displayText !== null) {
-          persistEvent({
-            event_type: 'log',
-            source: 'stdout',
-            payload: JSON.stringify({ line: displayText }),
-          }, false)
-          emitLine('stdout', displayText)
-        }
-      } else {
-        persistEvent({
-          event_type: 'log',
-          source: 'stdout',
-          payload: JSON.stringify({ line }),
-        }, false)
-        // For adapters whose stream is JSONL (claude, codex), a non-parseable
-        // line is unexpected noise. For future plain-text adapters this is
-        // their normal output. emitLine surfaces it either way.
-        const textEvent = adapterEventsForLine.find((event) => event.kind === 'text-delta')
-        if (textEvent?.kind === 'text-delta') {
-          emitLine('stdout', textEvent.text)
-        } else {
-          emitLine('stdout', line)
-        }
-      }
-    })
-
-    stderrReader.on('line', (line) => {
-      if (this._disposed) return
-      persistEvent({
-        event_type: 'log',
-        source: 'stderr',
-        payload: JSON.stringify({ line }),
-      }, false)
-      emitLine('stderr', line)
-    })
-
-    child.on('close', (code) => {
-      flushPending() // flush any remaining batched messages before job exit
-
-      // Finalise the OTEL bridge (best-effort, async). The bridge POSTs to
-      // the in-process OTLP receiver; failures are warned, not thrown.
-      if (otelBridge) {
-        otelBridge.finalize({ exitCode: code }).catch((err) => {
-          console.warn('[queue-manager] otel bridge finalize failed:', err)
-        })
-      }
-
-      this._onJobExit(jobId, code, lastResultEvent, emitLine, adapterEvents, railModel, adapter)
-    })
-
-    this._broadcastQueueState()
+      },
+      agentAudit: this._agentAudit,
+      registerLiveAccounting: (jobId, live) => { this._jobLiveAccounting.set(jobId, live) },
+      registerReaders: (jobId, readers) => { this._jobReaders.set(jobId, readers) },
+      onExit: (jobId, code, lastResultEvent, emitLine, adapterEvents, model, adapter) =>
+        this._onJobExit(jobId, code, lastResultEvent, emitLine, adapterEvents, model, adapter),
+    }
   }
 
   private _onJobExit(
@@ -3169,67 +2653,17 @@ export class QueueManager {
       return
     }
 
-    const wasZombie = this._zombieJobs.has(jobId)
-    const wasCanceling = this._cancelingJobs.has(jobId)
-    const wasPersistenceFailed = this._persistenceFailedJobs.has(jobId)
-    // A provider may report a semantic turn failure while its CLI still exits
-    // successfully (code 0). AdapterEvent is the provider-neutral contract for
-    // that condition, so do not let the process exit code relabel it completed.
-    // Cancellation/zombie outcomes retain precedence because they describe the
-    // user/manager-owned termination of the whole job.
-    const providerReportedError = adapterEvents.some((event) => event.kind === 'error')
-
-    let finalStatus: Exclude<Job['status'], 'queued' | 'running'>
-    if (wasPersistenceFailed) {
-      finalStatus = 'failed'
-    } else if (wasZombie) {
-      finalStatus = 'zombie_terminated'
-    } else if (wasCanceling) {
-      finalStatus = 'canceled'
-    } else if (providerReportedError) {
-      finalStatus = 'failed'
-    } else if (code === 0) {
-      finalStatus = 'completed'
-    } else {
-      finalStatus = 'failed'
-    }
-
-    const finishedAt = new Date().toISOString()
-    const startedAtMs = job.startedAt ? new Date(job.startedAt).getTime() : Number.NaN
-    const finishedAtMs = new Date(finishedAt).getTime()
-    const wallDurationMs = Number.isFinite(startedAtMs)
-      ? Math.max(0, finishedAtMs - startedAtMs)
-      : undefined
-
-    // Adapter-driven finalisation must happen before staging so the immutable
-    // intent owns the same usage that lands on jobs and ai_invocations. The
-    // manager wall clock fills providers such as Kimi that emit no duration;
-    // a provider-native duration retains precedence inside the finaliser.
-    const { result: normalised, estimated } = finaliseInvocationResult(
-      adapter,
+    const { finalStatus, finishedAt, normalised, estimated, tokenData, invStatus } = deriveOneShotExitOutcome({
+      wasPersistenceFailed: this._persistenceFailedJobs.has(jobId),
+      wasZombie: this._zombieJobs.has(jobId),
+      wasCanceling: this._cancelingJobs.has(jobId),
+      code,
+      startedAt: job.startedAt,
+      lastResultEvent,
       adapterEvents,
-      { fallbackModel: spawnedModel, durationMs: wallDurationMs },
-    )
-    const tokenData: Partial<JobResult> = lastResultEvent || adapterEvents.length > 0
-      ? {
-          tokens_in: normalised.tokens_in,
-          tokens_out: normalised.tokens_out,
-          tokens_cache_read: normalised.tokens_cache_read,
-          tokens_cache_create: normalised.tokens_cache_create,
-          total_cost_usd: normalised.total_cost_usd,
-          total_cost_usd_estimated: estimated,
-          num_turns: normalised.num_turns,
-          model: normalised.model,
-          duration_ms: normalised.duration_ms,
-          duration_api_ms: normalised.duration_api_ms,
-          session_id: normalised.session_id,
-        }
-      : {}
-    const invStatus: InvocationStatus = finalStatus === 'completed'
-      ? 'success'
-      : (finalStatus === 'canceled' || finalStatus === 'zombie_terminated')
-        ? 'aborted'
-        : 'failed'
+      adapter,
+      spawnedModel,
+    })
 
     if (this._db) {
       try {
@@ -3332,10 +2766,7 @@ export class QueueManager {
   /**
    * Code-Explorer provenance recording, shared by the one-shot exit path
    * (_onJobExit) and the interactive settle path (_settleInteractiveJob).
-   * Diffs the REPO working tree against the pre-spawn snapshot and inserts one
-   * `file_provenance` row per touched path, broadcasting each. Gated by
-   * SPECRAILS_CODE_EXPLORER (re-checked at each completion so the flag can be
-   * flipped off mid-session without leaving partial writes). Best-effort.
+   * Claims the worktree capture slot synchronously; see job-provenance.ts.
    */
   private _recordProvenance(
     jobId: string,
@@ -3343,59 +2774,25 @@ export class QueueManager {
     provenanceRepoDir: string | undefined,
     snapshot: WorkingTreeSnapshot | undefined,
   ): void {
-    if (!isCodeExplorerEnabled() || !provenanceRepoDir || !this._projectId || !this._db) return
-    const ref = snapshot?.ref ?? ''
-    try {
-      const diff = diffAgainstSnapshot(provenanceRepoDir, ref, snapshot?.untracked, snapshot?.headSha)
-      const patches = collectDiffPatches(provenanceRepoDir, ref, diff, snapshot?.headSha)
-      if (diff.length > 50) {
-        console.warn(`[provenance.large_job] job=${jobId} files=${diff.length}`)
-      }
-      const ticketIds = this._extractTicketIds(command)
-      const rows = recordProvenanceForJob(
-        this._db,
-        this._projectId,
-        jobId,
-        ticketIds[0] ?? null,
-        diff,
-        Date.now(),
-        patches,
-      )
-      for (const row of rows) {
-        broadcastProvenanceUpdated(this._broadcast, this._projectId, row)
-      }
-    } catch (err) {
-      console.warn(`[queue-manager] provenance recording failed: ${(err as Error).message}`)
+    recordJobProvenance({
+      db: this._db,
+      projectId: this._projectId,
+      isCurrent: (db) => !this._disposed && this._db === db,
+      broadcast: this._broadcast,
+      pending: this._pendingProvenance,
+    }, jobId, command, provenanceRepoDir, snapshot)
+  }
+
+  /** Resolves once every in-flight provenance capture has been recorded. */
+  async whenProvenanceSettled(): Promise<void> {
+    while (this._pendingProvenance.size > 0) {
+      await Promise.all([...this._pendingProvenance])
     }
   }
 
-  /**
-   * Per-job cost alerts (app-level threshold, then per-project threshold),
-   * shared by the one-shot exit path and the interactive settle path. The
-   * prepared statement touches the DB, which may have been closed mid-job;
-   * guarded so a throw never escapes a child 'close'/settle listener.
-   */
+  /** Per-job cost alerts (app-level, then per-project threshold). */
   private _emitCostAlerts(jobId: string, jobCost: number): void {
-    if (!this._db) return
-    try {
-      const desktopThreshold = this._getCostAlertThreshold?.() ?? null
-      if (desktopThreshold != null && jobCost >= desktopThreshold) {
-        this._broadcast({ type: 'cost_alert', projectId: '', jobId, cost: jobCost, threshold: desktopThreshold })
-      }
-
-      // Per-project job cost threshold (alerts independently of app threshold)
-      const projectThresholdRow = this._db.prepare(
-        `SELECT value FROM queue_state WHERE key = 'config.job_cost_threshold_usd'`
-      ).get() as { value: string } | undefined
-      if (projectThresholdRow) {
-        const projectThreshold = parseFloat(projectThresholdRow.value)
-        if (projectThreshold > 0 && jobCost >= projectThreshold) {
-          this._broadcast({ type: 'cost_alert', projectId: '', jobId, cost: jobCost, threshold: projectThreshold })
-        }
-      }
-    } catch (err) {
-      console.error('[queue-manager] cost-alert bookkeeping failed (db unavailable?):', err)
-    }
+    emitJobCostAlerts(this._db, this._getCostAlertThreshold, (msg) => this._broadcast(msg), jobId, jobCost)
   }
 
   private _resetZombieTimer(ownerJobId?: string): void {
@@ -3648,7 +3045,7 @@ export class QueueManager {
           throw new Error(`Missing late-reconciliation intent for ${jobId}`)
         }
 
-        const { payload } = this._decodeRecoveryPayload(jobId, recovery.payload)
+        const { payload } = decodeOrphanRecoveryPayload(jobId, recovery.payload)
         payload.awaitingLateReconciliation = false
         if (hasRealSpend) {
           Object.assign(payload, {
@@ -3667,7 +3064,7 @@ export class QueueManager {
             invocationStatus: finalStatus,
           })
         }
-        const validatedPayload = this._decodeRecoveryPayload(
+        const validatedPayload = decodeOrphanRecoveryPayload(
           jobId,
           JSON.stringify(payload),
         ).payload
@@ -3740,30 +3137,14 @@ export class QueueManager {
     })
   }
 
-  /** Materialise the exact restart semantics for one unstarted admission.
-   * Map presence matters for profile and interactive: null/false are explicit
-   * choices and must never collapse into the absent/default state. */
+  /** `queued_jobs` record of one unstarted admission (see queued-job-store.ts). */
   private _queuedJobRecord(job: Job): QueuedJobRecord {
-    const hasProfileSelection = this._jobProfileSelection.has(job.id)
-    const hasInteractiveSelection = this._jobInteractiveSelection.has(job.id)
-    return {
-      id: job.id,
-      command: job.command,
-      queue_position: job.queuePosition,
-      priority: job.priority,
-      depends_on_job_id: job.dependsOnJobId,
-      pipeline_id: job.pipelineId,
-      provider: this._jobProviderSelection.get(job.id) ?? null,
-      model: this._jobModelSelection.get(job.id) ?? null,
-      profile_name: hasProfileSelection
-        ? (this._jobProfileSelection.get(job.id) ?? null)
-        : null,
-      profile_selection_set: hasProfileSelection,
-      interactive: hasInteractiveSelection
-        ? this._jobInteractiveSelection.get(job.id)!
-        : null,
-      causal_ownership: job.causalOwnership === true,
-    }
+    return toQueuedJobRecord(job, {
+      provider: this._jobProviderSelection,
+      model: this._jobModelSelection,
+      profile: this._jobProfileSelection,
+      interactive: this._jobInteractiveSelection,
+    })
   }
 
   private _persistJob(job: Job, strict = false): void {
@@ -3841,52 +3222,10 @@ export class QueueManager {
       // Restore queued jobs by their durable positions, then re-assert the
       // priority invariant. `reorder` only permits movement within a priority
       // band, so this sort is also a defensive repair for older/corrupt rows.
-      const rows = this._db.prepare(
-        `SELECT id, command, queue_position, priority, depends_on_job_id, pipeline_id,
-                provider, model, profile_name, profile_selection_set, interactive,
-                causal_ownership
-           FROM queued_jobs
-         UNION ALL
-         SELECT id, command, queue_position, priority, depends_on_job_id, pipeline_id,
-                NULL AS provider, NULL AS model, NULL AS profile_name,
-                0 AS profile_selection_set, NULL AS interactive,
-                causal_ownership
-           FROM jobs
-          WHERE status = 'queued'
-            AND NOT EXISTS (SELECT 1 FROM queued_jobs WHERE queued_jobs.id = jobs.id)
-         ORDER BY queue_position ASC, id ASC`
-      ).all() as Array<{
-        id: string
-        command: string
-        queue_position: number | null
-        priority: string | null
-        depends_on_job_id: string | null
-        pipeline_id: string | null
-        provider: string | null
-        model: string | null
-        profile_name: string | null
-        profile_selection_set: number
-        interactive: number | null
-        causal_ownership: number
-      }>
+      const rows = readRestorableQueuedRows(this._db)
 
       for (const row of rows) {
-        const priority = (VALID_PRIORITIES.has(row.priority ?? '') ? row.priority : 'normal') as JobPriority
-        const job: Job = {
-          id: row.id,
-          command: row.command,
-          status: 'queued',
-          queuePosition: row.queue_position,
-          priority,
-          startedAt: null,
-          finishedAt: null,
-          exitCode: null,
-          dependsOnJobId: row.depends_on_job_id ?? null,
-          pipelineId: row.pipeline_id ?? null,
-          skipReason: null,
-          resultText: null,
-          causalOwnership: row.causal_ownership === 1,
-        }
+        const job = restoredQueuedJob(row)
         this._jobs.set(row.id, job)
         this._queue.push(row.id)
         restoredIds.push(row.id)
@@ -4157,66 +3496,6 @@ export class QueueManager {
     return recoverJobUsage(createDurableUsageReader(this._db, jobId, adapter), fallbackModel, interactive)
   }
 
-  private _decodeRecoveryPayload(
-    jobId: string,
-    encoded: string,
-  ): {
-    payload: OrphanRecoveryPayload
-    terminalStatus: Exclude<Job['status'], 'queued' | 'running'>
-    invocationStatus: InvocationStatus
-  } {
-    const payload = JSON.parse(encoded) as OrphanRecoveryPayload
-    if (!payload || typeof payload !== 'object') throw new Error('payload is not an object')
-    if (typeof payload.command !== 'string') throw new Error('payload command is invalid')
-    // Ticket ownership is derived from the immutable command, never trusted
-    // from a legacy/corrupt payload. This also repairs pre-fix [0]/overflow ids.
-    payload.ticketIds = extractTicketIdsFromCommand(payload.command)
-    payload.totalCostUsdEstimated ??= 0
-    const terminalStatus = payload.terminalStatus ?? 'failed'
-    const invocationStatus = payload.invocationStatus ?? 'aborted'
-    const nullableNumber = (value: unknown): boolean =>
-      value == null || (typeof value === 'number' && Number.isFinite(value) && value >= 0)
-    if (
-      payload.id !== jobId ||
-      typeof payload.startedAt !== 'string' ||
-      typeof payload.finishedAt !== 'string' ||
-      typeof payload.provider !== 'string' || !payload.provider ||
-      (payload.pipelineId !== null && typeof payload.pipelineId !== 'string') ||
-      !payload.ticketIds.every((id) => Number.isSafeInteger(id) && id > 0) ||
-      !nullableNumber(payload.tokensIn) ||
-      !nullableNumber(payload.tokensOut) ||
-      !nullableNumber(payload.tokensCacheRead) ||
-      !nullableNumber(payload.tokensCacheCreate) ||
-      !nullableNumber(payload.totalCostUsd) ||
-      !nullableNumber(payload.numTurns) ||
-      !nullableNumber(payload.durationMs) ||
-      !nullableNumber(payload.durationApiMs) ||
-      (payload.totalCostUsdEstimated !== 0 && payload.totalCostUsdEstimated !== 1) ||
-      (payload.exitCode != null && !Number.isInteger(payload.exitCode)) ||
-      (payload.model !== null && typeof payload.model !== 'string') ||
-      (payload.sessionId !== null && typeof payload.sessionId !== 'string') ||
-      (payload.causalOwnership !== undefined && typeof payload.causalOwnership !== 'boolean') ||
-      (payload.awaitingLateReconciliation !== undefined && typeof payload.awaitingLateReconciliation !== 'boolean') ||
-      (payload.ticketCompletionStatus !== undefined && !['done', 'on_review'].includes(payload.ticketCompletionStatus)) ||
-      !TERMINAL_STATUSES.has(terminalStatus) ||
-      !['success', 'failed', 'aborted'].includes(invocationStatus) ||
-      (payload.descendants !== undefined && (
-        !Array.isArray(payload.descendants) ||
-        !payload.descendants.every((descendant) =>
-          descendant && typeof descendant.id === 'string' &&
-          typeof descendant.command === 'string' &&
-          typeof descendant.parentId === 'string' &&
-          (descendant.pipelineId === null || typeof descendant.pipelineId === 'string') &&
-          VALID_PRIORITIES.has(descendant.priority) &&
-          (descendant.causalOwnership === undefined || typeof descendant.causalOwnership === 'boolean')
-        )
-      ))
-    ) {
-      throw new Error('payload identity or fields are invalid')
-    }
-    return { payload, terminalStatus, invocationStatus }
-  }
-
   /**
    * Atomically convert every crash-orphaned RUNNING job into a durable recovery
    * intent and a failed job. The outbox snapshot is committed in the SAME
@@ -4272,9 +3551,9 @@ export class QueueManager {
          WHERE job_id = ?
       `)
       for (const held of heldRecoveries) {
-        let decoded: ReturnType<QueueManager['_decodeRecoveryPayload']>
+        let decoded: DecodedOrphanRecovery
         try {
-          decoded = this._decodeRecoveryPayload(held.job_id, held.payload)
+          decoded = decodeOrphanRecoveryPayload(held.job_id, held.payload)
         } catch (err) {
           console.error(`[queue-manager] invalid held recovery payload for ${held.job_id}:`, err)
           throw err
@@ -4321,7 +3600,7 @@ export class QueueManager {
             payload.durationApiMs = maxNullable(payload.durationApiMs, recovered.result.duration_api_ms)
             payload.sessionId = recovered.result.session_id ?? payload.sessionId
           }
-          this._decodeRecoveryPayload(held.job_id, JSON.stringify(payload))
+          decodeOrphanRecoveryPayload(held.job_id, JSON.stringify(payload))
           finishJob(db, held.job_id, {
             exit_code: payload.exitCode ?? -1,
             status: terminalStatus,
@@ -4412,7 +3691,7 @@ export class QueueManager {
           exitCode: -1,
         }
         const encoded = JSON.stringify(
-          this._decodeRecoveryPayload(orphan.id, JSON.stringify(payload)).payload,
+          decodeOrphanRecoveryPayload(orphan.id, JSON.stringify(payload)).payload,
         )
         insert.run(orphan.id, encoded)
         finishJob(db, orphan.id, {
@@ -4475,7 +3754,7 @@ export class QueueManager {
       let terminalStatus: Exclude<Job['status'], 'queued' | 'running'>
       let invocationStatus: InvocationStatus
       try {
-        ({ payload, terminalStatus, invocationStatus } = this._decodeRecoveryPayload(
+        ({ payload, terminalStatus, invocationStatus } = decodeOrphanRecoveryPayload(
           row.job_id,
           row.payload,
         ))
@@ -4642,7 +3921,7 @@ export class QueueManager {
       for (const completed of completedRows) {
         let payload: OrphanRecoveryPayload
         try {
-          payload = this._decodeRecoveryPayload(completed.job_id, completed.payload).payload
+          payload = decodeOrphanRecoveryPayload(completed.job_id, completed.payload).payload
         } catch (err) {
           throw new Error(`Invalid completed recovery payload for ${completed.job_id}: ${(err as Error).message}`)
         }

@@ -1,0 +1,52 @@
+#!/usr/bin/env node
+// Scripted stand-in for the `codex` CLI on the isolated server's PATH, so a run
+// switched to Codex (S4) never reaches OpenAI. `exec` turns stream Codex-shaped
+// JSONL: heartbeats for $EVAL_ENGINE_STALL_S seconds (default 30), then a
+// completed turn whose final message satisfies the --output-schema, if any.
+import fs from 'node:fs'
+import { minimalInstance } from './scripted.mjs'
+
+const args = process.argv.slice(2)
+const log = entry => { if (process.env.EVAL_ENGINE_LOG) try { fs.appendFileSync(process.env.EVAL_ENGINE_LOG, JSON.stringify({ at: new Date().toISOString(), cwd: process.cwd(), engine: 'codex', ...entry }) + '\n') } catch { /* best effort */ } }
+const HELP = 'Usage: codex exec [OPTIONS] [PROMPT]\n       codex exec resume [OPTIONS] [SESSION_ID] [PROMPT]\n\nOptions:\n  -c, --config <key=value>\n  -m, --model <MODEL>\n  --json\n  --skip-git-repo-check\n  --sandbox <SANDBOX_MODE>\n  --output-schema <FILE>\n  [SESSION_ID]\n  [PROMPT]\n'
+
+if (args.includes('--help') || args.includes('-h')) { process.stdout.write(HELP); process.exit(0) }
+if (args[0] === '--version' || args[0] === '-V') { console.log('codex-cli 0.171.0'); process.exit(0) }
+if (args[0] === 'login' && args[1] === 'status') { console.log('Logged in using ChatGPT'); process.exit(0) }
+// Core confirms reasoning-effort support from the client's own catalog (`codex debug models`); without it a run
+// switched to Codex with an effort fails "effort … is not confirmed for codex-cli" (seen live in S4).
+if (args[0] === 'debug' && args[1] === 'models') {
+  const levels = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']
+  const slugs = ['gpt-6.2-sol', 'gpt-6.1-terra', 'gpt-6.2-astra', 'gpt-6-sol', 'gpt-6-luna', 'gpt-6.1-sol', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna']
+  console.log(JSON.stringify({ models: slugs.map(slug => ({ slug, supported_reasoning_levels: levels.map(effort => ({ effort })) })) }))
+  process.exit(0)
+}
+// Missions on Codex drive `codex app-server --listen stdio://` (JSON-RPC lines, server/providers/codex-live-session.ts).
+// Global options (`-c key=value`, `--enable x`) may precede the subcommand.
+const VALUE_FLAGS = new Set(['-c', '--config', '--enable', '--disable', '-m', '--model', '-p', '--profile'])
+const subcommand = (() => { for (let i = 0; i < args.length; i++) { if (VALUE_FLAGS.has(args[i])) { i++; continue } if (!args[i].startsWith('-')) return args[i] } return null })()
+if (subcommand === 'app-server') { const { serveAppServer } = await import('./codex-app-server.mjs'); serveAppServer({ log }); }
+else if (args[0] !== 'exec') { log({ refused: args.slice(0, 3) }); console.error('eval engine: only `codex exec` turns are scripted'); process.exit(2) }
+
+if (args[0] === 'exec') runExec()
+function runExec() {
+const schemaFile = args[args.indexOf('--output-schema') + 1]
+let schema
+try { schema = args.includes('--output-schema') ? JSON.parse(fs.readFileSync(schemaFile, 'utf8')) : undefined } catch { schema = undefined }
+const thread = args[0] === 'exec' && args[1] === 'resume' ? args.find((a, i) => i > 1 && /^[0-9a-f-]{8,}$/i.test(a)) ?? `eval-${process.pid}` : `eval-${process.pid}-${Date.now()}`
+const emit = e => process.stdout.write(JSON.stringify(e) + '\n')
+log({ mode: 'stall', schema: schema ? Object.keys(schema.properties ?? {}) : null })
+emit({ type: 'thread.started', thread_id: thread })
+emit({ type: 'turn.started' })
+let n = 0
+const beat = setInterval(() => emit({ type: 'item.completed', item: { id: `item_${n++}`, type: 'reasoning', text: `Working (${n})…` } }), 4000)
+const seconds = Number(process.env.EVAL_ENGINE_STALL_S ?? 30)
+for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => process.exit(143))
+if (seconds > 0) setTimeout(() => {
+  clearInterval(beat)
+  const text = schema ? JSON.stringify(minimalInstance(schema)) : 'Done.'
+  emit({ type: 'item.completed', item: { id: `item_${n++}`, type: 'agent_message', text } })
+  emit({ type: 'turn.completed', usage: { input_tokens: 120, cached_input_tokens: 0, output_tokens: 30 } })
+  process.exit(0)
+}, seconds * 1000)
+}

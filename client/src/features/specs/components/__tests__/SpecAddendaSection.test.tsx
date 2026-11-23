@@ -61,8 +61,14 @@ describe('SpecAddendaSection', () => {
     render(<SpecAddendaSection ticket={t} />)
     expect(screen.getByTestId('spec-addenda-open-count')).toHaveTextContent('1 open')
     // Each pill carries its explanation as sr-only text after the visible label (BB4).
-    const statuses = screen.getAllByTestId('spec-addendum-status').map((el) => el.firstChild?.textContent)
+    // The pill leads with its run-state glyph, then the visible label.
+    const pills = screen.getAllByTestId('spec-addendum-status')
+    const statuses = pills.map((el) => el.childNodes[1]?.textContent)
     expect(statuses).toEqual(['Open', 'In flight', 'Applied', 'Dismissed'])
+    expect(pills.map((el) => el.getAttribute('data-run-state'))).toEqual(['queued', 'working', 'done', 'stopped'])
+    // Only the in-flight addendum pulses (its LiveDot), never the whole pill.
+    expect(pills.map((el) => el.querySelector('[data-live-ring]') !== null)).toEqual([false, true, false, false])
+    expect(pills.some((el) => el.className.includes('animate-pulse'))).toBe(false)
     expect(screen.getByText('Change request')).toBeInTheDocument()
     // Body collapsed: a clamped preview; expanded: markdown with <strong>.
     fireEvent.click(screen.getByText('Idempotency keys'))

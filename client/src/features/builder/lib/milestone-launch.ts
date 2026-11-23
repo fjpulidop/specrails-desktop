@@ -162,10 +162,18 @@ export type ChainControlResult =
   | { ok: true; chain: MilestoneChainSnapshot | null }
   | { ok: false; error: string; detail?: string }
 
-async function controlChain(projectId: string, chainId: string, verb: 'resume' | 'cancel', fetchImpl: typeof fetch): Promise<ChainControlResult> {
+/** Where Resume restarts a FAILED spec: the step that failed (same run and
+ *  worktree, only the interrupted steps run again) or the whole spec. */
+/** `recommended` (or omitted) takes the chain's reconciled next step;
+ *  `failed_step` / `start` choose between the two paths of a failed spec. */
+export type ChainResumeFrom = 'recommended' | 'failed_step' | 'start'
+
+async function controlChain(projectId: string, chainId: string, verb: 'resume' | 'cancel', fetchImpl: typeof fetch, payload?: object): Promise<ChainControlResult> {
   let res: Response
   try {
-    res = await fetchImpl(`/api/projects/${projectId}/blueprint/chains/${chainId}/${verb}`, { method: 'POST' })
+    res = await fetchImpl(`/api/projects/${projectId}/blueprint/chains/${chainId}/${verb}`, payload
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+      : { method: 'POST' })
   } catch (err) {
     return { ok: false, error: 'network', detail: err instanceof Error ? err.message : String(err) }
   }
@@ -176,8 +184,8 @@ async function controlChain(projectId: string, chainId: string, verb: 'resume' |
   return { ok: true, chain: coerceChain(body.chain) }
 }
 
-export function resumeChain(projectId: string, chainId: string, fetchImpl: typeof fetch = fetch): Promise<ChainControlResult> {
-  return controlChain(projectId, chainId, 'resume', fetchImpl)
+export function resumeChain(projectId: string, chainId: string, fetchImpl: typeof fetch = fetch, from?: ChainResumeFrom): Promise<ChainControlResult> {
+  return controlChain(projectId, chainId, 'resume', fetchImpl, from ? { from } : undefined)
 }
 
 export function cancelChain(projectId: string, chainId: string, fetchImpl: typeof fetch = fetch): Promise<ChainControlResult> {
@@ -202,4 +210,26 @@ export async function setChainAutoAdvance(projectId: string, chainId: string, au
     return { ok: false, error: typeof body.error === 'string' ? body.error : `http_${res.status}`, ...(typeof body.detail === 'string' ? { detail: body.detail } : {}) }
   }
   return { ok: true, chain: coerceChain(body.chain) }
+}
+
+/**
+ * Resume a rail run the person paused (Pause): the run's own resume route
+ * (`POST /loop-runs/:id/resume`, the same one the run window's Resume uses) —
+ * the same attempt continues in place from its next step. A resume after a
+ * restart may wait out the old Core child's lease, hence the long timeout.
+ */
+export async function resumeRailRun(projectId: string, runId: string, fetchImpl: typeof fetch = fetch): Promise<{ ok: true } | { ok: false; error: string; detail?: string }> {
+  let res: Response
+  try {
+    res = await fetchImpl(`${getApiBase(projectId)}/loop-runs/${encodeURIComponent(runId)}/resume`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      signal: typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(90_000) : undefined,
+    })
+  } catch (err) {
+    return { ok: false, error: 'network', detail: err instanceof Error ? err.message : String(err) }
+  }
+  if (res.ok) return { ok: true }
+  const body = await readBody(res)
+  const detail = typeof body.detail === 'string' ? body.detail : typeof body.message === 'string' ? body.message : undefined
+  return { ok: false, error: typeof body.error === 'string' ? body.error : `http_${res.status}`, ...(detail ? { detail } : {}) }
 }

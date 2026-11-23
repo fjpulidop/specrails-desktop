@@ -2,15 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
-vi.mock('child_process', async () => {
-  const actual = await vi.importActual<typeof import('child_process')>('child_process')
-  return {
-    ...actual,
-    execSync: vi.fn(),
-  }
+// detectInstalled runs through the shared async probe (binary-probe.ts →
+// util/bounded-exec.ts); stub the process runner, keyed by the shell command.
+vi.mock('../util/bounded-exec', async () => {
+  const actual = await vi.importActual<typeof import('../util/bounded-exec')>('../util/bounded-exec')
+  return { ...actual, execBounded: vi.fn() }
 })
 
-import { execSync } from 'child_process'
+import { execBounded } from '../util/bounded-exec'
 import {
   kimiAdapter,
   _KIMI_MIN_VERSION,
@@ -20,7 +19,7 @@ import {
 import { buildProviderEnv, parseStreamEvents } from './runtime'
 import type { AdapterEvent, SpawnAction } from './types'
 
-const mockExec = vi.mocked(execSync)
+const mockExec = vi.mocked(execBounded)
 const FIXTURES_DIR = join(__dirname, '__fixtures__', 'kimi', _KIMI_MIN_VERSION)
 
 function parseFixture(name: string): AdapterEvent[] {
@@ -433,7 +432,7 @@ describe('kimiAdapter version detection', () => {
 
   it('reports a compatible native or npm-shim executable from --version', async () => {
     mockExec
-      .mockReturnValueOnce(Buffer.from(''))
+      .mockReturnValueOnce('')
       .mockReturnValueOnce('Kimi Code 0.27.4\n')
     await expect(kimiAdapter.detectInstalled()).resolves.toEqual({
       installed: true,
@@ -443,13 +442,14 @@ describe('kimiAdapter version detection', () => {
     })
     expect(mockExec).toHaveBeenCalledWith(
       'kimi --version',
-      expect.objectContaining({ timeout: expect.any(Number) }),
+      [],
+      expect.objectContaining({ timeoutMs: expect.any(Number), shell: true }),
     )
   })
 
   it('flags an old version with login/update remediation', async () => {
     mockExec
-      .mockReturnValueOnce(Buffer.from(''))
+      .mockReturnValueOnce('')
       .mockReturnValueOnce('kimi 0.26.0\n')
     const result = await kimiAdapter.detectInstalled()
     expect(result.meetsMinimum).toBe(false)
@@ -459,7 +459,7 @@ describe('kimiAdapter version detection', () => {
 
   it('reports installed but unexecutable when the bounded probe fails', async () => {
     mockExec
-      .mockReturnValueOnce(Buffer.from(''))
+      .mockReturnValueOnce('')
       .mockImplementationOnce(() => { throw new Error('broken shim') })
     await expect(kimiAdapter.detectInstalled()).resolves.toEqual({
       installed: true,
@@ -470,7 +470,7 @@ describe('kimiAdapter version detection', () => {
   it('resolves and probes a Windows npm .cmd shim through the recovered shell env', async () => {
     const platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
     mockExec
-      .mockReturnValueOnce(Buffer.from('C:\\Users\\me\\AppData\\Roaming\\npm\\kimi.cmd\r\n'))
+      .mockReturnValueOnce('C:\\Users\\me\\AppData\\Roaming\\npm\\kimi.cmd\r\n')
       .mockReturnValueOnce('Kimi Code 0.27.0\r\n')
     try {
       await expect(kimiAdapter.detectInstalled()).resolves.toMatchObject({
@@ -482,6 +482,7 @@ describe('kimiAdapter version detection', () => {
       expect(mockExec).toHaveBeenNthCalledWith(
         1,
         'where kimi',
+        [],
         expect.objectContaining({
           env: expect.objectContaining({
             SystemRoot: expect.any(String),
@@ -492,7 +493,8 @@ describe('kimiAdapter version detection', () => {
       expect(mockExec).toHaveBeenNthCalledWith(
         2,
         'kimi --version',
-        expect.objectContaining({ timeout: 3_000 }),
+        [],
+        expect.objectContaining({ timeoutMs: 3_000, shell: true }),
       )
     } finally {
       platformSpy.mockRestore()

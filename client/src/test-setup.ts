@@ -10,6 +10,8 @@ import './lib/i18n'
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  // The mission split layout persists itself; never let one test's panes restore in the next.
+  try { localStorage.removeItem('specrails-desktop:mission-split:v1') } catch { /* no storage */ }
 })
 
 // Reset fetch mock and seed an active project before each test so that

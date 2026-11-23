@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { execSync, execFileSync } from 'child_process'
+import { execBounded } from './util/bounded-exec'
 import type { PhaseDefinition } from './types'
 
 // Windows has no `which`; it's `where`. The lone holdout that hardcoded `which`
@@ -35,9 +35,16 @@ export interface ProjectConfig {
   commands: CommandInfo[]
 }
 
-function runCommand(cmd: string, cwd?: string): string | null {
+// All probes here are async + bounded (util/bounded-exec): `gh auth status`
+// is a network round-trip and `gh issue list` can take seconds; as execSync
+// they froze every project's HTTP/WS traffic for their whole duration.
+const COMMAND_TIMEOUT_MS = 5000
+/** `gh issue list` / `jira issue list` hit the network; allow a little longer. */
+const ISSUE_FETCH_TIMEOUT_MS = 15_000
+
+async function runCommand(cmd: string, cwd?: string): Promise<string | null> {
   try {
-    return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000, cwd }).toString().trim()
+    return (await execBounded(cmd, [], { shell: true, timeoutMs: COMMAND_TIMEOUT_MS, cwd })).trim()
   } catch {
     return null
   }
@@ -50,30 +57,30 @@ function runCommand(cmd: string, cwd?: string): string | null {
  * interpolated value is a command-injection sink. `fetchIssues` builds its
  * arguments from HTTP query params (`search`/`label`) and the git remote, so it
  * MUST use this argv form: each argument is passed literally to the program and
- * the shell never sees it. `runCommand` is retained only for fixed, constant
+ * the shell never sees it (execBounded without `shell`). `runCommand` is retained only for fixed, constant
  * detection commands (`which gh`, `gh auth status`, `git remote get-url origin`)
  * that carry no user input.
  */
-function runCommandArgs(file: string, args: string[], cwd?: string): string | null {
+async function runCommandArgs(file: string, args: string[], cwd?: string, timeoutMs = COMMAND_TIMEOUT_MS): Promise<string | null> {
   try {
-    return execFileSync(file, args, { stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000, cwd }).toString().trim()
+    return (await execBounded(file, args, { timeoutMs, cwd })).trim()
   } catch {
     return null
   }
 }
 
-function detectGithub(): IssueTrackerInfo {
-  const ghPath = runCommand(`${WHICH_CMD} gh`)
+async function detectGithub(): Promise<IssueTrackerInfo> {
+  const ghPath = await runCommand(`${WHICH_CMD} gh`)
   if (!ghPath) return { available: false, authenticated: false }
 
-  const authOutput = runCommand('gh auth status')
+  const authOutput = await runCommand('gh auth status')
   const authenticated = authOutput !== null
 
   return { available: true, authenticated }
 }
 
-function detectJira(): IssueTrackerInfo {
-  const jiraPath = runCommand(`${WHICH_CMD} jira`)
+async function detectJira(): Promise<IssueTrackerInfo> {
+  const jiraPath = await runCommand(`${WHICH_CMD} jira`)
   if (!jiraPath) return { available: false, authenticated: false }
 
   // jira CLI availability means it is configured (auth is implicit via jira config)
@@ -87,16 +94,18 @@ function detectJira(): IssueTrackerInfo {
 // Memoize with a short TTL (same pattern as setup-prerequisites.ts) so startup
 // probes once and hot request paths reuse the cached result; auth/install
 // changes surface after at most TTL.
-let _trackerCache: { at: number; github: IssueTrackerInfo; jira: IssueTrackerInfo } | null = null
+// The probes are now async; concurrent callers share one in-flight probe.
+let _trackerCache: { at: number; value: Promise<{ github: IssueTrackerInfo; jira: IssueTrackerInfo }> } | null = null
 const TRACKER_CACHE_TTL_MS = 60_000
 
-function detectTrackers(): { github: IssueTrackerInfo; jira: IssueTrackerInfo } {
+function detectTrackers(): Promise<{ github: IssueTrackerInfo; jira: IssueTrackerInfo }> {
   const now = Date.now()
   if (_trackerCache && now - _trackerCache.at < TRACKER_CACHE_TTL_MS) {
-    return _trackerCache
+    return _trackerCache.value
   }
-  _trackerCache = { at: now, github: detectGithub(), jira: detectJira() }
-  return _trackerCache
+  const value = Promise.all([detectGithub(), detectJira()]).then(([github, jira]) => ({ github, jira }))
+  _trackerCache = { at: now, value }
+  return value
 }
 
 /** Test-only: clear the tracker-detection memo so each test re-probes. */
@@ -104,8 +113,8 @@ export function __resetTrackerDetectionCacheForTest(): void {
   _trackerCache = null
 }
 
-function getGitRepoName(projectRoot?: string): string | null {
-  const output = runCommand('git remote get-url origin', projectRoot)
+async function getGitRepoName(projectRoot?: string): Promise<string | null> {
+  const output = await runCommand('git remote get-url origin', projectRoot)
   if (!output) return null
 
   // Parse both HTTPS and SSH remote URLs
@@ -253,7 +262,22 @@ function loadPersistedConfig(db: any): { active: string | null; labelFilter: str
   }
 }
 
-export function getConfig(
+function resolveProjectRoot(cwd: string): string {
+  // Super mode passes project.path directly, which has a `.claude` directory at
+  // its root; the walk-up fallback covers callers that pass a manager-relative cwd.
+  return fs.existsSync(path.join(cwd, '.claude')) ? cwd : path.resolve(cwd, '../..')
+}
+
+/**
+ * The project's sr/specrails commands only — filesystem reads, no subprocess.
+ * Project load needs just this; it used to call getConfig(), paying the
+ * tracker (`gh auth status`) and `git remote` probes per project at startup.
+ */
+export function getProjectCommands(cwd: string, commandsRoot?: string): CommandInfo[] {
+  return scanCommands(path.join(commandsRoot ?? resolveProjectRoot(cwd), '.claude', 'commands', 'sr'))
+}
+
+export async function getConfig(
   cwd: string,
   db?: any,
   projectName?: string,
@@ -262,21 +286,11 @@ export function getConfig(
    *  relocated, else === the project root. Git/repo detection ALWAYS uses the
    *  repo root (`projectRoot`). Defaults to `projectRoot` (byte-identical). */
   commandsRoot?: string,
-): ProjectConfig {
-  // Resolve project root. Super mode passes project.path directly, which has a
-  // `.claude` directory at its root; the walk-up fallback covers callers that
-  // pass a manager-relative cwd.
-  let projectRoot: string
-  if (fs.existsSync(path.join(cwd, '.claude'))) {
-    projectRoot = cwd
-  } else {
-    projectRoot = path.resolve(cwd, '../..')
-  }
-  const commandsDir = path.join(commandsRoot ?? projectRoot, '.claude', 'commands', 'sr')
-  const commands = scanCommands(commandsDir)
+): Promise<ProjectConfig> {
+  const projectRoot = resolveProjectRoot(cwd)
+  const commands = getProjectCommands(cwd, commandsRoot)
 
-  const { github, jira } = detectTrackers()
-  const repo = getGitRepoName(projectRoot)
+  const [{ github, jira }, repo] = await Promise.all([detectTrackers(), getGitRepoName(projectRoot)])
 
   const persisted = db ? loadPersistedConfig(db) : { active: null, labelFilter: '' }
 
@@ -310,17 +324,17 @@ export interface IssueItem {
   url?: string
 }
 
-export function fetchIssues(
+export async function fetchIssues(
   tracker: 'github' | 'jira',
   opts: { search?: string; label?: string; repo?: string | null; cwd?: string }
-): IssueItem[] {
+): Promise<IssueItem[]> {
   if (tracker === 'github') {
     const args = ['issue', 'list', '--json', 'number,title,labels,body,url', '--limit', '50']
     if (opts.repo) args.push('--repo', opts.repo)
     if (opts.label) args.push('--label', opts.label)
     if (opts.search) args.push('--search', opts.search)
 
-    const output = runCommandArgs('gh', args, opts.cwd)
+    const output = await runCommandArgs('gh', args, opts.cwd, ISSUE_FETCH_TIMEOUT_MS)
     if (!output) return []
 
     try {
@@ -348,7 +362,7 @@ export function fetchIssues(
     const args = ['issue', 'list', '--plain', '--columns', 'KEY,SUMMARY,LABELS,STATUS']
     if (jql) args.push('--jql', jql)
 
-    const output = runCommandArgs('jira', args)
+    const output = await runCommandArgs('jira', args, undefined, ISSUE_FETCH_TIMEOUT_MS)
     if (!output) return []
 
     // Parse plain text output: KEY  SUMMARY  LABELS  STATUS

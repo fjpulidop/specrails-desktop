@@ -7,6 +7,8 @@ import { Hammer } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { useDesktop } from '../../../../hooks/useDesktop'
 import { useMilestoneProgress } from '../../hooks/useMilestoneProgress'
+import { useOpenMilestoneRail } from '../../hooks/useOpenMilestoneRail'
+import { useResumeRailRun } from '../../hooks/useResumeRailRun'
 import { FEATURE_REVIEW_PACKET } from '../../../../lib/feature-flags'
 import {
   cancelChain,
@@ -15,6 +17,7 @@ import {
   readMilestoneAutoAdvance,
   resumeChain,
   saveMilestoneAutoAdvance,
+  type ChainResumeFrom,
   setChainAutoAdvance,
 } from '../../lib/milestone-launch'
 import { isMilestoneLaunchable } from '../../lib/milestone-progress'
@@ -170,11 +173,11 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     }
   }, [activeProjectId, chainBusy, t])
 
-  const handleResume = useCallback(async (chainId: string) => {
+  const handleResume = useCallback(async (chainId: string, from?: ChainResumeFrom) => {
     if (!activeProjectId || chainBusy) return
     setChainBusy(true)
     try {
-      const r = await resumeChain(activeProjectId, chainId)
+      const r = await resumeChain(activeProjectId, chainId, fetch, from)
       if (r.ok) toast.success(t('milestoneProgress.chain.resumed'))
       else notifyError(t('milestoneProgress.chain.resumeFailed'), { detail: r.detail ?? r.error })
     } finally {
@@ -199,10 +202,14 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
     navigate(FEATURE_REVIEW_PACKET ? `/review/${deliveryId}` : '/')
   }, [navigate])
 
-  const openRail = useCallback(() => {
+  // A rail row opens the rail's own place: its live run, else its delivery's review.
+  const goFromPanel = useCallback((to: string, state?: Record<string, unknown>) => {
     setPanelOpen(false)
-    navigate('/')
+    if (state) navigate(to, { state })
+    else navigate(to)
   }, [navigate])
+  const resumeRun = useResumeRailRun(activeProjectId)
+  const openRail = useOpenMilestoneRail({ go: goFromPanel, openReview })
 
   if (!activeProjectId || hasBlueprint === false || !blueprint) return null
 
@@ -281,6 +288,7 @@ export function BuilderSidebarEntry({ expanded }: BuilderSidebarEntryProps) {
                 onResume={handleResume}
                 onCancel={handleCancel}
                 onSetAutoAdvance={handleSetAutoAdvance}
+                onResumeRun={resumeRun}
               />
             ))}
           </div>

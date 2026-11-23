@@ -203,21 +203,20 @@ describe('JobRunHeader', () => {
     expect(screen.getByText('100.0k')).toBeInTheDocument()
   })
 
-  it('shows em-dash + "Not available" for null terminal metrics, never a fake 0', () => {
+  it('leaves out Details when the run recorded no metrics, never showing empty tiles or a fake 0', () => {
     renderHeader(failedJob)
     expect(screen.getByText('Failed')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3) // duration + cost + turns + tokens
-    expect(screen.getAllByText('Not available')).toHaveLength(3)
+    expect(screen.queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Not available')).not.toBeInTheDocument()
     expect(screen.queryByText(/^\$/)).not.toBeInTheDocument()
   })
 
-  it('captions a null cost on a local engine as "cost unknown (local engine)" with a tooltip', () => {
-    renderHeader({ ...failedJob, provider: 'lan-box' })
+  it('shows only the metrics a run recorded', () => {
+    renderHeader({ ...failedJob, tokens_in: 900, tokens_out: 100 })
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    const caption = screen.getByText('Cost unknown (local engine)')
-    expect(caption.closest('[title]')).toHaveAttribute('title', expect.stringContaining('Add rates'))
-    expect(screen.getAllByText('Not available')).toHaveLength(2)
+    expect(screen.getByText('Tokens')).toBeInTheDocument()
+    expect(screen.queryByText('Cost')).not.toBeInTheDocument()
+    expect(screen.queryByText('Not available')).not.toBeInTheDocument()
   })
 
   it('lists modified files and the pipeline totals (≥ lower bound + partial hint) in Details', () => {
@@ -246,17 +245,14 @@ describe('JobRunHeader', () => {
     expect(screen.queryByText('0.0k')).not.toBeInTheDocument()
   })
 
-  // ── Details memory ─────────────────────────────────────────────────────────
+  // ── Details popover ───────────────────────────────────────────────────────
 
-  it('remembers the Details state per surface in localStorage', () => {
-    const { unmount } = renderHeader(completedJob)
+  it('opens Details as a popover beside the tabs instead of a block above the log', () => {
+    renderHeader(completedJob)
     expect(screen.queryByTestId('job-run-details')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Details' }))
-    expect(screen.getByTestId('job-run-details')).toBeInTheDocument()
-    expect(JSON.parse(localStorage.getItem('specrails-desktop:job-run-details')!)).toEqual({ page: true })
-    unmount()
-    renderHeader(completedJob, [], { variant: 'glass' })
-    expect(screen.queryByTestId('job-run-details')).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Details' })).toContainElement(screen.getByTestId('job-run-details'))
+    expect(localStorage.getItem('specrails-desktop:job-run-details')).toBeNull()
   })
 
   // ── Runtime continuation ───────────────────────────────────────────────────
@@ -286,60 +282,42 @@ describe('JobRunHeader', () => {
 
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ pendingApproval: { stepId: 'archive', reason: 'Review before completion' }, nextStep: 'archive' })] }))
     const view2 = renderHeader(failedJob, [], { projectId: 'p1' })
-    expect(await screen.findByRole('button', { name: 'Approve completion' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Approve' })).toBeInTheDocument()
     view2.unmount()
 
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'succeeded', nextStep: null, canResume: false, canSettle: true, canCancel: true })] }))
     renderHeader(completedJob, [], { projectId: 'p1' })
     expect(await screen.findByRole('button', { name: 'Prepare delivery' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cancel continuation' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel run' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Resume' })).not.toBeInTheDocument()
   })
 
-  it('surfaces a pending architect question: row-1 opens Details, the answer submits from there', async () => {
-    const user = userEvent.setup()
+  it('an answerable question has no place in the header or under Failure reasons: Answer goes to its card', async () => {
     const question = { stepId: 'architect', requestedAt: '2026-09-12T00:00:00.000Z', question: 'Which cache backend?' }
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ pendingQuestion: question })] }))
     renderHeader(failedJob, [], { projectId: 'p1' })
-    await user.click(await screen.findByRole('button', { name: 'Answer the question' }))
-    expect(screen.getByText('Which cache backend?')).toBeInTheDocument()
-    expect(screen.getByLabelText('Your answer')).toHaveFocus()
-    const answer = screen.getByRole('button', { name: 'Answer and resume' })
-    expect(answer).toBeDisabled()
-    await user.type(screen.getByLabelText('Your answer'), 'Redis')
-    await user.click(answer)
-    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/job-1/resume', expect.objectContaining({ method: 'POST', body: JSON.stringify({ answer: 'Redis' }) }))
-    await waitFor(() => expect(screen.getByLabelText('Your answer')).toHaveValue(''))
+    expect(await screen.findByRole('button', { name: 'Answer' })).toBeInTheDocument()
+    expect(screen.queryByText('Which cache backend?')).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Failure reasons' })).not.toBeInTheDocument()
+  })
+
+  it('a run waiting on the person says Needs attention, never the node id it paused at', async () => {
+    const question = { stepId: 'clarify', requestedAt: '2026-09-12T00:00:00.000Z', question: 'Which cache backend?' }
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, nextStep: 'clarify', pendingQuestion: question })] }))
+    renderHeader(failedJob, [], { projectId: 'p1' })
+    expect(await screen.findByText('Needs attention')).toBeInTheDocument()
+    expect(screen.queryByText(/clarify/)).not.toBeInTheDocument()
   })
 
   it('keeps chrome compact without an inline diagnosis or Details', () => {
     renderHeader(failedJob)
-    const chrome = screen.getByTestId('job-run-header')
+    const chrome = screen.getByTestId('run-detail-bar')
     expect(within(chrome).queryByRole('button', { name: 'Details' })).not.toBeInTheDocument()
     expect(within(chrome).queryByTestId('failure-diagnosis-card')).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Log' })).toBeVisible()
   })
 
-  it('reopens a question repeatedly and preserves failed answer drafts without duplicate polling', async () => {
-    const user = userEvent.setup()
-    const pendingQuestion = { stepId: 'architect', requestedAt: '', question: 'Which cache?' }
-    vi.mocked(fetch).mockImplementation(async (_input, init) => init?.method === 'POST' ? response({ message: 'Answer rejected' }, false) : response({ runs: [run({ pendingQuestion })] }))
-    renderHeader(failedJob, [], { projectId: 'p1' })
-    const questionButton = await screen.findByRole('button', { name: 'Answer the question' })
-    await user.click(questionButton)
-    expect(screen.getByRole('tab', { name: 'Failure reasons' })).toHaveAttribute('aria-selected', 'true')
-    await user.click(screen.getByRole('button', { name: 'Details' }))
-    await user.click(questionButton)
-    await user.type(screen.getByLabelText('Your answer'), 'Redis')
-    await user.click(screen.getByRole('button', { name: 'Answer and resume' }))
-    await waitFor(() => expect(notifyError).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ detail: 'Answer rejected' })))
-    await user.click(screen.getByRole('tab', { name: 'Log' }))
-    await user.click(screen.getByRole('tab', { name: 'Failure reasons' }))
-    expect(screen.getByLabelText('Your answer')).toHaveValue('Redis')
-    expect(vi.mocked(fetch).mock.calls.filter(([url, init]) => String(url).endsWith('/agent-runtime/runs/job-2') && !init?.method)).toHaveLength(1)
-  })
-
-  it('renders the runtime metrics and evidence disclosures inside Details', async () => {
+  it('renders the runtime metrics inside Details, without an evidence panel the run has no evidence for', async () => {
     const total = { attempts: 1, measuredAttempts: 1, durationMs: 12000, agentDurationMs: 8000, providerCalls: 1, toolCalls: 7, inputTokens: 100, outputTokens: 10, costUsd: 1.25, uncachedInputTokens: 20, cacheReadInputTokens: 80, cacheWriteInputTokens: 0 }
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'succeeded', nextStep: null, canResume: false, historical: true, metrics: { schemaVersion: 1, total, phases: [] } })] }))
     renderHeader(completedJob, [], { projectId: 'p1' })
@@ -347,7 +325,7 @@ describe('JobRunHeader', () => {
     expect(await screen.findByRole('region', { name: 'Implementation' })).toBeInTheDocument()
     fireEvent.click(screen.getByText('Usage and time'))
     expect(screen.getByText('Agent time').nextElementSibling).toHaveTextContent('8s')
-    expect(screen.getByText('Verification evidence')).toBeInTheDocument()
+    expect(screen.queryByText('Verification evidence')).not.toBeInTheDocument()
   })
 })
 
@@ -400,7 +378,9 @@ describe('JobRunHeader failure diagnosis', () => {
     await user.click(within(card).getByRole('button', { name: 'Open logs at the failure' }))
     await waitFor(() => expect(onOpenLogs).toHaveBeenCalledTimes(1))
     await user.click(screen.getByRole('tab', { name: 'Failure reasons' }))
-    await user.click(within(card).getByRole('button', { name: 'Run again' }))
+    // Start over waits in the card's menu, with its warning.
+    await user.click(within(card).getByTestId('failure-remedy-more'))
+    await user.click(await screen.findByTestId('failure-remedy-retry'))
     expect(onEditSpec).toHaveBeenCalledTimes(1)
     expect(onOpenLogs).toHaveBeenCalledTimes(1)
     expect(onRerun).toHaveBeenCalledTimes(1)
@@ -422,13 +402,44 @@ describe('JobRunHeader failure diagnosis', () => {
     expect(seen[seen.length - 1]).toBe(false)
   })
 
-  it('resumes through the runtime route only when the run can resume', async () => {
+  it('continues a run that is not a definition run through its in-place resume', async () => {
     const user = userEvent.setup()
     vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ status: 'failed', nextStep: 'fixer' })] }))
     renderHeader(diagnosed(tests), [], { projectId: 'p1', onOpenLogs: vi.fn() })
     const card = await screen.findByTestId('failure-diagnosis-card')
-    await user.click(await within(card).findByRole('button', { name: 'Resume from Fixer' }))
+    await user.click(await within(card).findByRole('button', { name: 'Continue from Fixer' }))
     expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/job-1/resume', expect.objectContaining({ method: 'POST', body: '{}' }))
+  })
+
+  it('continues a definition run through the Continue remedy, which keeps its work', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, status: 'failed', nextStep: 'fixer', canResume: false })] }))
+    renderHeader(diagnosed(tests), [], { projectId: 'p1', onOpenLogs: vi.fn() })
+    const card = await screen.findByTestId('failure-diagnosis-card')
+    await user.click(await within(card).findByRole('button', { name: 'Continue from Fixer' }))
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/projects/p1/loop-runs/job-1/remedy'), expect.objectContaining({ method: 'POST', body: JSON.stringify({ remedy: 'continue' }) })))
+  })
+
+  it('offers Continue for a stopped run the runtime list no longer shows, from the run\'s own record', async () => {
+    vi.mocked(fetch).mockImplementation(async (url) => String(url).includes('/attempts') ? response({ chain: null, continuable: true }) : response({ runs: [] }))
+    renderHeader({ ...failedJob, command: 'loop:factory:implement #16', status: 'canceled', failureDiagnosis: null }, [], { projectId: 'p1', onOpenLogs: vi.fn() })
+    await screen.findByTestId('stopped-run-card')
+    expect(screen.getByRole('tab', { name: 'Continue' })).toHaveAttribute('aria-selected', 'true')
+    await userEvent.setup().click(screen.getByTestId('failure-remedy-continue'))
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/loop-runs/job-2/remedy'), expect.objectContaining({ method: 'POST' })))
+  })
+
+  it('offers Continue for a run the person stopped, with Start over apart', async () => {
+    const user = userEvent.setup()
+    const onRerun = vi.fn()
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [run({ engineVersion: 2, status: 'cancelled', canResume: false })] }))
+    renderHeader({ ...failedJob, status: 'canceled', failureDiagnosis: null }, [], { projectId: 'p1', onOpenLogs: vi.fn(), onRerun })
+    const card = await screen.findByTestId('stopped-run-card')
+    expect(card).toHaveTextContent('You stopped this run')
+    expect(within(card).getByTestId('failure-remedy-consequence-continue')).toHaveTextContent('Picks it up where it stopped, in the same worktree')
+    await user.click(within(card).getByTestId('failure-remedy-continue'))
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/loop-runs/job-1/remedy'), expect.objectContaining({ body: JSON.stringify({ remedy: 'continue' }) })))
+    expect(onRerun).not.toHaveBeenCalled()
   })
 
   it('offers no resume when the run cannot resume', async () => {
@@ -436,7 +447,7 @@ describe('JobRunHeader failure diagnosis', () => {
     renderHeader(diagnosed(tests), [], { projectId: 'p1', onOpenLogs: vi.fn() })
     const card = await screen.findByTestId('failure-diagnosis-card')
     await waitFor(() => expect(fetch).toHaveBeenCalled())
-    expect(within(card).queryByRole('button', { name: /Resume/ })).toBeNull()
+    expect(within(card).queryByRole('button', { name: /Continue/ })).toBeNull()
   })
 
   it('says "Unknown cause" with the raw tail of the log instead of inventing a diagnosis', () => {
@@ -451,3 +462,186 @@ describe('JobRunHeader failure diagnosis', () => {
     expect(screen.getByTestId('failure-why')).toHaveTextContent('It resets 3am (Europe/Madrid).')
   })
 })
+
+describe('JobRunHeader evidence chip and run instructions', () => {
+  const summary = { schemaVersion: 1, runId: 'job-1', workflowVersion: '1', technicalAcceptance: 'validated', archive: 'a', delivery: 'd', currentEvidenceIds: [], planHash: null, candidateHash: null, roles: [], invocations: { total: 2, complete: true, byKind: {}, promptBytes: null, contextBytes: null, handoffBytes: null, fullContexts: 1, incrementalContexts: 1 }, checks: { available: true, executed: 2, reused: 1, notRun: 0, durationMs: null } }
+  const steering = (overrides = {}) => ({ receipts: [], pending: 0, consumed: 0, consumptionReported: true, ...overrides })
+  const live = (overrides = {}) => run({ engineVersion: 2, status: 'running', active: true, canResume: false, canCancel: true, steering: steering(), ...overrides })
+  const loopRunning: JobSummary = { ...runningJob, id: 'job-1', command: 'loop: Implement' }
+  const acceptedAt = '2026-11-18T10:00:00.000Z'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
+
+  it('shows no evidence chip without recorded evidence', async () => {
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [live()] }))
+    renderHeader(loopRunning, [], { projectId: 'p1' })
+    await screen.findByTestId('run-steering')
+    expect(screen.queryByTestId('run-evidence-chip')).not.toBeInTheDocument()
+    expect(screen.queryByText('Verification evidence')).not.toBeInTheDocument()
+  })
+
+  it('[spec:job-run-detail-navigation/failure-information-cannot-displace-navigation] shows the evidence chip in the header row and opens the evidence in a popover', async () => {
+    const user = userEvent.setup()
+    global.fetch = vi.fn(async (url: RequestInfo | URL) => String(url).includes('/evidence')
+      ? response({ schemaVersion: 1, available: true, items: [{ id: 'c1', label: 'npm test', repositoryId: 'repo', status: 'passed', disposition: 'executed', planHash: 'p', candidateHash: 'c', sources: [] }] })
+      : response({ runs: [live({ efficiencySummary: summary })] })) as typeof fetch
+    renderHeader(loopRunning, [], { projectId: 'p1' })
+    const chip = await screen.findByTestId('run-evidence-chip')
+    expect(screen.getByTestId('run-detail-meta')).toContainElement(chip)
+    expect(chip).toHaveAccessibleName('Verification evidence: Validated · 3 checks')
+    expect(chip.querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'done')
+    expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('/evidence'), expect.anything())
+    await user.click(chip)
+    const popover = screen.getByRole('dialog', { name: 'Verification evidence' })
+    expect(await within(popover).findByText('repo · npm test')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Verification evidence' })).not.toBeInTheDocument()
+    expect(chip).toHaveFocus()
+  })
+
+  it('[spec:job-run-detail-navigation/run-instructions-dock-under-the-log] docks the composer under the log only while the run accepts instructions', async () => {
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [live()] }))
+    const view = renderHeader(loopRunning, [], { projectId: 'p1' })
+    const composer = await screen.findByTestId('run-steering')
+    expect(screen.getByTestId('run-composer-dock')).toContainElement(composer)
+    expect(screen.getByLabelText('Additional instructions')).toHaveAttribute('placeholder', 'Tell the agent something for its next step…')
+    expect(screen.getByLabelText('Additional instructions')).toHaveAccessibleDescription("Applied at the agent's next compatible turn; it doesn't answer questions or grant approvals.")
+    expect(screen.queryByTestId('run-steering-chip')).not.toBeInTheDocument()
+    view.unmount()
+
+    // Old Core: no steering contract, no composer.
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [live({ engineVersion: 1 })] }))
+    const old = renderHeader(loopRunning, [], { projectId: 'p1' })
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    expect(screen.queryByTestId('run-steering')).not.toBeInTheDocument()
+    old.unmount()
+
+    // Settled without instructions: nothing at all.
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [live({ status: 'succeeded', active: false, canCancel: false })] }))
+    renderHeader(completedJob, [], { projectId: 'p1' })
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    expect(screen.queryByTestId('run-composer-dock')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('run-steering-chip')).not.toBeInTheDocument()
+  })
+
+  it('sends with Cmd/Ctrl+Enter (Enter alone adds a line) and shows the queued chip', async () => {
+    const user = userEvent.setup()
+    let runs = [live()]
+    global.fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        const { requestId, text } = JSON.parse(String(init.body))
+        runs = [live({ steering: steering({ pending: 1, receipts: [{ id: requestId, acceptedAt, preview: text, length: text.length, status: 'pending' }] }) })]
+        return response({ id: requestId, acceptedAt })
+      }
+      return response({ runs })
+    }) as typeof fetch
+    renderHeader(loopRunning, [], { projectId: 'p1' })
+    const field = await screen.findByLabelText('Additional instructions')
+    await user.type(field, 'Keep the API{Enter}stable')
+    expect(field).toHaveValue('Keep the API\nstable')
+    expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('/steer'), expect.anything())
+    await user.keyboard('{Control>}{Enter}{/Control}')
+    await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/projects/p1/agent-runtime/runs/job-1/steer', expect.objectContaining({ method: 'POST' })))
+    await waitFor(() => expect(field).toHaveValue(''))
+    const chip = await screen.findByTestId('run-steering-chip')
+    expect(chip).toHaveTextContent('1 queued')
+    expect(chip.querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'queued')
+    await user.click(chip)
+    const list = screen.getByRole('dialog', { name: 'Sent instructions' })
+    expect(list).toHaveTextContent('Keep the API')
+    expect(list).toHaveTextContent("Queued for the agent's next turn")
+  })
+
+  it('shows a settled run\'s instructions as a read-only applied chip beside the tabs', async () => {
+    const user = userEvent.setup()
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [live({ status: 'succeeded', active: false, canCancel: false, steering: steering({ consumed: 1, receipts: [{ id: 'm1', acceptedAt, preview: 'Keep compatibility', length: 18, status: 'consumed', consumedAttemptId: 'a7' }] }) })] }))
+    renderHeader(completedJob, [], { projectId: 'p1' })
+    const chip = await screen.findByTestId('run-steering-chip')
+    expect(screen.getByTestId('run-detail-meta')).toContainElement(chip)
+    expect(chip).toHaveTextContent('1 applied')
+    expect(chip.querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'done')
+    expect(screen.queryByLabelText('Additional instructions')).not.toBeInTheDocument()
+    await user.click(chip)
+    expect(screen.getByRole('dialog', { name: 'Sent instructions' })).toHaveTextContent('Applied by the agent')
+  })
+})
+
+describe('JobRunHeader — a run that stopped without settling', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    global.fetch = vi.fn().mockResolvedValue(response({ runs: [] }))
+  })
+
+  // The real case: Implement #15, the app restarted mid developer step; the row stays running.
+  const heldJob = (hold: JobSummary['hold']): JobSummary => ({
+    id: 'aacf0cbb', command: 'loop: Implement #15', started_at: '2026-11-19T14:35:16.000Z', finished_at: null, status: 'running',
+    duration_ms: null, total_cost_usd: null, tokens_in: null, tokens_out: null, num_turns: null, hold,
+  })
+  const restartHold = { kind: 'restart' as const, step: 'developer', since: '2026-11-19T14:51:45.000Z' }
+  const interruptedRun = (overrides = {}) => run({
+    runId: 'aacf0cbb', engineVersion: 2, status: 'interrupted', nextStep: 'developer', canResume: true, canCancel: true,
+    recoverableSteps: ['a3e7afe4-3510-4a54-be11-9858ef5c4c12'],
+    recoveryAttempts: [{ attemptId: 'a3e7afe4-3510-4a54-be11-9858ef5c4c12', nodePath: 'developer', scopeId: 'root', effect: 'write' }],
+    ...overrides,
+  })
+
+  it('reads Paused with the reason in plain words, never Running, and its clock stops where it stopped', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      renderHeader(heldJob(restartHold))
+      expect(screen.getByTestId('job-status')).toHaveTextContent('Paused')
+      expect(screen.queryByText('Running')).not.toBeInTheDocument()
+      expect(screen.getByTestId('job-run-activity')).toHaveTextContent('The app restarted during the Developer step.')
+      expect(screen.getByTestId('job-run-elapsed')).toHaveTextContent('16m 29s')
+      await act(async () => { vi.advanceTimersByTime(5000) })
+      expect(screen.getByTestId('job-run-elapsed')).toHaveTextContent('16m 29s')
+      expect(screen.getByTestId('job-run-elapsed')).toHaveAttribute('title', 'Time it worked until it stopped')
+    } finally { vi.useRealTimers() }
+  })
+
+  it('after a resume the running clock leaves out the time the run was held', () => {
+    const startedAt = new Date(Date.now() - 3 * 3_600_000 - 90_000).toISOString()
+    // Held for 3 hours (restart overnight), then resumed: 1m 30s of work so far.
+    renderHeader({ ...heldJob(null), started_at: startedAt, heldMs: 3 * 3_600_000 })
+    expect(screen.getByTestId('job-run-elapsed')).toHaveTextContent(/^1m 3\ds/)
+  })
+
+  it.each([
+    [{ kind: 'interrupted' as const, step: 'fixer', since: null }, 'Interrupted', 'The Fixer step stopped before it finished.'],
+    [{ kind: 'provider_limit' as const, step: null, since: null }, 'Usage limit', "Waiting for the provider's usage limit to reset."],
+    [{ kind: 'budget' as const, step: null, since: null }, 'Spending limit', 'The spending limit was reached.'],
+    [{ kind: 'question' as const, step: 'architect', since: null }, 'Needs attention', 'Waiting for your answer.'],
+  ])('a %o hold has its own label and reason', (hold, label, reason) => {
+    renderHeader(heldJob(hold))
+    expect(screen.getByTestId('job-status')).toHaveTextContent(label)
+    expect(screen.getByTestId('job-run-activity')).toHaveTextContent(reason)
+  })
+
+  it('one Continue recovers exactly the interrupted attempts (recover[]), says what it does, and shows no raw ids', async () => {
+    const user = userEvent.setup()
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [interruptedRun()] }))
+    const view = renderHeader(heldJob(restartHold), [], { projectId: 'p1' })
+    const button = await screen.findByRole('button', { name: 'Continue' })
+    expect(screen.getByTestId('runtime-recovery-consequence')).toHaveTextContent('The Developer step resumes where it stopped; its partial changes are kept.')
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    expect(view.container.textContent).not.toMatch(/a3e7afe4|· root ·/)
+    // The surface's own Cancel run ends a held run; the runtime's duplicate stays out.
+    expect(screen.queryByRole('button', { name: 'Cancel run' })).not.toBeInTheDocument()
+    vi.mocked(fetch).mockResolvedValue(response({ loopRunId: 'aacf0cbb' }))
+    await user.click(button)
+    expect(fetch).toHaveBeenCalledWith('/api/projects/p1/loop-runs/aacf0cbb/resume', expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ recover: ['a3e7afe4-3510-4a54-be11-9858ef5c4c12'] }),
+    }))
+  })
+
+  it('a run paused on a provider limit offers no header Continue: its limit card owns Resume now / Don\'t resume by itself', async () => {
+    vi.mocked(fetch).mockResolvedValue(response({ runs: [interruptedRun()] }))
+    renderHeader(heldJob({ kind: 'provider_limit' as const, step: 'fixer', since: null }), [], { projectId: 'p1' })
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument()
+  })
+})
+

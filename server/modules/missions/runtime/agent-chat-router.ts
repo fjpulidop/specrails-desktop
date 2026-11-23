@@ -37,6 +37,8 @@ import {
 } from '../../agents/runtime/agent-store'
 import { killBackgroundProcessesForChat, listBackgroundProcesses, purgeBackgroundProcessHistory } from '../../../transient-children'
 import { decorateAgentInputMessages, getAgentInput, AgentInputConflictError, AgentInputLimitError } from './agent-input-store'
+import { askSideQuestion, SideQuestionError, validateSideQuestionRequest, type SideQuestionDeps } from './mission-side-question'
+import { SessionRenewalError, summaryLanguage, writeSessionSummary, type SessionSummaryDeps } from './mission-session-summary'
 
 // ─── Agent chat REST surface (/api/agent) ─────────────────────────────────────
 //
@@ -49,6 +51,10 @@ export interface AgentRouterDeps {
   desktopDb: DbInstance
   /** Best-effort cleanup in open projects; closed projects sweep on their next open. */
   onPermanentlyDeleted?: (conversationId: string) => void
+  /** Test seam for "Ask about this" (defaults to the shared one-shot generator). */
+  sideQuestion?: Pick<SideQuestionDeps, 'createGenerator' | 'cwd'>
+  /** Test seam for "Start fresh with a summary" (defaults to the shared one-shot generator). */
+  sessionSummary?: Pick<SessionSummaryDeps, 'createGenerator' | 'cwd'>
 }
 
 export function isAgentChatEnabled(): boolean {
@@ -301,6 +307,49 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     res.status(201).json({ conversation })
   })
 
+  // "Ask about this": a one-turn, no-tool side question about selected text.
+  // Reads the mission's history up to the selection; never writes a message,
+  // never touches the provider session. Nothing about the side thread is stored.
+  router.post('/conversations/:id/side-questions', async (req: Request, res: Response) => {
+    const parsed = validateSideQuestionRequest(req.body)
+    if (!parsed.ok) { res.status(400).json({ error: parsed.error }); return }
+    const abort = new AbortController()
+    res.on('close', () => { if (!res.writableEnded) abort.abort() })
+    try {
+      const answer = await askSideQuestion({
+        desktopDb,
+        ...deps.sideQuestion,
+        onRecorded: (projectId) => { if (projectId) manager.notifySpendingInvalidated?.(projectId) },
+      }, String(req.params.id), parsed.value, abort.signal)
+      res.json(answer)
+    } catch (error) {
+      if (abort.signal.aborted) return
+      if (error instanceof SideQuestionError) { res.status(error.status).json({ error: error.message }); return }
+      // The provider's own message (unsupported model, usage limit) is the useful one.
+      const message = error instanceof Error && error.message ? error.message.slice(0, 1000) : 'Side question failed'
+      res.status(502).json({ error: message, code: 'SIDE_QUESTION_FAILED' })
+    }
+  })
+
+  // "Start fresh with a summary": write a summary of the mission so far, store
+  // it as the transcript marker, and let the next turn open a new provider
+  // session seeded with it. Refused while a turn runs and while in Intent.
+  router.post('/conversations/:id/session/renew', async (req: Request, res: Response) => {
+    try {
+      const { messageId, row } = await manager.renewSessionWithSummary(String(req.params.id), (conversation, signal) => writeSessionSummary({
+        desktopDb,
+        ...deps.sessionSummary,
+        onRecorded: (projectId) => { if (projectId) manager.notifySpendingInvalidated?.(projectId) },
+      }, conversation, signal, summaryLanguage(req.body?.language)))
+      res.json({ messageId, summary: row })
+    } catch (error) {
+      if (error instanceof SessionRenewalError) { res.status(error.status).json({ error: error.message, code: error.code }); return }
+      // The provider's own message (unsupported model, usage limit) is the useful one.
+      const message = error instanceof Error && error.message ? error.message.slice(0, 1000) : 'The summary could not be written'
+      res.status(502).json({ error: message, code: 'SESSION_SUMMARY_FAILED' })
+    }
+  })
+
   // "Recently deleted" missions (soft-deleted, restorable for 30 days). Registered
   // before `/conversations/:id` so `trash` is not read as a conversation id.
   router.get('/conversations/trash', (req: Request, res: Response) => {
@@ -326,7 +375,24 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       pendingMessages: manager.pendingMessages(conversation.id),
       live: manager.conversationLive(conversation.id),
       session: manager.sessionState(conversation.id),
+      // provider-quota: a continue the person scheduled at a usage-limit reset (optional manager capability).
+      limitContinueAt: typeof manager.limitContinueAt === 'function' ? manager.limitContinueAt(conversation.id) : null,
     })
+  })
+
+  // provider-quota: continue a limit-stopped mission by itself at the reset
+  // (`{ at: ISO }`), or cancel that (`{ at: null }`). Offered, never automatic.
+  router.get('/conversations/:id/limit-continue', (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation || conversation.deleted_at) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    res.json({ at: manager.limitContinueAt(conversation.id) })
+  })
+  router.post('/conversations/:id/limit-continue', (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation || conversation.deleted_at) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    const at = (req.body ?? {}).at
+    if (at !== null && (typeof at !== 'string' || !Number.isFinite(Date.parse(at)))) { res.status(400).json({ error: 'at must be an ISO time or null' }); return }
+    res.json(manager.scheduleLimitContinue(conversation.id, at))
   })
 
   // ── Sub-agents of a mission's Core agent session (core-agent-sessions-host) ──
@@ -403,6 +469,8 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       // foreign thread → "no rollout found").
       if (v !== conversation.provider) {
         patch.session_id = null
+        // The previous provider's context snapshot describes a session that no longer applies.
+        patch.context_usage = null
         patch.model = null
         patch.reasoning_effort = null
       }
@@ -663,6 +731,8 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       return
     }
     const contextRefs = sanitizeContextRefs(body.contextRefs)
+    // `surface: 'mcp'`: written from the person's own MCP client (v2 send); the turn tells the agent so.
+    const surface = body.surface === 'mcp' ? 'mcp' as const : undefined
     // Fire-and-forget: the turn streams over WS. Persist the chosen tier first so
     // a refresh mid-turn restores the right level.
     // isBusy here and sendMessage's own busy/enqueue branch run in the same
@@ -671,7 +741,7 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     const queued = manager.isBusy(conversation.id)
     try {
       const previous = queueId ? getAgentInput(desktopDb, conversation.id, queueId) : undefined
-      void manager.sendMessage(conversation.id, text, { tierLevel, model, attachmentIds, queueId, contextRefs, deliveryMode }).catch((e) =>
+      void manager.sendMessage(conversation.id, text, { tierLevel, model, attachmentIds, queueId, contextRefs, deliveryMode, ...(surface ? { surface } : {}) }).catch((e) =>
         console.error('[agent-chat] send failed:', e),
       )
       if (tierLevel !== undefined) updateAgentConversation(desktopDb, conversation.id, { tier_level: tierLevel })

@@ -17,7 +17,9 @@
     "left": {
       "pinnedOpen": "Recolher barra lateral esquerda (manter afixada)",
       "pinnedCollapsed": "Desafixar barra lateral esquerda",
-      "unpinned": "Afixar barra lateral esquerda aberta"
+      "unpinned": "Afixar barra lateral esquerda aberta",
+      "showOverlay": "Mostrar a barra lateral",
+      "hideOverlay": "Ocultar a barra lateral"
     },
     "right": {
       "pinnedOpen": "Recolher barra lateral direita (manter afixada)",
@@ -47,7 +49,7 @@
     "docs": "Docs",
     "analytics": "Análises de todos os projetos",
     "companion": "Companion",
-    "settings": "Definições da app",
+    "settings": "Definições",
     "plugins": "Plugins",
     "review": "Revisão",
     "landmark": "Projetos e missões",
@@ -58,7 +60,8 @@
       "label": "Mostrar apenas missões ativas",
       "tooltip": "Mostrar apenas missões ativas",
       "empty": "Nenhuma missão ativa"
-    }
+    },
+    "liveBoard": "Quadro ao vivo"
   },
   "globalSurfaceModal": {
     "loopsDescription": "Loops está aberto na janela de Mission.",
@@ -86,10 +89,9 @@
     "activeCli": "CLI ativa: {{label}}"
   },
   "statusBar": {
-    "connected": "ligado",
-    "syncing": "a sincronizar...",
-    "reconnecting": "a religar...",
-    "disconnected": "desligado",
+    "syncing": "A sincronizar…",
+    "reconnecting": "A religar…",
+    "disconnected": "Sem ligação",
     "connectionRestored": "Ligação restaurada"
   },
   "titleBar": {
@@ -154,11 +156,11 @@
   },
   "keepAwake": {
     "label": "Manter o computador ativo",
-    "on": "Ativado",
-    "off": "Desativado",
     "active": "Impede a suspensão automática. O ecrã pode apagar-se.",
     "inactive": "Suspensão normal permitida.",
-    "failed": "Não foi possível alterar a suspensão."
+    "failed": "Não foi possível alterar a suspensão.",
+    "turnOff": "Permitir de novo a suspensão",
+    "activeHint": "O computador mantém-se ativo. Clique para permitir a suspensão."
   },
   "skipToContent": "Pular para o conteúdo principal",
   "places": {

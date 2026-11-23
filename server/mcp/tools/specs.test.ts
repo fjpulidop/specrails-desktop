@@ -212,8 +212,9 @@ describe('specrails_specs facade', () => {
     await spec.handler(ctx, { action: 'contract_refine', projectId: 'p1', id: 5, aiEngine })
     expect(lastBody()).toEqual({ aiEngine })
     expect(fetchMock.mock.calls.at(-1)?.[0]).toContain('/tickets/5/contract-refine')
-    expect(spec.description).toContain('Contract Layer — Claude or Codex')
-    expect(spec.description).toContain('pass numeric id, not ticketId')
+    // contract_refine moved to specrails_specs_write (still accepted on specrails_specs).
+    expect(specsTools()[1].description).toContain('contract_refine (ai-spawn)')
+    expect(specsTools()[1].inputSchema.aiEngine).toBeDefined()
   })
 
   it('the generic watch hint no longer promises contract-refine settles via watch', async () => {
@@ -260,7 +261,7 @@ describe('specrails_specs facade', () => {
   })
 
   it('priority schema is a nullable enum (null clears — drafts only)', () => {
-    const priority = spec.inputSchema.priority as z.ZodTypeAny
+    const priority = specsTools()[1].inputSchema.priority as z.ZodTypeAny
     expect(priority.safeParse(null).success).toBe(true)
     expect(priority.safeParse('high').success).toBe(true)
     expect(priority.safeParse('urgent').success).toBe(false)

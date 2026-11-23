@@ -119,6 +119,37 @@ describe('RailsBoard toolbar', () => {
     expect(screen.getByTestId('rails-summary-ready')).toHaveTextContent('2 ready')
     expect(screen.getByTestId('rails-summary-failed')).toHaveTextContent('1 failed')
     expect(screen.getByTestId('rails-summary-total')).toHaveTextContent('4 rails')
+    // Running is the pulsing info lamp; ready is queued (primary is not a state colour).
+    const runningDot = screen.getByTestId('rails-summary-running').querySelector('[data-run-state]')!
+    expect(runningDot).toHaveAttribute('data-run-state', 'working')
+    expect(runningDot.innerHTML).toContain('bg-accent-info')
+    expect(runningDot.innerHTML).not.toContain('accent-success')
+    expect(screen.getByTestId('rails-summary-ready').querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'queued')
+    expect(screen.getByTestId('rails-summary-ready').innerHTML).not.toContain('accent-primary')
+    expect(screen.getByTestId('rails-summary-failed').querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'failed')
+  })
+
+  it('counts held rails by their hold: a provider limit is blocked, a question needs you, the budget is paused', () => {
+    const held = (kind: string | null) => ({ startedAt: 0, steps: 0, lines: 0, heldMs: 0, heldSince: 1, holdKind: kind })
+    renderToolbar([rail(1, 'running'), rail(2, 'running'), rail(3, 'running'), rail(4, 'running'), rail(5, 'running'), rail(6, 'running')], {
+      railMetrics: { 1: held('provider_limit'), 2: held('question'), 3: held('budget'), 4: held(null), 5: held('provider_limit') } as never,
+    })
+    expect(screen.getByTestId('rails-summary-running')).toHaveTextContent('1 running')
+    expect(screen.getByTestId('rails-summary-blocked')).toHaveTextContent('2 blocked')
+    expect(screen.getByTestId('rails-summary-needs-input')).toHaveTextContent('1 needs you')
+    expect(screen.getByTestId('rails-summary-paused')).toHaveTextContent('2 paused')
+    expect(screen.getByTestId('rails-summary-blocked').querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'blocked')
+    expect(screen.getByTestId('rails-summary-needs-input').querySelector('[data-run-state]')).toHaveAttribute('data-run-state', 'needs-input')
+    // What needs the person comes first.
+    const order = [...screen.getByTestId('rails-summary').querySelectorAll('[data-testid^="rails-summary-"]')].map((el) => el.getAttribute('data-testid'))
+    expect(order).toEqual(['rails-summary-running', 'rails-summary-needs-input', 'rails-summary-blocked', 'rails-summary-paused', 'rails-summary-total'])
+  })
+
+  it('names a held rail\'s lamp by its hold', () => {
+    renderToolbar([rail(1, 'running')], { railMetrics: { 0: { startedAt: 0, steps: 0, lines: 0, heldMs: 0, heldSince: 1, holdKind: 'provider_limit' } } as never })
+    const lamp = document.querySelector('[data-run-state="blocked"]')
+    expect(lamp).not.toBeNull()
+    expect(screen.getAllByRole('img', { name: 'Usage limit' }).length).toBeGreaterThan(0)
   })
 
   it('omits zero summary items but always shows the total', () => {
@@ -151,7 +182,9 @@ describe('RailsBoard toolbar', () => {
     renderToolbar([rail(1), rail(2)], { onLaunchAll, launchAllCount: 2 })
     const launch = screen.getByTestId('rails-launch-all')
     expect(launch).not.toBeDisabled()
-    expect(launch.className).toMatch(/bg-accent-success/)
+    // The one primary action takes the primary tone; success green is a lamp, never an action fill.
+    expect(launch.className).toMatch(/bg-primary/)
+    expect(launch.className).not.toMatch(/bg-accent-success/)
     expect(screen.getByTestId('rails-launch-all-count')).toHaveTextContent('2')
     fireEvent.click(launch)
     expect(onLaunchAll).toHaveBeenCalled()

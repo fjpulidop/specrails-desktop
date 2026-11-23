@@ -1,3 +1,4 @@
+import { runQuestionFrom, runQuestionFromStatus } from './shared/run-question'
 // Domain routes extracted from project-router.ts (jobs).
 // Registered on the shared router by createProjectRouter — behaviour-preserving.
 import { isRuntimeContinuationActive, cancelRuntimeContinuation, activeRuntimeContinuationIds } from './modules/agent-runtime/runtime/agent-runtime-controls-router'
@@ -33,7 +34,12 @@ import {
 } from './modules/specs/runtime/spec-models'
 import { resolveProvider, validateRequestedProvider } from './provider-selection'
 import type { JobRow } from './types'
+import type { DbInstance } from './db'
+import { getProjectSettings } from './db'
+import type { ProjectContext } from './project-registry'
+import { projectEnvFileSecretValues, redactEnvValues } from './worktree-env-files'
 import { getLoopRun } from './modules/loops/runtime/loop-runs-store'
+import { readRunAttempts } from './modules/loops/runtime/run-attempts'
 import { getProjectMetrics } from './modules/accounting/runtime/metrics'
 import { getQueuedJobForListing, listUnifiedJobs } from './modules/execution/runtime/job-listing'
 import {
@@ -45,12 +51,18 @@ import {
 import { registerBackgroundProcessRoutes } from './project-router-background-processes'
 import { registerMissionResourceRoutes } from './project-router-mission-resources'
 import { createAgentAuditService } from './modules/audit'
-import { readJobDiagnosis } from './modules/recovery/adapters/sqlite'
+import { readChainResolution, readJobDiagnosis, readFailureAnalysis, writeFailureAnalysis, type StoredFailureAnalysis } from './modules/recovery/adapters/sqlite'
+import { analysisLanguage, evidenceHash, failureAnalysisPrompt, failureEvidence, parseFailureAnalysis, resolutionKindsFor, type FailureEvidence } from './modules/recovery'
+import { createFileSummaryGenerator } from './modules/code/runtime/file-summary-generator'
+import type { GenerateOutput } from './modules/code/runtime/file-summary-manager'
+import { recordInvocation } from './modules/accounting/runtime/ai-invocations'
 import { registerAgentAuditHttp } from './modules/audit/adapters/http'
 import { createSqliteAgentActionStore } from './modules/audit/adapters/sqlite'
 import {
   type ProjectRoutesDeps, resolveDefaultSpecModel
 } from './project-router-helpers'
+import { readLimitPause } from './modules/loops/runtime/loop-limit-pauses'
+import { readRunHolds, runHoldSources, runPauseControl } from './modules/loops/runtime/loop-run-hold'
 
 export function registerJobsRoutes(deps: ProjectRoutesDeps): void {
   const { router, ctx, ticketPath } = deps
@@ -385,14 +397,22 @@ if (!isInteractiveJobsEnabled() && !loopPaused) {
 res.status(403).json({ error: 'Interactive jobs are disabled on this server' })
 return
 }
-    const { text, interruptId, approve } = req.body ?? {}
+    const { text, interruptId, approve, optionId, reject } = req.body ?? {}
     if (interruptId !== undefined && (typeof interruptId !== 'string' || !interruptId)) { res.status(400).json({ error: 'Invalid interruptId' }); return }
     if (approve !== undefined && typeof approve !== 'boolean') { res.status(400).json({ error: 'Invalid approval' }); return }
+    // A structured answer (Core questionOptions): the chosen option, or a rejection whose text is the reason.
+    if (optionId !== undefined && (typeof optionId !== 'string' || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(optionId))) { res.status(400).json({ error: 'Invalid optionId' }); return }
+    if (reject !== undefined && (reject !== true || approve === true)) { res.status(400).json({ error: 'Invalid rejection' }); return }
+    // Not paused in this process (retained over a restart): the caller resumes the retained run instead.
+    // An approval carries no text, so it must get here before the text check: it answered 400
+    // "text is required", and the question card (which falls back to the retained resume on 409 only)
+    // could not approve a run a restart had retained.
+    if ((optionId !== undefined || reject !== undefined || approve === true) && !loopPaused) { res.status(409).json({ error: 'not_paused_here', detail: 'Resume the retained run with POST /loop-runs/:id/resume' }); return }
     if ((typeof text !== 'string' || !text.trim()) && !(loopPaused && approve === true)) {
       res.status(400).json({ error: 'text is required' })
       return
     }
-const control = { ...(interruptId ? { interruptId } : {}), ...(approve !== undefined ? { approve } : {}) }
+const control = { ...(interruptId ? { interruptId } : {}), ...(approve !== undefined ? { approve } : {}), ...(optionId ? { optionId } : {}), ...(reject === true ? { reject: true } : {}) }
 const accepted = loopPaused
   ? (c.loopRunManager?.sendInteractiveTurn(jobId, typeof text === 'string' ? text : '', control) ?? false)
   : c.queueManager.sendInteractiveTurn(jobId, text) || (c.loopRunManager?.sendInteractiveTurn(jobId, text) ?? false)
@@ -485,7 +505,10 @@ const accepted = loopPaused
     const from = req.query.from as string | undefined
     const to = req.query.to as string | undefined
     const { db } = ctx(req)
-    const result = listUnifiedJobs(db, { limit, offset, status, from, to, activeRuntimeIds: activeRuntimeContinuationIds(ctx(req)) })
+    const attempts = req.query.attempts === 'all' ? 'all' as const : 'latest' as const
+    const result = listUnifiedJobs(db, { limit, offset, status, from, to, attempts, activeRuntimeIds: activeRuntimeContinuationIds(ctx(req)) })
+    // A continued run names its place in its chain ("attempt 3"); earlier attempts are folded into it.
+    const chain = (() => { try { return readRunAttempts(db, result.jobs.map((job) => job.id)) } catch { return new Map() as ReturnType<typeof readRunAttempts> } })()
 
     // Annotate each job with hasTelemetry so the client can show the
     // Export diagnostic button without an extra round trip.
@@ -503,11 +526,16 @@ const accepted = loopPaused
       const title = store?.tickets[String(id)]?.title
       return title ? { ticketId: id, ticketTitle: title } : null
     }
+    // A loop run that stopped without settling keeps its row running (ownership):
+    // its hold says why it is not working, so no list shows it as running.
+    const holds = (() => { try { return readRunHolds(db, result.jobs.filter((job) => job.status === 'running' && !isRuntimeContinuationActive(ctx(req), job.id)).map((job) => job.id), runHoldSources(ctx(req))) } catch { return new Map() as ReturnType<typeof readRunHolds> } })()
     const annotatedJobs = result.jobs.map((j) => ({
       ...j,
       ...(isRuntimeContinuationActive(ctx(req), j.id) ? { status: 'running', finished_at: null } : {}),
+      ...(holds.get(j.id) ? { hold: holds.get(j.id) } : {}),
       hasTelemetry: jobsWithTelemetry.has(j.id),
       ...(specOf(j.command) ?? {}),
+      ...(chain.get(j.id) ? { attempt: { number: chain.get(j.id)!.attempt, of: chain.get(j.id)!.attempts, firstRunId: chain.get(j.id)!.rootRunId } } : {}),
     }))
 
     res.json({ jobs: annotatedJobs, total: result.total })
@@ -689,15 +717,90 @@ const loopRun = getLoopRun(db, jobId)
 const loopPaused = loopRun?.status === 'paused' || (c.loopRunManager?.isPaused?.(jobId) ?? false)
 const loopPauseReason = c.loopRunManager?.pausedReason?.(jobId) ?? null
 const loopPauseBudget = c.loopRunManager?.budgetPause?.(jobId) ?? null
+// provider-quota: a run waiting for a usage-limit reset (live pause, or retained over a restart).
+const loopPauseLimit = c.loopRunManager?.limitPause?.(jobId) ?? (loopRun?.status === 'paused' ? readLimitPause(db, jobId) : null)
 const pendingInterrupts = c.loopRunManager?.pendingInterrupts?.(jobId) ?? []
+// The one question card every surface renders: the live pause first, else the retained Core status
+// (a run paused across a restart). Only a run still paused asks anything.
+const question = runQuestionFrom(pendingInterrupts) ?? (loopRun?.status === 'paused' && !loopPauseBudget && !loopPauseLimit ? runQuestionFromStatus(loopRun.runtime_status_json) : null)
 if (job.status === 'running' && ((isInteractiveJobsEnabled() && job.interactive) || loopPaused)) {
 const qmMode = queueManager.getInteractiveSettleMode?.(jobId) ?? null
 const loopStepActive = c.loopRunManager?.isInteractiveJob?.(jobId) ?? false
 interactiveAcceptingTurns = qmMode !== null || loopStepActive || loopPaused
 interactiveSettleMode = qmMode ?? ((loopStepActive || loopPaused || loopRun) ? 'auto' : null)
 }
-const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status: 'running', finished_at: null } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused, loopPauseReason, ...(loopPauseBudget ? { loopPauseKind: 'budget_paused', loopPauseBudget: { scope: loopPauseBudget.scope, ...(loopPauseBudget.period ? { period: loopPauseBudget.period } : {}), budgetUsd: loopPauseBudget.budgetUsd, spentUsd: loopPauseBudget.spentUsd, resetsAt: loopPauseBudget.resetsAt } } : {}), pendingInterrupts, failureDiagnosis: (() => { try { return readJobDiagnosis(db, jobId, job.status) } catch { return null } })() }
+const continuationActive = isRuntimeContinuationActive(c, jobId)
+const hold = job.status === 'running' && !continuationActive ? (() => { try { return readRunHolds(db, [jobId], runHoldSources(c)).get(jobId) ?? null } catch { return null } })() : null
+// The person's Pause / Resume of a Core definition run (null: Stop is the only control).
+const pauseControl = job.status === 'running' ? runPauseControl(c, jobId, hold) : null
+const annotated = { ...job, ...(continuationActive ? { status: 'running', finished_at: null } : {}), ...(hold ? { hold } : {}), ...(pauseControl ? { pauseControl } : {}), ...(loopRun?.held_ms ? { heldMs: loopRun.held_ms } : {}), hasTelemetry: hasJobTelemetry(db, jobId), tickets, interactiveSettleMode, interactiveAcceptingTurns, loopPaused: loopPaused || !!hold, loopPauseReason, ...(loopPauseBudget ? { loopPauseKind: 'budget_paused', loopPauseBudget: { scope: loopPauseBudget.scope, ...(loopPauseBudget.period ? { period: loopPauseBudget.period } : {}), budgetUsd: loopPauseBudget.budgetUsd, spentUsd: loopPauseBudget.spentUsd, resetsAt: loopPauseBudget.resetsAt, ...(loopPauseBudget.nextStep && typeof loopPauseBudget.remainingUsd === 'number' ? { nextStep: { label: loopPauseBudget.nextStep.label, usd: loopPauseBudget.nextStep.usd }, remainingUsd: loopPauseBudget.remainingUsd } : {}) } } : {}), ...(loopPauseLimit ? { loopPauseKind: 'limit_paused', loopPauseLimit } : {}), ...(hold?.kind === 'paused' && hold.byYou ? { loopPauseKind: 'user_paused' } : {}), pendingInterrupts, question, failureDiagnosis: (() => { try { return readJobDiagnosis(db, jobId, job.status) } catch { return null } })() }
     res.json({ job: annotated, events, phaseDefinitions })
+  })
+
+  // ─── Failure analysis: the AI reading of why a failed job stopped ─────────
+  // docs/internals/api-reference.md#failure-analysis. Read-only for the job;
+  // the call runs on the provider that ran it, one turn, no tools.
+  const analysisRequest = (req: Request) => {
+    const c = ctx(req)
+    const job = getJob(c.db, String(req.params.id))
+    if (!job || (job.status !== 'failed' && job.status !== 'canceled')) return null
+    const language = analysisLanguage(req.query.language ?? req.body?.language)
+    let diagnosis: { kind: string; detail: string | null } | null = null
+    let record: ReturnType<typeof readJobDiagnosis> = null
+    try { record = readJobDiagnosis(c.db, job.id, job.status); diagnosis = record ? { kind: record.kind, detail: record.detail } : null } catch { /* none */ }
+    // What the app knows beyond the log: the tests behind the stop, the attempts so far, and the
+    // resolution kinds this run can execute (the options the model may offer).
+    let attempts: ReturnType<typeof readChainResolution> = null
+    try { attempts = readChainResolution(c.db, job.id) } catch { attempts = null }
+    const evidence = failureEvidence({
+      job: { command: job.command, status: job.status, provider: job.provider ?? null, model: job.model ?? null },
+      diagnosis,
+      context: {
+        failingTests: record?.failingTests ?? [], flakyTests: record?.flakyTests ?? [],
+        attempts: attempts ? { count: attempts.attempts, costUsd: attempts.costUsd, repeated: attempts.repeated, times: attempts.times } : null,
+        optionKinds: resolutionKindsFor(record),
+      },
+      events: getJobEvents(c.db, job.id),
+      ...envValueRedactor(c),
+    })
+    return { c, job, language, evidence, inputHash: evidenceHash(evidence, language) }
+  }
+  const presentAnalysis = (stored: StoredFailureAnalysis, inputHash: string) => ({
+    status: 'ready' as const, analysis: stored.analysis, provider: stored.provider, model: stored.model,
+    createdAt: stored.createdAt, stale: stored.inputHash !== inputHash,
+  })
+
+  router.get('/:projectId/jobs/:id/failure-analysis', (req: Request, res: Response) => {
+    const request = analysisRequest(req)
+    if (!request) { res.status(404).json({ error: 'not_a_failed_job' }); return }
+    const stored = readFailureAnalysis(request.c.db, request.job.id)
+    res.json(stored && stored.language === request.language ? presentAnalysis(stored, request.inputHash) : { status: 'none' })
+  })
+
+  router.post('/:projectId/jobs/:id/failure-analysis', async (req: Request, res: Response) => {
+    const request = analysisRequest(req)
+    if (!request) { res.status(404).json({ error: 'not_a_failed_job' }); return }
+    const { c, job, language, evidence, inputHash } = request
+    const stored = readFailureAnalysis(c.db, job.id)
+    if (stored && stored.language === language && stored.inputHash === inputHash && req.body?.force !== true) {
+      res.json(presentAnalysis(stored, inputHash)); return
+    }
+    if (evidence.lines.length === 0) { res.status(422).json({ error: 'no_log' }); return }
+    const inFlight = failureAnalysesInFlight.get(c.db) ?? new Map<string, Promise<StoredFailureAnalysis>>()
+    failureAnalysesInFlight.set(c.db, inFlight)
+    const key = `${job.id}:${inputHash}`
+    let pending = inFlight.get(key)
+    if (!pending) {
+      pending = generateFailureAnalysis(c.db, c.project, job, language, evidence, inputHash)
+        .finally(() => { inFlight.delete(key) })
+      inFlight.set(key, pending)
+    }
+    try {
+      res.json(presentAnalysis(await pending, inputHash))
+    } catch (err) {
+      if (err instanceof FailureAnalysisInterrupted) { res.status(503).json({ error: 'analysis_interrupted' }); return }
+      res.status(502).json({ error: 'analysis_failed', detail: err instanceof Error ? err.message.slice(0, 400) : String(err) })
+    }
   })
 
   router.delete('/:projectId/jobs', (req: Request, res: Response) => {
@@ -724,14 +827,91 @@ const annotated = { ...job, ...(isRuntimeContinuationActive(c, jobId) ? { status
     res.json(getStats(ctx(req).db))
   })
 
-  router.get('/:projectId/metrics', (req: Request, res: Response) => {
+  router.get('/:projectId/metrics', async (req: Request, res: Response) => {
     const { project, db } = ctx(req)
     try {
-      res.json(getProjectMetrics(project.path, db))
+      res.json(await getProjectMetrics(project.path, db))
     } catch (err) {
       console.error('[project-router] metrics error:', err)
       res.status(500).json({ error: 'Failed to compute metrics' })
     }
   })
 
+}
+
+/** In-flight analyses per project database: a second request rides the first. */
+const failureAnalysesInFlight = new WeakMap<DbInstance, Map<string, Promise<StoredFailureAnalysis>>>()
+
+/** The provider that ran the job, else the project's. A local engine has no CLI to ask. */
+function analysisAdapter(job: JobRow, project: { provider?: string | null }) {
+  for (const id of [job.provider, project.provider, 'claude']) {
+    if (!id) continue
+    try { return getAdapter(id) } catch { /* not a CLI provider */ }
+  }
+  return getAdapter('claude')
+}
+
+/** The analysis CLI was stopped by a signal (SIGTERM 143, SIGINT 130, SIGKILL 137), not by its own error. */
+function isInterruptedAnalysis(err: unknown): boolean {
+  return err instanceof Error && /exit code=(?:143|130|137)\b|exit code=null\b|generator aborted/.test(err.message)
+}
+
+class FailureAnalysisInterrupted extends Error {
+  constructor() { super('analysis_interrupted') }
+}
+
+async function generateFailureAnalysis(
+  db: DbInstance, project: { id: string; path: string; provider?: string | null }, job: JobRow,
+  language: string, evidence: FailureEvidence, inputHash: string,
+): Promise<StoredFailureAnalysis> {
+  const adapter = analysisAdapter({ ...job, provider: getLoopRun(db, job.id)?.provider ?? job.provider }, project)
+  // The model that ran the job: the account can run it, which a provider's
+  // cheap default is not guaranteed to (Codex rejects mini models on ChatGPT plans).
+  const run = getLoopRun(db, job.id) as { provider?: string | null; model?: string | null } | undefined
+  const ranWith = { provider: run?.provider ?? job.provider, model: run?.model ?? job.model }
+  const model = adapter.id === ranWith.provider && ranWith.model ? ranWith.model : undefined
+  const generate = createFileSummaryGenerator({ adapter, cwd: project.path, ...(model ? { model } : {}), systemPrompt: () => failureAnalysisPrompt(language) })
+  const startedAt = new Date().toISOString()
+  const record = (status: 'success' | 'failed', out?: Partial<GenerateOutput>) => {
+    try {
+      recordInvocation(db, {
+        id: uuidv4(), project_id: project.id, provider: out?.provider ?? adapter.id, surface: 'failure-analysis',
+        surface_ref_id: job.id, status, started_at: startedAt, finished_at: new Date().toISOString(),
+        model: out?.model, total_cost_usd: out?.costUsd ?? undefined, tokens_in: out?.tokensIn ?? undefined,
+        tokens_out: out?.tokensOut ?? undefined, tokens_cache_read: out?.tokensCacheRead, tokens_cache_create: out?.tokensCacheCreate,
+        duration_ms: out?.durationMs ?? 0, num_turns: 1, total_cost_usd_estimated: !!out?.costEstimated,
+      })
+    } catch (err) { console.error('[failure-analysis] recordInvocation failed:', err) }
+  }
+  let out: GenerateOutput
+  const attempt = () => generate({ relPath: `job:${job.id}`, contents: JSON.stringify(evidence), truncated: evidence.truncated, language: 'en' })
+  try {
+    try {
+      out = await attempt()
+    } catch (err) {
+      // Killed from outside (the app restarting, a dev server reload): one fresh try,
+      // since nothing about the run or its log was wrong.
+      if (!isInterruptedAnalysis(err)) throw err
+      record('failed', (err as { partial?: Partial<GenerateOutput> }).partial)
+      out = await attempt()
+    }
+  } catch (err) {
+    record('failed', (err as { partial?: Partial<GenerateOutput> }).partial)
+    if (isInterruptedAnalysis(err)) throw new FailureAnalysisInterrupted()
+    throw err
+  }
+  record('success', out)
+  const stored: StoredFailureAnalysis = {
+    inputHash, language, provider: out.provider ?? adapter.id, model: out.model ?? null,
+    analysis: parseFailureAnalysis(out.summary, evidence), createdAt: new Date().toISOString(),
+  }
+  writeFailureAnalysis(db, job.id, stored)
+  return stored
+}
+
+/** Copied env values (setting `worktreeEnvFiles`) never reach the analysis provider. */
+function envValueRedactor(c: ProjectContext): { redact?: (line: string) => string } {
+  let values: string[] = []
+  try { values = projectEnvFileSecretValues(c.project, getProjectSettings(c.db).worktreeEnvFiles) } catch { values = [] }
+  return values.length ? { redact: (line: string) => redactEnvValues(line, values) } : {}
 }

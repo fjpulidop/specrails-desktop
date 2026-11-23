@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { SIDE_PANE_FIT } from '../lib/mission-side-pane'
 import { RailTrack } from '../../../components/brand/RailTrack'
 import { useTranslation } from 'react-i18next'
 import { formatDistanceToNow } from 'date-fns'
@@ -14,22 +15,18 @@ import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { useDesktop } from '../../../hooks/useDesktop'
 import { formatCommandForProvider } from '../../../lib/format-command'
 import { jobActivityTimestamp, parseJobTimestamp } from '../../jobs/lib/job-time'
-import { Badge } from '../../../components/ui/badge'
-import { JobDetailModal } from '../../jobs/components/JobDetailModal'
+import { RunStatePill } from '../../../components/ui/run-state/run-state-pill'
+import { jobStatusLook } from '../../jobs/lib/job-run-state'
 import type { JobSummary } from '../../../types'
-import { LiveDot } from '../../../components/ui/live-dot'
+
+// Loads with the first opened job, like the mission cards' run-log chips:
+// the log explorer stack (highlighting, runtime graph) stays out of the shell.
+const JobDetailModal = lazy(() =>
+  import('../../jobs/components/JobDetailModal').then((m) => ({ default: m.JobDetailModal })),
+)
 
 const MIN_PANE = 360
 const DEFAULT_PANE = 480
-
-type BadgeVariant = 'success' | 'running' | 'queued' | 'failed' | 'canceled'
-const STATUS_VARIANT: Record<string, BadgeVariant> = {
-  running: 'running',
-  completed: 'success',
-  failed: 'failed',
-  canceled: 'canceled',
-  queued: 'queued',
-}
 
 /**
  * Agent-Mode inline Jobs pane (same split chrome as `AgentModeCodePane`): the
@@ -136,7 +133,7 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
     <div data-area="jobs"
       className={cn(
         'area-surface flex h-full flex-col overflow-hidden border-l border-border bg-background',
-        maximized ? 'absolute inset-0 z-30 border-l-0' : 'relative',
+        maximized ? 'absolute inset-0 z-30 border-l-0' : cn('relative', SIDE_PANE_FIT),
       )}
       style={maximized ? undefined : { width, flexShrink: 0 }}
     >
@@ -196,10 +193,14 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <Badge variant={STATUS_VARIANT[job.status] ?? 'queued'}>
-                      {tJobs(`statusLabel.${job.status in STATUS_VARIANT ? job.status : 'queued'}`)}
-                    </Badge>
-                    {job.status === 'running' && <LiveDot tone="primary" size="xs" aria-hidden />}
+                    {(() => {
+                      const look = jobStatusLook(job)
+                      return <RunStatePill state={look.state} label={tJobs(look.labelKey)} data-testid="agent-job-status" />
+                    })()}
+                    {/* A continued run is its chain's one row; it names its attempt. */}
+                    {job.attempt && job.attempt.number > 1 && (
+                      <span className="text-caption text-muted-foreground num" data-testid="agent-job-attempt">{tJobs('recent.attempt', { number: job.attempt.number })}</span>
+                    )}
                     <span className="ml-auto text-caption text-muted-foreground">
                       {(() => {
                         const timestamp = parseJobTimestamp(jobActivityTimestamp(job))
@@ -220,7 +221,9 @@ export function AgentModeJobsPane({ projectId }: { projectId: string }) {
       </div>
 
       {detailJobId && (
-        <JobDetailModal jobId={detailJobId} projectId={projectId} onClose={closeJobParam} />
+        <Suspense fallback={null}>
+          <JobDetailModal jobId={detailJobId} projectId={projectId} onClose={closeJobParam} />
+        </Suspense>
       )}
     </div>
   )

@@ -34,18 +34,25 @@
   },
   "budget": {
     "title": "Orçamento",
-    "description": "Defina um limite de gasto diário para este projeto. A fila pausa automaticamente quando o limite é atingido.",
+    "description": "Defina um limite de gasto diário para este projeto. As execuções pausam ao atingi-lo.",
     "dailyLabel": "Limite diário",
-    "dailyHelper": "O gasto é contado sobre as últimas 24 horas. A fila pausa quando o limite é atingido.",
-    "perJobLabel": "Alerta de custo por job (USD)",
-    "perJobHelper": "Alertar quando um único job deste projeto excede este valor.",
+    "dailyHelper": "O gasto é contado nas últimas 24 horas. As execuções pausam ao atingir o limite.",
+    "perJobLabel": "Alerta de custo por execução (USD)",
+    "perJobHelper": "Receba um alerta quando uma única execução deste projeto custar mais do que isto.",
     "perJobPlaceholder": "ex.: 0.50",
     "invalidNumber": "Introduza um número positivo ou deixe em branco para desativar",
-    "perJobAlertDisabled": "Alerta de custo por job desativado",
-    "alertSet": "Alerta definido para jobs acima de {{amount}}",
+    "perJobAlertDisabled": "Alerta de custo por execução desativado",
+    "alertSet": "Alerta definido para execuções acima de {{amount}}",
     "saveThresholdFailed": "Falha ao guardar o limiar",
     "dailyCurrent": "Atualmente {{amount}} por dia",
-    "dailyNone": "Sem limite diário"
+    "dailyNone": "Sem limite diário",
+    "resumeOnDailyReset": {
+      "label": "Retomar as execuções retidas pelo limite diário quando o dia reiniciar",
+      "helper": "Quando o dia reinicia, uma execução retida apenas pelo limite diário continua sozinha assim que houver capacidade. Uma execução que você pausou, ou que o próprio limite por execução ainda retém, continua esperando por você.",
+      "enabled": "As execuções retidas pelo limite diário serão retomadas quando o dia reiniciar",
+      "disabled": "As execuções retidas pelo limite diário vão esperar por você",
+      "saveFailed": "Não foi possível salvar a configuração"
+    }
   },
   "desktop": {
     "nav": {
@@ -61,9 +68,11 @@
       "webhooks": "Webhooks",
       "about": "Sobre",
       "effects": "Efeitos",
-      "subscriptionUsage": "Uso de assinaturas"
+      "subscriptionUsage": "Uso de assinaturas",
+      "notifications": "Notificações",
+      "storage": "Armazenamento"
     },
-    "title": "Definições do Desktop",
+    "title": "Definições",
     "description": "Aparência, fornecedores de IA, atualizações e preferências gerais do Desktop.",
     "registeredProjects": "Projetos registados",
     "noProjects": "Ainda não há projetos registados",
@@ -71,9 +80,9 @@
     "techUrlSaved": "URL do specrails-tech guardado",
     "techUrlSaveFailed": "Falha ao guardar o URL",
     "budgetAlertsHeading": "Orçamento e alertas",
-    "dailyBudgetLabel": "Limite diário do Desktop",
-    "dailyBudgetHelper": "Limite global de gasto diário em todos os projetos. As filas pausam automaticamente quando é excedido.",
-    "perJobHelper": "Alertar quando um único job excede este valor. Deixe em branco para desativar.",
+    "dailyBudgetLabel": "Limite diário de toda a app",
+    "dailyBudgetHelper": "Um único limite de gasto diário para todos os projetos. As execuções pausam ao atingi-lo.",
+    "perJobHelper": "Receba um alerta quando uma única execução custar mais do que isto. Deixe em branco para não receber alertas.",
     "costAlertsDisabled": "Alertas de custo desativados",
     "projectRemoved": "Projeto removido",
     "projectRemoveFailed": "Falha ao remover o projeto",
@@ -81,10 +90,10 @@
     "platformTour": "Tour da plataforma",
     "platformTourDescription": "Repita o assistente de boas-vindas para rever as funcionalidades principais.",
     "replayTour": "Repetir tour",
-    "infoHeading": "Informações do Desktop",
+    "infoHeading": "Sobre",
     "infoPort": "Porta",
     "infoProjects": "Projetos",
-    "infoDb": "BD do Desktop",
+    "infoDb": "Base de dados",
     "removeProjectConfirmTitle": "Remover {{name}}?",
     "removeProjectConfirmBody": "{{name}} deixa de estar registado no Specrails e o trabalho em curso para. Os ficheiros do repositório no disco não são apagados; pode voltar a adicionar a pasta mais tarde.",
     "navLabel": "Secções das definições",
@@ -95,18 +104,8 @@
     },
     "unsavedChanges": "Alterações não guardadas",
     "dailyBudgetCurrent": "Atualmente {{amount}} por dia",
-    "dailyBudgetNone": "Sem limite diário"
-  },
-  "notifications": {
-    "heading": "Notificações do SO",
-    "description": "Mostrar notificações nativas do desktop quando os jobs terminam ou falham. As notificações só aparecem quando o separador não está focado.",
-    "enableLabel": "Ativar notificações do SO",
-    "notifyOn": "Notificar em:",
-    "filterAll": "Tudo (concluídos e falhados)",
-    "filterCompleted": "Apenas concluídos",
-    "filterFailed": "Apenas falhados",
-    "enabledToast": "Notificações do SO ativadas",
-    "disabledToast": "Notificações do SO desativadas"
+    "dailyBudgetNone": "Sem limite diário",
+    "infoVersion": "Versão"
   },
   "webhooks": {
     "heading": "Webhooks de saída",
@@ -164,7 +163,7 @@
   "appearance": {
     "taglines": {
       "dracula": "O original — escuro com tom púrpura e acentos néon vivos",
-      "aurora-light": "Claro premium — índigo inspirado no Linear sobre branco quente",
+      "aurora-light": "Mesa de desenho à luz do dia — tinta sobre papel quente, profundidade com sombras suaves",
       "obsidian-dark": "Grafite pro — quase preto neutro com um único acento violeta suave",
       "specrails": "Tema da marca — azul-marinho-índigo profundo com acentos ciano saturados",
       "code-rain": "Terminal de fósforo — menta suave sobre quase preto esverdeado",
@@ -177,7 +176,7 @@
   },
   "mobile": {
     "heading": "Companion móvel",
-    "description": "Controle o Specrails a partir da app SpecRails Companion no seu telemóvel, 100% através da sua rede local. Desativado por omissão. Um telemóvel emparelhado pode responder a perguntas, retomar, repetir e criar PR em rascunho a partir da caixa de entrada, dentro do que os níveis de permissão MCP permitirem; integrar, descartar e as definições ficam neste computador.",
+    "description": "Controle o Specrails a partir da app Specrails Companion no seu telemóvel, 100% através da sua rede local. Desativado por omissão. Um telemóvel emparelhado pode responder a perguntas, retomar, repetir e criar PR em rascunho a partir da caixa de entrada, dentro do que os níveis de permissão MCP permitirem; integrar, descartar e as definições ficam neste computador.",
     "accessOn": "Acesso móvel ligado",
     "accessOff": "Acesso móvel desligado",
     "listeningOnPort": "À escuta na porta {{port}}",
@@ -190,7 +189,7 @@
     "identityReset": "Identidade móvel reposta",
     "enableFailed": "Não foi possível ativar o acesso móvel",
     "disableFailed": "Não foi possível desativar o acesso móvel",
-    "windowsFirewall": "A Firewall do Windows pedirá para permitir o servidor SpecRails na primeira ativação — escolha “Permitir em redes privadas”.",
+    "windowsFirewall": "A Firewall do Windows pedirá para permitir o servidor Specrails na primeira ativação — escolha “Permitir em redes privadas”.",
     "pairedDevices": "Dispositivos emparelhados",
     "noDevices": "Ainda não há dispositivos emparelhados.",
     "revokeDevice": "Revogar {{name}}",
@@ -533,5 +532,114 @@
       "full": "Movimento total",
       "fullHint": "Anima mesmo que o SO peça menos"
     }
+  },
+  "missionConnectors": {
+    "title": "Conectores nas missões",
+    "description": "As missões podem usar os conectores e servidores MCP que você já configurou em cada provedor. Todos começam ativados; desative os que suas missões não precisam.",
+    "refresh": "Atualizar",
+    "measure": "Medir tamanhos",
+    "measuring": "Medindo…",
+    "loadFailed": "Não foi possível listar os conectores dos provedores.",
+    "measureFailed": "Não foi possível medir os conectores.",
+    "saveFailed": "Não foi possível atualizar {{name}}.",
+    "empty": "Nenhum conector ou servidor MCP encontrado nos seus provedores.",
+    "appliesNextTurn": "Uma alteração vale a partir do próximo turno da missão. Esse turno reconstrói uma vez o cache de prompts do provedor, por isso custa um pouco mais.",
+    "claudeListStale": "O Claude Code não respondeu, então esta lista mostra os conectores de conta que ele lembra.",
+    "waitsForToolSearch": "Seus próprios servidores MCP serão carregados nas missões do Claude quando o Claude puder buscar ferramentas sob demanda (requer atualizar o Core).",
+    "notLoadedYet": "Ainda não carregado",
+    "toggleLabel": "Usar {{name}} nas missões do {{provider}}",
+    "sizeTitle": "Tamanho aproximado das definições de ferramentas se o provedor as enviar completas",
+    "size_one": "{{count}} ferramenta · ≈{{tokens}} tokens",
+    "size_other": "{{count}} ferramentas · ≈{{tokens}} tokens",
+    "kind": {
+      "account-connector": "Conector de conta",
+      "mcp-server": "Servidor MCP"
+    },
+    "status": {
+      "needsAuth": "Requer login no provedor",
+      "failed": "Não conectou"
+    },
+    "lock": {
+      "specrails-duplicate": "Mesmo servidor que o MCP do Specrails: sempre excluído (as missões já o têm).",
+      "disabled-in-provider": "Desativado na sua configuração do {{provider}}.",
+      "external-mcp": "Adicionado por Servidores MCP externos (Configurações ▸ MCP).",
+      "unsupported": "O {{provider}} o carrega por conta própria; o Specrails não pode desativá-lo."
+    },
+    "providerNote": {
+      "claude": "Conectores de conta do claude.ai e os servidores MCP em ~/.claude.json. O Claude envia as definições completas de ferramentas de cada conector em toda requisição.",
+      "codex": "Servidores em ~/.codex/config.toml. O Codex carrega as definições de ferramentas só quando o agente as procura.",
+      "gemini": "Servidores em ~/.gemini/settings.json.",
+      "kimi": "Servidores em ~/.kimi-code/mcp.json."
+    }
+  },
+  "attention": {
+    "heading": "Notificações",
+    "description": "O que requer sua atenção: uma notificação do sistema quando você está fora, um aviso quando está em outra parte do app e nada quando já está na tela.",
+    "enable": "Me avisar",
+    "enableHint": "Desative para parar todas as notificações e avisos abaixo.",
+    "categoriesLegend": "Me avisar sobre",
+    "categories": {
+      "question": {
+        "label": "Perguntas e respostas",
+        "hint": "Um agente espera sua resposta ou uma missão respondeu"
+      },
+      "review": {
+        "label": "Revisões prontas",
+        "hint": "Uma entrega ou pull request espera sua decisão"
+      },
+      "failed": {
+        "label": "Falhas",
+        "hint": "Uma execução falhou, foi bloqueada ou parou de avançar"
+      },
+      "budget": {
+        "label": "Limites de gasto",
+        "hint": "Uma execução foi pausada por um orçamento, um teto de gasto ou o limite de uso do provedor"
+      },
+      "done": {
+        "label": "Jobs concluídos",
+        "hint": "Um job foi concluído (só quando você não está no app)"
+      }
+    },
+    "sound": "Tocar um som",
+    "soundHint": "O som de notificação do sistema",
+    "dockBadge": "Selo do Dock",
+    "dockBadgeHint": "O ícone do app mostra quantos itens da caixa de entrada você não viu",
+    "dockBadgeDesktopOnly": "No app para desktop, o ícone do app mostra quantos itens da caixa de entrada você não viu",
+    "projectsHeading": "Projetos",
+    "projectsDescription": "Desative um projeto para silenciar suas notificações. Os itens dele continuam na caixa de entrada.",
+    "saveFailed": "Não foi possível salvar as configurações de notificação"
+  },
+  "autoContinue": {
+    "title": "Continuar execuções falhadas",
+    "description": "Quando uma execução falha por uma causa que o Specrails sabe corrigir, continua-a uma vez por si e indica-o no histórico.",
+    "toggleLabel": "Continuar automaticamente, uma vez",
+    "stateOn": "Ativado: o Specrails continua uma vez uma falha que consegue corrigir.",
+    "stateOff": "Desativado: uma execução falhada espera que a continue.",
+    "explainWhen": "Tarefas por terminar, uma ferramenta em falta, um erro momentâneo do fornecedor ou um bloqueio: a tentativa seguinte mantém todo o trabalho e recebe as orientações de que precisa.",
+    "explainNever": "Nunca por credenciais ou segredos, recusas de política, limites de gasto, limites de utilização, uma paragem que escolheu ou a mesma falha duas vezes.",
+    "enabled": "O Specrails vai continuar uma vez as falhas que consegue corrigir",
+    "disabled": "As execuções falhadas vão esperar por si",
+    "saveFailed": "Não foi possível guardar a definição"
+  },
+  "machineInstalls": {
+    "title": "Instalações lembradas",
+    "description": "Instalações para toda a máquina que você aprovou para uma execução. O Specrails as executa de novo sem perguntar; revogue uma para ser perguntado na próxima vez.",
+    "empty": "Nada lembrado ainda. Quando uma execução precisar instalar uma ferramenta em toda a máquina, ela pergunta antes.",
+    "approvedAt": "Aprovada em {{date}}",
+    "uses_one": "Usada uma vez",
+    "uses_other": "Usada {{count}} vezes",
+    "revoke": "Revogar",
+    "revoked": "Aprovação revogada. O Specrails perguntará antes de executá-la de novo.",
+    "revokeFailed": "Não foi possível revogar a aprovação",
+    "loadFailed": "Não foi possível carregar as instalações lembradas"
+  },
+  "envFiles": {
+    "title": "Arquivos de ambiente nas execuções",
+    "description": "Copia os arquivos .env ignorados pelo Git deste projeto (.env, .env.local, .env.test e outros .env.<nome>) de cada repositório para o worktree de cada execução, para que os testes que precisam deles possam rodar. Desativado por padrão.",
+    "label": "Copiar os arquivos .env deste projeto para as execuções",
+    "consequence": "Os agentes nas execuções deste projeto podem ler esses arquivos. Eles nunca são incluídos em commits nem mostrados nas revisões.",
+    "enabled": "As execuções agora recebem os arquivos .env deste projeto",
+    "disabled": "As execuções não recebem mais os arquivos .env deste projeto",
+    "saveFailed": "Não foi possível salvar a configuração de arquivos de ambiente"
   }
 }

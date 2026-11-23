@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import type { RailPrDecision, RailPrDecisionAction, RailPrStateSnapshot } from '../../../types'
 import { coerceRailPrStateSnapshot, comparePrSnapshotUpdatedAt } from '../lib/pr-delivery'
+import { dismissSafetyArchives, inspectSafetyArchives, isSafetyArchiveDismissed } from '../lib/safety-archives-api'
+import { SafetyArchiveDialog } from '../components/SafetyArchiveNotice'
 
 /**
  * Ask-first PR decisions per rail (safe-pr-review-flow), keyed by railIndex.
@@ -50,7 +52,7 @@ export interface RailPrActResult {
   snapshotApplication?: RailPrSnapshotApplication
   /** A concurrent surface currently owns the durable operation lease. */
   busy?: boolean
-  operation?: RailPrDecisionAction | 'checkout' | null
+  operation?: RailPrDecisionAction | 'checkout' | 'refresh-on-base' | null
 }
 
 export interface RailPrCheckoutResult {
@@ -113,7 +115,7 @@ function fromServerSnapshot(raw: ServerPrDeliverySnapshot, railIndex: number): R
 
 const TERMINAL_DECISIONS: ReadonlySet<RailPrDecision> = new Set(['merged', 'discarded', 'completed', 'superseded'])
 const PR_OPERATIONS: ReadonlySet<string> = new Set([
-  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry',
+  'create-pr', 'publish', 'discard', 'poll-merge', 'merge-local', 'dismiss', 'reopen', 'acknowledge-no-changes', 'recover-and-retry', 'refresh-on-base',
 ])
 
 function snapshotsMatch(a: RailPrStateSnapshot, b: RailPrStateSnapshot): boolean {
@@ -141,6 +143,28 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
   const supersededByDeliveryIdRef = useRef(new Map<string, string>())
   const terminalDeliveryIdsRef = useRef(new Set<string>())
   const acceptedRestorationsRef = useRef(new Map<string, string>())
+
+  // Release kept files outside the PR: a short toast (only when the archive
+  // really holds files), Details opens the full notice as a dialog.
+  const [archiveDialog, setArchiveDialog] = useState<{ projectId: string; paths: string[] } | null>(null)
+  const announceSafetyArchives = useCallback((projectId: string | null, paths: string[]) => {
+    if (!projectId) return
+    const wanted = paths.filter((archivePath) => !isSafetyArchiveDismissed(archivePath))
+    if (wanted.length === 0) return
+    void inspectSafetyArchives(wanted.map((archivePath) => ({ projectId, path: archivePath }))).then((answers) => {
+      const present = answers.flatMap((answer) => answer.status === 'present' && answer.quarantine.fileCount > 0 ? [answer] : [])
+      if (present.length === 0) return
+      const count = present.reduce((sum, answer) => sum + (answer.status === 'present' ? answer.quarantine.fileCount : 0), 0)
+      const presentPaths = present.map((answer) => answer.path)
+      toast.warning(t('safetyArchive.title', { count }), {
+        id: `safety-archive:${presentPaths.join('|')}`,
+        description: t('safetyArchive.toastHint'),
+        duration: 20_000,
+        action: { label: t('safetyArchive.details'), onClick: () => setArchiveDialog({ projectId, paths: presentPaths }) },
+        cancel: { label: t('safetyArchive.dismiss'), onClick: () => dismissSafetyArchives(presentPaths) },
+      })
+    }).catch(() => { /* the settled card still shows the notice */ })
+  }, [t])
 
   const applySnapshot = useCallback((snap: RailPrStateSnapshot, announceTerminal = true): RailPrSnapshotApplication => {
     const currentMap = decisionsRef.current
@@ -209,17 +233,7 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
       // in-flight hydration discard a valid generation B returned by the GET.
       if (!current || current.prDeliveryId !== snap.prDeliveryId) return 'untracked'
       if (announceTerminal) {
-        if (snap.safetyArchives?.length) {
-          const archivePaths = snap.safetyArchives.join('\n')
-          toast.warning(t('railPr.safetyArchiveTitle', { count: snap.safetyArchives.length }), {
-            description: `${t('railPr.safetyArchiveHint')}\n${archivePaths}`,
-            duration: Infinity,
-            action: {
-              label: t('railPr.copySafetyArchive'),
-              onClick: () => { void navigator.clipboard?.writeText(archivePaths) },
-            },
-          })
-        }
+        if (snap.safetyArchives?.length) announceSafetyArchives(projRef.current, snap.safetyArchives)
         if (snap.cleanupWarnings?.length) {
           const cleanupDetails = snap.cleanupWarnings.join('\n')
           toast.warning(t('railPr.cleanupIncomplete', { count: snap.cleanupWarnings.length }), {
@@ -256,7 +270,7 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
     decisionsRef.current = next
     setDecisions(next)
     return 'accepted'
-  }, [t])
+  }, [t, announceSafetyArchives])
 
   const hydrate = useCallback(async (projectId: string, markReady: boolean): Promise<void> => {
     const request = ++hydrateRequestRef.current
@@ -473,5 +487,13 @@ export function RailPrDecisionProvider({ activeProjectId, children }: { activePr
 
   const value = useMemo(() => ({ decisions, hydrated, act, checkout }), [decisions, hydrated, act, checkout])
 
-  return <RailPrDecisionContext.Provider value={value}>{children}</RailPrDecisionContext.Provider>
+  return <RailPrDecisionContext.Provider value={value}>
+    {children}
+    {archiveDialog && <SafetyArchiveDialog
+      projectId={archiveDialog.projectId}
+      paths={archiveDialog.paths}
+      open
+      onOpenChange={(open) => { if (!open) setArchiveDialog(null) }}
+    />}
+  </RailPrDecisionContext.Provider>
 }

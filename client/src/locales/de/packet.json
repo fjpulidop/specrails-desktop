@@ -78,10 +78,13 @@
     }
   },
   "proof": {
-    "filesChanged": "{{files}} Dateien geändert (+{{added}} / −{{removed}} Zeilen)",
-    "testFilesChanged": "{{count}} Testdateien geändert",
+    "filesChanged_one": "{{files}} Datei geändert (+{{added}} / −{{removed}} Zeilen)",
+    "filesChanged_other": "{{files}} Dateien geändert (+{{added}} / −{{removed}} Zeilen)",
+    "testFilesChanged_one": "{{count}} Testdatei geändert",
+    "testFilesChanged_other": "{{count}} Testdateien geändert",
     "noTestFilesChanged": "Keine Testdateien geändert.",
-    "commitsRecorded": "Arbeit wurde auf {{branches}} Branch(es) festgehalten",
+    "commitsRecorded_one": "Arbeit wurde auf {{branches}} Branch festgehalten",
+    "commitsRecorded_other": "Arbeit wurde auf {{branches}} Branches festgehalten",
     "verificationPassed": "Die KI berichtete, ihre Prüfungen seien bestanden ({{count}})",
     "verificationFailed": "Die KI berichtete, ihre Prüfungen seien FEHLGESCHLAGEN ({{count}})",
     "noVerificationReported": "Die KI berichtete keine Verifizierung.",
@@ -91,11 +94,15 @@
     "reviewerScoreUnavailable": "Keine Reviewer-Bewertung erzeugt.",
     "evidenceUnavailable": "Belege nicht verfügbar",
     "hostCommandPassed": "Die Runtime hat {{label}} selbst ausgeführt: Exit-Code {{exitCode}} ({{seconds}} s)",
+    "hostStaticCheckPassed": "Die Runtime hat {{label}} selbst ausgeführt, aber die Prüfung liest nur Dateiinhalte und führt den Code nicht aus: Exit-Code {{exitCode}} ({{seconds}} s)",
     "hostCommandFailed": "Die Runtime hat {{label}} selbst ausgeführt und es ist FEHLGESCHLAGEN: Exit-Code {{exitCode}} ({{seconds}} s)",
     "acceptanceCheckPassed": "Reviewer-Prüfung bestanden: {{name}}",
     "acceptanceCheckFailed": "Reviewer-Prüfung FEHLGESCHLAGEN: {{name}}",
     "reviewerSummary": "Zusammenfassung des KI-Reviewers:",
-    "reviewerFinding": "Der KI-Reviewer merkte an:"
+    "reviewerFinding": "Der KI-Reviewer merkte an:",
+    "earlierAttempts_one": "{{count}} früherer Lauf dieser Prüfung",
+    "earlierAttempts_other": "{{count}} frühere Läufe dieser Prüfung",
+    "earlierAttempt": "Mit Exit-Code {{exitCode}} fehlgeschlagen ({{seconds}} s), vor der Korrektur, die sie bestehen ließ"
   },
   "watch": {
     "humanReviewRecommended": "Der KI-Reviewer gab {{overall}}/100 und empfiehlt eine menschliche Prüfung.",
@@ -128,6 +135,11 @@
   "planned": {
     "title": "Geplanter Ansatz (laut Spec)",
     "caveat": "Was die Anfrage vorschlug – kein Bericht darüber, was die KI getan hat. Die Fakten oben zeigen, was sich tatsächlich geändert hat."
+  },
+  "delivered": {
+    "title": "Was sich geändert hat",
+    "caveat": "Aus dem gelieferten OpenSpec-Vorschlag: vom Agenten geschrieben und vom Reviewer geprüft.",
+    "why": "Warum"
   },
   "outcome": {
     "succeeded": "Umgesetzt",
@@ -216,7 +228,8 @@
       "invariantsTouched": "Berührte Invarianten",
       "untested": "Ungetestete Pfade",
       "humanChecks": "Manuelle Prüfungen",
-      "divergences": "Abweichungen von der Spec"
+      "divergences": "Abweichungen von der Spec",
+      "reviewNotes": "Hinweise des Reviewers, nicht umgesetzt"
     },
     "userVisible": "Für Nutzer sichtbar",
     "invariantStatus": {
@@ -229,7 +242,17 @@
     "dropped_other": "{{count}} Einträge entsprachen nicht dem erwarteten Format und wurden übersprungen.",
     "topRisk": "Größtes Risiko",
     "moreRisks_one": "+{{count}} weiteres",
-    "moreRisks_other": "+{{count}} weitere"
+    "moreRisks_other": "+{{count}} weitere",
+    "reviewNotesCaveat": "Befunde, die der Reviewer als nicht für diesen Lauf markiert hat. Keine Korrekturrunde hat sie bearbeitet.",
+    "noteKind": {
+      "advice": "Ratschlag",
+      "out-of-scope": "Außerhalb des Umfangs",
+      "host-only-check": "Manuelle Prüfung",
+      "regenerated-lockfile": "Neu erzeugte Lockdatei",
+      "frozen-artifact": "Eingefrorenes Artefakt",
+      "withdrawn-criterion": "Von dir zurückgezogen",
+      "other": "Hinweis"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} Aktion",

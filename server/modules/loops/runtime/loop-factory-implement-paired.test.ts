@@ -13,8 +13,9 @@ vi.mock('../../agent-runtime/runtime/agent-runtime-package', async importOrigina
   const original = await importOriginal<typeof import('../../agent-runtime/runtime/agent-runtime-package')>()
   const selected = new Map<string, string>()
   return { ...original,
+    prepareRetainedAgentRuntime: async () => {},
     retainAgentRuntime: (cli: string, contextPath: string) => { selected.set(contextPath, cli); return cli },
-    resolveRetainedAgentRuntime: (contextPath: string) => {
+    resolveRetainedAgentRuntime: async (contextPath: string) => {
       const cli = selected.get(contextPath)
       if (!cli) throw new Error('Fixture runtime was never retained')
       return cli

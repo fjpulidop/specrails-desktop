@@ -1,3 +1,4 @@
+import { runQuestionFrom, type RunQuestion } from '../../../shared/run-question'
 import { collectRuntimeRetention } from './agent-runtime-retention'
 import { runtimeRetentionHostPorts, recoverHostRuntimeRetention } from './agent-runtime-retention-host'
 import { readRuntimeExpiration, readRuntimeRetentionPolicy, saveRuntimeRetentionPolicy } from './agent-runtime-retention-records'
@@ -6,11 +7,12 @@ import { readRuntimeHistory } from './agent-runtime-history'
 import { settleRuntimeContinuation } from './agent-runtime-settlement'
 import { applyRuntimeSelectionOrigins, readRuntimeEfficiencySummary, readRuntimeEfficiency, type RuntimeEfficiencySummary, type RuntimeEfficiency, type RuntimeMetricsCatalog } from './agent-runtime-metrics'
 import { execFile, type ChildProcess } from 'node:child_process'
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { resolveRetainedAgentRuntime } from './agent-runtime-package'
+import { resolveRetainedAgentRuntimeForInspection } from './agent-runtime-package'
+import { RuntimeStatusCache, runtimeStatusFingerprint } from './agent-runtime-status-cache'
 import { RUNTIME_HOST_ENV_KEYS, runAgentRuntimeInvocation, runAgentRuntimeControl } from './agent-runtime-bridge'
 import { resolveCoreNodeRuntime } from '../../../core-node-runtime'
 import { treeKillSafe, windowsSpawnEnv } from '../../../util/win-spawn'
@@ -83,6 +85,8 @@ interface RuntimeInspection {
 }
 interface FrozenContext { runId: string; backlogRoot: string; artifactRoot: string; repositories: Array<{ id: string; name: string; path: string }> }
 export interface RuntimeState {
+  /** The question card a paused definition run waits on (see loops/runtime/run-question). */
+  question?: RunQuestion | null
   lease?: { active: boolean } | null
   recoverableSteps?: Array<{ attemptId: string; nodePath: string; scopeId: string }>
   pendingInterrupts?: Array<{ id: string; nodePath: string; kind: 'question' | 'approval' | 'gate' | 'host-task'; value?: unknown }>
@@ -115,6 +119,8 @@ export interface RuntimeRunSummary {
   runId: string; traceId?: string; status: string; nextStep: string | null; updatedAt?: string; error?: string
   pendingApproval?: { stepId: string; reason?: string }
   pendingQuestion?: RuntimePendingQuestion
+  /** The question card (see shared/run-question): who asks, the question, its choices. */
+  question?: RunQuestion | null
   recoverableSteps: string[]; active: boolean; canResume: boolean; canCancel: boolean
   /** A settled continuation (blocked/failed/interrupted/succeeded) can be dismissed from the rail card; it stays in the history. */
   canDismiss?: boolean
@@ -179,7 +185,8 @@ function openQuestion(state: RuntimeState): RuntimePendingQuestion | undefined {
 /** Status is a read-only Core CLI operation. It never invokes a provider. */
 export async function readAgentRuntimeStatus(contextPath: string, cwd: string, env: NodeJS.ProcessEnv): Promise<RuntimeState | null> {
   let cli: string
-  try { cli = resolveRetainedAgentRuntime(contextPath) }
+  // Read-only: verified off the event loop and memoized per retained package.
+  try { cli = await resolveRetainedAgentRuntimeForInspection(contextPath) }
   catch (error) { throw new RuntimeControlError(409, 'original_runtime_unavailable', error instanceof Error ? error.message : 'The original runtime package is unavailable') }
   if (!cli) throw new RuntimeControlError(503, 'runtime_unavailable', 'Update Core to inspect or resume agent runtime executions')
   const { stdout } = await promisify(execFile)(resolveCoreNodeRuntime(), [cli, 'status', '--context', contextPath, '--compact'], {
@@ -215,7 +222,9 @@ export async function readAgentRuntimeStatus(contextPath: string, cwd: string, e
   let selection: unknown
   try { selection = JSON.parse(fs.readFileSync(path.join(path.dirname(contextPath), 'desktop-runtime-selection.json'), 'utf8')) } catch { /* Original hosts may not record selection origins. */ }
   const catalog = metricsCatalogFor(state)
-  return { ...state, inspection: result.pipeline, metrics: readRuntimeEfficiency(result.metrics ?? state.metrics, catalog), efficiencySummary: applyRuntimeSelectionOrigins(readRuntimeEfficiencySummary(result.efficiencySummary, catalog), selection, state.runId) }
+  // The question card (shared with every surface); null when nothing waits on the person.
+  const question = state.engineVersion === 2 ? runQuestionFrom(state.pendingInterrupts ?? []) : null
+  return { ...state, question, inspection: result.pipeline, metrics: readRuntimeEfficiency(result.metrics ?? state.metrics, catalog), efficiencySummary: applyRuntimeSelectionOrigins(readRuntimeEfficiencySummary(result.efficiencySummary, catalog), selection, state.runId) }
 }
 
 /** One controller per ProjectContext; Core's durable lease remains the final
@@ -225,7 +234,7 @@ export class AgentRuntimeControls {
   activeRunIds(): string[] { return [...this.active.keys()] }
   private active = new Map<string, { child?: ChildProcess; cancelled: boolean; forceKillTimer?: ReturnType<typeof setTimeout> }>()
   private errors = new Map<string, string>()
-  private statusCache = new Map<string, { fingerprint: string; state: RuntimeState }>()
+  private statusCache = new RuntimeStatusCache<RuntimeState | null>()
   private disposed = false
   private collectingRetention = false
   constructor(private ctx: Pick<ProjectContext, 'project' | 'db'> & Partial<Pick<ProjectContext, 'broadcast' | 'railLoopRuns' | 'railJobs'>>, private dependencies: { status: typeof readAgentRuntimeStatus; execute: typeof runAgentRuntimeInvocation; kill: typeof treeKillSafe; settle?: typeof settleRuntimeContinuation; recovery?: typeof invokeRuntimeRecovery; control?: typeof runAgentRuntimeControl; reviewer?: (runId: string) => Promise<RunReviewDiagnosis | null> } = { status: readAgentRuntimeStatus, execute: runAgentRuntimeInvocation, kill: treeKillSafe, settle: settleRuntimeContinuation }, private options: { settleDefinition?: (runId: string) => Promise<void> } = {}) {
@@ -263,7 +272,7 @@ export class AgentRuntimeControls {
       const recovery = body.dryRun === false ? recoverHostRuntimeRetention(host).errors : []
       const report = await collectRuntimeRetention(runtimeRetentionHostPorts(host, policy, now), policy, { dryRun: body.dryRun !== false, now })
       return recovery.length ? { ...report, errors: [...recovery, ...report.errors] } : report
-    } finally { this.collectingRetention = false; this.statusCache.clear() }
+    } finally { this.collectingRetention = false; this.statusCache.invalidate() }
   }
 
   async signal(runId: string, input: unknown): Promise<RuntimeSteeringAccepted> {
@@ -277,7 +286,7 @@ export class AgentRuntimeControls {
     if (!state || state.runId !== runId || state.engineVersion !== 2) throw new RuntimeControlError(409, 'steering_unsupported', 'This retained run does not support engine v2 steering')
     try {
       const accepted = await (this.dependencies.control ?? runAgentRuntimeControl)({ kind: 'signal', contextPath: file, cwd, env, runId, text: body.text, requestId: body.requestId })
-      this.statusCache.delete(runId)
+      this.statusCache.invalidate(runId)
       return { id: accepted.id, acceptedAt: accepted.acceptedAt }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not send operator steering'
@@ -330,7 +339,7 @@ export class AgentRuntimeControls {
       if (!['id', 'section', 'sourceId', 'cursor', 'limit'].includes(key) || typeof value !== 'string' || value.length > 1024) throw new RuntimeControlError(400, 'invalid_evidence_query', 'Invalid evidence query')
       flags.push('--' + (key === 'sourceId' ? 'source-id' : key), value)
     }
-    const cli = resolveRetainedAgentRuntime(file)
+    const cli = await resolveRetainedAgentRuntimeForInspection(file)
     const { stdout } = await promisify(execFile)(resolveCoreNodeRuntime(), [cli, 'evidence', '--context', file, ...flags], { cwd: frozen.backlogRoot, env: windowsSpawnEnv(env), windowsHide: true, timeout: 15000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8' })
     const result = JSON.parse(stdout)
     if (result.schemaVersion !== 1 || typeof result.available !== 'boolean' || typeof result.truncated !== 'boolean') throw new RuntimeControlError(503, 'evidence_unavailable', 'Core evidence is unavailable or incompatible')
@@ -370,7 +379,7 @@ export class AgentRuntimeControls {
         onSpawn: child => { active.child = child; if (active.cancelled || this.disposed) this.cancel(runId) },
       })
       if (parsed.data.action === 'patch' || parsed.data.action === 'check') {
-        this.statusCache.delete(runId)
+        this.statusCache.invalidate(runId)
         this.ctx.db.transaction(() => {
           const seq = (this.ctx.db.prepare('SELECT COALESCE(MAX(seq), -1) + 1 AS seq FROM events WHERE job_id = ?').get(runId) as { seq: number }).seq
           appendEvent(this.ctx.db, runId, seq, { event_type: 'runtime-recovery', source: 'stdout', payload: JSON.stringify({ action: parsed.data.action, result }) })
@@ -381,7 +390,7 @@ export class AgentRuntimeControls {
       if (error instanceof RuntimeControlError) throw error
       if (error instanceof RecoveryUnsupportedEngineError) throw new RuntimeControlError(409, 'recovery_unsupported_engine', error.message)
       throw new RuntimeControlError(409, 'runtime_recovery_blocked', error instanceof Error ? error.message : 'Recovery failed; inspect history before retrying')
-    } finally { clearTimeout(active.forceKillTimer); this.active.delete(runId); this.ctx.railLoopRuns?.delete(runId); this.statusCache.delete(runId) }
+    } finally { clearTimeout(active.forceKillTimer); this.active.delete(runId); this.ctx.railLoopRuns?.delete(runId); this.statusCache.invalidate(runId) }
   }
 
   /** The error a run logged when it failed before any Core step ran; null otherwise. */
@@ -468,11 +477,10 @@ export class AgentRuntimeControls {
     const directory = path.join(resolveProjectExecution(this.ctx.project).specrailsDir, 'pipeline')
     const entries = (fs.existsSync(directory) ? fs.readdirSync(directory, { withFileTypes: true }) : []).filter((entry) => entry.isDirectory() && SAFE_ID.test(entry.name) && fs.existsSync(path.join(directory, entry.name, 'agent-runtime-request.json')))
       .sort((a, b) => fs.statSync(path.join(directory, b.name)).mtimeMs - fs.statSync(path.join(directory, a.name)).mtimeMs).slice(0, 20)
-    const runs: RuntimeRunSummary[] = []
-    // Bounded sequential reads avoid spawning one Node process per historical run at once.
-    for (const entry of entries) runs.push(await this.summary(entry.name))
+    // The status cache bounds concurrent Core processes; settled runs are served from it.
+    const runs: RuntimeRunSummary[] = await Promise.all(entries.map(entry => this.summary(entry.name)))
     const expired = this.ctx.db.prepare('SELECT run_id FROM runtime_retention_records ORDER BY expired_at DESC LIMIT 20').all() as Array<{ run_id: string }>
-    for (const row of expired) if (!runs.some(run => run.runId === row.run_id)) runs.push(await this.summary(row.run_id))
+    runs.push(...await Promise.all(expired.filter(row => !runs.some(run => run.runId === row.run_id)).map(row => this.summary(row.run_id))))
     return runs.sort((a, b) => Number(b.active) - Number(a.active) || (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')).slice(0, 20)
   }
 
@@ -481,17 +489,10 @@ export class AgentRuntimeControls {
     if (expired) return { runId, status: 'expired', expiredAt: expired.expiredAt, updatedAt: expired.expiredAt, nextStep: null, historical: true, active: false, canResume: false, canCancel: false, canSettle: false, recoverableSteps: [] }
     try {
       const { file, cwd, env } = this.context(runId)
-      // Core owns checkpoint parsing. Its atomic file revision is only a cache
-      // key, keeping idle settings panes from spawning CLI processes repeatedly.
-      const checkpoint = path.join(path.dirname(file), 'agent-workflow', runId, 'checkpoint.json')
-      // A v2 run can also contain a legacy implementation journal; that file
-      // cannot invalidate the SQLite/WAL status, so leave v2 inspection uncached.
-      const stat = !fs.existsSync(path.join(path.dirname(file), 'agent-workflow', 'run.sqlite')) && fs.existsSync(checkpoint) ? fs.statSync(checkpoint) : null
-      const fingerprint = stat ? createHash('sha256').update(fs.readFileSync(checkpoint)).digest('hex') : null
-      const cached = this.statusCache.get(runId)
-      const state = fingerprint && cached?.fingerprint === fingerprint ? cached.state : await this.dependencies.status(file, cwd, env)
+      // Core owns checkpoint/SQLite parsing; file identity is only a cache key
+      // that keeps the board and idle settings panes from spawning Core repeatedly.
+      const { state } = await this.statusCache.read(runId, runtimeStatusFingerprint(file, runId), cached => this.isSettledStatus(runId, cached), () => this.dependencies.status(file, cwd, env))
       if (!state || state.runId !== runId) throw new Error('No saved workflow state is available')
-      if (fingerprint) this.statusCache.set(runId, { fingerprint, state })
       const parent = getLoopRun(this.ctx.db, runId)
       const definition = state.engineVersion === 2 && parent?.engine_version === 2
       const forkSuccessor = definition ? readDefinitionSuccessor(this.ctx.db, runId) : undefined
@@ -508,7 +509,7 @@ export class AgentRuntimeControls {
       const catalog = metricsCatalogFor(state)
       return { runId, engineVersion: state.engineVersion, status: hostWorking ? 'running' : superseding ? (superseding.status === 'running' ? 'interrupted' : superseding.status) : state.status === 'running' && !active ? 'interrupted' : state.status, nextStep: state.nextStep,
         updatedAt: superseding?.updatedAt ?? state.updatedAt, error: this.errors.get(runId) ?? superseding?.error ?? state.error, pendingApproval: forkReserved ? undefined : state.pendingApproval,
-        traceId: state.traceId, pendingQuestion: forkReserved ? undefined : openQuestion(state), steering: state.steering, completion: state.completion, ...(forkSuccessor ? { forkSuccessor } : {}),
+        traceId: state.traceId, pendingQuestion: forkReserved ? undefined : openQuestion(state), question: forkReserved ? null : state.question ?? null, steering: state.steering, completion: state.completion, ...(forkSuccessor ? { forkSuccessor } : {}),
         metrics: readRuntimeEfficiency(superseding ? superseding.metrics : state.metrics, catalog), efficiencySummary: readRuntimeEfficiencySummary(superseding ? superseding.efficiencySummary : state.efficiencySummary, catalog),
         canSettle: forkReserved ? false : definition
           ? !active && parent.status === 'completed' && state.status === 'succeeded' && !!this.ctx.db.prepare(`SELECT 1 FROM definition_delivery_settlements s JOIN rail_pr_deliveries d ON d.id=s.delivery_id WHERE s.project_id=? AND s.run_id=? AND d.decision IN ('building','pr_failed','implementation_failed') LIMIT 1`).get(this.ctx.project.id, runId)
@@ -523,6 +524,17 @@ export class AgentRuntimeControls {
       } catch { /* No trustworthy historical projection is available. */ }
       return { runId, status: 'unavailable', nextStep: null, active: this.active.has(runId), canResume: false, canCancel: this.active.has(runId), recoverableSteps: [], error: error instanceof RuntimeControlError ? error.message : 'Could not inspect the saved runtime execution' }
     }
+  }
+
+  /** A v2 status may be reused only while nothing can be advancing it. */
+  private isSettledStatus(runId: string, state: RuntimeState | null): boolean {
+    if (!state || this.active.has(runId) || state.lease?.active === true || state.status === 'running') return false
+    if ((state.pendingInterrupts ?? []).some(item => item.kind === 'host-task')) return false
+    // A paused parent (a limit or budget hold, a question) with no live Core lease does not change
+    // until something resumes it: the resume flips the parent to running (or invalidates), and the
+    // file fingerprint still guards every write. Only a running parent is never served from cache.
+    const parent = getLoopRun(this.ctx.db, runId)
+    return parent?.status !== 'running'
   }
 
   async resume(runId: string, input: RuntimeResumeInput): Promise<void> {
@@ -547,7 +559,7 @@ export class AgentRuntimeControls {
       // A pending question resumes the architect only with the operator's answer.
       if (openQuestion(state) && !input.answer) throw new RuntimeControlError(400, 'answer_required', 'This execution is waiting for an answer to the architect\'s question')
       this.errors.delete(runId)
-      this.statusCache.delete(runId)
+      this.statusCache.invalidate(runId)
       const startedAt = new Date().toISOString()
       const invocationId = randomUUID()
       const stepKey = `runtime-resume:${invocationId}`
@@ -622,7 +634,7 @@ export class AgentRuntimeControls {
         .finally(() => {
           clearTimeout(active.forceKillTimer); this.active.delete(runId)
           this.ctx.railLoopRuns?.delete(runId)
-          this.statusCache.delete(runId)
+          this.statusCache.invalidate(runId)
           publishActivity(false)
         })
     } catch (error) {
@@ -647,7 +659,7 @@ export class AgentRuntimeControls {
       } catch (error) {
         throw new RuntimeControlError(409, 'runtime_settlement_blocked', error instanceof Error ? error.message : 'Could not prepare the recovered delivery')
       } finally {
-        this.active.delete(runId); this.statusCache.delete(runId)
+        this.active.delete(runId); this.statusCache.invalidate(runId)
         this.ctx.broadcast?.({ type: 'runtime.continuation', projectId: this.ctx.project.id, jobId: runId, railIndex: getLoopRun(this.ctx.db, runId)?.rail_index ?? null, active: false })
       }
       return
@@ -660,7 +672,7 @@ export class AgentRuntimeControls {
     } catch (error) {
       throw new RuntimeControlError(409, 'runtime_settlement_blocked', error instanceof Error ? error.message : 'Could not prepare the recovered delivery')
     } finally {
-      this.active.delete(runId); this.statusCache.delete(runId)
+      this.active.delete(runId); this.statusCache.invalidate(runId)
       this.ctx.broadcast?.({ type: 'runtime.continuation', projectId: this.ctx.project.id, jobId: runId, railIndex: getLoopRun(this.ctx.db, runId)?.rail_index ?? null, active: false })
     }
   }
@@ -673,7 +685,7 @@ export class AgentRuntimeControls {
     const parent = getLoopRun(this.ctx.db, runId)
     if (parent && (parent.status === 'running' || parent.status === 'paused')) throw new RuntimeControlError(409, 'runtime_run_active', 'Stop the rail run before dismissing it')
     fs.writeFileSync(this.dismissMarker(runId), new Date().toISOString() + '\n', { mode: 0o600 })
-    this.statusCache.delete(runId)
+    this.statusCache.invalidate(runId)
     this.ctx.broadcast?.({ type: 'runtime.continuation', projectId: this.ctx.project.id, jobId: runId, railIndex: parent?.rail_index ?? null, active: false })
   }
 

@@ -143,7 +143,7 @@ export interface IntentAgentSession {
 }
 
 /** Background processes (dev servers) the Intent agent started in its worktree
- * through Specrails (`specrails_jobs background_start`). */
+ * through Specrails (`specrails_background(start)`). */
 export interface IntentProcesses {
   /** Stop every live process tagged with this Intent and wait, bounded, for
    * them to exit. Best effort: never throws for a process that is already gone. */

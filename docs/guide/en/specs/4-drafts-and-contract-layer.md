@@ -8,7 +8,7 @@ A **draft** is an in-progress [Explore](add-spec-explore-mode.md) conversation s
 
 ### Saving a draft
 
-While you're in an Explore conversation, click **Save as Draft** (available once you've sent at least one message). The app:
+While you're in an Explore conversation, click **Save as draft** (available once you've sent at least one message). The app:
 
 - Creates a spec with status **Draft** on your board.
 - Gives it a title automatically if you didn't set one (a short summary of the conversation).
@@ -30,9 +30,9 @@ A draft is allowed to have *no priority* — you set the priority when you commi
 To pick up where you left off:
 
 1. Open the draft from the board.
-2. Click **Continue Editing** in the detail modal.
+2. Click **Continue editing** in the detail modal.
 3. The original Explore conversation re-opens with its full chat history, and the live draft pane pre-filled with everything you'd shaped so far.
-4. Keep talking. When you're done, **Create Spec** promotes the draft to a real spec (status **Todo**, with the priority you choose).
+4. Keep talking. When you're done, **Create spec** promotes the draft to a real spec (status **Todo**, with the priority you choose).
 
 ### Discarding a draft
 
@@ -78,4 +78,4 @@ Not always. For a small, self-contained spec the AI can implement fine without i
 
 - [Add Spec — Explore mode](add-spec-explore-mode.md) — where drafts come from.
 - [Add Spec — Quick mode](add-spec-quick-mode.md) — the Contract Layer toggle in Quick mode.
-- [Running pipelines](running-pipelines.md) — implement a spec once it's ready.
+- [Running pipelines](../pipeline/rails-and-jobs) — implement a spec once it's ready.

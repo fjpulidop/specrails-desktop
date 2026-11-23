@@ -4,11 +4,35 @@
  * this module is everything pure on the client: the item shape, per-viewer
  * Snooze / Done, grouping and where an item leads.
  */
+import { readRunQuestion, type RunQuestion } from '../../../components/run-question/run-question'
 import { JOB_PARAM, MISSION_PARAM, REVIEW_PARAM } from '../../../lib/places'
 import { readFailureDiagnosis, type FailureDiagnosis } from '../../recovery/lib/failure-diagnosis'
 
-export type InboxKind = 'review' | 'question' | 'failed' | 'blocked' | 'budget' | 'jira'
-export type InboxAction = 'open-review' | 'open-run' | 'resume-run' | 'retry-jira' | 'raise-cap'
+export type InboxKind = 'review' | 'question' | 'failed' | 'blocked' | 'budget' | 'jira' | 'chain' | 'mission'
+export type InboxAction = 'open-review' | 'open-run' | 'resume-run' | 'retry-jira' | 'raise-cap' | 'resume-chain' | 'open-mission'
+
+/** A milestone chain that stopped for the person (`resume-chain` items). */
+export interface InboxChain {
+  milestoneN: number
+  /** `paused` (a failure, a limit, a conflict, a pause) or `awaiting_approval` (a checkpoint between rails). */
+  status: 'paused' | 'awaiting_approval'
+  /** The pause reason code (`chunk_failed`, `integration_failed:conflict`…); null at a checkpoint. */
+  pauseReason: string | null
+  autoAdvance: boolean
+  nextChunk: number
+  totalChunks: number
+  retryChunk: number | null
+}
+
+export type InboxCardKind = 'rail-launch' | 'flow-offer' | 'pr-ci-offer'
+
+/** A mission card that waits for the person (`open-mission` items). */
+export interface InboxMissionCard {
+  id: string
+  kind: InboxCardKind
+  ticketIds?: number[]
+  prNumber?: number
+}
 
 /** A spend cap that is reached right now (`raise-cap` items). */
 export interface InboxCap {
@@ -35,6 +59,14 @@ export interface InboxItem {
   diagnosis: FailureDiagnosis | null
   /** Which cap and where it stands; set only on a `raise-cap` item. */
   cap: InboxCap | null
+  /** A continued run's attempt ("attempt 3"): the chain is one item, its latest attempt. */
+  attempt?: { number: number; of: number } | null
+  /** A question item's card (who asks, the question, its choices): answered inline. */
+  question?: RunQuestion | null
+  /** A `chain` item's chain. */
+  chain?: InboxChain | null
+  /** A `mission` item's card. */
+  card?: InboxMissionCard | null
 }
 
 export interface InboxSnapshot {
@@ -43,8 +75,37 @@ export interface InboxSnapshot {
   generatedAt: string
 }
 
-const KINDS: readonly string[] = ['review', 'question', 'failed', 'blocked', 'budget', 'jira']
-const ACTIONS: readonly string[] = ['open-review', 'open-run', 'resume-run', 'retry-jira', 'raise-cap']
+const KINDS: readonly string[] = ['review', 'question', 'failed', 'blocked', 'budget', 'jira', 'chain', 'mission']
+const ACTIONS: readonly string[] = ['open-review', 'open-run', 'resume-run', 'retry-jira', 'raise-cap', 'resume-chain', 'open-mission']
+const CARD_KINDS: readonly string[] = ['rail-launch', 'flow-offer', 'pr-ci-offer']
+
+const int = (value: unknown, min = 0): number | null => (typeof value === 'number' && Number.isInteger(value) && value >= min ? value : null)
+
+function readChain(raw: unknown): InboxChain | null {
+  const c = raw as Record<string, unknown> | null
+  if (!c || typeof c !== 'object' || (c.status !== 'paused' && c.status !== 'awaiting_approval')) return null
+  const milestoneN = int(c.milestoneN, 1)
+  if (milestoneN === null) return null
+  return {
+    milestoneN, status: c.status, pauseReason: typeof c.pauseReason === 'string' && c.pauseReason ? c.pauseReason : null,
+    autoAdvance: c.autoAdvance === true, nextChunk: int(c.nextChunk) ?? 0, totalChunks: int(c.totalChunks) ?? 0, retryChunk: int(c.retryChunk),
+  }
+}
+
+function readCard(raw: unknown): InboxMissionCard | null {
+  const c = raw as Record<string, unknown> | null
+  if (!c || typeof c !== 'object' || typeof c.id !== 'string' || !c.id || !CARD_KINDS.includes(String(c.kind))) return null
+  const ticketIds = Array.isArray(c.ticketIds) ? c.ticketIds.filter((id): id is number => int(id, 1) !== null) : []
+  const prNumber = int(c.prNumber, 1)
+  return { id: c.id, kind: c.kind as InboxCardKind, ...(ticketIds.length ? { ticketIds } : {}), ...(prNumber ? { prNumber } : {}) }
+}
+
+function readAttempt(raw: unknown): { number: number; of: number } | null {
+  const a = raw as Record<string, unknown> | null
+  if (!a || typeof a !== 'object' || !Number.isInteger(a.number) || !Number.isInteger(a.of)) return null
+  const number = a.number as number, of = a.of as number
+  return number >= 1 && of >= 2 && number <= of ? { number, of } : null
+}
 
 function readCap(raw: unknown): InboxCap | null {
   const c = raw as Record<string, unknown> | null
@@ -64,6 +125,10 @@ export function readInboxSnapshot(raw: unknown): InboxSnapshot {
     const id = str('id'), projectId = str('projectId'), title = str('title'), at = str('at'), subjectId = str('subjectId')
     if (!id || !projectId || !title || !at || !subjectId) return []
     if (!KINDS.includes(String(v.kind)) || !ACTIONS.includes(String(v.action))) return []
+    const chain = v.kind === 'chain' ? readChain(v.chain) : null
+    const card = v.kind === 'mission' ? readCard(v.card) : null
+    // A chain or mission item is only actionable with its chain / card (and a mission to open).
+    if ((v.kind === 'chain' && !chain) || (v.kind === 'mission' && (!card || !str('conversationId')))) return []
     return [{
       id, projectId, title, at, subjectId,
       projectName: str('projectName') ?? projectId,
@@ -74,6 +139,10 @@ export function readInboxSnapshot(raw: unknown): InboxSnapshot {
       conversationId: str('conversationId'),
       diagnosis: readFailureDiagnosis(v.diagnosis),
       cap: readCap(v.cap),
+      attempt: readAttempt(v.attempt),
+      question: v.kind === 'question' ? readRunQuestion(v.question) : null,
+      ...(chain ? { chain } : {}),
+      ...(card ? { card } : {}),
     }]
   })
   const projects = (Array.isArray(body.projects) ? body.projects : []).flatMap((value) => {
@@ -178,6 +247,18 @@ export function groupByProject(items: readonly InboxItem[]): InboxGroup[] {
 
 // ── Where an item leads ──────────────────────────────────────────────────────
 
+/** i18n key (inbox namespace) of the primary action's label. */
+export function primaryLabelKey(item: Pick<InboxItem, 'kind' | 'action'> & { chain?: InboxChain | null }): string {
+  if (item.action === 'raise-cap') return 'actions.raiseCap'
+  if (item.action === 'resume-run') return 'actions.resume'
+  if (item.action === 'retry-jira') return 'actions.retry'
+  if (item.action === 'resume-chain') return item.chain?.status === 'awaiting_approval' ? 'actions.continueChain' : 'actions.resumeChain'
+  if (item.action === 'open-mission') return 'actions.openMission'
+  if (item.kind === 'question') return 'actions.answer'
+  if (item.kind === 'review') return 'actions.openReview'
+  return 'actions.open'
+}
+
 export interface InboxTarget {
   pathname: string
   search: string
@@ -190,7 +271,7 @@ export interface InboxTarget {
  * mode keeps the mission and layers `?review=` / `?job=` over it; Board mode
  * uses the routed `/review/:id` and `/jobs/:id`.
  */
-export function inboxTarget(item: InboxItem, mode: 'kanban' | 'agent'): InboxTarget {
+export function inboxTarget(item: Pick<InboxItem, 'action' | 'subjectId' | 'conversationId'>, mode: 'kanban' | 'agent'): InboxTarget {
   const review = item.action === 'open-review'
   if (mode === 'kanban') {
     return review
@@ -201,4 +282,148 @@ export function inboxTarget(item: InboxItem, mode: 'kanban' | 'agent'): InboxTar
   if (item.conversationId) params.set(MISSION_PARAM, item.conversationId)
   params.set(review ? REVIEW_PARAM : JOB_PARAM, item.subjectId)
   return { pathname: '/', search: `?${params.toString()}`, place: review ? 'review' : 'job' }
+}
+
+// ── Item versions: what the person has seen, what was announced ─────────────
+
+/** One state of one item: a new `version` is new news (it re-arms Done, unseen and announcements alike). */
+export function inboxItemKey(item: Pick<InboxItem, 'id' | 'version'>): string {
+  return `${item.id}\u0000${item.version}`
+}
+
+/** A version the person has seen (displayed in the open inbox, or opened). */
+export interface SeenMark {
+  version: string
+  /** When it was seen (epoch ms), for pruning. */
+  at: number
+}
+export type SeenMarks = Record<string, SeenMark>
+
+export const SEEN_KEY = 'specrails-desktop:inbox:seen'
+
+function readMarks<T>(key: string, now: number, read: (value: Record<string, unknown>) => T | null, at: (value: T) => number): Record<string, T> {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return {}
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const out: Record<string, T> = {}
+    for (const [id, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!value || typeof value !== 'object') continue
+      const mark = read(value as Record<string, unknown>)
+      if (mark === null || now - at(mark) > PRUNE_AFTER_MS) continue
+      out[id] = mark
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+function writeMarks(key: string, marks: Record<string, unknown>): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(marks))
+  } catch {
+    // storage unavailable: the marks last for this session only
+  }
+}
+
+export function readSeenMarks(now: number = Date.now()): SeenMarks {
+  return readMarks<SeenMark>(SEEN_KEY, now, (v) => (typeof v.version === 'string' && typeof v.at === 'number' ? { version: v.version, at: v.at } : null), (m) => m.at)
+}
+
+export function writeSeenMarks(marks: SeenMarks): void {
+  writeMarks(SEEN_KEY, marks)
+}
+
+export function isUnseen(item: InboxItem, marks: SeenMarks): boolean {
+  return marks[item.id]?.version !== item.version
+}
+
+/** A mark older than this is renewed when its item is still there, so pruning only forgets items that left. */
+const RENEW_AFTER_MS = 7 * 24 * 60 * 60 * 1000
+
+/** The marks with these items' current versions seen; the same object when nothing changes. */
+export function markSeen(marks: SeenMarks, items: readonly InboxItem[], now: number): SeenMarks {
+  const changed = items.filter((item) => isUnseen(item, marks) || now - marks[item.id].at > RENEW_AFTER_MS)
+  if (changed.length === 0) return marks
+  const next = { ...marks }
+  for (const item of changed) next[item.id] = { version: item.version, at: now }
+  return next
+}
+
+/** "Mark as unread": forget that this version was seen. */
+export function markUnseen(marks: SeenMarks, item: InboxItem): SeenMarks {
+  if (!(item.id in marks)) return marks
+  const next = { ...marks }
+  delete next[item.id]
+  return next
+}
+
+/** Unseen items outside muted projects: the Dock badge number. */
+export function unseenCount(items: readonly InboxItem[], marks: SeenMarks, mutedProjects: readonly string[] = []): number {
+  let count = 0
+  for (const item of items) if (isUnseen(item, marks) && !mutedProjects.includes(item.projectId)) count += 1
+  return count
+}
+
+/**
+ * The item versions already announced (or present when the app started),
+ * per viewer: key {@link inboxItemKey} → epoch ms. Pruned after 30 days.
+ */
+export type AnnouncedLedger = Record<string, number>
+
+export const ANNOUNCED_KEY = 'specrails-desktop:inbox:announced'
+
+export function readAnnounced(now: number = Date.now()): AnnouncedLedger {
+  return readMarks<number>(ANNOUNCED_KEY, now, (v) => (typeof v.at === 'number' ? v.at : null), (at) => at)
+}
+
+export function writeAnnounced(ledger: AnnouncedLedger): void {
+  writeMarks(ANNOUNCED_KEY, Object.fromEntries(Object.entries(ledger).map(([key, at]) => [key, { at }])))
+}
+
+/**
+ * Which items to announce now. `seed`: the first snapshot since the app
+ * started — everything already there is recorded silently, so a restart never
+ * announces old news. Afterwards, a key never recorded is announced once;
+ * `snapshot` (every item, snoozed or done included) is recorded, `visible`
+ * (without the snoozed / done ones) is what may be announced.
+ */
+export function planAnnouncements(
+  ledger: AnnouncedLedger,
+  snapshot: readonly InboxItem[],
+  visible: readonly InboxItem[],
+  seed: boolean,
+  now: number,
+): { announce: InboxItem[]; ledger: AnnouncedLedger } {
+  let next = ledger
+  const announce: InboxItem[] = []
+  const visibleKeys = new Set(visible.map(inboxItemKey))
+  for (const item of snapshot) {
+    const key = inboxItemKey(item)
+    if (key in next) {
+      if (now - next[key] > RENEW_AFTER_MS) {
+        if (next === ledger) next = { ...ledger }
+        next[key] = now
+      }
+      continue
+    }
+    if (next === ledger) next = { ...ledger }
+    next[key] = now
+    if (!seed && visibleKeys.has(key)) announce.push(item)
+  }
+  return { announce, ledger: next }
+}
+
+/** The notification category of an item (Settings ▸ Notifications). */
+export function attentionCategoryOf(item: Pick<InboxItem, 'kind' | 'diagnosis' | 'chain'>): 'question' | 'review' | 'failed' | 'budget' {
+  // A mission card waits on the person's decision, like a question; a chain checkpoint is a go-ahead to review.
+  if (item.kind === 'question' || item.kind === 'mission') return 'question'
+  if (item.kind === 'chain') return item.chain?.status === 'awaiting_approval' ? 'review' : item.diagnosis?.kind === 'provider_limit' ? 'budget' : 'failed'
+  if (item.kind === 'review') return 'review'
+  if (item.kind === 'budget') return 'budget'
+  // A run blocked by the provider's usage limit is a spending signal, like the live provider-limit alert.
+  if (item.kind === 'blocked' && item.diagnosis?.kind === 'provider_limit') return 'budget'
+  return 'failed'
 }

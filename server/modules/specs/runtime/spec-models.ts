@@ -19,14 +19,16 @@ export const CLAUDE_MODELS: SpecModelOption[] = [
 ]
 
 export const CODEX_MODELS: SpecModelOption[] = [
-  { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' },
+  { value: 'gpt-6.2-sol', label: 'GPT-6.2 Sol' },
   { value: 'gpt-6.1-terra', label: 'GPT-6.1 Terra' },
-  { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
+  { value: 'gpt-6.2-astra', label: 'GPT-6.2 Astra' },
   { value: 'gpt-6-sol', label: 'GPT-6 Sol' },
   { value: 'gpt-6-luna', label: 'GPT-6 Luna' },
   { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
   { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
   { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
+  { value: 'gpt-6.1-sol', label: 'GPT-6.1 Sol' },
+  { value: 'gpt-6-astra', label: 'GPT-6 Astra' },
 ]
 
 // Mirrors GEMINI_MODELS in server/providers/gemini-adapter.ts.
@@ -54,7 +56,7 @@ const PROVIDER_MODELS: Record<string, SpecModelOption[]> = {
 
 export const PROVIDER_DEFAULT_MODEL: Record<string, string> = {
   claude: 'sonnet',
-  codex: 'gpt-6.1-sol',
+  codex: 'gpt-6.2-sol',
   gemini: 'gemini-3.5-flash',
   kimi: 'k3',
 }

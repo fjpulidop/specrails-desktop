@@ -18,7 +18,7 @@ La conversazione resta nella tua cronologia, così puoi sempre tornarci per vede
 
 ## La bozza live
 
-Mentre converssi, un pannello mostra la bozza così com'è in quel momento — titolo, descrizione, priorità, etichette, criteri di accettazione. Si riscrive a ogni turno in base a ciò che avete discusso. Non la modifichi direttamente; la guidi attraverso la conversazione ("anzi, metti la priorità alta", "aggiungi un criterio sulla gestione degli errori", e così via).
+Mentre conversi, un pannello mostra la bozza così com'è in quel momento — titolo, descrizione, priorità, etichette, criteri di accettazione. Si riscrive a ogni turno in base a ciò che avete discusso. Non la modifichi direttamente; la guidi attraverso la conversazione ("anzi, metti la priorità alta", "aggiungi un criterio sulla gestione degli errori", e così via).
 
 Questo è il cuore della modalità Explore: non ti trovi mai davanti a un form vuoto. Stai sempre guardando una spec reale, in evoluzione.
 
@@ -43,7 +43,7 @@ Se vuoi un controllo più fine, clicca su **Fine-tune** per attivare manualmente
 
 - **Crea spec** — promuove la bozza live a una spec vera e propria con stato **Da fare**. (Quando stai modificando una spec esistente, questo pulsante diventa **Aggiorna spec** e modifica quella spec sul posto.)
 - **Rivedi →** — apre un overlay di revisione che mostra la spec proposta confrontata con la baseline prima di confermare, così niente sorprese.
-- **Salva come bozza** — conserva la conversazione come ticket bozza per riprenderla in seguito. Disponibile non appena hai inviato almeno un messaggio. Vedi sotto.
+- **Salva come bozza** — conserva la conversazione come spec bozza per riprenderla in seguito. Disponibile non appena hai inviato almeno un messaggio. Vedi sotto.
 - **Riduci** — parcheggia la conversazione come chip nel dock delle chat ridotte in basso a sinistra. Clicca sul chip in qualsiasi momento per tornare dritto nella conversazione — non si perde nulla.
 - **Scarta** — getta via la conversazione (chiede prima conferma).
 
@@ -65,4 +65,4 @@ Se il tuo progetto ha installato più di un provider AI, un selettore di engine 
 
 - [Le bozze e il Contract Layer](drafts-and-contract-layer.md) — salvare il lavoro in corso e arricchire le spec per la pipeline.
 - [Aggiungi spec — Modalità Quick](add-spec-quick-mode.md) — quando l'idea è già chiara.
-- [Esecuzione delle pipeline](running-pipelines.md) — realizza la tua spec una volta che è pronta.
+- [Esecuzione delle pipeline](../pipeline/rails-and-jobs) — realizza la tua spec una volta che è pronta.

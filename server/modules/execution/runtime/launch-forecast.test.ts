@@ -95,6 +95,16 @@ describe('getLaunchForecast — factory modes and commands', () => {
     expect(getLaunchForecast(db, 'proj', { commandShape: '/specrails:implement' }).time?.sampleCount).toBe(5)
   })
 
+  it('counts the rail loop runs of a factory workflow too (a resume or launch on a rail is a run like them)', () => {
+    for (let i = 1; i <= 3; i++) loopRun({ loopId: 'factory:implement', ms: i * 60_000, cost: i / 10 })
+    for (let i = 1; i <= 2; i++) job({ ms: i * 60_000, cost: i / 10 })
+    const forecast = getLaunchForecast(db, 'proj', { loopId: 'factory:implement', provider: 'claude' })
+    expect(forecast.time?.sampleCount).toBe(5)
+    expect(forecast.cost?.sampleCount).toBe(5)
+    // Only this project's loop runs.
+    expect(getLaunchForecast(db, 'other', { loopId: 'factory:implement', provider: 'claude' }).cost).toBeNull()
+  })
+
   it('filters jobs by provider, ignores estimated costs and missing provider rows', () => {
     for (let i = 1; i <= 5; i++) job({ ms: i * 60_000, cost: i, provider: 'claude' })
     for (let i = 1; i <= 5; i++) job({ ms: i * 60_000, cost: i, provider: 'codex', estimated: true })

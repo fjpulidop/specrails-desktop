@@ -78,10 +78,13 @@
     }
   },
   "proof": {
-    "filesChanged": "{{files}} 个文件改动（+{{added}} / −{{removed}} 行）",
-    "testFilesChanged": "改动了 {{count}} 个测试文件",
+    "filesChanged_one": "{{files}} 个文件改动（+{{added}} / −{{removed}} 行）",
+    "filesChanged_other": "{{files}} 个文件改动（+{{added}} / −{{removed}} 行）",
+    "testFilesChanged_one": "改动了 {{count}} 个测试文件",
+    "testFilesChanged_other": "改动了 {{count}} 个测试文件",
     "noTestFilesChanged": "没有改动测试文件。",
-    "commitsRecorded": "工作已记录在 {{branches}} 个分支上",
+    "commitsRecorded_one": "工作已记录在 {{branches}} 个分支上",
+    "commitsRecorded_other": "工作已记录在 {{branches}} 个分支上",
     "verificationPassed": "AI 报告其检查通过（{{count}}）",
     "verificationFailed": "AI 报告其检查失败（{{count}}）",
     "noVerificationReported": "AI 未报告任何验证。",
@@ -91,11 +94,15 @@
     "reviewerScoreUnavailable": "未生成审阅者评分。",
     "evidenceUnavailable": "无证据",
     "hostCommandPassed": "运行时自行执行了 {{label}}：退出码 {{exitCode}}（{{seconds}} 秒）",
+    "hostStaticCheckPassed": "运行时自行执行了 {{label}}，但它只读取文件内容，并不运行代码：退出码 {{exitCode}}（{{seconds}} 秒）",
     "hostCommandFailed": "运行时自行执行了 {{label}} 但失败：退出码 {{exitCode}}（{{seconds}} 秒）",
     "acceptanceCheckPassed": "审查检查通过：{{name}}",
     "acceptanceCheckFailed": "审查检查失败：{{name}}",
     "reviewerSummary": "AI 审查者的总结：",
-    "reviewerFinding": "AI 审查者指出："
+    "reviewerFinding": "AI 审查者指出：",
+    "earlierAttempts_one": "此检查之前的 {{count}} 次运行",
+    "earlierAttempts_other": "此检查之前的 {{count}} 次运行",
+    "earlierAttempt": "以退出码 {{exitCode}} 失败（{{seconds}} 秒），之后的修正使其通过"
   },
   "watch": {
     "humanReviewRecommended": "AI 审阅者给出 {{overall}}/100，建议由人来查看。",
@@ -128,6 +135,11 @@
   "planned": {
     "title": "计划方案（来自 Spec）",
     "caveat": "这是需求中提出的方案，而不是 AI 实际所做的报告。上方的事实才是真正发生的变更。"
+  },
+  "delivered": {
+    "title": "变更内容",
+    "caveat": "来自交付的 OpenSpec 提案：由智能体撰写，经审阅者检查。",
+    "why": "原因"
   },
   "outcome": {
     "succeeded": "已实现",
@@ -216,7 +228,8 @@
       "invariantsTouched": "涉及的不变量",
       "untested": "未测试的路径",
       "humanChecks": "人工检查",
-      "divergences": "与规范的偏差"
+      "divergences": "与规范的偏差",
+      "reviewNotes": "审阅者备注（未处理）"
     },
     "userVisible": "用户可见",
     "invariantStatus": {
@@ -229,7 +242,17 @@
     "dropped_other": "{{count}} 条摘要条目格式不符，已跳过。",
     "topRisk": "首要风险",
     "moreRisks_one": "另有 {{count}} 项",
-    "moreRisks_other": "另有 {{count}} 项"
+    "moreRisks_other": "另有 {{count}} 项",
+    "reviewNotesCaveat": "审阅者标记为不属于本次运行的发现。没有修正轮次处理它们。",
+    "noteKind": {
+      "advice": "建议",
+      "out-of-scope": "超出范围",
+      "host-only-check": "人工检查",
+      "regenerated-lockfile": "重新生成的锁文件",
+      "frozen-artifact": "已冻结的产物",
+      "withdrawn-criterion": "你已撤回",
+      "other": "备注"
+    }
   },
   "agentActions": {
     "total_one": "{{count}} 项操作",

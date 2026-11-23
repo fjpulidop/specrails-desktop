@@ -4,6 +4,7 @@ import path from 'path'
 import os from 'os'
 import Database from 'better-sqlite3'
 import type { DbInstance } from './db'
+import { enableStatementCache } from './db/statement-cache'
 import type { ProviderId } from './providers/types'
 import { secureDir, secureDbFile } from './util/secure-fs'
 import { applyNumberedMigrations } from './util/sqlite-migrations'
@@ -305,7 +306,7 @@ function applyDesktopMigrations(db: DbInstance): void {
       )
     },
     // Migration 8: seed default ui_theme for the app-wide theme system.
-    // Allow-list enforced at the route layer (server/desktop-router.ts) and the
+    // Allow-list enforced at the route layer (server/desktop-router-settings.ts) and the
     // client (client/src/features/settings/lib/themes.ts).
     () => {
       db.prepare('INSERT OR IGNORE INTO hub_settings (key, value) VALUES (?, ?)').run(
@@ -834,6 +835,26 @@ function applyDesktopMigrations(db: DbInstance): void {
       if (!messages.has('source_message_id')) db.exec('ALTER TABLE agent_messages ADD COLUMN source_message_id TEXT;')
       if (!messages.has('source_delivery_status')) db.exec('ALTER TABLE agent_messages ADD COLUMN source_delivery_status TEXT;')
     },
+    // 40: latest "context used" snapshot of the mission's provider session (JSON,
+    // see missions/runtime/mission-context-usage.ts). NULL = not measured yet.
+    () => {
+      const conversations = new Set((db.prepare('PRAGMA table_info(agent_conversations)').all() as Array<{ name: string }>).map(c => c.name))
+      if (!conversations.has('context_usage')) db.exec('ALTER TABLE agent_conversations ADD COLUMN context_usage TEXT;')
+    },
+    // 41: machine-wide installs the person approved once (server/modules/machine-installs), keyed
+    // by the normalized command. Machine-wide like the tool itself: every project reuses it.
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS machine_install_approvals (
+          command TEXT PRIMARY KEY,
+          manager TEXT NOT NULL,
+          tool TEXT NOT NULL,
+          approved_at TEXT NOT NULL DEFAULT (datetime('now')),
+          last_used_at TEXT,
+          uses INTEGER NOT NULL DEFAULT 0
+        );
+      `)
+    },
   ]
 
   applyNumberedMigrations(db, migrations)
@@ -866,7 +887,7 @@ export function initDesktopDb(dbPath: string = getDesktopDbPath()): DbInstance {
     db.close()
     throw err
   }
-  return db
+  return enableStatementCache(db)
 }
 
 export function listProjects(db: DbInstance): ProjectRow[] {
@@ -989,6 +1010,18 @@ export function touchProject(db: DbInstance, id: string): void {
   ).run(id)
 }
 
+/** Specrails continues a failed run once by itself when the cause is known and fixable (default on). */
+export const AUTO_CONTINUE_RUNS_KEY = 'auto_continue_runs'
+export function getAutoContinueRuns(db: DbInstance): boolean {
+  return getDesktopSetting(db, AUTO_CONTINUE_RUNS_KEY) !== 'false'
+}
+
+/** A run held on the DAILY budget resumes by itself when the day resets (default on). */
+export const RESUME_ON_DAILY_RESET_KEY = 'resume_runs_on_daily_reset'
+export function getResumeOnDailyReset(db: DbInstance): boolean {
+  return getDesktopSetting(db, RESUME_ON_DAILY_RESET_KEY) !== 'false'
+}
+
 /** App-global "Allow sub-agents" for missions without a project (default on; only an explicit opt-out disables it). */
 export const GLOBAL_ALLOW_SUBAGENTS_KEY = 'agent_allow_subagents'
 
@@ -1050,8 +1083,10 @@ export function clearProjectSetupSession(db: DbInstance, projectId: string): voi
 // ─── Agent-chat invocations (cost accounting, HIGH-3) ───────────────────────────
 
 export type AgentInvocationStatus = 'success' | 'failed' | 'aborted'
-/** `agent-chat` = a mission turn; `flow` = an Intent session turn (its own Core session in the Intent worktree). */
-export type AgentInvocationSurface = 'agent-chat' | 'flow'
+/** `agent-chat` = a mission turn; `flow` = an Intent session turn (its own Core session in the Intent worktree);
+ *  `side-question` = an "Ask about this" side question about a mission selection (counted under Missions);
+ *  `session-summary` = the summary written when a mission starts a fresh provider session (counted under Missions). */
+export type AgentInvocationSurface = 'agent-chat' | 'flow' | 'side-question' | 'session-summary'
 
 /** One agent-chat turn's billable accounting. App-global — `project_id` is the
  *  pinned project id when the turn ran project-scoped, else NULL (Home). Cost is

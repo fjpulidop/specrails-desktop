@@ -1,4 +1,5 @@
 import { spawnSync } from 'child_process'
+import { runBounded } from './util/bounded-exec'
 import fs from 'fs'
 import path from 'path'
 import { randomUUID } from 'crypto'
@@ -105,6 +106,11 @@ function requiredFrameworkProviders(fwDir: string, requested: string[], home?: s
   return [...required]
 }
 
+/** Per-child ceiling for `install-framework` (materialize). */
+const MATERIALIZE_TIMEOUT_MS = 120_000
+/** `swap-current` ceiling (sync and async variants alike). */
+const SWAP_TIMEOUT_MS = 120_000
+
 export class FrameworkManager {
   private readonly home?: string
   private readonly broadcast?: FrameworkBroadcast
@@ -155,38 +161,12 @@ export class FrameworkManager {
    * (ran:false) when no bundled core is present.
    */
   materialize(version?: string, providers: string[] = ['claude']): MaterializeResult {
-    const cli = this.resolveCli()
-    if (!cli) {
-      return { ran: false, version: null, providers: [], errors: [] }
-    }
-    const ver = version ?? this.bundledVersion()
-    if (!ver) {
-      return { ran: false, version: null, providers: [], errors: [] }
-    }
-
-    const fwDir = frameworkRoot(this.home)
-    fs.mkdirSync(fwDir, { recursive: true })
-
+    const plan = this.materializePlan(version, providers)
+    if (!plan.ran) return plan.result
     const errors: MaterializeResult['errors'] = []
     const done: string[] = []
-    for (const provider of requiredFrameworkProviders(fwDir, providers, this.home)) {
-      const res = spawnSync(
-        nodeInterpreter(),
-        [
-          cli,
-          'install-framework',
-          '--framework-dir',
-          fwDir,
-          '--provider',
-          provider,
-          '--version',
-          ver,
-          // Materialize-all-then-swap-once: each provider is installed WITHOUT
-          // moving `current`; the finalising swap happens in versionCheck.
-          '--no-swap',
-        ],
-        { env: this.childEnv(), encoding: 'utf-8', timeout: 120_000 },
-      )
+    for (const provider of plan.providers) {
+      const res = spawnSync(nodeInterpreter(), plan.args(provider), { env: this.childEnv(), encoding: 'utf-8', timeout: MATERIALIZE_TIMEOUT_MS })
       if (res.error || (res.status ?? 1) !== 0) {
         const msg = res.error?.message ?? (res.stderr || `exit ${res.status ?? 'unknown'}`)
         errors.push({ provider, message: `${msg}`.trim() })
@@ -194,7 +174,60 @@ export class FrameworkManager {
         done.push(provider)
       }
     }
-    return { ran: true, version: ver, providers: done, errors }
+    return { ran: true, version: plan.version, providers: done, errors }
+  }
+
+  /**
+   * Non-blocking `materialize` (same children, same `--no-swap` contract and
+   * result shape) for request-path callers such as the Core update channel:
+   * the sync variant froze the whole server for up to 120 s per provider. A
+   * child that exceeds the timeout is tree-killed and reported as an error.
+   */
+  async materializeAsync(version?: string, providers: string[] = ['claude']): Promise<MaterializeResult> {
+    const plan = this.materializePlan(version, providers)
+    if (!plan.ran) return plan.result
+    const errors: MaterializeResult['errors'] = []
+    const done: string[] = []
+    for (const provider of plan.providers) {
+      const res = await runBounded(nodeInterpreter(), plan.args(provider), { env: this.childEnv(), timeoutMs: MATERIALIZE_TIMEOUT_MS })
+      if (res.error || res.timedOut || res.code !== 0) {
+        const msg = res.error?.message
+          ?? (res.timedOut ? `install-framework timed out after ${MATERIALIZE_TIMEOUT_MS} ms` : (res.stderr || `exit ${res.code ?? res.signal ?? 'unknown'}`))
+        errors.push({ provider, message: `${msg}`.trim() })
+      } else {
+        done.push(provider)
+      }
+    }
+    return { ran: true, version: plan.version, providers: done, errors }
+  }
+
+  private materializePlan(version: string | undefined, providers: string[]):
+    | { ran: false; result: MaterializeResult }
+    | { ran: true; version: string; providers: string[]; args: (provider: string) => string[] } {
+    const cli = this.resolveCli()
+    if (!cli) return { ran: false, result: { ran: false, version: null, providers: [], errors: [] } }
+    const ver = version ?? this.bundledVersion()
+    if (!ver) return { ran: false, result: { ran: false, version: null, providers: [], errors: [] } }
+    const fwDir = frameworkRoot(this.home)
+    fs.mkdirSync(fwDir, { recursive: true })
+    return {
+      ran: true,
+      version: ver,
+      providers: requiredFrameworkProviders(fwDir, providers, this.home),
+      args: (provider) => [
+        cli,
+        'install-framework',
+        '--framework-dir',
+        fwDir,
+        '--provider',
+        provider,
+        '--version',
+        ver,
+        // Materialize-all-then-swap-once: each provider is installed WITHOUT
+        // moving `current`; the finalising swap happens in versionCheck.
+        '--no-swap',
+      ],
+    }
   }
 
   /**
@@ -217,9 +250,35 @@ export class FrameworkManager {
    * bare "swap-current failed".
    */
   swapCurrentDetailed(version: string): { ok: boolean; detail: string | null } {
+    const plan = this.swapPlan(version)
+    if ('result' in plan) return plan.result
+    const res = spawnSync(nodeInterpreter(), plan.args, { env: this.childEnv(), encoding: 'utf-8', timeout: SWAP_TIMEOUT_MS })
+    return plan.settle({ error: res.error, status: res.status, stderr: res.stderr, stdout: res.stdout })
+  }
+
+  /**
+   * Non-blocking `swapCurrentDetailed` (same backup/restore contract, same
+   * result shape) for the Core update channel, whose swap runs under the
+   * registry lock: the sync child froze the whole server for its duration.
+   * A child that exceeds the timeout is tree-killed and reported as a failure
+   * (the previous framework is restored exactly as for any failed swap).
+   */
+  async swapCurrentDetailedAsync(version: string): Promise<{ ok: boolean; detail: string | null }> {
+    const plan = this.swapPlan(version)
+    if ('result' in plan) return plan.result
+    const res = await runBounded(nodeInterpreter(), plan.args, { env: this.childEnv(), timeoutMs: SWAP_TIMEOUT_MS })
+    const error = res.error ?? (res.timedOut ? new Error(`swap-current timed out after ${SWAP_TIMEOUT_MS} ms`) : undefined)
+    return plan.settle({ error, status: res.code, stderr: res.stderr, stdout: res.stdout })
+  }
+
+  /** Shared pre-/post-child steps of the swap: guard + recovery backup before,
+   *  verification + restore after. */
+  private swapPlan(version: string):
+    | { result: { ok: boolean; detail: string | null } }
+    | { args: string[]; settle: (res: { error?: Error; status: number | null; stderr: string; stdout: string }) => { ok: boolean; detail: string | null } } {
     const cli = this.resolveCli()
-    if (!cli) return { ok: false, detail: 'no usable core CLI to run swap-current with' }
-    if (readCurrentFrameworkVersion(this.home) === version) return { ok: true, detail: null }
+    if (!cli) return { result: { ok: false, detail: 'no usable core CLI to run swap-current with' } }
+    if (readCurrentFrameworkVersion(this.home) === version) return { result: { ok: true, detail: null } }
     const fwDir = frameworkRoot(this.home)
     const current = path.join(fwDir, 'current')
     const previousVersion = readCurrentFrameworkVersion(this.home)
@@ -239,7 +298,7 @@ export class FrameworkManager {
           })
         }
       } catch (error) {
-        return { ok: false, detail: `Could not preserve the active framework before updating: ${error instanceof Error ? error.message : String(error)}` }
+        return { result: { ok: false, detail: `Could not preserve the active framework before updating: ${error instanceof Error ? error.message : String(error)}` } }
       }
     }
     const failed = (detail: string): { ok: false; detail: string } => {
@@ -264,20 +323,20 @@ export class FrameworkManager {
         return { ok: false, detail: `${detail}; recovery retained at ${backup}: ${error instanceof Error ? error.message : String(error)}` }
       }
     }
-    const res = spawnSync(
-      nodeInterpreter(),
-      [cli, 'swap-current', '--framework-dir', fwDir, '--version', version],
-      { env: this.childEnv(), encoding: 'utf-8', timeout: 120_000 },
-    )
-    if (res.error || (res.status ?? 1) !== 0) {
-      const detail = (res.error?.message ?? `${res.stderr || res.stdout || ''}`.trim()) || `exit ${res.status ?? 'unknown'}`
-      return failed(detail)
+    return {
+      args: [cli, 'swap-current', '--framework-dir', fwDir, '--version', version],
+      settle: (res) => {
+        if (res.error || (res.status ?? 1) !== 0) {
+          const detail = (res.error?.message ?? `${res.stderr || res.stdout || ''}`.trim()) || `exit ${res.status ?? 'unknown'}`
+          return failed(detail)
+        }
+        if (readCurrentFrameworkVersion(this.home) !== version) {
+          return failed(`swap-current exited 0 but current still resolves to ${readCurrentFrameworkVersion(this.home) ?? 'nothing'}`)
+        }
+        if (backup) { try { fs.rmSync(backup, { recursive: true, force: true }) } catch { /* recovery copy is safe to retain */ } }
+        return { ok: true, detail: null }
+      },
     }
-    if (readCurrentFrameworkVersion(this.home) !== version) {
-      return failed(`swap-current exited 0 but current still resolves to ${readCurrentFrameworkVersion(this.home) ?? 'nothing'}`)
-    }
-    if (backup) { try { fs.rmSync(backup, { recursive: true, force: true }) } catch { /* recovery copy is safe to retain */ } }
-    return { ok: true, detail: null }
   }
 
   /**
@@ -285,6 +344,15 @@ export class FrameworkManager {
    * (or current is absent), materialize the bundled version + swap `current` and
    * broadcast `framework.updated`. Called on first-run + post-update. No-ops when
    * no bundled core is present. Returns the resulting current version (or null).
+   *
+   * Deliberately still synchronous (children + registry lock): startup runs it
+   * after `registry.loadAll()` and before any queue/loop work can spawn, so a
+   * rail never observes a framework that is being (re)materialized or a
+   * missing first-run `current`. Moving it after `listen` would require gating
+   * every spawn path on its completion; `assembleWorkspace` likewise runs
+   * inside synchronous workspace assembly/migration under the same lock. The
+   * Core update channel, which runs while the app is serving, uses
+   * materializeAsync + swapCurrentDetailedAsync + withFileLockAsync instead.
    */
   versionCheck(providers: string[] = ['claude']): { swapped: boolean; version: string | null } {
     // Keep an already activated framework even if its old updater discarded the
