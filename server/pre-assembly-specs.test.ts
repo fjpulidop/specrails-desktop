@@ -29,7 +29,7 @@ afterEach(() => {
 function populate(): string {
   const ws = workspaceLayout(resolveHome(), 'acme', repo).workspaceDir
   fs.mkdirSync(path.join(ws, '.specrails'), { recursive: true })
-  fs.writeFileSync(path.join(ws, '.specrails', 'specrails-version'), '6.11.1\n')
+  fs.writeFileSync(path.join(ws, '.specrails', 'specrails-version'), '6.12.1\n')
   return ws
 }
 function addSpec(file: string, title: string): void {
