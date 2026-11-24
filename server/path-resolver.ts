@@ -824,8 +824,82 @@ export function getPathDiagnostic(): PathDiagnostic {
 }
 
 /** Test-only helper to reset module state. */
+// ─── Project PATH: the login shell's, as Core's verification uses ─────────────
+// Core runs a project's installs and verification with the login-shell PATH
+// first (`projectCommandEnvironment` in specrails-core), so a check finds the
+// person's own Node. This process starts its children with the bundled Node
+// first instead. An agent spawned with that PATH runs `npm install` or
+// `npm rebuild` with another Node than verification, and every native addon
+// it builds (better-sqlite3) then fails verification with a
+// NODE_MODULE_VERSION mismatch. Project agents therefore get the same PATH
+// order as verification: login-shell entries first, inherited ones after (a
+// machine without its own Node still finds the bundled one).
+
+const PROJECT_PATH_BEGIN = '__SPECRAILS_LOGIN_PATH_BEGIN__'
+const PROJECT_PATH_END = '__SPECRAILS_LOGIN_PATH_END__'
+const PROJECT_PATH_TIMEOUT_MS = 5000
+/** Login-shell PATH per shell + inherited PATH; null = the probe could not tell. */
+const projectLoginPathCache = new Map<string, string | null>()
+export type ProjectLoginPathProbe = (shell: string, env: NodeJS.ProcessEnv) => string | null
+
+function probeProjectLoginPath(shell: string, env: NodeJS.ProcessEnv): string | null {
+  // Same invocation as Core (`-l -c`, non-interactive) so both sides resolve the same PATH.
+  let result: SpawnSyncReturns<string> | undefined
+  try {
+    result = spawnSync(shell, ['-l', '-c', `printf '${PROJECT_PATH_BEGIN}%s${PROJECT_PATH_END}' "$PATH"`], {
+      env, encoding: 'utf8', timeout: PROJECT_PATH_TIMEOUT_MS, killSignal: 'SIGKILL', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true,
+    })
+  } catch {
+    return null
+  }
+  if (!result || result.status !== 0 || typeof result.stdout !== 'string') return null
+  const begin = result.stdout.indexOf(PROJECT_PATH_BEGIN)
+  const end = begin < 0 ? -1 : result.stdout.indexOf(PROJECT_PATH_END, begin)
+  return end < 0 ? null : result.stdout.slice(begin + PROJECT_PATH_BEGIN.length, end) || null
+}
+
+/**
+ * `env` with the login-shell PATH first and the inherited entries after it,
+ * deduplicated: the PATH Core verifies a project with. Unchanged on Windows,
+ * with `SPECRAILS_PROJECT_LOGIN_PATH=0`, under tests (unless a probe is
+ * injected) and when the probe fails. The probe runs once per shell and
+ * inherited PATH; `warmProjectLoginPath` fills it off the request path.
+ */
+export function withProjectLoginPath(
+  env: NodeJS.ProcessEnv,
+  options: { platform?: NodeJS.Platform; probe?: ProjectLoginPathProbe } = {},
+): NodeJS.ProcessEnv {
+  const platform = options.platform ?? process.platform
+  if (platform === 'win32' || env.SPECRAILS_PROJECT_LOGIN_PATH === '0') return env
+  if (!options.probe && (process.env.NODE_ENV === 'test' || process.env.VITEST)) return env
+  const shell = resolveLoginShell(env)
+  const inherited = env.PATH ?? ''
+  let login: string | null | undefined
+  if (options.probe) login = options.probe(shell, env)
+  else {
+    const key = shell + '\0' + inherited
+    login = projectLoginPathCache.get(key)
+    if (login === undefined) { login = probeProjectLoginPath(shell, env); projectLoginPathCache.set(key, login) }
+  }
+  if (!login) return env
+  const seen = new Set<string>()
+  const merged = [...login.split(':'), ...inherited.split(':')].filter((dir) => dir && !seen.has(dir) && Boolean(seen.add(dir)))
+  return { ...env, PATH: merged.join(':') }
+}
+
+/** Resolve the project login PATH once in the background so the first agent spawn does not wait for it. */
+export function warmProjectLoginPath(): Promise<void> {
+  return new Promise((resolve) => {
+    setImmediate(() => {
+      try { withProjectLoginPath(process.env) } catch { /* a failed probe leaves the inherited PATH */ }
+      resolve()
+    })
+  })
+}
+
 export function __resetPathResolverForTest(): void {
   diagnostic = { pathSegments: [], pathSources: [], loginShellStatus: 'skipped' }
   warnedLoginShell = false
   bundledRuntimesActive = false
+  projectLoginPathCache.clear()
 }

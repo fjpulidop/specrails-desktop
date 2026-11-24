@@ -5,6 +5,7 @@ import os from 'os'
 import path from 'path'
 import {
   resolveStartupPath,
+  withProjectLoginPath,
   augmentPathFromLoginShell,
   augmentAuthEnvFromLoginShell,
   augmentEnvFromLoginShell,
@@ -1150,5 +1151,24 @@ describe('resolveStartupPath — bundled gh (system-first fallback, APPENDED)', 
     expect(idx).toBe(diag.pathSegments.length - 1)
     expect(diag.pathSources[idx]).toBe('bundled')
     expect(diag.pathSegments.length).toBe(diag.pathSources.length)
+  })
+})
+
+describe('withProjectLoginPath (agents use the PATH Core verifies with)', () => {
+  const probe = (login: string | null) => vi.fn(() => login)
+
+  it('puts the login-shell PATH first and keeps inherited entries after it, once each', () => {
+    const env = { PATH: '/bundle/node/bin:/usr/bin', SHELL: '/bin/zsh' }
+    const result = withProjectLoginPath(env, { platform: 'darwin', probe: probe('/opt/homebrew/bin:/usr/bin') })
+    expect(result.PATH).toBe('/opt/homebrew/bin:/usr/bin:/bundle/node/bin')
+    expect(env.PATH).toBe('/bundle/node/bin:/usr/bin')
+  })
+
+  it('leaves the environment alone on Windows, with the opt-out, or when the probe fails', () => {
+    const env = { PATH: '/bundle/node/bin', SHELL: '/bin/zsh' }
+    expect(withProjectLoginPath(env, { platform: 'win32', probe: probe('/x') })).toBe(env)
+    const optedOut = { ...env, SPECRAILS_PROJECT_LOGIN_PATH: '0' }
+    expect(withProjectLoginPath(optedOut, { platform: 'darwin', probe: probe('/x') })).toBe(optedOut)
+    expect(withProjectLoginPath(env, { platform: 'darwin', probe: probe(null) })).toBe(env)
   })
 })
