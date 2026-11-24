@@ -13,7 +13,7 @@
 import { isTauri } from './tauri-shell'
 
 /** Surfaces that may open natively. Must match `SURFACES` in surface_windows.rs. */
-export const NATIVE_SURFACE_IDS = ['app-settings', 'job-detail', 'live-board'] as const
+export const NATIVE_SURFACE_IDS = ['app-settings', 'project-settings', 'job-detail', 'live-board'] as const
 export type NativeSurfaceId = (typeof NATIVE_SURFACE_IDS)[number]
 export type SurfaceParams = Record<string, string>
 

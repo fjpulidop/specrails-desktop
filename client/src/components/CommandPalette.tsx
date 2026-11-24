@@ -479,12 +479,10 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
     const { entry } = row
     if (entry.scope === 'app') {
       openAppSettings(entry.section as AppSettingsSection, entry.id)
-    } else if (uiMode === 'agent') {
-      openProjectSettings(entry.section, entry.id)
     } else {
-      navigate(`/settings?setting=${encodeURIComponent(entry.id)}`)
+      openProjectSettings(entry.section, entry.id)
     }
-  }, [navigate, uiMode])
+  }, [])
 
   const handleDesktopAction = useCallback((action: (() => void) | undefined) => {
     if (!action) return
@@ -550,10 +548,7 @@ export function CommandPalette({ onOpenSettings, onOpenAnalytics, onOpenDocs }: 
       navigate,
       setUiMode,
       openAppSettings,
-      // Project settings are the /settings route in both modes.
-      openProjectSettings: (_section, settingId) => {
-        navigate(settingId ? `/settings?setting=${encodeURIComponent(settingId)}` : '/settings')
-      },
+      openProjectSettings,
       newMission: () => {
         startNewConversation(activeProjectId)
         if (isGlobalRoute(location.pathname, uiMode)) navigate('/')

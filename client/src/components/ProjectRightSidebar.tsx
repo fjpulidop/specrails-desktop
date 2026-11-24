@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { LayoutDashboard, Briefcase, BarChart3, Code2, Settings } from 'lucide-react'
+import { openProjectSettings } from '../lib/app-settings-events'
 import { cn } from '../lib/utils'
 import { useSidebarPin } from '../context/SidebarPinContext'
 import { useResizableSidebar } from '../hooks/useResizableSidebar'
@@ -39,7 +40,6 @@ export function ProjectRightSidebar() {
     ...(FEATURE_CODE_EXPLORER
       ? [{ to: '/code', end: false, icon: Code2, label: t('rightSidebar.code') }]
       : []),
-    { to: '/settings', end: false, icon: Settings, label: t('rightSidebar.settings') },
   ]
 
   return (
@@ -108,6 +108,17 @@ export function ProjectRightSidebar() {
             )}
           </NavLink>
         ))}
+        <button
+          type="button"
+          data-area="settings"
+          aria-label={t('rightSidebar.settings')}
+          onClick={() => { if (overlaying) hover.dismiss(); openProjectSettings() }}
+          className={cn('area-nav flex h-8 w-full items-center gap-2 rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+            expanded ? 'px-2' : 'justify-center', FOCUS_RING)}
+        >
+          <Settings className="h-4 w-4 shrink-0" aria-hidden />
+          {expanded && <span className="truncate text-xs">{t('rightSidebar.settings')}</span>}
+        </button>
       </nav>
     </div>
     </aside>

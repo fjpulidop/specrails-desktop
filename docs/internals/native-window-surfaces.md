@@ -1,7 +1,7 @@
 # Native window surfaces
 
 In the desktop app, a modal surface can open as a real OS window instead of an
-in-page Radix modal. The browser build keeps the modal. Settings, Job
+in-page Radix modal. The browser build keeps the modal. App Settings, Project Settings, Job
 detail and the live board (`live-board`: in the desktop app every way in opens or focuses this window, never the in-page dialog; a second-screen board
 whose card actions are reported to the main window, which the host brings
 forward through `focus_opener_on_result`) are the surfaces. Loops and Plugins, which already had their
@@ -49,7 +49,7 @@ it reports `{ action: 'shell', request }` and closes (the live board stays
 open; the host brings its opener forward), so the opener, focused by the host
 on close, shows the place in front. A project-settings request carries the
 surface's `projectId` (Job detail's "Configure" opens the run's project, at
-the requested `?section=`; the shell switches project first when it differs).
+the requested section; the shell switches project first when it differs).
 The opener listens app-wide (`listenSurfaceShellRequests` in `AppRoutes`), not
 per `<Surface>`: a window whose opener component unmounted still reaches it.
 The result is validated (known kinds, app-settings sections, ≤ 256-char
@@ -140,8 +140,8 @@ close, minimize or zoom buttons.
 
 | OS | Chrome | Relationship to the opener |
 |---|---|---|
-| macOS | Native traffic lights over our header (`TitleBarStyle::Overlay`, hidden title) at their standard place, in a ~28pt strip at the top. The header's title row starts right below them, at its normal left padding (`surfaceHeaderInset` in `dialog.tsx`). `traffic_light_position` is not used: it did not take effect on these owned windows | Child `NSWindow` (`parent`): moves with the opener and stays above it |
-| Windows | Native title bar (decorations on), then our header | Owned window: always above its owner and minimized with it |
+| macOS | Native traffic lights over our header (`TitleBarStyle::Overlay`, hidden title) at their standard place, in a ~28pt strip at the top. The header's title row starts right below them, at its normal left padding (`surfaceHeaderInset` in `dialog.tsx`). `traffic_light_position` is not used: it did not take effect on these owned windows | Independent window, no `parent`: a child `NSWindow` is minimized together with its parent as one group, so minimizing a surface window would minimize the whole app. It no longer moves with the opener or stays above it; the host focuses the opener when the window closes |
+| Windows | Native title bar (decorations on), then our header | Owned window: always above its owner; minimizing the opener minimizes it, minimizing it alone leaves the opener up |
 | Linux | Native title bar, as on Windows | Transient for the opener (GTK); the window manager decides stacking |
 
 If the traffic-light strip changes, adjust `surfaceHeaderInset` so the title row stays right below it.

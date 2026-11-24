@@ -13,6 +13,15 @@ import { loadRuntimeConfigFile, saveRuntimeRolePrompts } from './agent-runtime-s
 import { configureCoreChildRegistry } from '../../../util/core-child-process'
 import { CORE_PREPARING_LINE, coreProviderEnv, runAgentRuntimeInvocation, runtimeChangeName, scopedHostChecks } from './agent-runtime-bridge'
 
+// A host that already runs headless (Specrails itself) loads Core's guard into this process, which hands it to
+// every child it spawns. Strip only that inherited option so the assertions see what the bridge itself added.
+const hostGuardOption = (process.env.NODE_OPTIONS ?? '').match(/--require\s+(?:"[^"]*electron-headless-guard\.cjs"|\S*electron-headless-guard\.cjs)/)?.[0] ?? null
+const withoutHostGuard = (value: string | null | undefined) => {
+  if (value == null) return value
+  const stripped = hostGuardOption ? value.replace(hostGuardOption, '').replace(/\s+/g, ' ').trim() : value
+  return stripped === '' ? 'undefined' : stripped
+}
+
 let root: string, contextPath: string
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'runtime bridge with spaces '))
@@ -26,6 +35,7 @@ beforeEach(() => {
 })
 afterEach(() => { vi.restoreAllMocks(); rmSync(root, { recursive: true, force: true }); fixture.cli = null; fixture.retained = null })
 const options = () => ({ contextPath, cwd: root, env: { ...process.env, SPECRAILS_GIT_AUTO: 'false', API_SECRET: 'never-store-this' }, configPath: join(root, 'config.json'), change: 'test-change', timeoutMs: 3000 })
+const seenRun = (file: string) => { const run = JSON.parse(readFileSync(file, 'utf8')); return { ...run, options: run.options === null ? null : withoutHostGuard(run.options) } }
 function script(code: string) { writeFileSync(fixture.cli!, code) }
 function final(status = 'succeeded', overrides: object = {}) { return { type: 'runtime-result', runId: 'run-1', status, invocationUsage: { costUsd: null, inputTokens: 12, outputTokens: 4 }, ...overrides } }
 
@@ -62,7 +72,7 @@ describe('host checks of a package inside a larger checkout', () => {
 })
 
 describe('provider CLI environment', () => {
-  it('gives a run on a retained Core without the Electron headless guard the installed Core guard, once, unless opted out', async () => {
+  it('[spec:agent-runtime-test-isolation/bridge-tests-ignore-an-inherited-headless-guard] gives a run on a retained Core without the Electron headless guard the installed Core guard, once, unless opted out', async () => {
     const pkg = (name: string, guard: boolean) => {
       const cli = join(root, name, 'dist', 'agent-runtime', 'cli.js'); mkdirSync(nodePath.dirname(cli), { recursive: true })
       if (guard) { mkdirSync(join(root, name, 'dist', 'pipeline'), { recursive: true }); writeFileSync(join(root, name, 'dist', 'pipeline', 'electron-headless-guard.cjs'), 'globalThis.__fixtureGuard = (globalThis.__fixtureGuard || 0) + 1') }
@@ -74,23 +84,23 @@ describe('provider CLI environment', () => {
     const onLine = vi.fn()
     const env = { ...options().env, NODE_OPTIONS: '--max-old-space-size=2048' }
     expect((await runAgentRuntimeInvocation({ ...options(), env, resume: true, onLine })).failed).toBe(false)
-    expect(JSON.parse(readFileSync(seen, 'utf8'))).toEqual({ options: `--max-old-space-size=2048 --require ${JSON.stringify(copy)}`, headless: '1', loaded: 1 })
+    expect(seenRun(seen)).toEqual({ options: `--max-old-space-size=2048 --require ${JSON.stringify(copy)}`, headless: '1', loaded: 1 })
     expect(onLine).toHaveBeenCalledWith(expect.stringContaining('Desktop applies it'))
     // The next resume reuses the run's copy: an already present guard is never added twice.
     rmSync(join(root, 'current'), { recursive: true })
     expect((await runAgentRuntimeInvocation({ ...options(), env: { ...env, NODE_OPTIONS: `--require ${JSON.stringify(copy)}` }, resume: true })).failed).toBe(false)
-    expect(JSON.parse(readFileSync(seen, 'utf8'))).toEqual({ options: `--require ${JSON.stringify(copy)}`, headless: '1', loaded: 1 })
+    expect(seenRun(seen)).toEqual({ options: `--require ${JSON.stringify(copy)}`, headless: '1', loaded: 1 })
     expect((await runAgentRuntimeInvocation({ ...options(), env: { ...options().env, NODE_OPTIONS: undefined, SPECRAILS_HEADLESS: '0' }, resume: true })).failed).toBe(false)
-    expect(JSON.parse(readFileSync(seen, 'utf8'))).toEqual({ options: null, headless: '0', loaded: 0 })
+    expect(seenRun(seen)).toEqual({ options: null, headless: '0', loaded: 0 })
   })
-  it('leaves NODE_OPTIONS to a retained Core that ships the guard', async () => {
+  it('[spec:agent-runtime-test-isolation/bridge-tests-ignore-an-inherited-headless-guard] leaves NODE_OPTIONS to a retained Core that ships the guard', async () => {
     const cli = join(root, 'new', 'dist', 'agent-runtime', 'cli.js'); mkdirSync(nodePath.dirname(cli), { recursive: true })
     mkdirSync(join(root, 'new', 'dist', 'pipeline'), { recursive: true }); writeFileSync(join(root, 'new', 'dist', 'pipeline', 'electron-headless-guard.cjs'), '')
     fixture.cli = cli
     const seen = join(root, 'seen.txt')
     writeFileSync(cli, `require('fs').writeFileSync(${JSON.stringify(seen)}, String(process.env.NODE_OPTIONS)); console.log(JSON.stringify(${JSON.stringify(final())}));`)
     expect((await runAgentRuntimeInvocation({ ...options(), env: { ...options().env, NODE_OPTIONS: undefined }, resume: true })).failed).toBe(false)
-    expect(readFileSync(seen, 'utf8')).toBe('undefined')
+    expect(withoutHostGuard(readFileSync(seen, 'utf8'))).toBe('undefined')
     expect(existsSync(join(root, 'state', 'electron-headless-guard.cjs'))).toBe(false)
   })
   it('trusts the admitted workspace for Gemini CLIs that Core spawns, unless the host set a value', async () => {

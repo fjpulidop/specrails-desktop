@@ -70,8 +70,8 @@ interface StatusBarProps {
 /**
  * One status bar for both modes (DESIGN.md › Status bar). Left: nothing while
  * healthy, only a connection problem. Right: an update offer, the busiest plan-usage meter,
- * app resources while work runs, keep-awake while it is on, the terminal
- * toggle. A missing figure renders nothing, never a placeholder dash.
+ * persistent app resources, keep-awake while it is on, and the terminal toggle.
+ * A missing figure renders nothing, never a placeholder dash.
  */
 export function StatusBar({ connectionStatus, rightSlot }: StatusBarProps) {
   const { t } = useTranslation('nav')

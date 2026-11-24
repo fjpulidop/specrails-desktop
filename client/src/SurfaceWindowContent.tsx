@@ -20,14 +20,21 @@ import { handOffSurfaceToasts } from './lib/surface-toasts'
 // it. `preloadSurfaceWindowContent` starts that load as soon as the route is
 // known; the window stays hidden until the content has painted (see below).
 const loadSettingsDialog = () => import('./features/settings/pages/GlobalSettingsPage')
+const loadProjectSettingsDialog = () => import('./features/settings/pages/SettingsPage')
 const loadJobDetailModal = () => import('./features/jobs/components/JobDetailModal')
 const loadLiveBoardWindow = () => import('./features/live-board/components/LiveBoardWindow')
 const SettingsDialog = lazy(loadSettingsDialog)
+const ProjectSettingsDialog = lazy(() => loadProjectSettingsDialog().then(module => ({ default: module.ProjectSettingsDialog })))
 const JobDetailModal = lazy(() => loadJobDetailModal().then(module => ({ default: module.JobDetailModal })))
 const LiveBoardWindow = lazy(loadLiveBoardWindow)
 
 export function preloadSurfaceWindowContent(id: NativeSurfaceId): void {
-  const load = id === 'app-settings' ? loadSettingsDialog : id === 'live-board' ? loadLiveBoardWindow : loadJobDetailModal
+  const load = {
+    'app-settings': loadSettingsDialog,
+    'project-settings': loadProjectSettingsDialog,
+    'live-board': loadLiveBoardWindow,
+    'job-detail': loadJobDetailModal,
+  }[id]
   void load().catch(() => {})
 }
 
@@ -95,6 +102,23 @@ function AppSettingsWindow({ params }: { params: SurfaceParams }) {
   )
 }
 
+function ProjectSettingsWindow({ params }: { params: SurfaceParams }) {
+  const surface = useSurfaceWindowLifecycle('project-settings', params.projectId)
+  const ready = useSurfaceProject(params.projectId)
+  const { activeProjectId, projects } = useDesktop()
+  const available = !!params.projectId && projects.some(({ id }) => id === params.projectId)
+  useEffect(() => {
+    if (ready && !available) surface.close()
+  }, [ready, available, surface])
+  // Once shown, the dialog stays mounted while projects refresh: unmounting it would reset its
+  // scroll and in-progress edits.
+  const shown = useRef(false)
+  const showable = ready && available && params.projectId === activeProjectId
+  if (showable) shown.current = true
+  if (!showable && !shown.current) return null
+  return <ProjectSettingsDialog target={params} onClose={surface.close} />
+}
+
 function JobDetailWindow({ params }: { params: SurfaceParams }) {
   const surface = useSurfaceWindowLifecycle('job-detail', params.projectId)
   const ready = useSurfaceProject(params.projectId)
@@ -141,10 +165,16 @@ function RevealWhenPainted() {
  * loaded content, so the reveal still shows real content on its first frame.
  */
 export function SurfaceWindowContent({ id, params }: { id: NativeSurfaceId; params: SurfaceParams }) {
+  const content = {
+    'app-settings': <AppSettingsWindow params={params} />,
+    'project-settings': <ProjectSettingsWindow params={params} />,
+    'live-board': <LiveBoardSurfaceWindow />,
+    'job-detail': <JobDetailWindow params={params} />,
+  }[id]
   return (
     <Suspense fallback={null}>
       <SurfaceWindowFrame>
-        {id === 'app-settings' ? <AppSettingsWindow params={params} /> : id === 'live-board' ? <LiveBoardSurfaceWindow /> : <JobDetailWindow params={params} />}
+        {content}
         <RevealWhenPainted />
       </SurfaceWindowFrame>
     </Suspense>

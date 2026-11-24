@@ -54,6 +54,15 @@ describe('StatusBar', () => {
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
+  it('[spec:app-resources-button/resources-button-is-always-visible] keeps the Resources button mounted while the terminal slot opens and closes', () => {
+    const { rerender } = render(<StatusBar connectionStatus="connected" />)
+    const resources = screen.getByTestId('resources')
+    rerender(<StatusBar connectionStatus="connected" rightSlot={<button type="button">Terminal</button>} />)
+    expect(screen.getByTestId('resources')).toBe(resources)
+    rerender(<StatusBar connectionStatus="connected" />)
+    expect(screen.getByTestId('resources')).toBe(resources)
+  })
+
   it('renders the terminal toggle slot', () => {
     render(<StatusBar connectionStatus="connected" rightSlot={<button type="button">Terminal</button>} />)
     expect(screen.getByRole('button', { name: 'Terminal' })).toBeInTheDocument()

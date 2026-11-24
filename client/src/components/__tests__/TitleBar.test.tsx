@@ -1,9 +1,10 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { Link, MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { SidebarPinProvider } from '../../context/SidebarPinContext'
+import { UiModeProvider } from '../../context/UiModeContext'
 import { TitleBar as TitleBarComponent } from '../TitleBar'
 
 function TitleBar({ path = '/', showSidebarToggles }: { path?: string; showSidebarToggles?: boolean } = {}): ReactElement {
@@ -146,6 +147,30 @@ describe('TitleBar', () => {
     render(<SidebarPinProvider><TitleBar /></SidebarPinProvider>)
     expect(screen.queryByRole('button', { name: 'Pin right sidebar open' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Collapse left sidebar (keep pinned)' })).toBeInTheDocument()
+  })
+
+  it.each(['web', 'macOS', 'Windows'])('keeps the right sidebar control between missions and settings on %s', (surface) => {
+    localStorage.removeItem('specrails-desktop:sidebar-mode:right')
+    if (surface === 'web') Reflect.deleteProperty(window, '__TAURI_INTERNALS__')
+    Object.defineProperty(navigator, 'platform', { value: surface === 'Windows' ? 'Win32' : 'MacIntel', configurable: true })
+    render(
+      <MemoryRouter>
+        <UiModeProvider initialMode="agent" persist={false}>
+          <SidebarPinProvider>
+            <TitleBarComponent />
+            <Link to="/settings">Project settings</Link>
+            <Link to="/">Mission</Link>
+          </SidebarPinProvider>
+        </UiModeProvider>
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Pin right sidebar open' }))
+    fireEvent.click(screen.getByRole('link', { name: 'Project settings' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse right sidebar (keep pinned)' }))
+    expect(screen.getByRole('button', { name: 'Unpin right sidebar' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Mission' }))
+    expect(screen.getByRole('button', { name: 'Unpin right sidebar' })).toBeInTheDocument()
+    localStorage.removeItem('specrails-desktop:sidebar-mode:right')
   })
 
   it('uses theme tokens for default window controls', () => {

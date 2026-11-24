@@ -2,7 +2,8 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, act } from '../../../../test-utils'
 import userEvent from '@testing-library/user-event'
-import SettingsPage from '../SettingsPage'
+import SettingsPage, { ProjectSettingsDialog } from '../SettingsPage'
+import { SurfaceWindowFrame } from '../../../../components/ui/dialog'
 import { OPEN_BUDGET_PANEL_EVENT } from '../../../../lib/app-settings-events'
 import type { ProjectConfig } from '../../../../types'
 
@@ -54,6 +55,43 @@ const mockConfig: ProjectConfig = {
 }
 
 describe('SettingsPage', () => {
+  it('uses a viewport-height layout with a dedicated scroll row in the native frame', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => mockConfig })
+    render(
+      <SurfaceWindowFrame>
+        <ProjectSettingsDialog target={{ section: 'general' }} onClose={vi.fn()} />
+      </SurfaceWindowFrame>,
+    )
+    const panel = screen.getByRole('dialog', { name: 'Project settings' })
+    expect(panel).toHaveAttribute('data-surface-window')
+    expect(panel).toHaveClass('data-[surface-window]:h-dvh', 'data-[surface-window]:grid-rows-[auto_minmax(0,1fr)]')
+    expect(screen.getByTestId('project-settings-scroll')).toHaveClass('min-h-0', 'overflow-y-auto', 'overscroll-none')
+    await screen.findByTestId('recently-deleted')
+  })
+
+  it('contains scrolling and returns focus to the underlying settings trigger on Escape', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => mockConfig })
+    const user = userEvent.setup()
+    function Opener() {
+      const [open, setOpen] = React.useState(false)
+      return <>
+        <button onClick={() => setOpen(true)}>Configure project</button>
+        {open && <ProjectSettingsDialog target={{ section: 'recentlyDeleted' }} onClose={() => setOpen(false)} />}
+      </>
+    }
+    render(<Opener />)
+    const trigger = screen.getByRole('button', { name: 'Configure project' })
+    await user.click(trigger)
+    const dialog = await screen.findByRole('dialog', { name: 'Project settings' })
+    const body = screen.getByTestId('project-settings-scroll')
+    expect(body).toHaveClass('overflow-y-auto', 'overscroll-none')
+    expect(body).toContainElement(await screen.findByTestId('recently-deleted'))
+    expect(dialog).toContainElement(document.activeElement as HTMLElement)
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(trigger).toHaveFocus())
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
   })

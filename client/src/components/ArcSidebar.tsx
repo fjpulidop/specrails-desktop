@@ -3,7 +3,7 @@ import { projectMonogram } from '../lib/project-monogram'
 import { useOpenMission } from '../features/missions/hooks/useOpenMission'
 import { isMacKeyboard } from '../lib/keyboard-label'
 import { announce } from '../lib/announce'
-import { OPEN_PROJECT_SETTINGS_EVENT, PROJECT_SETTINGS_SECTION_PARAM, PROJECT_SETTINGS_SETTING_PARAM, type OpenProjectSettingsDetail } from '../lib/app-settings-events'
+import { openProjectSettings } from '../lib/app-settings-events'
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react'
@@ -787,9 +787,7 @@ export function ArcSidebar({
   const location = useLocation()
   const onLoopsRoute = location.pathname.startsWith('/loops')
   const onPluginsRoute = location.pathname.startsWith('/plugins')
-  // Project settings are a ROUTE in both modes; in Mission mode it takes over the centre like Docs.
-  const onSettingsRoute = location.pathname.startsWith('/settings')
-  const onGlobalRoute = onLoopsRoute || onPluginsRoute || location.pathname.startsWith('/docs') || onSettingsRoute
+  const onGlobalRoute = onLoopsRoute || onPluginsRoute || location.pathname.startsWith('/docs')
   const { effectiveLeftMode, setLeftMode, narrow, leftFlyoutOpen, setLeftFlyoutOpen } = useSidebarPin()
   const { uiMode, requestedMode, toggleUiMode } = useUiMode()
   const agentChat = useAgentChat()
@@ -861,39 +859,6 @@ export function ArcSidebar({
 
   const [expandedTree, setExpandedTree] = useState<Set<string>>(loadExpanded)
   const favoriteTreeOpen = expandedTree.has(FAVORITES_KEY)
-  // Project settings (hover gear on a project folder, ⌘K "Open project settings ▸ …") are the /settings route.
-  const openProjectSettingsRoute = useCallback((settingId?: string, section?: string) => {
-    const params = new URLSearchParams()
-    if (settingId) params.set(PROJECT_SETTINGS_SETTING_PARAM, settingId)
-    else if (section) params.set(PROJECT_SETTINGS_SECTION_PARAM, section)
-    const search = params.toString()
-    navigate(search ? `/settings?${search}` : '/settings')
-  }, [navigate])
-  // A request for ANOTHER project's settings (a Job detail window forwards its
-  // run's project) switches project first; the route opens once the switch has
-  // committed, after route memory restored the incoming project's surface.
-  const pendingProjectSettings = useRef<OpenProjectSettingsDetail | null>(null)
-  useEffect(() => {
-    const onOpen = (event: Event) => {
-      const detail = (event as CustomEvent<OpenProjectSettingsDetail>).detail
-      const target = detail?.projectId
-      if (target && target !== activeProjectId && projects.some((project) => project.id === target)) {
-        pendingProjectSettings.current = detail
-        setActiveProjectId(target)
-        return
-      }
-      openProjectSettingsRoute(detail?.settingId, detail?.section)
-    }
-    window.addEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
-    return () => window.removeEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
-  }, [openProjectSettingsRoute, activeProjectId, projects, setActiveProjectId])
-  useEffect(() => {
-    const pending = pendingProjectSettings.current
-    if (!pending || pending.projectId !== activeProjectId) return
-    pendingProjectSettings.current = null
-    const frame = requestAnimationFrame(() => openProjectSettingsRoute(pending.settingId, pending.section))
-    return () => cancelAnimationFrame(frame)
-  }, [activeProjectId, openProjectSettingsRoute])
   // Default-expand the active project the first time we enter Agent Mode.
   useEffect(() => {
     if (!agentMode || !activeProjectId) return
@@ -1409,13 +1374,7 @@ export function ArcSidebar({
               pendingConversationIds={pendingMissionActions}
               assembleStatus={assembleProgress.statusFor(project.id)}
               onRetryAssemble={() => { void assembleProgress.retry(project.id) }}
-              onOpenProjectSettings={agentMode ? () => {
-                // The settings sections talk to the ACTIVE project's API base —
-                // opening a project's settings selects it first (same semantics
-                // as clicking the folder).
-                setActiveProjectId(project.id)
-                openProjectSettingsRoute()
-              } : undefined}
+              onOpenProjectSettings={agentMode ? () => openProjectSettings(undefined, undefined, project.id) : undefined}
             />
           )
         })}

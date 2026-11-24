@@ -33,7 +33,7 @@ export interface ProjectSettingsSection {
 }
 
 /**
- * Single source of truth for project settings. The /settings route (both UI
+ * Single source of truth for project settings. The project settings modal (both UI
  * modes) renders every pane in this order on one page, with a sticky section
  * index beside it (a select below 900px). Adding a section here adds it to
  * the page and to that index.

@@ -22,7 +22,7 @@ working.
 | Surface | Pattern |
 |---|---|
 | Confirms, launch dialogs, Add Spec | Modal |
-| Settings | Modal (AGENTS.md: app settings are a modal; project settings are a route in board mode and `ProjectSettingsDialog` in Agent Mode, which has no routed dashboard) |
+| Settings | Modal (app settings and project settings in both UI modes) |
 | Spec detail, Job detail | Entity modal (`layer="entity"`), resizable, geometry persisted |
 | Loops, Plugins, Review packet | `fullscreen` modal with the standard header and a visible close. Candidates for routes. In the desktop app Loops and Plugins open in their own native windows instead. |
 | Docs, Analytics, agent activity log, background-process logs | `workspace` modal today. These are read while working, so they are candidates for a right-side sheet. |

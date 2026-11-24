@@ -148,22 +148,20 @@ export function workProcessCount(snapshot: AppResourcesSnapshot | null): number 
   return snapshot.categories.filter(category => category.id !== 'server').reduce((sum, category) => sum + category.processCount, 0)
 }
 
-/** Status-bar control: present only while work runs (an icon and the process count); hover or click opens
- * the breakdown with memory and CPU. Polls every few seconds only while open. `extra` renders at the end
- * of the popover. */
+/** Persistent status-bar control with a process count when measured. Hover or click opens
+ * the memory and CPU breakdown and enables fast polling. `extra` renders at the end of the popover. */
 export function AppResourcesFooter({ extra }: { extra?: ReactNode } = {}) {
   const { t } = useTranslation('resources')
   const [open, setOpen] = useState(false)
   const { snapshot, error } = useAppResources(open)
   const { snapshot: ports } = useRunPorts(open)
-  const count = workProcessCount(snapshot)
-  if (count === 0 && !open) return null
+  const count = snapshot?.supported && !error ? workProcessCount(snapshot) : null
   return <HoverPopover label={t('title')} description={t('subtitle')} testId="app-resources-popover" width={384} onOpenChange={setOpen}
     trigger={<button type="button" data-testid="app-resources-trigger"
-      aria-label={t('openWithSummary', { count })} title={t('title')}
+      aria-label={count === null ? t('title') : t('openWithSummary', { count })} title={t('title')}
       className="flex h-6 items-center gap-1.5 rounded px-2 text-label hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-ring">
       <Activity className="h-3.5 w-3.5 shrink-0 text-foreground" aria-hidden />
-      <span className="num">{count}</span>
+      {count !== null && <span className="num">{count}</span>}
     </button>}>
     <AppResourcesPanel snapshot={snapshot} error={error} open={open} ports={ports} />
     {extra}

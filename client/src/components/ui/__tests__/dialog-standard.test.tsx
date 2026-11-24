@@ -10,6 +10,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DIALOG_PANEL_CLASS,
+  SURFACE_WINDOW_PANEL_CLASS,
 } from '../dialog'
 import { ConfirmDialog } from '../confirm-dialog'
 import { nestedDialogLayer } from '../../../lib/layers'
@@ -287,5 +289,24 @@ describe('ConfirmDialog', () => {
     expect(confirm.className).toContain('bg-destructive')
     expect((confirm as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('panel clipping', () => {
+  // Absolutely positioned content (sr-only headings, overlay inputs) is contained by the fixed
+  // panel, not the scrolling body, so an `overflow-hidden` panel became programmatically
+  // scrollable: focus/scrollIntoView shifted it and left an empty band under the body.
+  // `overflow-clip` cannot be scrolled at all.
+  it.each([
+    ['modal panel', DIALOG_PANEL_CLASS],
+    ['native window panel', SURFACE_WINDOW_PANEL_CLASS],
+  ])('[spec:native-surface-windows/surface-panels-clip-without-gaps] %s clips instead of hiding overflow', (_name, cls) => {
+    expect(cls.split(' ')).toContain('overflow-clip')
+    expect(cls.split(' ')).not.toContain('overflow-hidden')
+  })
+
+  it('[spec:native-surface-windows/surface-panels-clip-without-gaps] renders the shared panel clipped', () => {
+    render(<Standard size="workspace" />)
+    expect(screen.getByRole('dialog').className).toContain('overflow-clip')
   })
 })

@@ -57,3 +57,10 @@ React, network or native-shell dependencies. Bind effects in hooks and adapters.
 Run the adjacent tests with `npm run test --prefix client -- src/features/settings`.
 For moves, update imports and mocks together, then run client coverage and typecheck.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.
+
+## Project settings
+
+`ProjectSettingsDialog` presents the same project settings sections in the native
+surface and the web modal. Its dialog body owns vertical scrolling and contains
+overscroll. Entry points send `openProjectSettings(section, settingId, projectId)`
+to the shell, which leaves the current view mounted beneath the dialog.

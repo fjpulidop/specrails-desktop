@@ -30,6 +30,8 @@ const SURFACES: &[SurfaceSpec] = &[
     // Settings hosts the app-update section: check, download/install, restart.
     SurfaceSpec { id: "app-settings", singleton: true, title: "Settings", width: 1100.0, height: 760.0, min_width: 720.0, min_height: 520.0, params: &["section", "settingId", "onboarding"],
         commands: &["check_app_update", "restart_app"], permissions: &["updater:default", "process:allow-restart"], focus_opener_on_result: false },
+    SurfaceSpec { id: "project-settings", singleton: false, title: "Project settings", width: 1100.0, height: 760.0, min_width: 720.0, min_height: 520.0, params: &["projectId", "section", "settingId", "anchor"],
+        commands: &[], permissions: &["dialog:allow-open"], focus_opener_on_result: false },
     SurfaceSpec { id: "job-detail", singleton: false, title: "Run", width: 1280.0, height: 860.0, min_width: 720.0, min_height: 480.0, params: &["jobId", "projectId"],
         commands: &[], permissions: &[], focus_opener_on_result: false },
     // The live board on a second screen: its cards' actions run in the main
@@ -60,6 +62,8 @@ fn registry() -> &'static Mutex<HashMap<String, Entry>> {
 }
 fn spec(id: &str) -> Option<&'static SurfaceSpec> { SURFACES.iter().find(|spec| spec.id == id) }
 fn entry(label: &str) -> Option<Entry> { registry().lock().ok()?.get(label).cloned() }
+/// Windows/Linux surfaces are owned by their opener; macOS ones have no parent (see `surface_window_open`).
+fn surface_has_parent(is_macos: bool) -> bool { !is_macos }
 fn safe_token(value: &str, max: usize) -> bool { !value.is_empty() && value.len() <= max && value.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.') }
 
 
@@ -214,15 +218,17 @@ pub async fn surface_window_open(app: tauri::AppHandle, webview: Webview, surfac
     let mut builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(path.into()))
         .title(format!("Specrails — {}", spec.title))
         .inner_size(width, height).min_inner_size(spec.min_width, spec.min_height)
-        // Owned window: stays above its opener, minimizes with it (Windows/Linux)
-        // and moves with it on macOS (child NSWindow). Never blocks the opener.
-        .parent(&parent).map_err(|err| err.to_string())?
         .focused(true)
         // Hidden until the page paints its content (it calls `show()`), on the
         // opener's panel color, so no empty or half-drawn window is ever seen.
         .visible(false)
         .on_navigation(move |url| allowed_navigation(&nav_origin, url, surface_id))
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
+    // Windows/Linux: an owned window stays above its opener and minimizes with it, while
+    // minimizing the owned window alone leaves the opener up. Never blocks the opener.
+    // macOS: no parent. `parent()` makes a child NSWindow, and macOS minimizes a parent and
+    // its children as one group, so minimizing a surface window would minimize the whole app.
+    if surface_has_parent(cfg!(target_os = "macos")) { builder = builder.parent(&parent).map_err(|err| err.to_string())?; }
     // Screen-centered until `center_on_opener` moves it (before it is ever shown).
     builder = builder.center();
     // Native window controls only (the page renders no close button of its own).
@@ -300,6 +306,12 @@ mod tests {
     const WORK: Frame = frame(0.0, 25.0, 1920.0, 1055.0);
 
     #[test]
+    fn spec_native_surface_windows_minimizing_a_native_modal_leaves_the_main_window_up() {
+        // [spec:native-surface-windows/minimizing-a-native-modal-leaves-the-main-window-up]
+        assert!(!surface_has_parent(true), "macOS surfaces must have no parent or minimizing one minimizes the app");
+        assert!(surface_has_parent(false), "Windows/Linux surfaces stay owned by their opener");
+    }
+    #[test]
     fn a_new_surface_centers_on_its_opener_not_the_screen() {
         // Opener in the top-left quarter of the screen.
         let placed = centered_frame(frame(100.0, 100.0, 1200.0, 800.0), (600.0, 400.0), (300.0, 200.0), WORK);
@@ -365,6 +377,10 @@ mod tests {
         let any: HashMap<String, String> = [("projectId".into(), "p1".into())].into();
         assert!(validate_params(board, &any).is_err());
         assert!(validate_params(board, &HashMap::new()).is_ok());
+        let settings = spec("project-settings").unwrap();
+        let target = [("projectId".into(), "p1".into()), ("settingId".into(), "recentlyDeleted".into())].into();
+        assert!(validate_params(settings, &target).is_ok());
+        assert_eq!(settings.permissions, &["dialog:allow-open"]);
         let job = spec("job-detail").unwrap();
         let ok: HashMap<String, String> = [("jobId".into(), "abc".into()), ("projectId".into(), "p1".into())].into();
         assert!(validate_params(job, &ok).is_ok());

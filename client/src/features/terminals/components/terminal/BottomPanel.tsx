@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { openProjectSettings } from '../../../../lib/app-settings-events'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../../../lib/utils'
 import {
@@ -40,7 +40,6 @@ interface BottomPanelProps {
 export function BottomPanel({ projectId, provider = 'claude', providers, state, viewportHeight, statusBarHeight }: BottomPanelProps) {
   const t = useTerminals()
   const { t: translate } = useTranslation('terminal')
-  const navigate = useNavigate()
   const panelRef = useRef<HTMLDivElement | null>(null)
   const [livePreviewHeight, setLivePreviewHeight] = useState<number | null>(null)
   const [settings, setSettings] = useState<TerminalSettings>(DEFAULT_TERMINAL_SETTINGS)
@@ -208,9 +207,9 @@ export function BottomPanel({ projectId, provider = 'claude', providers, state, 
     setShortcutMenu({ ...anchor, kind: 'script' })
   }, [])
   const handleNavigateToSetting = useCallback((kind: 'browser' | 'script') => {
-    const hash = kind === 'browser' ? '#terminal-browser-shortcut-url' : '#terminal-quick-script'
-    navigate(`/settings${hash}`)
-  }, [navigate])
+    const setting = kind === 'browser' ? 'terminal-browser-shortcut-url' : 'terminal-quick-script'
+    openProjectSettings('terminal', setting, projectId)
+  }, [projectId])
 
   const handleKillActive = useCallback(() => {
     if (!state.activeId) return

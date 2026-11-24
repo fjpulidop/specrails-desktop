@@ -27,9 +27,7 @@ export function openAppSettings(section: AppSettingsSection, settingId?: string)
 }
 
 /**
- * Same idea for the per-project settings modal (Mission mode; Board mode shows
- * the same sections on the `/settings` route). Owned by the sidebar that hosts
- * the modal.
+ * Open the app shell’s project settings surface in either UI mode.
  */
 export const OPEN_PROJECT_SETTINGS_EVENT = 'specrails:open-project-settings'
 /** `/settings?setting=<id>`: land on one block (same value as `SETTING_PARAM`, settings/lib/setting-anchor). */
@@ -49,7 +47,7 @@ export interface OpenProjectSettingsDetail {
   projectId?: string
 }
 
-export function openProjectSettings(section: string, settingId?: string, projectId?: string): void {
+export function openProjectSettings(section = 'general', settingId?: string, projectId?: string): void {
   try {
     window.dispatchEvent(new CustomEvent<OpenProjectSettingsDetail>(OPEN_PROJECT_SETTINGS_EVENT, { detail: { section, ...(settingId ? { settingId } : {}), ...(projectId ? { projectId } : {}) } }))
   } catch {

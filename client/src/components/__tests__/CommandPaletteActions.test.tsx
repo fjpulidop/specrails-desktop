@@ -357,7 +357,7 @@ describe('CommandPalette actions (QW1)', () => {
     expect(mockStartNewConversation).toHaveBeenCalledWith('p1')
   })
 
-  it('Open project settings: the sidebar modal in Mission mode, the /settings route on the board', async () => {
+  it('opens the project settings surface at the chosen section', async () => {
     const events: string[] = []
     const onEvent = (e: Event) => events.push((e as CustomEvent<{ section: string }>).detail.section)
     window.addEventListener('specrails:open-project-settings', onEvent)
@@ -367,8 +367,7 @@ describe('CommandPalette actions (QW1)', () => {
     await user.type(input, 'open project settings')
     await user.click(await screen.findByTestId('palette-action-a-settings.project'))
     await user.click(await screen.findByTestId('palette-option-section-budget'))
-    expect(mockNavigate).toHaveBeenCalledWith('/settings')
-    expect(events).toEqual([])
+    expect(events).toEqual(['budget'])
     window.removeEventListener('specrails:open-project-settings', onEvent)
     void input
   })

@@ -271,7 +271,7 @@ Motion tokens: `--ease-out` (0.16, 1, 0.3, 1), `--ease-rail` (0.22, 0.9, 0.25, 1
 ### Status bar
 One skeleton in Mission and Board mode (`components/StatusBar.tsx`), 28 px, caption text, tabular numerals.
 - **Left:** empty while healthy. Only a connection problem speaks: *Reconnecting…* (warning), *Offline* (destructive), *Syncing…* (info) for a moment after a reconnect.
-- **Right, in order:** the update offer chip (after ~30 s idle, see the startup queue), ONE plan-usage meter for the most-loaded provider (neutral below 80 %; named and amber from 80 %, red from 90 % or on a refusal; every provider and today's spend live in its popover), App resources (icon and work-process count only while work runs; memory, CPU and Keep awake in its popover), Keep awake (an icon only while on), the terminal toggle.
+- **Right, in order:** the update offer chip (after ~30 s idle, see the startup queue), ONE plan-usage meter for the most-loaded provider (neutral below 80 %; named and amber from 80 %, red from 90 % or on a refusal; every provider and today's spend live in its popover), App resources (persistent icon and work-process count when measured; memory, CPU and Keep awake in its popover), Keep awake (an icon only while on), the terminal toggle.
 - **No placeholders:** a missing figure renders nothing, never a "—". Popovers speak plain language; internal names (routes, request labels) stay in logs and the problem report.
 
 ### Rail track and RailMark (signature)

@@ -48,7 +48,8 @@ ignores responses from a previously selected project or mission.
 ## App-wide resources
 
 `AppResourcesFooter` (status bar, after the provider quota footer) reads
-`GET /api/resources` through `useAppResources`: once on mount, every 30 s for the
+`GET /api/resources` through `useAppResources`. Its button is available as soon as
+the status bar renders and shows the work-process count when measured. It fetches once on mount, every 30 s for the
 trigger summary (skipped while the window is hidden) and every 3 s while the popover
 is open. The popover shows CPU, memory and process totals, a memory trend from the
 server's in-memory history, memory split by source and expandable rows per source.

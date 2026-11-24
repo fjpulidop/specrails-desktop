@@ -48,7 +48,7 @@ export const DIALOG_SIZE_CLASS: Record<DialogSize, string> = {
 
 /** Shared panel chrome (surface, border, radius, shadow, entrance motion). */
 export const DIALOG_PANEL_CLASS =
-  'modal-panel fixed left-[50%] top-[50%] flex flex-col overflow-hidden translate-x-[-50%] translate-y-[-50%] border border-border/30 bg-popover text-popover-foreground shadow-3 outline-none sm:rounded-panel'
+  'modal-panel fixed left-[50%] top-[50%] flex flex-col overflow-clip translate-x-[-50%] translate-y-[-50%] border border-border/30 bg-popover text-popover-foreground shadow-3 outline-none sm:rounded-panel'
 
 /** Shared scrim (one token per theme, see `--color-scrim` in globals.css). */
 export const DIALOG_SCRIM_CLASS = 'modal-scrim fixed inset-0 bg-scrim backdrop-blur-sm'
@@ -81,7 +81,7 @@ const noopClaim = () => () => {}
 const SurfaceWindowFrameContext = React.createContext<{ owner: { current: string | null } } | null>(null)
 
 /** Panel chrome for a dialog that is a native window's content. */
-export const SURFACE_WINDOW_PANEL_CLASS = 'fixed inset-0 flex flex-col overflow-hidden bg-popover text-popover-foreground outline-none'
+export const SURFACE_WINDOW_PANEL_CLASS = 'fixed inset-0 flex flex-col overflow-clip bg-popover text-popover-foreground outline-none'
 
 /** Marks a subtree as the content of a native surface window. */
 export function SurfaceWindowFrame({ children }: { children: React.ReactNode }) {
@@ -97,6 +97,11 @@ export function useSurfaceWindowFrame(): boolean {
   const frame = React.useContext(SurfaceWindowFrameContext)
   const parent = React.useContext(DialogChromeContext)
   const id = React.useId()
+  // Release on unmount: content that unmounts and mounts again (a new id) must take the frame back,
+  // not fall through to the in-page modal presentation.
+  React.useLayoutEffect(() => () => {
+    if (frame && frame.owner.current === id) frame.owner.current = null
+  }, [frame, id])
   if (!frame || parent) return false
   frame.owner.current ??= id
   return frame.owner.current === id

@@ -17,7 +17,8 @@ import { Puzzle, Workflow, Eye } from 'lucide-react'
 import { _registerRouteForcer } from './lib/route-memory'
 import { OPEN_DOCS_EVENT, type DocsTarget, type OpenDocsDetail } from './lib/docs-events'
 import { REPLAY_TOUR_EVENT } from './lib/onboarding-events'
-import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, type AppSettingsSection, type OpenAppSettingsDetail } from './lib/app-settings-events'
+import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, OPEN_PROJECT_SETTINGS_EVENT, PROJECT_SETTINGS_SECTION_PARAM, PROJECT_SETTINGS_SETTING_PARAM, type AppSettingsSection, type OpenAppSettingsDetail, type OpenProjectSettingsDetail } from './lib/app-settings-events'
+import { dispatchTerminalSettingsUpdated } from './features/settings/lib/terminal-settings-events'
 import { Surface, useNativeWindowHandoff } from './components/ui/surface'
 import { TooltipProvider } from './components/ui/tooltip'
 import { replaySurfaceStorageWrites, surfaceWindowRoute } from './lib/native-surfaces'
@@ -41,7 +42,7 @@ const loadDashboardPage = () => import('./features/dashboard/pages/DashboardPage
 if (readStoredUiMode() === 'kanban') void loadDashboardPage().catch(() => {})
 const DashboardPage = lazy(loadDashboardPage)
 // Settings (project route and app modal) and the platform tour load on first use.
-const SettingsPage = lazy(() => import('./features/settings/pages/SettingsPage'))
+const ProjectSettingsDialog = lazy(() => import('./features/settings/pages/SettingsPage').then(module => ({ default: module.ProjectSettingsDialog })))
 const SettingsDialog = lazy(() => import('./features/settings/pages/GlobalSettingsPage'))
 const OnboardingWizard = lazy(() => import('./features/projects/components/OnboardingWizard').then(module => ({ default: module.OnboardingWizard })))
 
@@ -161,7 +162,7 @@ function GlobalSurfaceDialogHeader({ surface }: { surface: GlobalModalSurface })
 
 // Paths that should never be remembered as a project's "last visited" —
 // re-entering a project should never land on a config/admin surface.
-const ROUTE_MEMORY_EXCLUDE = new Set<string>(['/settings', '/loops', '/plugins'])
+const ROUTE_MEMORY_EXCLUDE = new Set<string>(['/settings', '/settings/', '/loops', '/plugins'])
 
 // Global (cross-project) routes must never be saved or restored as a project's
 // "last visited" surface — they aren't project-scoped, so persisting one would
@@ -284,7 +285,7 @@ export function useProjectRouteMemory(activeProjectId: string | null) {
 
 function DesktopApp() {
   const { t } = useTranslation('common')
-  const { projects, activeProjectId, isLoading, isSwitchingProject, setActiveProjectId } = useDesktop()
+  const { projects, activeProjectId, isLoading, isSwitchingProject, setActiveProjectId, refreshProjects } = useDesktop()
   const { cycleLeftMode, cycleRightMode } = useSidebarPin()
   const navigate = useNavigate()
   const location = useLocation()
@@ -318,6 +319,20 @@ function DesktopApp() {
     window.addEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
     return () => window.removeEventListener(OPEN_APP_SETTINGS_EVENT, onOpen)
   }, [])
+  const [projectSettings, setProjectSettings] = useState<(OpenProjectSettingsDetail & { anchor?: string }) | null>(null)
+  const closeProjectSettings = useCallback(() => setProjectSettings(null), [])
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const detail = (event as CustomEvent<OpenProjectSettingsDetail>).detail
+      const target = detail?.projectId ?? activeProjectId
+      if (!detail || !target || !projects.some(({ id }) => id === target)) return
+      if (target !== activeProjectId) setActiveProjectId(target)
+      setProjectSettings({ ...detail, projectId: target })
+    }
+    window.addEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
+    return () => window.removeEventListener(OPEN_PROJECT_SETTINGS_EVENT, onOpen)
+  }, [activeProjectId, projects, setActiveProjectId])
+
   // "Raise cap" (inbox, launch forecast) lands on the project's Analytics Budget panel.
   useEffect(() => {
     // One frame later: the per-project route memory commits after the event and would overwrite an
@@ -479,6 +494,22 @@ function DesktopApp() {
 
   // Remember which page each project was on
   useProjectRouteMemory(activeProjectId)
+  // Bookmarks and old place-history entries still open their settings target.
+  useEffect(() => {
+    if (isLoading || (location.pathname !== '/settings' && location.pathname !== '/settings/')) return
+    const params = new URLSearchParams(location.search)
+    if (activeProjectId) {
+      setProjectSettings({
+        projectId: activeProjectId,
+        section: params.get(PROJECT_SETTINGS_SECTION_PARAM) ?? 'general',
+        settingId: params.get(PROJECT_SETTINGS_SETTING_PARAM) ?? undefined,
+        anchor: location.hash.slice(1) || undefined,
+      })
+    }
+    params.delete(PROJECT_SETTINGS_SECTION_PARAM)
+    params.delete(PROJECT_SETTINGS_SETTING_PARAM)
+    navigate({ pathname: '/', search: params.toString() }, { replace: true })
+  }, [activeProjectId, isLoading, location.hash, location.pathname, location.search, navigate])
 
   // Push localized system-tray labels to the Rust host (no-op outside Tauri).
   useTrayLabels()
@@ -706,6 +737,7 @@ function DesktopApp() {
             <Suspense fallback={<div className="flex-1 flex items-center justify-center" role="status" aria-label={t('states.loading')}><RailMark size={64} state="travel" /></div>}>
               <Routes>
                 <Route path="/docs" element={<DocsPage />} />
+                <Route path="/settings" element={null} />
                 <Route path="/docs/:category/:slug" element={<DocsPage />} />
                 {/* Loops — GLOBAL routes (cross-project), outside ProjectLayout.
                     In Mission mode these routes open a modal, preserving
@@ -731,7 +763,6 @@ function DesktopApp() {
                     <Route path="/agents" element={<AgentsPage />} />
                     <Route path="/code" element={FEATURE_CODE_EXPLORER ? <CodePage /> : <Navigate to="/" replace />} />
                     <Route path="/integrations" element={<IntegrationsPage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Route>
                 ) : (
@@ -758,8 +789,7 @@ function DesktopApp() {
         <StatusBar connectionStatus={connectionStatus} rightSlot={chevronSlot} />
       </div>
 
-      {/* Right sidebar — full height. In Agent Mode this is the "On workspace"
-          toolbar; in Kanban it's the project sidebar. Hidden on global routes. */}
+      {/* The current mode's right sidebar stays mounted through Project Settings. */}
       {showRightSidebar && (uiMode === 'agent' ? <AgentWorkspaceSidebar /> : <ProjectRightSidebar />)}
 
       {/* New-project path (reskin): the chooser's New card puts the AGENT into
@@ -784,6 +814,25 @@ function DesktopApp() {
           </Suspense>
         )}
       </Surface>
+
+      {projectSettings && activeProject && projectSettings.projectId === activeProject.id && (
+        <Surface
+          id="project-settings"
+          open
+          params={{ projectId: activeProject.id, section: projectSettings.section, settingId: projectSettings.settingId, anchor: projectSettings.anchor }}
+          onClose={() => {
+            closeProjectSettings()
+            // The window owns an isolated React tree. Refresh the opener after its edits.
+            void refreshProjects()
+            void agentChat.refreshConversations()
+            dispatchTerminalSettingsUpdated({ mode: 'project', projectId: activeProject.id })
+          }}
+        >
+          <Suspense fallback={null}>
+            <ProjectSettingsDialog target={projectSettings} onClose={closeProjectSettings} />
+          </Suspense>
+        </Surface>
+      )}
 
       {reportMounted && (
         <Suspense fallback={null}>
