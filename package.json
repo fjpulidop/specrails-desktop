@@ -96,7 +96,7 @@
     "esbuild": "^0.28.1",
     "js-tiktoken": "^1.0.21",
     "supertest": "^7.2.2",
-    "tsx": "^4.23.0",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
   },
