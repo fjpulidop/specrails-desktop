@@ -97,7 +97,7 @@ describe('Surface: web fallback', () => {
 })
 
 describe('Surface: native window in Tauri', () => {
-  it('opens Project Settings for the requested project and block and returns focus on close', async () => {
+  it('[spec:project-settings-surface/native-window-or-app-modal-presentation] opens Project Settings for the requested project and block and returns focus on close', async () => {
     setTauri(true)
     invoke.mockImplementation(async (_cmd: string, args: { requestId: string }) => ({ windowLabel: 'surface-project-settings-1', requestId: args.requestId, reused: false }))
     const onClose = vi.fn()

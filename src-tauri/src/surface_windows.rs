@@ -62,6 +62,8 @@ fn registry() -> &'static Mutex<HashMap<String, Entry>> {
 }
 fn spec(id: &str) -> Option<&'static SurfaceSpec> { SURFACES.iter().find(|spec| spec.id == id) }
 fn entry(label: &str) -> Option<Entry> { registry().lock().ok()?.get(label).cloned() }
+/// Windows/Linux surfaces are owned by their opener; macOS ones have no parent (see `surface_window_open`).
+fn surface_has_parent(is_macos: bool) -> bool { !is_macos }
 fn safe_token(value: &str, max: usize) -> bool { !value.is_empty() && value.len() <= max && value.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.') }
 
 
@@ -226,8 +228,7 @@ pub async fn surface_window_open(app: tauri::AppHandle, webview: Webview, surfac
     // minimizing the owned window alone leaves the opener up. Never blocks the opener.
     // macOS: no parent. `parent()` makes a child NSWindow, and macOS minimizes a parent and
     // its children as one group, so minimizing a surface window would minimize the whole app.
-    #[cfg(not(target_os = "macos"))]
-    { builder = builder.parent(&parent).map_err(|err| err.to_string())?; }
+    if surface_has_parent(cfg!(target_os = "macos")) { builder = builder.parent(&parent).map_err(|err| err.to_string())?; }
     // Screen-centered until `center_on_opener` moves it (before it is ever shown).
     builder = builder.center();
     // Native window controls only (the page renders no close button of its own).
@@ -304,6 +305,12 @@ mod tests {
     const fn frame(x: f64, y: f64, width: f64, height: f64) -> Frame { Frame { x, y, width, height } }
     const WORK: Frame = frame(0.0, 25.0, 1920.0, 1055.0);
 
+    #[test]
+    fn spec_native_surface_windows_minimizing_a_native_modal_leaves_the_main_window_up() {
+        // [spec:native-surface-windows/minimizing-a-native-modal-leaves-the-main-window-up]
+        assert!(!surface_has_parent(true), "macOS surfaces must have no parent or minimizing one minimizes the app");
+        assert!(surface_has_parent(false), "Windows/Linux surfaces stay owned by their opener");
+    }
     #[test]
     fn a_new_surface_centers_on_its_opener_not_the_screen() {
         // Opener in the top-left quarter of the screen.

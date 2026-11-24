@@ -19,7 +19,7 @@ describe('sidebar-layout', () => {
     expect(hasRightSidebar({ uiMode: 'kanban', pathname: '/loops', hasActiveProject: true })).toBe(false)
   })
 
-  it('keeps the current sidebar in project settings while settings takes over the mission centre', () => {
+  it('[spec:project-settings-surface/project-settings-keep-the-right-sidebar] keeps the current sidebar in project settings while settings takes over the mission centre', () => {
     expect(isGlobalRoute('/settings', 'agent')).toBe(true)
     for (const uiMode of ['agent', 'kanban']) {
       expect(hasRightSidebar({ uiMode, pathname: '/settings', hasActiveProject: true })).toBe(true)

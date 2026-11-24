@@ -47,7 +47,7 @@ describe('AppResourcesFooter', () => {
     expect(trigger).toHaveAttribute('aria-label', 'App resources: 9 processes running. Show details')
   })
 
-  it('opens before the first measurement with a neutral name and no count', () => {
+  it('[spec:app-resources-button/count-only-when-measured] opens before the first measurement with a neutral name and no count', () => {
     vi.mocked(getAppResources).mockImplementation(() => new Promise(() => {}))
     render(<AppResourcesFooter />)
     const trigger = screen.getByRole('button', { name: 'App resources' })
@@ -56,7 +56,7 @@ describe('AppResourcesFooter', () => {
     expect(screen.getByText('Measuring…')).toBeInTheDocument()
   })
 
-  it('opens at zero work processes and still lists the server', async () => {
+  it('[spec:app-resources-button/resources-button-is-always-visible] opens at zero work processes and still lists the server', async () => {
     vi.mocked(getAppResources).mockResolvedValue(idleSnapshot())
     render(<AppResourcesFooter />)
     await flush()
@@ -66,7 +66,7 @@ describe('AppResourcesFooter', () => {
     expect(screen.getByTestId('app-resources-category-server')).toBeInTheDocument()
   })
 
-  it('stays visible when the last work process ends with the panel closed', async () => {
+  it('[spec:app-resources-button/resources-button-is-always-visible] stays visible when the last work process ends with the panel closed', async () => {
     vi.mocked(getAppResources).mockResolvedValueOnce(snapshot()).mockResolvedValue(idleSnapshot())
     render(<AppResourcesFooter />)
     await flush()
@@ -77,7 +77,7 @@ describe('AppResourcesFooter', () => {
     expect(trigger).toHaveTextContent(/^0$/)
   })
 
-  it('opens with a neutral name when measurement is unsupported', async () => {
+  it('[spec:app-resources-button/count-only-when-measured] opens with a neutral name when measurement is unsupported', async () => {
     vi.mocked(getAppResources).mockResolvedValue(snapshot({ supported: false, categories: [], totals: { cpuPercent: 0, memoryBytes: 0, processCount: 0 } }))
     render(<AppResourcesFooter />)
     await flush()
@@ -87,7 +87,7 @@ describe('AppResourcesFooter', () => {
     expect(screen.getByText('Resource usage is not available on this system.')).toBeInTheDocument()
   })
 
-  it('omits a stale count after a refresh error and leaves the error accessible', async () => {
+  it('[spec:app-resources-button/count-only-when-measured] omits a stale count after a refresh error and leaves the error accessible', async () => {
     vi.mocked(getAppResources).mockResolvedValueOnce(snapshot()).mockRejectedValue(new Error('offline'))
     render(<AppResourcesFooter />)
     await flush()

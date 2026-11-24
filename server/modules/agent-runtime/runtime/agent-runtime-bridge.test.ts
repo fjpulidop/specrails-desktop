@@ -72,7 +72,7 @@ describe('host checks of a package inside a larger checkout', () => {
 })
 
 describe('provider CLI environment', () => {
-  it('gives a run on a retained Core without the Electron headless guard the installed Core guard, once, unless opted out', async () => {
+  it('[spec:agent-runtime-test-isolation/bridge-tests-ignore-an-inherited-headless-guard] gives a run on a retained Core without the Electron headless guard the installed Core guard, once, unless opted out', async () => {
     const pkg = (name: string, guard: boolean) => {
       const cli = join(root, name, 'dist', 'agent-runtime', 'cli.js'); mkdirSync(nodePath.dirname(cli), { recursive: true })
       if (guard) { mkdirSync(join(root, name, 'dist', 'pipeline'), { recursive: true }); writeFileSync(join(root, name, 'dist', 'pipeline', 'electron-headless-guard.cjs'), 'globalThis.__fixtureGuard = (globalThis.__fixtureGuard || 0) + 1') }
@@ -93,7 +93,7 @@ describe('provider CLI environment', () => {
     expect((await runAgentRuntimeInvocation({ ...options(), env: { ...options().env, NODE_OPTIONS: undefined, SPECRAILS_HEADLESS: '0' }, resume: true })).failed).toBe(false)
     expect(seenRun(seen)).toEqual({ options: null, headless: '0', loaded: 0 })
   })
-  it('leaves NODE_OPTIONS to a retained Core that ships the guard', async () => {
+  it('[spec:agent-runtime-test-isolation/bridge-tests-ignore-an-inherited-headless-guard] leaves NODE_OPTIONS to a retained Core that ships the guard', async () => {
     const cli = join(root, 'new', 'dist', 'agent-runtime', 'cli.js'); mkdirSync(nodePath.dirname(cli), { recursive: true })
     mkdirSync(join(root, 'new', 'dist', 'pipeline'), { recursive: true }); writeFileSync(join(root, 'new', 'dist', 'pipeline', 'electron-headless-guard.cjs'), '')
     fixture.cli = cli

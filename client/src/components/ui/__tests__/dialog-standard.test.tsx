@@ -300,12 +300,12 @@ describe('panel clipping', () => {
   it.each([
     ['modal panel', DIALOG_PANEL_CLASS],
     ['native window panel', SURFACE_WINDOW_PANEL_CLASS],
-  ])('%s clips instead of hiding overflow', (_name, cls) => {
+  ])('[spec:native-surface-windows/surface-panels-clip-without-gaps] %s clips instead of hiding overflow', (_name, cls) => {
     expect(cls.split(' ')).toContain('overflow-clip')
     expect(cls.split(' ')).not.toContain('overflow-hidden')
   })
 
-  it('renders the shared panel clipped', () => {
+  it('[spec:native-surface-windows/surface-panels-clip-without-gaps] renders the shared panel clipped', () => {
     render(<Standard size="workspace" />)
     expect(screen.getByRole('dialog').className).toContain('overflow-clip')
   })
