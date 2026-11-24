@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.7.1](https://github.com/fjpulidop/specrails-desktop/compare/v3.7.0...v3.7.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **core:** vendor the Core 6.12.2 lock to match the release pin ([#902](https://github.com/fjpulidop/specrails-desktop/issues/902)) ([e665014](https://github.com/fjpulidop/specrails-desktop/commit/e6650144353516031ec1e274522f7577e3d88e07))
+
 ## [3.7.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.6.1...v3.7.0) (2026-11-24)
 
 
