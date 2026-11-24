@@ -93,7 +93,7 @@
     "@types/ws": "^8.5.0",
     "@vitest/coverage-v8": "^5.0.3",
     "concurrently": "^10.0.6",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "js-tiktoken": "^1.0.21",
     "supertest": "^7.2.2",
     "tsx": "^4.23.0",
