@@ -244,5 +244,7 @@ describe('specrails_overview at 100 projects', () => {
     expect(approxTokens(live.text)).toBeLessThanOrEqual(1500)
     console.info(`[wp2 perf] overview(app) 100 projects / 500 runs: max ${p95.toFixed(0)} ms over 5, ~${approxTokens(last.text)} tokens; live ~${approxTokens(live.text)} tokens`)
     expect(p95).toBeLessThan(1500)
-  })
+  // Fixture setup (100 migrated in-memory project DBs) takes ~10s alone; the latency budget is asserted
+  // on the measured calls only, so give setup headroom under full-suite load.
+  }, 60_000)
 })

@@ -39,7 +39,8 @@ See proposal.md. Native surfaces are Tauri windows opened via `surface_windows.r
 - `DESIGN.md`: documents the visual/status conventions.
 - `docs/internals/modal-standard.md`: modal standard update.
 - `docs/internals/native-window-surfaces.md`: documents project-settings and macOS no-parent minimize.
-- `server/modules/agent-runtime/runtime/agent-runtime-bridge.test.ts`: test file changed; its diff could not be read in this run and no session request relates to it (see Assumptions).
+- `server/mcp/v2/tools/overview.test.ts`: the 100-project latency/size-budget test now has an explicit 60_000 ms timeout (with a comment that fixture setup of 100 migrated in-memory DBs takes ~10 s), after the default 20 s timeout failed under full-suite load in host verification. The asserted budgets (p95 < 1500 ms, ≤ 1500 tokens) are unchanged.
+- `server/modules/agent-runtime/runtime/agent-runtime-bridge.test.ts`: test-only. `withoutHostGuard` / `seenRun` strip the headless-guard `--require` that a Specrails-hosted process inherits in `NODE_OPTIONS`, so the bridge assertions do not depend on the host. Kept at the person's request (2026-11-24) as a requirement; no production code changed.
 - `src-tauri/src/surface_windows.rs`: `project-settings` spec; no parent on macOS.
 
 ## Rejected alternatives
@@ -55,4 +56,5 @@ None recorded. The browser as native modal was raised and left as an unimplement
 - The explore-only constraint of the original intent ("no editar ni implementar") was superseded by the 2026-11-23 21:46 UTC request ("El usuario acaba de aprobar implementar el cambio mínimo").
 - The diff could not be read through git in this run (no shell); per-file reasons were inferred from the file contents, tests, docs and the session summary.
 - Root cause of the gap/title defect is recorded as `overflow-clip` plus releasing the native frame owner, per the 22:37 UTC decision.
-- `server/modules/agent-runtime/runtime/agent-runtime-bridge.test.ts` changed but is unrelated to any session request visible in the summary; its purpose could not be established.
+- `server/mcp/v2/tools/overview.test.ts` timeout change is attributed to the correction round (host `npm test` failure: "Test timed out in 20000ms" on the 100-project test); no session request mentions it. It changes only test headroom, not production behaviour.
+- The bridge test isolation change was confirmed by the person as a requirement to keep (see `agent-runtime-test-isolation`).
