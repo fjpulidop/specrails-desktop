@@ -25,6 +25,7 @@ vi.mock('../../../path-resolver', () => ({
   readEnvFromLoginShellSyncDetailed: (names: string[]) => ({ values: loginShell.read(names) ?? {}, status: 'ok', exitCode: 0, shell: '/bin/zsh', names }),
   readEnvFromLoginShell: async (names: string[]) => ({ values: {}, status: 'skipped', exitCode: null, shell: null, names }),
   resolveLoginShellProbeTimeoutMs: () => 10_000,
+  withProjectLoginPath: (env: NodeJS.ProcessEnv) => env,
 }))
 vi.mock('../../../workspace-resolution', () => ({ resolveProjectExecution: (project: { path: string }) => ({ specrailsDir: path.join(project.path, '.specrails') }), resolveLoopBaseEnv: (_project: unknown, _home?: string, baseEnv: NodeJS.ProcessEnv = process.env) => ({ ...baseEnv, SPECRAILS_GIT_AUTO: 'true', SPECRAILS_REPO_MAP_PATH: 'new-map', SPECRAILS_PROFILE_PATH: 'legacy-profile.json' }) }))
 

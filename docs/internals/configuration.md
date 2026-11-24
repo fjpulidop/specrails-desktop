@@ -185,6 +185,20 @@ environment, SQLite or runtime snapshots. Removing a configured name drops its
 recovered value and status immediately. A missing value remains absent: Desktop
 never substitutes a dummy credential or treats a blocked package-manager command as passed.
 
+#### Agent PATH (same Node as verification)
+
+Core runs a project's installs and verification with the login shell's PATH first
+(`$SHELL -l -c`), so checks use the person's own Node. Desktop starts its children
+with the bundled Node first. Every project agent (missions and Intent sessions, rail
+jobs, loop steps, spec and refine runs) therefore gets the same order from
+`resolveProjectAgentEnv` (`withProjectLoginPath` in `server/path-resolver.ts`):
+login-shell entries first, the inherited ones after, so a machine without its own
+Node still finds the bundled one. Without it an agent that runs `npm install` or
+`npm rebuild` builds native addons (better-sqlite3) for the bundled Node, and every
+check that loads them fails with a `NODE_MODULE_VERSION` mismatch. The probe runs
+once per shell, is warmed at startup, is skipped on Windows, and
+`SPECRAILS_PROJECT_LOGIN_PATH=0` (the same opt-out Core reads) keeps the inherited PATH.
+
 #### Login-shell recovery and resolution status
 
 The login-shell probe runs `$SHELL -l -i -c 'printf …'` and reads only the requested

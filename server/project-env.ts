@@ -13,6 +13,7 @@ import {
   readEnvFromLoginShellSyncDetailed,
   resolveLoginShellProbeTimeoutMs,
   type LoginShellEnvProbe,
+  withProjectLoginPath,
 } from './path-resolver'
 
 // ─── Project runtime environment: login-shell recovery + status ──────────────
@@ -380,19 +381,21 @@ export interface ProjectAgentEnvOptions {
 }
 
 /** Base environment for one agent process of this project. Inherit mode is
- *  byte-identical to the caller's previous construction; minimal mode keeps
- *  only the allowlist, Specrails' own names, the provider's names and the
- *  project's passthrough values (with login-shell recovery). */
+ *  the caller's previous construction; minimal mode keeps only the allowlist,
+ *  Specrails' own names, the provider's names and the project's passthrough
+ *  values (with login-shell recovery). Both put the login-shell PATH first,
+ *  as Core's verification does (see `withProjectLoginPath`), so an agent
+ *  builds native addons for the Node that verifies them. */
 export function resolveProjectAgentEnv(db: DbInstance, options: ProjectAgentEnvOptions = {}): NodeJS.ProcessEnv {
   if (projectAgentEnvMode(db) !== 'minimal') {
-    return options.inherit ? options.inherit() : applyWorktreeEnvPassthrough(db, process.env)
+    return withProjectLoginPath(options.inherit ? options.inherit() : applyWorktreeEnvPassthrough(db, process.env))
   }
-  return buildAgentEnv({
+  return withProjectLoginPath(buildAgentEnv({
     mode: 'minimal',
     sourceEnv: options.sourceEnv ?? process.env,
     passthrough: resolveWorktreeEnvPassthrough(db, process.env),
     providerAllowlist: options.providerAllowlist,
-  })
+  }))
 }
 
 /** For spawn paths that never applied the passthrough overlay in `inherit`

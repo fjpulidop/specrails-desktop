@@ -82,7 +82,7 @@ import { createGlobalPluginsRouter } from './global-plugins-router'
 import { runCompactionForAll } from './modules/accounting/runtime/telemetry-compactor'
 import { FrameworkManager } from './framework-manager'
 import { withFileLock } from './artifact-registry'
-import { resolveStartupPath, augmentPathFromLoginShell, augmentAuthEnvFromLoginShell, getPathDiagnostic, ensureWindowsBaseEnv } from './path-resolver'
+import { resolveStartupPath, augmentPathFromLoginShell, warmProjectLoginPath, augmentAuthEnvFromLoginShell, getPathDiagnostic, ensureWindowsBaseEnv } from './path-resolver'
 import { resolveServerPort } from './dev-ports'
 import { apiNotFound } from './api-not-found'
 import { beginAppProcessQuiescence } from './process-admission'
@@ -1138,6 +1138,8 @@ server.listen(port, '127.0.0.1', () => {
   // path. Independent of the PATH probe above (which is skipped when the bundle
   // is active). Fire-and-forget; never logs secret values.
   void augmentAuthEnvFromLoginShell().catch(logRejection('login-shell auth env augmentation'))
+  // Project agents get the PATH Core verifies with (login shell first); resolve it before the first spawn.
+  void warmProjectLoginPath().catch(logRejection('project login PATH warm-up'))
 })
 
 // ─── Clean shutdown ───────────────────────────────────────────────────────────
