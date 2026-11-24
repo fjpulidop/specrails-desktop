@@ -39,6 +39,7 @@ See proposal.md. Native surfaces are Tauri windows opened via `surface_windows.r
 - `DESIGN.md`: documents the visual/status conventions.
 - `docs/internals/modal-standard.md`: modal standard update.
 - `docs/internals/native-window-surfaces.md`: documents project-settings and macOS no-parent minimize.
+- `server/modules/agent-runtime/runtime/agent-runtime-bridge.test.ts`: test file changed; its diff could not be read in this run and no session request relates to it (see Assumptions).
 - `src-tauri/src/surface_windows.rs`: `project-settings` spec; no parent on macOS.
 
 ## Rejected alternatives
@@ -54,3 +55,4 @@ None recorded. The browser as native modal was raised and left as an unimplement
 - The explore-only constraint of the original intent ("no editar ni implementar") was superseded by the 2026-11-23 21:46 UTC request ("El usuario acaba de aprobar implementar el cambio mínimo").
 - The diff could not be read through git in this run (no shell); per-file reasons were inferred from the file contents, tests, docs and the session summary.
 - Root cause of the gap/title defect is recorded as `overflow-clip` plus releasing the native frame owner, per the 22:37 UTC decision.
+- `server/modules/agent-runtime/runtime/agent-runtime-bridge.test.ts` changed but is unrelated to any session request visible in the summary; its purpose could not be established.
