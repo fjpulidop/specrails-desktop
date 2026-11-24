@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.7.0](https://github.com/fjpulidop/specrails-desktop/compare/v3.6.1...v3.7.0) (2026-11-24)
+
+
+### Features
+
+* keep Resources button persistent and present project settings as a… (1) ([#899](https://github.com/fjpulidop/specrails-desktop/issues/899)) ([53d83b7](https://github.com/fjpulidop/specrails-desktop/commit/53d83b7e00830917ef2620841e36f14d162e0ce1))
+
+
+### Bug Fixes
+
+* **agents:** spawn project agents with the PATH Core verifies with ([#898](https://github.com/fjpulidop/specrails-desktop/issues/898)) ([65d5234](https://github.com/fjpulidop/specrails-desktop/commit/65d52344f0c9d5e7d7862d2bee3dbe643ca66f82))
+
 ## [3.6.1](https://github.com/fjpulidop/specrails-desktop/compare/v3.6.0...v3.6.1) (2026-11-23)
 
 
