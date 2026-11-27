@@ -14,7 +14,8 @@ import {
   type BuiltinLoopEnvironment,
 } from './builtin-loops'
 
-const CORE = { engineV2: 1, workflowDefinitions: 1 }
+// A current Core: workflow definitions and host tasks (Fix PR CI is a built-in only with them).
+const CORE = { engineV2: 1, workflowDefinitions: 1, hostTasks: 1 }
 const withCore: BuiltinLoopEnvironment = { loadCapabilities: async () => CORE }
 const legacyCore: BuiltinLoopEnvironment = { loadCapabilities: async () => ({}) }
 const noCore: BuiltinLoopEnvironment = { loadCapabilities: async () => { throw new Error('Core unavailable') } }
@@ -32,7 +33,7 @@ describe('built-in loop seeding', () => {
     expect(result.inserted.sort()).toEqual([...EDITABLE_BUILTIN_LOOP_IDS].sort())
     for (const id of EDITABLE_BUILTIN_LOOP_IDS) {
       const row = getLoop(db, id)!
-      expect(row).toMatchObject({ id, builtinId: id, status: 'published', builtinModified: false, name: getFactoryLoop(id)!.name })
+      expect(row).toMatchObject({ id, builtinId: id, status: 'published', builtinModified: false, name: getFactoryLoop(id, CORE)!.name })
       expect(isDefinitionGraph(row.graph)).toBe(true)
       expect(db.prepare('SELECT published_graph FROM loops WHERE id = ?').get(id)).toEqual({ published_graph: JSON.stringify(row.graph) })
     }
@@ -54,7 +55,9 @@ describe('built-in loop seeding', () => {
     // Unknown capabilities never rewrite existing rows.
     expect((await ensureBuiltinLoops(db, noCore)).refreshed).toEqual([])
     const refreshed = await ensureBuiltinLoops(db, withCore)
-    expect(refreshed.refreshed.sort()).toEqual([...EDITABLE_BUILTIN_LOOP_IDS].sort())
+    // Implement moves to its definition variant; Fix PR CI appears once Core can run it.
+    expect(refreshed.refreshed).toEqual(['factory:implement'])
+    expect(refreshed.inserted).toEqual(['factory:pr-ci'])
     const row = getLoop(db, 'factory:implement')!
     expect(isDefinitionGraph(row.graph)).toBe(true)
     expect(row.builtinModified).toBe(false)
@@ -75,12 +78,13 @@ describe('built-in loop seeding', () => {
     expect(isDefinitionGraph(row.graph)).toBe(false)
   })
 
-  it('seeds only Implement: Freestyle and Quick SDD are no longer built-ins', async () => {
+  it('seeds Implement, and Fix PR CI only when Core runs host tasks: Freestyle and Quick SDD are no longer built-ins', async () => {
     await ensureBuiltinLoops(db, withCore)
-    expect([...EDITABLE_BUILTIN_LOOP_IDS]).toEqual(['factory:implement'])
+    expect([...EDITABLE_BUILTIN_LOOP_IDS]).toEqual(['factory:implement', 'factory:pr-ci'])
     expect(getLoop(db, 'factory:freestyle')).toBeUndefined()
     expect(getLoop(db, 'factory:sdd-quick-openspec')).toBeUndefined()
-    expect(builtinLoopDefaults(CORE).map((d) => d.id)).toEqual(['factory:implement'])
+    expect(builtinLoopDefaults(CORE).map((d) => d.id)).toEqual(['factory:implement', 'factory:pr-ci'])
+    expect(builtinLoopDefaults({ engineV2: 1, workflowDefinitions: 1 }).map((d) => d.id)).toEqual(['factory:implement'])
     expect(builtinLoopDefaults(undefined).map((d) => d.id)).toEqual(['factory:implement'])
   })
 

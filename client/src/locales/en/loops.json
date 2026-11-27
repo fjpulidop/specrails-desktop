@@ -87,7 +87,9 @@
       "note": "Built-in loop. You are editing the built-in itself: once published, your changes apply to every rail, agent-chat launch and companion that uses it. Rails keep running the last published version while you edit. Use Restore original to go back to the default.",
       "restored": "Built-in loop restored to its original version",
       "confirmTitle": "Restore the original built-in?",
-      "confirmBody": "This discards your changes to this built-in and publishes its original version for every rail that uses it. Duplicate it first if you want to keep your version."
+      "confirmBody": "This discards your changes to this built-in and publishes its original version for every rail that uses it. Duplicate it first if you want to keep your version.",
+      "prCiNote": "Built-in loop that watches a pull request’s CI. It starts from “Fix CI” on a delivery or a mission’s offer, never on its own. Prompts, budgets and steps are yours to improve; it must keep waiting on the checks and push only verified fixes. Published changes apply to the next CI run; use Restore original to go back.",
+      "confirmBodyPrCi": "This discards your changes and publishes the original Fix PR CI for every next CI run."
     },
     "addNode": "Add node",
     "deleteNode": "Delete node",
@@ -319,6 +321,10 @@
     "freestyle": {
       "name": "Freestyle",
       "description": "Hands the spec straight to the model with full freedom — no pipeline, it works like a regular coding agent, then verify + refine until green."
+    },
+    "factory_pr-ci": {
+      "name": "Fix PR CI",
+      "description": "Keeps an eye on a pull request's CI: waits for the checks, fixes failures and merge conflicts with the base branch, verifies locally and pushes, until the checks are green."
     }
   },
   "import": {

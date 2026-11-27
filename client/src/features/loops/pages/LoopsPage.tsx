@@ -1,3 +1,4 @@
+import { PR_CI_LOOP_ID } from '../../../lib/builtin-loop-ids'
 import { ExternalLink } from 'lucide-react'
 import { isLoopWindowRoute, openLoopWindow } from '../lib/loop-windows'
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -415,7 +416,8 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
                     onToggleSelect={() => toggleSelect(loop.id)}
                     onEdit={() => openBuilder(loop.id)}
                     onPublish={loop.status === 'draft' ? () => handlePublish(loop.id) : undefined}
-                    onDuplicate={() => handleDuplicate(loop.id)}
+                    // Fix PR CI runs on pull requests as itself: it is improved in place, never copied.
+                    onDuplicate={loop.id === PR_CI_LOOP_ID ? undefined : () => handleDuplicate(loop.id)}
                     onExport={() => downloadLoops([loop])}
                     onRestore={loop.builtinModified ? () => setConfirmRestoreId(loop.id) : undefined}
                   />
@@ -620,7 +622,8 @@ function LoopCard({
   onEdit: () => void
   onPublish?: () => void
   onUnpublish?: () => void
-  onDuplicate: () => void
+  /** Absent: the loop is never copied (Fix PR CI). */
+  onDuplicate?: () => void
   onExport: () => void
   onExportLegacy?: () => void
   onConvert?: () => void
@@ -672,7 +675,7 @@ function LoopCard({
           <DropdownMenuContent align="end">
             {onPublish && <DropdownMenuItem onSelect={onPublish}><Upload className="w-3.5 h-3.5" aria-hidden />{t('actions.publish')}</DropdownMenuItem>}
             {onUnpublish && <DropdownMenuItem onSelect={onUnpublish}><Download className="w-3.5 h-3.5" aria-hidden />{t('actions.unpublish')}</DropdownMenuItem>}
-            <DropdownMenuItem onSelect={onDuplicate}><Copy className="w-3.5 h-3.5" aria-hidden />{t('actions.duplicate')}</DropdownMenuItem>
+            {onDuplicate && <DropdownMenuItem onSelect={onDuplicate}><Copy className="w-3.5 h-3.5" aria-hidden />{t('actions.duplicate')}</DropdownMenuItem>}
             <DropdownMenuItem onSelect={onExport}><FileDown className="w-3.5 h-3.5" aria-hidden />{t('actions.export')}</DropdownMenuItem>
             {onExportLegacy && <DropdownMenuItem onSelect={onExportLegacy}><FileDown className="w-3.5 h-3.5" aria-hidden />{t('actions.exportLegacy')}</DropdownMenuItem>}
             {onConvert && <DropdownMenuItem onSelect={onConvert}><Workflow className="w-3.5 h-3.5" aria-hidden />{t('actions.convert')}</DropdownMenuItem>}

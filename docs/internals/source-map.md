@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1942 source/build files. Nearby tests are linked where names
+Includes 1943 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -1288,6 +1288,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [app-updater.ts](../../client/src/lib/app-updater.ts) · [test](../../client/src/lib/__tests__/app-updater.test.ts)
 - [auth.ts](../../client/src/lib/auth.ts) · [test](../../client/src/lib/__tests__/auth.test.ts)
 - [bubble-avoid.ts](../../client/src/lib/bubble-avoid.ts) · [test](../../client/src/lib/__tests__/bubble-avoid.test.ts)
+- [builtin-loop-ids.ts](../../client/src/lib/builtin-loop-ids.ts)
 - [command-mark-store.ts](../../client/src/lib/command-mark-store.ts) · [test](../../client/src/lib/__tests__/command-mark-store.test.ts)
 - [continuity-api.ts](../../client/src/lib/continuity-api.ts)
 - [daily-budget.ts](../../client/src/lib/daily-budget.ts) · [test](../../client/src/lib/__tests__/daily-budget.test.ts)

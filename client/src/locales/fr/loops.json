@@ -87,7 +87,9 @@
       "note": "Loop intégré. Vous modifiez le loop intégré lui-même : une fois publié, vos changements s'appliquent à chaque rail, lancement depuis le chat de l'agent et Companion qui l'utilise. Les rails continuent d'exécuter la dernière version publiée pendant que vous modifiez. Utilisez Restaurer l'original pour revenir à la version par défaut.",
       "restored": "Loop intégré restauré à sa version d'origine",
       "confirmTitle": "Restaurer le loop intégré d'origine ?",
-      "confirmBody": "Cela annule vos modifications de ce loop intégré et publie sa version d'origine pour tous les rails qui l'utilisent. Dupliquez-le d'abord si vous voulez conserver votre version."
+      "confirmBody": "Cela annule vos modifications de ce loop intégré et publie sa version d'origine pour tous les rails qui l'utilisent. Dupliquez-le d'abord si vous voulez conserver votre version.",
+      "prCiNote": "Boucle intégrée qui surveille la CI d’une pull request. Elle démarre depuis « Réparer la CI » sur une livraison ou l’offre d’une mission, jamais seule. Ses prompts, budgets et étapes sont à vous ; elle doit continuer d’attendre les checks et ne pousser que des correctifs vérifiés. Les changements publiés s’appliquent à la prochaine exécution ; Restaurer l’original pour revenir.",
+      "confirmBodyPrCi": "Cela annule vos modifications et publie la boucle d’origine pour les prochaines exécutions de CI."
     },
     "addNode": "Ajouter un nœud",
     "deleteNode": "Supprimer le nœud",
@@ -319,6 +321,10 @@
     "freestyle": {
       "name": "Freestyle",
       "description": "Confie la spec directement au modèle en toute liberté — sans pipeline, il travaille comme un agent de code classique, puis vérifie + affine jusqu'au vert."
+    },
+    "factory_pr-ci": {
+      "name": "Réparer la CI de la PR",
+      "description": "Surveille la CI d’une pull request : attend les checks, corrige les échecs et les conflits avec la branche de base, vérifie en local et pousse, jusqu’à ce que les checks passent."
     }
   },
   "import": {

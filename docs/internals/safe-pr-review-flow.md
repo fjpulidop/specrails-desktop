@@ -1076,7 +1076,7 @@ typed, frozen delta that travels with the DELIVERY, never with the spec.
 
 After Create PR a mission delivery in `pr_draft`/`pr_ready` with an attached same-repository PR gets an optional `pr-ci-offer` system row (`pr-ci-offer:<deliveryId>`, projected from every delivery change and at startup reprojection; only when `SPECRAILS_PR_CI_LOOP` is on and Core advertises `hostTasks`). Start calls `POST /rails/:railIndex/pr-ci`, which proves the PR is OPEN and not a fork, then reuses the ordinary continuation admission: generation B (`loop_id = factory:pr-ci`) on the PR branch supersedes A with the usual atomic rollback, and the frozen engine/model/effort/profile of A. The row then follows B (`started` → `green` | `no-ci` | `needs-attention { reason }`, with pushes and failing rounds read from B's `host_task_finished` events). B itself is never offered again.
 
-The loop is Core's (`loop-pr-ci-recipe.ts`); Desktop resolves its `host-task` machine interrupts:
+The loop is Core's (`loop-pr-ci-recipe.ts`), shipped as the editable built-in **Fix PR CI** in Loops: a person can improve its prompts, budgets and steps and publish them for every next CI run (both the delivery and the mission offer run the published graph), or restore the original. A published edit keeps the safety contract (it waits on `pr.checks`, pushes only through a verified `pr.sync`, uses only the host tasks below, never changes the spec). Desktop resolves its `host-task` machine interrupts:
 
 | Task | Effect | Outcomes |
 | --- | --- | --- |

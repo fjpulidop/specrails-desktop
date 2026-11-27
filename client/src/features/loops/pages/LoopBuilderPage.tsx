@@ -1,3 +1,4 @@
+import { PR_CI_LOOP_ID } from '../../../lib/builtin-loop-ids'
 import { ExternalLink } from 'lucide-react'
 import { isLoopWindowRoute, openLoopWindow } from '../lib/loop-windows'
 import { LoopAgentsEditor } from '../components/LoopAgentsEditor'
@@ -565,14 +566,14 @@ function BuilderInner({ loopId, onExit, onWindowOpened }: LoopBuilderPageProps) 
 
       {builtin && (
         <div role="note" data-testid="builder-builtin-note" className="px-4 py-1.5 border-b border-border bg-accent-info/10 text-xs text-accent-info flex-shrink-0">
-          {t('builder.builtin.note')}
+          {t(id === PR_CI_LOOP_ID ? 'builder.builtin.prCiNote' : 'builder.builtin.note')}
         </div>
       )}
       <ConfirmDialog
         open={confirmRestore}
         onOpenChange={setConfirmRestore}
         title={t('builder.builtin.confirmTitle')}
-        description={t('builder.builtin.confirmBody')}
+        description={t(id === PR_CI_LOOP_ID ? 'builder.builtin.confirmBodyPrCi' : 'builder.builtin.confirmBody')}
         confirmLabel={t('actions.restoreBuiltin')}
         tone="default"
         confirmTestId="builder-restore-confirm"

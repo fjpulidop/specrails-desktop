@@ -87,7 +87,9 @@
       "note": "Loop integrato. Stai modificando il loop integrato stesso: una volta pubblicate, le modifiche si applicano a ogni rail, avvio dalla chat dell'agente e Companion che lo usa. Durante la modifica i rail continuano a eseguire l'ultima versione pubblicata. Usa Ripristina originale per tornare alla versione predefinita.",
       "restored": "Loop integrato ripristinato alla versione originale",
       "confirmTitle": "Ripristinare il loop integrato originale?",
-      "confirmBody": "Questo scarta le tue modifiche a questo loop integrato e pubblica la sua versione originale per tutti i rail che lo usano. Duplicalo prima se vuoi conservare la tua versione."
+      "confirmBody": "Questo scarta le tue modifiche a questo loop integrato e pubblica la sua versione originale per tutti i rail che lo usano. Duplicalo prima se vuoi conservare la tua versione.",
+      "prCiNote": "Loop integrato che sorveglia la CI di una pull request. Parte da «Correggi CI» su una consegna o dall’offerta di una missione, mai da solo. Puoi migliorarne prompt, limiti e passi; deve continuare ad attendere i check e inviare solo correzioni verificate. Le modifiche pubblicate valgono dalla prossima esecuzione di CI; usa Ripristina originale per tornare indietro.",
+      "confirmBodyPrCi": "Scarta le tue modifiche e pubblica il loop originale per le prossime esecuzioni di CI."
     },
     "addNode": "Aggiungi nodo",
     "deleteNode": "Elimina nodo",
@@ -319,6 +321,10 @@
     "freestyle": {
       "name": "Freestyle",
       "description": "Consegna la spec direttamente al modello con piena libertà — senza pipeline, lavora come un normale coding agent, poi verifica + rifinisce fino al verde."
+    },
+    "factory_pr-ci": {
+      "name": "Correggi CI della PR",
+      "description": "Tiene d’occhio la CI di una pull request: attende i check, corregge errori e conflitti con il branch base, verifica in locale e fa push, finché i check non passano."
     }
   },
   "import": {

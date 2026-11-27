@@ -87,7 +87,9 @@
       "note": "Integrierter Loop. Du bearbeitest den integrierten Loop selbst: Nach dem Veröffentlichen gelten deine Änderungen für jede Rail, jeden Start aus dem Agenten-Chat und Companion, die ihn verwenden. Rails führen während der Bearbeitung weiter die zuletzt veröffentlichte Version aus. Mit „Original wiederherstellen“ kehrst du zur Standardversion zurück.",
       "restored": "Integrierter Loop auf die Originalversion zurückgesetzt",
       "confirmTitle": "Originalen integrierten Loop wiederherstellen?",
-      "confirmBody": "Dadurch werden deine Änderungen an diesem integrierten Loop verworfen und seine Originalversion wird für alle Rails veröffentlicht, die ihn verwenden. Dupliziere ihn vorher, wenn du deine Version behalten möchtest."
+      "confirmBody": "Dadurch werden deine Änderungen an diesem integrierten Loop verworfen und seine Originalversion wird für alle Rails veröffentlicht, die ihn verwenden. Dupliziere ihn vorher, wenn du deine Version behalten möchtest.",
+      "prCiNote": "Eingebaute Schleife, die die CI eines Pull Requests überwacht. Sie startet über „CI reparieren“ an einer Lieferung oder dem Angebot einer Mission, nie von selbst. Prompts, Budgets und Schritte kannst du verbessern; sie muss weiter auf die Checks warten und nur verifizierte Fixes pushen. Veröffentlichte Änderungen gelten ab dem nächsten CI-Lauf; „Original wiederherstellen“ setzt zurück.",
+      "confirmBodyPrCi": "Verwirft deine Änderungen und veröffentlicht die Original-Schleife für die nächsten CI-Läufe."
     },
     "addNode": "Knoten hinzufügen",
     "deleteNode": "Knoten löschen",
@@ -319,6 +321,10 @@
     "freestyle": {
       "name": "Freestyle",
       "description": "Übergibt die Spec direkt an das Modell mit voller Freiheit — ohne Pipeline, es arbeitet wie ein normaler Coding-Agent, dann verifizieren + verfeinern bis alles grün ist."
+    },
+    "factory_pr-ci": {
+      "name": "PR-CI reparieren",
+      "description": "Behält die CI eines Pull Requests im Blick: wartet auf die Checks, behebt Fehler und Merge-Konflikte mit dem Basis-Branch, verifiziert lokal und pusht, bis die Checks grün sind."
     }
   },
   "import": {

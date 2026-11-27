@@ -262,6 +262,20 @@ describe('LoopsPage', () => {
     await waitFor(() => expect(api.duplicate).toHaveBeenCalledWith('factory:implement'))
   })
 
+  it('[spec:pr-ci-loop-editable/fix-pr-ci-shows-in-loops] lists Fix PR CI with the built-ins, editable and never copied', async () => {
+    api.list.mockResolvedValue([
+      loop({ id: 'factory:pr-ci', name: 'Fix PR CI', status: 'published', builtinId: 'factory:pr-ci', builtinModified: false }),
+    ])
+    renderPage()
+    const card = await screen.findByTestId('builtin-loop-card')
+    expect(within(card).getByText('Fix PR CI')).toBeInTheDocument()
+    expect(within(card).getByRole('button', { name: 'Edit' })).toBeInTheDocument()
+    fireEvent.click(within(card).getByRole('button', { name: 'More actions' }))
+    // Its CI offer and host tasks find a run by its id: a copy could never run.
+    expect(screen.queryByRole('menuitem', { name: 'Duplicate' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+
   it('restores an edited built-in after confirmation', async () => {
     api.list.mockResolvedValue([
       loop({ id: 'factory:implement', name: 'Team Implement', status: 'draft', builtinId: 'factory:implement', builtinModified: true }),

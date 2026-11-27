@@ -87,7 +87,9 @@
       "note": "Loop integrado. Estás editando el propio loop integrado: al publicarlo, tus cambios se aplican en todos los rails, lanzamientos desde el chat del agente y en Companion donde se use. Los rails siguen ejecutando la última versión publicada mientras editas. Usa Restaurar original para volver a la versión por defecto.",
       "restored": "Loop integrado restaurado a su versión original",
       "confirmTitle": "¿Restaurar el loop integrado original?",
-      "confirmBody": "Esto descarta tus cambios en este loop integrado y publica su versión original para todos los rails que lo usan. Duplícalo antes si quieres conservar tu versión."
+      "confirmBody": "Esto descarta tus cambios en este loop integrado y publica su versión original para todos los rails que lo usan. Duplícalo antes si quieres conservar tu versión.",
+      "prCiNote": "Loop integrado que vigila el CI de un pull request. Se inicia desde «Arreglar CI» en una entrega o desde la oferta de una misión, nunca solo. Puedes mejorar sus prompts, límites y pasos; debe seguir esperando a los checks y subir solo arreglos verificados. Los cambios publicados se aplican a la siguiente ejecución de CI; usa Restaurar original para volver.",
+      "confirmBodyPrCi": "Descarta tus cambios y publica el Arreglar CI del PR original para las siguientes ejecuciones de CI."
     },
     "addNode": "Añadir nodo",
     "deleteNode": "Eliminar nodo",
@@ -319,6 +321,10 @@
     "freestyle": {
       "name": "Freestyle",
       "description": "Entrega la spec directamente al modelo con total libertad — sin pipeline, trabaja como un agente de código normal, y después verifica + refina hasta quedar en verde."
+    },
+    "factory_pr-ci": {
+      "name": "Arreglar CI del PR",
+      "description": "Vigila el CI de un pull request: espera a los checks, corrige fallos y conflictos con la rama base, verifica en local y hace push, hasta que los checks pasen."
     }
   },
   "import": {

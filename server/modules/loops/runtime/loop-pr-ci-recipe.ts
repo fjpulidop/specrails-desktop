@@ -57,6 +57,35 @@ export const PR_CI_ENDS = {
   failed: 'failed',
 } as const
 
+/** The host tasks Desktop performs for a pr-ci run (`createPrCiHandlers`). */
+export const PR_CI_HOST_TASKS = ['pr.update-base', 'pr.checks', 'pr.sync', 'pr.rerun-failed'] as const
+
+/**
+ * What an edited Fix PR CI must keep to stay safe and runnable (checked on publish):
+ * it waits on the checks and pushes through `pr.sync`; every push requires a verified
+ * candidate (Core refuses to push what local verification did not pass); it uses only
+ * the host tasks Desktop performs; it never changes the spec. Prompts, budgets, waits,
+ * roles and the shape of the graph are free to improve.
+ */
+export function prCiGraphContractErrors(graph: LoopGraph): Array<{ code: string; message: string; nodeId?: string }> {
+  const errors: Array<{ code: string; message: string; nodeId?: string }> = []
+  const hostTasks = graph.nodes.filter(node => node.type === 'core' && (node.data as { kind?: unknown }).kind === 'host-task')
+  const task = (node: typeof hostTasks[number]) => ((node.data as { params?: { task?: unknown } }).params?.task)
+  for (const node of hostTasks) {
+    const name = task(node)
+    if (typeof name !== 'string' || !(PR_CI_HOST_TASKS as readonly string[]).includes(name)) {
+      errors.push({ code: 'pr_ci_unknown_host_task', nodeId: node.id, message: `"${String(name)}" is not a task Desktop performs for Fix PR CI (${PR_CI_HOST_TASKS.join(', ')}).` })
+    }
+    if (name === 'pr.sync' && (node.data as { params?: { requiresVerified?: unknown } }).params?.requiresVerified !== true) {
+      errors.push({ code: 'pr_ci_unverified_push', nodeId: node.id, message: 'Every push must require a verified candidate (requiresVerified: true).' })
+    }
+  }
+  if (!hostTasks.some(node => task(node) === 'pr.checks')) errors.push({ code: 'pr_ci_no_checks', message: 'Fix PR CI must wait on the pull request checks (a pr.checks host task).' })
+  if (!hostTasks.some(node => task(node) === 'pr.sync')) errors.push({ code: 'pr_ci_no_push', message: 'Fix PR CI must push its fixes through a pr.sync host task.' })
+  if (graph.config.change !== 'none') errors.push({ code: 'pr_ci_changes_spec', message: 'Fix PR CI never changes the spec (change: none).' })
+  return errors
+}
+
 export function supportsPrCi(capabilities?: Record<string, number>): boolean {
   return capabilities?.engineV2 === 1 && capabilities.workflowDefinitions === 1 && capabilities.hostTasks === 1
 }

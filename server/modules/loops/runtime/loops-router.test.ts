@@ -468,3 +468,39 @@ describe('loops-router editable built-ins', () => {
     expect(dup.body.loop.builtinId).toBeUndefined()
   })
 })
+
+describe('loops-router: Fix PR CI as an editable built-in', () => {
+  const env: BuiltinLoopEnvironment = { loadCapabilities: async () => ({ engineV2: 1, workflowDefinitions: 1, hostTasks: 1 }) }
+  let prApp: Express
+  beforeEach(() => {
+    const router = Router()
+    prApp = express()
+    prApp.use(express.json())
+    registerLoopsRoutes(router, { db, builtinLoops: env })
+    prApp.use('/api', router)
+  })
+
+  it('[spec:pr-ci-loop-editable/fix-pr-ci-shows-in-loops] is listed with the built-ins when Core runs host tasks, edited in place, never copied', async () => {
+    const rows = (await request(prApp).get('/api/loops')).body.loops as Array<{ id: string; builtinId?: string; status: string }>
+    expect(rows.filter(row => row.builtinId).map(row => row.id).sort()).toEqual(['factory:implement', 'factory:pr-ci'])
+    expect(rows.find(row => row.id === 'factory:pr-ci')).toMatchObject({ status: 'published' })
+    // Its host tasks and the CI offer find a run by its id: a copy could never run.
+    expect((await request(prApp).post('/api/loops/factory:pr-ci/duplicate').send({})).body).toMatchObject({ error: 'pr_ci_not_copyable' })
+    expect([404, 409]).toContain((await request(prApp).post('/api/loops/factory/factory:pr-ci/fork').send({})).status)
+    expect((await request(prApp).post('/api/loops/factory:implement/duplicate').send({})).status).toBe(201)
+  })
+
+  it('[spec:pr-ci-loop-editable/edits-keep-the-safety-contract] refuses to publish an edit that would push an unverified fix', async () => {
+    await request(prApp).get('/api/loops')
+    const current = getLoop(db, 'factory:pr-ci')!
+    const graph = structuredClone(current.graph)
+    const push = graph.nodes.find(node => (node.data as { params?: { task?: string } } | undefined)?.params?.task === 'pr.sync')!
+    ;(push.data as { params: Record<string, unknown> }).params.requiresVerified = false
+    expect((await request(prApp).put('/api/loops/factory:pr-ci').send({ graph })).status).toBe(200)
+    const refused = await request(prApp).post('/api/loops/factory:pr-ci/publish')
+    expect(refused.status).toBe(422)
+    expect(refused.body).toMatchObject({ error: 'pr_ci_contract', errors: [{ code: 'pr_ci_unverified_push', nodeId: push.id }] })
+    // Rails keep running the last published graph while the refused edit stays a Draft.
+    expect(getLoop(db, 'factory:pr-ci')).toMatchObject({ status: 'draft', builtinModified: true })
+  })
+})

@@ -2,7 +2,7 @@ import path from 'node:path'
 import type { ProjectContext } from '../../../../project-registry'
 import { isLoopsEnabled } from '../../../../feature-flags'
 import { newId } from '../../../../ids'
-import { getProjectSettings } from '../../../../db'
+import { getProjectSettings, type DbInstance } from '../../../../db'
 import { withRepoLock } from '../../../../repo-lock'
 import { assertProcessAdmission, ProcessAdmissionClosedError } from '../../../../process-admission'
 import { getAdapter } from '../../../../providers'
@@ -12,7 +12,9 @@ import { resolveProjectExecution } from '../../../../workspace-resolution'
 import { defaultGitRunner } from '../../../../worktree-manager'
 import { resolveAgentDefaults } from '../../../agents/runtime/agent-defaults'
 import { loadCoreAgentRuntime } from '../../../agent-runtime/runtime/agent-runtime-loader'
+import { resolveBuiltinLoop } from '../../../loops/runtime/builtin-loops'
 import { loadConstantMap } from '../../../loops/runtime/loop-constants'
+import type { LoopGraph } from '../../../loops/runtime/loop-graph'
 import { probeDefinitionRun } from '../../../loops/runtime/loop-definition-recovery'
 import { PR_CI_LOOP_ID, prCiGraph, supportsPrCi } from '../../../loops/runtime/loop-pr-ci-recipe'
 import { getAgentChatManager } from '../../../missions/runtime/agent-chat-registry'
@@ -28,6 +30,15 @@ import { projectAdmissionOffer } from './pr-ci-offer'
 import { replayPrCiAdmissions, settleAdmissionRun, type PrCiAdmissionSettlementDeps } from './pr-ci-settlement'
 
 /** Wiring of the mission-origin PR CI repair to one project's real git, GitHub and loop engine. */
+
+/**
+ * The graph a mission-origin Fix PR CI run executes: the same one a delivery's "Fix CI" runs
+ * (`resolveBuiltinLoop`): the edited, published built-in from Loops, else the code default.
+ */
+export function prCiLaunchGraph(desktopDb: DbInstance | undefined, capabilities: Record<string, number> | undefined): LoopGraph {
+  return resolveBuiltinLoop(desktopDb, PR_CI_LOOP_ID, capabilities)?.graph ?? prCiGraph(capabilities)
+}
+
 export interface PrCiAdmissionRuntime {
   /** Persist the host admission of a project PR and show its card; starts nothing. */
   prepare(prUrl: string, originConversationId: string | null): Promise<{ ok: true; admission: PrCiAdmissionRow } | { ok: false; status: number; error: string; detail: string }>
@@ -77,7 +88,7 @@ export function createPrCiAdmissionRuntime(c: ProjectContext): PrCiAdmissionRunt
     const model = defaults?.pipelineModel ?? adapter.defaultModel()
     const effort = defaults?.pipelineEffort && isReasoningEffortValidForModel(adapter, model, defaults.pipelineEffort) ? defaults.pipelineEffort as ReasoningEffort : undefined
     c.loopRunManager.run({
-      runId, loopId: PR_CI_LOOP_ID, loopName: 'Fix PR CI', graph: prCiGraph(capabilities), projectId: c.project.id,
+      runId, loopId: PR_CI_LOOP_ID, loopName: 'Fix PR CI', graph: prCiLaunchGraph(c.desktopDb, capabilities), projectId: c.project.id,
       repositoryId: admission.repository_id,
       cwd: worktreePath, repoDir: worktreePath, isolation: { branch: admission.head_branch, worktreePath },
       railIndex: null, ticketId: null, spec: undefined,

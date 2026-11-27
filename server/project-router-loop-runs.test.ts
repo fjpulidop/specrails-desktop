@@ -101,6 +101,13 @@ describe('project-router standalone loop runs', () => {
     expect((await request(app).post('/api/projects/p1/loop-runs').send({})).status).toBe(400)
   })
 
+  it('[spec:pr-ci-loop-editable/fix-pr-ci-shows-in-loops] never runs Fix PR CI loose from Loops: it needs a pull request', async () => {
+    const app = buildApp({ provider: 'claude', providers: ['claude'] })
+    const res = await request(app).post('/api/projects/p1/loop-runs').send({ loopId: 'factory:pr-ci' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('pr_ci_requires_delivery')
+  })
+
   it.each([true, false])('gates a {{cmd:freestyle}} loop on the project provider capability (codex freestyle=%s)', async (capable) => {
     const { getAdapter } = await import('./providers/registry')
     const capabilities = getAdapter('codex').capabilities

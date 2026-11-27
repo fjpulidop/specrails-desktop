@@ -4,9 +4,10 @@ import { getPrDelivery } from '../rail-pr-store'
 import type { IsolatedSettlementSnapshot } from '../isolated-settlement-store'
 import type { PrCiTarget } from './pr-ci-handlers'
 import { getPrCiAdmissionByRun } from './pr-ci-admission'
+import { PR_CI_LOOP_ID } from '../../../loops/runtime/loop-pr-ci-recipe'
 
-/** The built-in loop that watches and fixes a PR's CI (`factory:pr-ci`). */
-export const PR_CI_LOOP_ID = 'factory:pr-ci'
+/** The built-in loop that watches and fixes a PR's CI (`factory:pr-ci`): one id, owned by its recipe. */
+export { PR_CI_LOOP_ID } from '../../../loops/runtime/loop-pr-ci-recipe'
 
 /**
  * Resolve the PRs a pr-ci run works on from Desktop's FROZEN admission records

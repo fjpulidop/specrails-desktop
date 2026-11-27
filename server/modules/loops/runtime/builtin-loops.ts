@@ -38,8 +38,10 @@ import {
   type LoopDefinition,
 } from './loops-store'
 
-/** Built-ins that exist as editable rows. Batch is an alias, never seeded. */
-export const EDITABLE_BUILTIN_LOOP_IDS: readonly string[] = ['factory:implement']
+/** Built-ins that exist as editable rows. Batch is an alias, never seeded. Fix PR CI is
+ *  seeded only when Core can run it (host tasks); it keeps its id, which the CI offer,
+ *  settlement and host-task targets key on, so it is edited in place, never copied. */
+export const EDITABLE_BUILTIN_LOOP_IDS: readonly string[] = ['factory:implement', 'factory:pr-ci']
 
 export interface BuiltinLoopEnvironment {
   /** Selected Core capabilities; throws when Core cannot be loaded. */
