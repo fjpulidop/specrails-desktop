@@ -40,6 +40,12 @@ mission's own conversation:
   mission's options or restating its draft. Work of its own keeps the
   confirmation (card launches, Intent, CI repair, hand-off, renew). A reply
   arrives whole (up to 16 000 characters), not as an excerpt.
+- Fewer round trips (measured on real sessions, where waits were followed by a
+  `get` to read the reply): a mission turn and a spec request wait the full
+  45 s by default; `specrails_wait(until)` on a mission that finished wakes
+  with its reply and open choices (`fired[].data`); `specrails_specs(get,
+  options.request)` waits for a running AI result instead of answering
+  pending.
 - Reply, still-working and Intent summaries tell the agent to relay the mission
   in its own words, keep the conversation there and offer a menu only for a
   real decision (never one of its own while the mission works).

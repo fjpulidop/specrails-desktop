@@ -42,7 +42,7 @@
   "summary.async.refine.pending": "{{spec}} に Contract Layer を追加しています。",
   "summary.async.refine.done": "{{spec}} に Contract Layer を追加しました。",
   "summary.async.refine.failed": "{{spec}} への Contract Layer の追加に失敗しました: {{error}}",
-  "hint.pending": "まだ実行中です。後で specrails_specs(get, options.request: \"{{request}}\") で結果を読み込んでください。",
+  "hint.pending": "まだ実行中です。get(options.request: \"{{request}}\") が結果を待ちます。",
   "hint.ai_edit_apply": "提案をその人に見せてください。specrails_specs(update, patch.body) で適用します。",
   "offer.launch": "開始する",
   "offer.launch_addenda": "{{count}} 件の追補で開始",

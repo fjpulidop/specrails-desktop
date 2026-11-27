@@ -118,7 +118,7 @@
   "summary.turn_failed": "{{mission}} 的回合失败：{{error}}",
   "summary.unarchived": "已从归档中恢复 {{mission}}。",
   "summary.updated": "已更新 {{mission}}。",
-  "summary.working": "{{mission}} 仍在处理中。告诉对方（不要菜单），用 specrails_wait(until, refs:[{{mission}}]) 等待，然后转述它说的内容（get 加 options.after）。",
+  "summary.working": "{{mission}} 仍在处理中。告诉对方（不要菜单），并用 specrails_wait(until, refs:[{{mission}}]) 等待：它会带着回复唤醒，转述即可。",
   "choice.abort": "代理停止回答；任务保留。",
   "choice.ci_not_now": "保持 CI 现状。",
   "choice.ci_start": "由代理跟踪 CI 并修复失败（AI 工作）。",
@@ -150,5 +150,5 @@
   "preview.create_send": "在 {{project}} 中创建任务并发送消息；代理将开始一个回合。",
   "ask.goal": "你希望这个任务达成什么？",
   "summary.intent_replied": "已启动 {{ref}}。任务回复：{{reply}} —— 用你自己的话转述；它的选项在状态的 offers 中（提供这些，不要自己编），并用 send 在任务中继续对话。",
-  "summary.intent_working": "已启动 {{ref}}；任务仍在处理中。告诉对方（不要菜单），用 specrails_wait(until, refs:[{{mission}}]) 等待，然后转述它说的内容（get 加 options.after）。"
+  "summary.intent_working": "已启动 {{ref}}；任务仍在处理中。告诉对方（不要菜单），并用 specrails_wait(until, refs:[{{mission}}]) 等待：它会带着回复唤醒，转述即可。"
 }

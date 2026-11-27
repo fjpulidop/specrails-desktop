@@ -118,7 +118,7 @@
   "summary.turn_failed": "Il turno di {{mission}} non è riuscito: {{error}}",
   "summary.unarchived": "{{mission}} ripristinata dall'archivio.",
   "summary.updated": "{{mission}} aggiornata.",
-  "summary.working": "{{mission}} sta ancora lavorando. Dillo alla persona (senza menu), attendi con specrails_wait(until, refs:[{{mission}}]), poi riferisci cosa dice (get con options.after).",
+  "summary.working": "{{mission}} sta ancora lavorando. Dillo alla persona (senza menu) e attendi con specrails_wait(until, refs:[{{mission}}]): si risveglia con la risposta da riferire.",
   "choice.abort": "L'agente si ferma; la missione resta.",
   "choice.ci_not_now": "Lascia la CI com'è.",
   "choice.ci_start": "Un agente segue la CI e corregge (IA).",
@@ -150,5 +150,5 @@
   "preview.create_send": "Crea una missione in {{project}} e le invia il messaggio; l'agente inizia un turno.",
   "ask.goal": "Cosa deve ottenere questa missione?",
   "summary.intent_replied": "{{ref}} avviata. La missione dice: {{reply}} — Riferiscilo con parole tue; le sue opzioni sono nelle offers dello stato (proponi quelle, non le tue), e continua la conversazione nella missione con send.",
-  "summary.intent_working": "{{ref}} avviata; la missione sta ancora lavorando. Dillo alla persona (senza menu), attendi con specrails_wait(until, refs:[{{mission}}]), poi riferisci cosa dice (get con options.after)."
+  "summary.intent_working": "{{ref}} avviata; la missione sta ancora lavorando. Dillo alla persona (senza menu) e attendi con specrails_wait(until, refs:[{{mission}}]): si risveglia con la risposta da riferire."
 }

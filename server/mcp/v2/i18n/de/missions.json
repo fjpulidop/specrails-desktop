@@ -118,7 +118,7 @@
   "summary.turn_failed": "Der Turn von {{mission}} ist fehlgeschlagen: {{error}}",
   "summary.unarchived": "{{mission}} aus dem Archiv wiederhergestellt.",
   "summary.updated": "{{mission}} aktualisiert.",
-  "summary.working": "{{mission}} arbeitet noch. Sag es der Person (ohne Menü), warte mit specrails_wait(until, refs:[{{mission}}]) und gib dann wieder, was sie sagt (get mit options.after).",
+  "summary.working": "{{mission}} arbeitet noch. Sag es der Person (ohne Menü) und warte mit specrails_wait(until, refs:[{{mission}}]): es weckt mit der Antwort zum Weitergeben.",
   "choice.abort": "Der Agent hört auf; die Mission bleibt.",
   "choice.ci_not_now": "Lässt die CI, wie sie ist.",
   "choice.ci_start": "Ein Agent verfolgt die CI und behebt Fehler (KI).",
@@ -150,5 +150,5 @@
   "preview.create_send": "Erstellt eine Mission in {{project}} und sendet ihr die Nachricht; der Agent beginnt einen Turn.",
   "ask.goal": "Was soll diese Mission erreichen?",
   "summary.intent_replied": "{{ref}} gestartet. Die Mission sagt: {{reply}} — Gib es in eigenen Worten wieder; ihre Optionen stehen in den offers des Zustands (biete diese an, keine eigenen), und führe das Gespräch in der Mission mit send weiter.",
-  "summary.intent_working": "{{ref}} gestartet; die Mission arbeitet noch. Sag es der Person (ohne Menü), warte mit specrails_wait(until, refs:[{{mission}}]) und gib dann wieder, was sie sagt (get mit options.after)."
+  "summary.intent_working": "{{ref}} gestartet; die Mission arbeitet noch. Sag es der Person (ohne Menü) und warte mit specrails_wait(until, refs:[{{mission}}]): es weckt mit der Antwort zum Weitergeben."
 }

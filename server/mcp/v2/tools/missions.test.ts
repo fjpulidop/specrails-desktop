@@ -20,6 +20,7 @@ import { approxTokens } from '../core/size-guard'
 import { matchesPointer } from '../core/untrusted'
 import { v2Catalog } from '../index'
 import { missionsTool } from './missions'
+import { waitTool } from './wait'
 import { createAgentChatRouter } from '../../../modules/missions/runtime/agent-chat-router'
 import type { AgentChatManager } from '../../../modules/missions/runtime/agent-chat-manager'
 import { registerIntentHttp } from '../../../modules/intent/adapters/http'
@@ -165,6 +166,7 @@ beforeEach(async () => {
   h.ctx.desktopPort = (server.address() as AddressInfo).port
   h.ctx.sessionState = { activeProjectId: 'p1', sessionKey: 'session-a' } as never
   registerV2Tool(h.server, h.ctx, missionsTool, { catalog: v2Catalog() })
+  registerV2Tool(h.server, h.ctx, waitTool, { catalog: v2Catalog() })
   client = await h.connect()
 })
 
@@ -337,6 +339,24 @@ describe('specrails_missions: send and wait', () => {
     const long = 'x'.repeat(9_800)
     const res = await missions({ action: 'send', ref: `mission:${id}`, message: long })
     expect(res.envelope.data.reply.text).toHaveLength(long.length + 'Echo: '.length)
+  })
+
+  it('a wait on a mission that finishes its turn wakes with what it said (no get round trip)', async () => {
+    const id = mission()
+    const ref = `mission:${id}`
+    replyMode = 'silent'
+    const sentNow = await missions({ action: 'send', ref, message: 'Profile the game', options: { waitMs: 0 } })
+    expect(sentNow.envelope.data.status).toBe('running')
+    const waiting = call(client, 'specrails_wait', { action: 'until', refs: [ref], timeoutMs: 3_000 })
+    setTimeout(() => {
+      busy.delete(id)
+      const message = say(id, 'assistant', 'P1: shadowBlur per cell.\n```options\n["Measure first","Fix render"]\n```')
+      h.ctx.eventBus.publish({ type: 'agent_done', conversationId: id, fullText: message.content, messageId: message.id, timestamp: 'now' } as never)
+    }, 30)
+    const woke = await waiting
+    const fired = (woke.envelope.data.fired as Array<{ ref: string; data?: Row }>).find((item) => item.ref === ref)!
+    expect(fired.data).toMatchObject({ reply: { text: expect.stringContaining('shadowBlur per cell') }, pendingCards: [expect.objectContaining({ kind: 'options' })] })
+    expect(woke.envelope.summary).toContain(`${ref} replied: P1: shadowBlur per cell.`)
   })
 
   it('a stale preview (provider changed) refuses the old token', async () => {

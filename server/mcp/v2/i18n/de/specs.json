@@ -42,7 +42,7 @@
   "summary.async.refine.pending": "Der Contract Layer wird zu {{spec}} hinzugefügt.",
   "summary.async.refine.done": "Contract Layer zu {{spec}} hinzugefügt.",
   "summary.async.refine.failed": "Das Hinzufügen des Contract Layer zu {{spec}} ist fehlgeschlagen: {{error}}",
-  "hint.pending": "Läuft noch. Lies das Ergebnis später mit specrails_specs(get, options.request: \"{{request}}\").",
+  "hint.pending": "Läuft noch. get(options.request: \"{{request}}\") wartet auf das Ergebnis.",
   "hint.ai_edit_apply": "Zeig der Person den Vorschlag; übernimm ihn mit specrails_specs(update, patch.body).",
   "offer.launch": "Starten",
   "offer.launch_addenda": "Mit {{count}} Nachträgen starten",

@@ -42,7 +42,7 @@
   "summary.async.refine.pending": "正在为 {{spec}} 添加 Contract Layer。",
   "summary.async.refine.done": "已为 {{spec}} 添加 Contract Layer。",
   "summary.async.refine.failed": "为 {{spec}} 添加 Contract Layer 失败：{{error}}",
-  "hint.pending": "仍在进行中。稍后使用 specrails_specs(get, options.request: \"{{request}}\") 读取结果。",
+  "hint.pending": "仍在运行。get(options.request: \"{{request}}\") 会等待结果。",
   "hint.ai_edit_apply": "将该提议展示给此人；使用 specrails_specs(update, patch.body) 应用它。",
   "offer.launch": "启动它",
   "offer.launch_addenda": "连同 {{count}} 个附录启动",

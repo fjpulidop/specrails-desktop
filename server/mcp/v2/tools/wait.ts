@@ -14,6 +14,8 @@ import { statusFromChain, statusFromDelivery, statusFromRunHold, statusFromSpec,
 import { neutralize, untrusted } from '../core/untrusted'
 import { F } from '../core/views'
 import { settleInterruptedClones } from '../core/clone-jobs'
+import { oneLine } from '../core/envelope'
+import { missionTurnDigest } from './missions'
 
 /**
  * WP1. `specrails_wait`: one blocking call instead of polling, backed by the
@@ -304,11 +306,23 @@ async function untilHandler(ctx: V2CallContext, args: Record<string, unknown>) {
     }).map((ref) => ref.ref)
     return waiting.length ? waiting : undefined
   }
-  const reply = (items: FiredItem[], cursorSeq: number, extra: { timedOut: boolean; more?: boolean; reason?: string; waitedMs?: number }) => {
+  const reply = async (items: FiredItem[], cursorSeq: number, extra: { timedOut: boolean; more?: boolean; reason?: string; waitedMs?: number }) => {
     const pending = pendingOf(items)
-    const summary = items.length ? summaryOf(items, t)
-      : extra.reason === 'interrupted' ? t('wait.summary.interrupted')
-        : t('wait.summary.timeout', { seconds: Math.round((extra.waitedMs ?? timeoutMs) / 1000) })
+    // A mission that finished its turn wakes with what it said and the choices it left open,
+    // so the caller relays it at once (no `get` round trip).
+    let said: { ref: string; text: string } | null = null
+    for (const item of items) {
+      const parsed = parseRef(item.ref)
+      if (parsed?.kind !== 'mission' || item.status !== 'succeeded' || said) continue
+      const digest = await missionTurnDigest(ctx, parsed.id)
+      if (!digest) continue
+      item.data = { ...item.data, ...digest }
+      said = { ref: item.ref, text: String((digest.reply as { text?: string }).text ?? '') }
+    }
+    const summary = said ? t('missions.summary.replied', { mission: said.ref, reply: neutralize(oneLine(said.text, 200)) })
+      : items.length ? summaryOf(items, t)
+        : extra.reason === 'interrupted' ? t('wait.summary.interrupted')
+          : t('wait.summary.timeout', { seconds: Math.round((extra.waitedMs ?? timeoutMs) / 1000) })
     return result({
       fired: items,
       ...(pending ? { pending } : {}),
@@ -409,7 +423,8 @@ export const waitTool = defineTool({
   actions: {
     until: {
       tier: 'read',
-      maxTokens: RESPONSE_BUDGET.waitWake,
+      // A wake is small; one that carries a mission's reply has room for it whole.
+      maxTokens: 6_000,
       doc: 'Blocks ≤ timeoutMs (default 25 s, max 45 s). for: settled (default with refs: finished or needs you), needs_you (default without refs: app-wide), changed (any transition of refs), any (changes of refs plus anything that needs you). Already-settled refs return at once. Re-call with since:<cursor>; timedOut:true is not a failure.',
       handler: untilHandler,
     },

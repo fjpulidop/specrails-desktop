@@ -44,7 +44,8 @@ const CONTRACT_LAYER = '## Contract Layer'
 const LIST_BUDGET_TOKENS = 1_250
 const DETAIL_BUDGET_TOKENS = 8_500
 const EXCERPT_CHARS = 600
-const ASYNC_WAIT_DEFAULT_MS = 20_000
+// Writing a spec takes ~30–45 s: waiting the full window answers most requests in one call.
+const ASYNC_WAIT_DEFAULT_MS = 45_000
 const ASYNC_WAIT_MAX_MS = 45_000
 const ASYNC_KEEP_MS = 15 * 60_000
 const ATTACH_MAX_BYTES = 5 * 1024 * 1024
@@ -504,7 +505,14 @@ async function getAsyncOutcome(ctx: V2CallContext, args: Row, requestKey: string
   if (!outcome) throw new V2ToolError('not_found', ctx.v2.t('specs.error.request_unknown', { request: requestKey }))
   // The request remembers its project: reading it needs no ref or project.
   const row = (outcome.projectId ? ctx.v2.projects().find((project) => project.id === outcome.projectId) : undefined) ?? ctx.v2.project(args)
-  return asyncResult(ctx, row, requestKey, outcome, {})
+  // Still running: wait for it here (bounded), so reading the result never needs a separate wait.
+  let current = outcome
+  const deadline = Date.now() + waitMsOf(args)
+  while (current.status === 'pending' && Date.now() < deadline && !ctx.signal?.aborted) {
+    await new Promise((done) => setTimeout(done, 250))
+    current = asyncOutcomes.get(requestKey) ?? current
+  }
+  return asyncResult(ctx, row, requestKey, current, {})
 }
 
 /** A result that settled after the call answered "still running": the call's MCP log row shows how it ended. */
@@ -1025,7 +1033,7 @@ export const specsTool = defineTool({
       tier: (args) => AI_CREATE_MODES.has(String(args.mode)) || (args.mode === 'draft' && optionsOf(args).contractRefine === true) ? 'ai-spawn' : 'write',
       confirm: (args) => AI_CREATE_MODES.has(String(args.mode)) || (args.mode === 'draft' && optionsOf(args).contractRefine === true) ? 'costly' : null,
       required: ['mode'], oneOf: ['title', 'body'],
-      doc: 'mode request: the spec agent writes the spec from the person\'s request or problem (AI; waits up to options.waitMs, default 20 s); draft: a complete spec you wrote (title, body, options.criteria/labels/priority/intent/summary); verbatim: the body as written (no AI); idea: a draft-status spec to shape later. options.repositoryIds, labels, priority, model, aiEngine, contractRefine.',
+      doc: 'mode request: the spec agent writes the spec from the person\'s request or problem (AI; waits up to options.waitMs, default 45 s); draft: a complete spec you wrote (title, body, options.criteria/labels/priority/intent/summary); verbatim: the body as written (no AI); idea: a draft-status spec to shape later. options.repositoryIds, labels, priority, model, aiEngine, contractRefine.',
       preview: (ctx, args) => costlyPreview(ctx, args, SURFACES.create, 'specs.confirm.create', ctx.v2.project(args), null, { idea: ideaOf(args) }),
       handler: createSpec,
     },

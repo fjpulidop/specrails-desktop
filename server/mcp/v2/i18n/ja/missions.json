@@ -118,7 +118,7 @@
   "summary.turn_failed": "{{mission}} のターンが失敗しました: {{error}}",
   "summary.unarchived": "{{mission}} をアーカイブから復元しました。",
   "summary.updated": "{{mission}} を更新しました。",
-  "summary.working": "{{mission}} はまだ作業中です。そのことを相手に伝え(メニューなし)、specrails_wait(until, refs:[{{mission}}]) で待ってから、返答を伝えてください(get と options.after)。",
+  "summary.working": "{{mission}} はまだ作業中です。そのことを相手に伝え(メニューなし)、specrails_wait(until, refs:[{{mission}}]) で待ってください。返答付きで戻るので、それを伝えてください。",
   "choice.abort": "エージェントが止まり、ミッションは残ります。",
   "choice.ci_not_now": "CI はそのままにします。",
   "choice.ci_start": "エージェントが CI を追い失敗を直します（AI）。",
@@ -150,5 +150,5 @@
   "preview.create_send": "{{project}} にミッションを作成してメッセージを送ります。エージェントがターンを開始します。",
   "ask.goal": "このミッションで何を達成したいですか？",
   "summary.intent_replied": "{{ref}} を開始しました。ミッションの返答: {{reply}} — 自分の言葉で伝えてください。選択肢は状態の offers にあります(自分で作らずそれを提示)。会話は send でこのミッションで続けてください。",
-  "summary.intent_working": "{{ref}} を開始しました。ミッションはまだ作業中です。そのことを相手に伝え(メニューなし)、specrails_wait(until, refs:[{{mission}}]) で待ってから、返答を伝えてください(get と options.after)。"
+  "summary.intent_working": "{{ref}} を開始しました。ミッションはまだ作業中です。そのことを相手に伝え(メニューなし)、specrails_wait(until, refs:[{{mission}}]) で待ってください。返答付きで戻るので、それを伝えてください。"
 }

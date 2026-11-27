@@ -266,6 +266,20 @@ describe('specrails_specs create and update', () => {
     expect(read.envelope.untrusted).toContain('/data/proposal')
   })
 
+  it('get(options.request) waits for a still-running AI result instead of answering pending', async () => {
+    const realFetch = globalThis.fetch
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      if (String(input).endsWith('/ai-edit')) return new Response(JSON.stringify({ requestId: 'edit-2' }), { status: 202 })
+      return realFetch(input, init)
+    })
+    const [id] = await seed(1)
+    const preview = await specs({ action: 'ai_edit', ref: ref(id), body: 'Shorter', dryRun: true, options: { waitMs: 0 } })
+    await specs({ action: 'ai_edit', ref: ref(id), body: 'Shorter', confirm: preview.envelope.data.confirmToken, options: { waitMs: 0 } })
+    setTimeout(() => h.ctx.eventBus.publish({ type: 'ticket_ai_edit_done', projectId: 'p1', ticketId: id, requestId: 'edit-2', fullText: 'Done body' } as never), 300)
+    const read = await specs({ action: 'get', options: { request: 'edit-2', waitMs: 5_000 } })
+    expect(read.envelope.data).toMatchObject({ status: 'done', proposal: 'Done body' })
+  })
+
   it('updates fields, milestone and rail, and returns an undo call', async () => {
     const [id] = await seed(1, () => ({ labels: ['M1', 'ui'] }))
     const { envelope } = await specs({ action: 'update', ref: ref(id), patch: { title: 'Renamed', status: 'done', milestone: 2, rail: 1 } })

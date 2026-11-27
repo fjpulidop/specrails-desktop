@@ -118,7 +118,7 @@
   "summary.turn_failed": "Falló el turno de {{mission}}: {{error}}",
   "summary.unarchived": "{{mission}} restaurada del archivo.",
   "summary.updated": "{{mission}} actualizada.",
-  "summary.working": "{{mission}} sigue trabajando. Díselo a la persona (sin menú), espera con specrails_wait(until, refs:[{{mission}}]) y luego cuenta lo que diga (get con options.after).",
+  "summary.working": "{{mission}} sigue trabajando. Díselo a la persona (sin menú) y espera con specrails_wait(until, refs:[{{mission}}]): despierta con la respuesta para contarla.",
   "choice.abort": "El agente deja de responder; la misión queda.",
   "choice.ci_not_now": "Deja la CI como está.",
   "choice.ci_start": "Un agente sigue la CI y arregla fallos (IA).",
@@ -150,5 +150,5 @@
   "preview.create_send": "Crea una misión en {{project}} y le envía el mensaje; el agente empieza un turno.",
   "ask.goal": "¿Qué quieres que consiga esta misión?",
   "summary.intent_replied": "{{ref}} arrancada. La misión dice: {{reply}} — Cuéntalo con tus palabras; sus opciones están en las offers del estado (ofrece esas, no unas tuyas), y sigue la conversación en la misión con send.",
-  "summary.intent_working": "{{ref}} arrancada; la misión sigue trabajando. Díselo a la persona (sin menú), espera con specrails_wait(until, refs:[{{mission}}]) y luego cuenta lo que diga (get con options.after)."
+  "summary.intent_working": "{{ref}} arrancada; la misión sigue trabajando. Díselo a la persona (sin menú) y espera con specrails_wait(until, refs:[{{mission}}]): despierta con la respuesta para contarla."
 }

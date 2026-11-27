@@ -58,7 +58,8 @@ const CONVERSE_TOKENS = 6_000
 const DEFAULT_MESSAGES = 10
 const MESSAGES_BUDGET_SUMMARY = 800
 const MESSAGES_BUDGET_DETAIL = 5_000
-const WAIT_DEFAULT_MS = 20_000
+// A turn often takes 20–45 s: waiting the full window settles most of them in one call.
+const WAIT_DEFAULT_MS = 45_000
 const WAIT_MAX_MS = 45_000
 const ATTACH_PATH_MAX = 25 * 1024 * 1024
 const ATTACH_INLINE_MAX = 5 * 1024 * 1024
@@ -690,6 +691,19 @@ async function turnResult(ctx: V2CallContext, id: string, ref: Ref, response: Ro
   return result(data, { summary, refs: { mission: ref }, ...(state ? { state } : {}), untrusted: untrusted('/data/reply/text', '/data/error') })
 }
 
+/**
+ * What a mission's settled turn said, for a wake-up that should not need a `get`: its last reply
+ * (whole, untrusted) and the choices still open on it. Null when there is no reply to show.
+ */
+export async function missionTurnDigest(ctx: V2CallContext, conversationId: string): Promise<Row | null> {
+  const read = await readMission(ctx, conversationId).catch(() => null)
+  if (!read || read.live.isStreaming === true) return null
+  const last = [...read.messages].reverse().find((message) => message.role === 'assistant')
+  if (!last) return null
+  const pending = projectCards(read.messages, { busy: false }).filter((card) => card.pending)
+  return { reply: { messageId: last.id, at: minute(last.created_at), text: neutralize(clip(last.content, REPLY_CHARS)) }, ...(pending.length ? { pendingCards: pending.map(brief) } : {}) }
+}
+
 /** The mission's open (or latest) Intent, or null (never throws: Intent may be unavailable here). */
 async function missionFlow(ctx: V2CallContext, row: ProjectRow, id: string): Promise<IntentSession | null> {
   try { return (record(await apiCall(ctx, 'GET', `${flowBase(row)}/by-conversation/${enc(id)}`)).flow ?? null) as IntentSession | null } catch { return null }
@@ -950,7 +964,7 @@ export const missionsTool = defineTool({
     },
     send: {
       ...converse, required: ['ref', 'message'],
-      doc: 'Sends the person\'s message and waits up to options.waitMs (default 20000, max 45000) for the reply. Busy mission: queued (options.deliveryMode queue|steer|interrupt). options.attachmentIds, options.queueId (idempotent retry). Not replied yet: specrails_wait(until, refs:[ref]) then get(options.after).',
+      doc: 'Sends the person\'s message and waits up to options.waitMs (default and max 45000) for the reply. Busy mission: queued (options.deliveryMode queue|steer|interrupt). options.attachmentIds, options.queueId (idempotent retry). Not replied yet: specrails_wait(until, refs:[ref]) wakes with the reply.',
       preview: (ctx, args) => spendPreview(ctx, args, 'missions.preview.send'),
       handler: (ctx, args) => sendMessage(ctx, args),
     },
