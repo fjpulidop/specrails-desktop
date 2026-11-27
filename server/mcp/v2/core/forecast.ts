@@ -21,13 +21,37 @@ const num = (value: unknown): number | null => typeof value === 'number' && Numb
 
 export interface LaunchForecastQuery { loopId?: string | null; command?: string | null; provider?: string | null }
 
-/** The project's `launch-forecast` row (cost + time), or null when the route has none. */
-export function launchForecast(ctx: McpToolContext, project: Pick<ProjectRow, 'id'>, query: LaunchForecastQuery): Promise<Row | null> {
+function forecastRow(ctx: McpToolContext, project: Pick<ProjectRow, 'id'>, query: LaunchForecastQuery): Promise<Row | null> {
   const params = new URLSearchParams()
   if (query.loopId) params.set('loopId', query.loopId)
   if (query.command) params.set('command', query.command)
   if (query.provider) params.set('provider', query.provider)
   return maybe(ctx, `/projects/${encodeURIComponent(project.id)}/launch-forecast?${params}`)
+}
+
+const IMPLEMENT_LOOP = 'factory:implement'
+const hasCost = (row: Row | null): boolean => scaledCost(row, 1) !== null
+
+/**
+ * The project's `launch-forecast` row (cost + time), or null when the route has none.
+ * A kind of run the project has too few measured runs of (a first Intent hand-off, a new
+ * loop) falls back to the closest measured kind: the same loop on any provider, then the
+ * project's Implement runs (with that provider, then any). A fallback row carries
+ * `basis: 'similar'` so the confirmation says the figure comes from similar runs; with no
+ * measured runs at all it stays unknown.
+ */
+export async function launchForecast(ctx: McpToolContext, project: Pick<ProjectRow, 'id'>, query: LaunchForecastQuery): Promise<Row | null> {
+  const exact = await forecastRow(ctx, project, query)
+  if (hasCost(exact)) return exact
+  const tries: LaunchForecastQuery[] = [
+    ...(query.provider ? [{ ...query, provider: null }] : []),
+    ...(query.loopId !== IMPLEMENT_LOOP || query.command ? [{ loopId: IMPLEMENT_LOOP, provider: query.provider ?? null }, { loopId: IMPLEMENT_LOOP }] : []),
+  ]
+  for (const attempt of tries) {
+    const row = await forecastRow(ctx, project, attempt)
+    if (hasCost(row)) return { ...row, basis: 'similar' }
+  }
+  return exact
 }
 
 /** A forecast's per-run `[lowUsd, highUsd]` times `runs`, in cents; null when unknown. */

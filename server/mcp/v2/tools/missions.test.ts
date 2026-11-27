@@ -131,6 +131,9 @@ function stubProjectRoutes(): Router {
   const router = Router()
   const log = (req: express.Request) => routeLog.push({ method: req.method, path: req.path, body: req.body ?? {} })
   router.get('/:projectId/rails', (_req, res) => { res.json({ rails: railsState }) })
+  router.get('/:projectId/tickets/:id', (req, res) => { res.json({ ticket: { id: Number(req.params.id), title: 'Measure frame pacing' } }) })
+  // Only Implement runs are measured in this project: an Intent hand-off falls back to them.
+  router.get('/:projectId/launch-forecast', (req, res) => { res.json(req.query.loopId === 'factory:implement' ? { cost: { lowUsd: 0.6, highUsd: 1.2, sampleCount: 5 }, time: null } : { cost: null, time: null }) })
   router.post('/:projectId/rails', (req, res) => { log(req); res.status(201).json({ rail: { railIndex: 3 } }) })
   router.put('/:projectId/rails/:i/tickets', (req, res) => { log(req); res.json({ ok: true }) })
   router.post('/:projectId/rails/:i/launch', (req, res) => { log(req); res.status(202).json({ loopRunIds: ['run-9'], prDeliveryId: 'del-9' }) })
@@ -723,6 +726,10 @@ describe('specrails_missions: continuing an open Intent from an external client'
     const first = await missions({ action: 'intent_hand_off', ref: 'intent:shop-api/f1' })
     expect(first.envelope.error.code).toBe('confirmation_required')
     expect(first.envelope.error.preview.effect).toContain('On Rail 2.')
+    // The person reads the spec's title and a measured estimate, not a raw ref and "cannot be estimated".
+    expect(first.envelope.error.preview.effect).toContain('Hands «Measure frame pacing» (branch')
+    expect(first.envelope.error.preview.effect).not.toContain('intent:shop-api/f1')
+    expect(first.envelope.error.preview.effect).toContain('Estimated cost 0.60–1.20 USD, from similar runs of this project.')
     const handed = await missions({ action: 'intent_hand_off', ref: 'intent:shop-api/f1', confirm: first.envelope.error.confirmToken })
     expect(handed.envelope.data).toMatchObject({ state: 'handed_off', rail: 'rail:shop-api/1', runs: ['run:shop-api/lr1'] })
     expect(intentCalls.at(-1)).toMatchObject({ op: 'hand-off', input: { flowId: 'f1', railIndex: 1, missionEngine: true } })

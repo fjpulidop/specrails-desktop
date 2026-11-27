@@ -112,6 +112,7 @@
   "confirm.class.costly": "Avvia lavoro di IA che costa denaro.",
   "confirm.cost": "Costo stimato {{low}}–{{high}} USD.",
   "confirm.cost_unknown": "Non è possibile stimare il costo.",
+  "confirm.cost_similar": "Costo stimato {{low}}–{{high}} USD, in base a esecuzioni simili di questo progetto.",
   "confirm.runs": "Avvia {{count}} esecuzioni.",
   "error.not_implemented": "{{label}} non è ancora disponibile in questa versione.",
   "error.not_implemented_legacy": "{{label}} non è ancora disponibile in questa versione; nel frattempo usa {{legacy}}.",

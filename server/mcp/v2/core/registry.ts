@@ -42,7 +42,7 @@ export interface PreviewInput {
   /** The entity's `DecisionState.version` (or a hash of what the action depends on). */
   version: string
   /** `costly` actions: forecast upper bound and how many runs start. */
-  cost?: { forecastUsd: [number, number] | null; runs: number }
+  cost?: { forecastUsd: [number, number] | null; runs: number; /** `similar`: measured on the closest kind of run (launchForecast fallback). */ basis?: 'similar' }
 }
 
 export interface V2ActionDef {
@@ -455,7 +455,7 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
           const sentences = [input.effect ?? t('core.confirm.effect.default', { label })]
           if (confirmClass) sentences.push(t(`core.confirm.class.${confirmClass}`))
           if (input.cost) {
-            sentences.push(input.cost.forecastUsd ? t('core.confirm.cost', { low: input.cost.forecastUsd[0].toFixed(2), high: input.cost.forecastUsd[1].toFixed(2) }) : t('core.confirm.cost_unknown'))
+            sentences.push(input.cost.forecastUsd ? t(input.cost.basis === 'similar' ? 'core.confirm.cost_similar' : 'core.confirm.cost', { low: input.cost.forecastUsd[0].toFixed(2), high: input.cost.forecastUsd[1].toFixed(2) }) : t('core.confirm.cost_unknown'))
             if (input.cost.runs > 1) sentences.push(t('core.confirm.runs', { count: input.cost.runs }))
           }
           return {

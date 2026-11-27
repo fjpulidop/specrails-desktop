@@ -442,17 +442,33 @@ async function intentResult(ctx: V2CallContext, target: IntentTarget, flowValue:
  * agent session (its own billed turns), `launch` starts a rail run (the
  * project's launch forecast for the loop, implement by default).
  */
+/** What the person calls an Intent: its spec's title, else its mission's, else the ref. */
+async function intentName(ctx: V2CallContext, target: IntentTarget): Promise<string> {
+  const quoted = (value: unknown) => typeof value === 'string' && value.trim() ? `«${clip(neutralize(value.trim()), 80)}»` : null
+  try {
+    if (target.flow.ticketId) {
+      const ticket = record(record(await apiCall(ctx, 'GET', `/projects/${enc(target.row.id)}/tickets/${target.flow.ticketId}`)).ticket)
+      const title = quoted(ticket.title)
+      if (title) return title
+    }
+    if (target.flow.conversationId) {
+      const title = quoted(record(record(await apiCall(ctx, 'GET', `${AGENT}/${enc(target.flow.conversationId)}`)).conversation).title)
+      if (title) return title
+    }
+  } catch { /* the ref still names it */ }
+  return target.ref
+}
+
 async function intentPreview(ctx: V2CallContext, args: Row, effectKey: string, spend: 'turn' | 'launch' | null): Promise<PreviewInput> {
   const target = await intentTarget(ctx, args)
   const options = optionsOf(args)
-  const forecastUsd = spend === 'turn' ? missionForecast(ctx, target.flow.conversationId)
-    : spend === 'launch' ? scaledCost(await launchForecast(ctx, target.row, { loopId: str(options.loopId) ?? FLOW_SPEC_LOOP_ID, provider: str(args.provider) ?? str(options.provider) }), 1)
-      : null
+  const launch = spend === 'launch' ? await launchForecast(ctx, target.row, { loopId: str(options.loopId) ?? FLOW_SPEC_LOOP_ID, provider: str(args.provider) ?? str(options.provider) }) : null
+  const forecastUsd = spend === 'turn' ? missionForecast(ctx, target.flow.conversationId) : spend === 'launch' ? scaledCost(launch, 1) : null
   return {
-    effect: ctx.v2.t(effectKey, { ref: target.ref, branch: target.flow.branch ?? '—' }),
+    effect: ctx.v2.t(effectKey, { ref: await intentName(ctx, target), branch: target.flow.branch ?? '—' }),
     refs: [target.ref],
     version: intentState(ctx, target).version,
-    ...(spend ? { cost: { forecastUsd, runs: 1 } } : {}),
+    ...(spend ? { cost: { forecastUsd, runs: 1, ...(launch?.basis === 'similar' ? { basis: 'similar' as const } : {}) } } : {}),
   }
 }
 

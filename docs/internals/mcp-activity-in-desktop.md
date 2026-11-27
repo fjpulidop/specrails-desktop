@@ -52,6 +52,12 @@ mission's own conversation:
 - `get` marks a long message `truncated` (with `chars`); `message`
   (`options.message=<id>`, default the last reply) reads it whole (40 000
   characters).
+- Launch confirmations name things as the person does (the spec's title, else
+  the mission's) and carry a measured estimate where one exists:
+  `launchForecast` falls back from a kind of run the project has too few
+  measured runs of to the same loop on any provider, then the project's
+  Implement runs ("from similar runs of this project"); with none it stays
+  unknown and still asks.
 - Reply, still-working and Intent summaries tell the agent to relay the mission
   in its own words, keep the conversation there and offer a menu only for a
   real decision (never one of its own while the mission works).

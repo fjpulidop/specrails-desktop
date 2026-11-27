@@ -368,10 +368,12 @@ export function forecastFor(ctx: V2CallContext, row: ProjectRow, surfaces: reado
 
 const SURFACES = { create: ['quick-spec'], refine: ['quick-spec', 'explore-spec'], ai_edit: ['ai-edit'], smash: ['smash'] } as const
 
-function costlyPreview(ctx: V2CallContext, args: Row, surfaces: readonly string[], effectKey: string, row: ProjectRow, ref: Ref | null, versionFacts: unknown): PreviewInput {
+function costlyPreview(ctx: V2CallContext, args: Row, surfaces: readonly string[], effectKey: string, row: ProjectRow, ref: Ref | null, versionFacts: unknown, title?: unknown): PreviewInput {
   const forecast = forecastFor(ctx, row, surfaces)
+  // The person reads the spec's title, not its ref.
+  const name = typeof title === 'string' && title.trim() ? `«${clip(neutralize(title.trim()), 80)}»` : ref ?? row.slug
   return {
-    effect: ctx.v2.t(effectKey, { ref: ref ?? row.slug }),
+    effect: ctx.v2.t(effectKey, { ref: name }),
     refs: ref ? [ref] : [],
     version: `p${shortHash({ facts: versionFacts, a: args.ref ?? null })}`,
     cost: { forecastUsd: forecast, runs: 1 },
@@ -1083,7 +1085,7 @@ export const specsTool = defineTool({
     },
     refine: {
       tier: 'ai-spawn', confirm: 'costly', required: ['ref'], doc: 'Adds or redoes the Contract Layer (AI). options.aiEngine. Waits up to options.waitMs.',
-      preview: async (ctx, args) => { const t = specTarget(ctx, args); const ticket = await readTicket(ctx, t.row, t.id); return costlyPreview(ctx, args, SURFACES.refine, 'specs.confirm.refine', t.row, t.ref, ticket.updated_at) },
+      preview: async (ctx, args) => { const t = specTarget(ctx, args); const ticket = await readTicket(ctx, t.row, t.id); return costlyPreview(ctx, args, SURFACES.refine, 'specs.confirm.refine', t.row, t.ref, ticket.updated_at, ticket.title) },
       handler: async (ctx, args) => {
         const { row, id } = specTarget(ctx, args)
         const run = await runAsync(ctx, 'refine', async () => {
@@ -1096,7 +1098,7 @@ export const specsTool = defineTool({
     ai_edit: {
       tier: 'ai-spawn', confirm: 'costly', required: ['ref', 'body'],
       doc: 'body = editing instructions. Returns the AI proposal (not applied): apply it with update(patch.body). options.priorProposal and priorInstructions refine a proposal; options.cancel = request id stops one.',
-      preview: async (ctx, args) => { const t = specTarget(ctx, args); const ticket = await readTicket(ctx, t.row, t.id); return costlyPreview(ctx, args, SURFACES.ai_edit, 'specs.confirm.ai_edit', t.row, t.ref, ticket.updated_at) },
+      preview: async (ctx, args) => { const t = specTarget(ctx, args); const ticket = await readTicket(ctx, t.row, t.id); return costlyPreview(ctx, args, SURFACES.ai_edit, 'specs.confirm.ai_edit', t.row, t.ref, ticket.updated_at, ticket.title) },
       handler: async (ctx, args) => {
         const { row, id, ref } = specTarget(ctx, args)
         const options = optionsOf(args)
@@ -1116,7 +1118,7 @@ export const specsTool = defineTool({
     },
     smash: {
       tier: 'ai-spawn', confirm: 'costly', required: ['ref'], doc: 'Splits a spec into ordered sub-specs (an epic). options.mode simple|full, model. Needs a Contract Layer; waits up to options.waitMs.',
-      preview: async (ctx, args) => { const t = specTarget(ctx, args); const ticket = await readTicket(ctx, t.row, t.id); return costlyPreview(ctx, args, SURFACES.smash, 'specs.confirm.smash', t.row, t.ref, ticket.updated_at) },
+      preview: async (ctx, args) => { const t = specTarget(ctx, args); const ticket = await readTicket(ctx, t.row, t.id); return costlyPreview(ctx, args, SURFACES.smash, 'specs.confirm.smash', t.row, t.ref, ticket.updated_at, ticket.title) },
       handler: async (ctx, args) => {
         const { row, id } = specTarget(ctx, args)
         const run = await runAsync(ctx, 'smash', async () => {
