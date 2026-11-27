@@ -96,7 +96,7 @@
   "summary.intent_relaunched": "A execução de {{ref}} foi relançada.",
   "summary.intent_resumed": "{{ref}} retomado.",
   "summary.intent_returned": "{{ref}} voltou ao Intent com a revisão.",
-  "summary.intent_started": "{{ref}} iniciado ({{state}}). Fale com ele usando send.",
+  "summary.intent_started": "{{ref}} iniciada ({{state}}). A missão espera a próxima mensagem da pessoa: se ainda não o disse, pergunte o que construir com uma única pergunta aberta (sem menu) e envie-o.",
   "summary.intent_unavailable": "O Intent não está disponível em {{project}}.",
   "summary.limit_cancelled": "A continuação automática foi cancelada.",
   "summary.limit_scheduled": "A missão continua sozinha às {{at}}.",
@@ -118,7 +118,7 @@
   "summary.turn_failed": "O turno de {{mission}} falhou: {{error}}",
   "summary.unarchived": "{{mission}} restaurada do arquivo.",
   "summary.updated": "{{mission}} atualizada.",
-  "summary.working": "{{mission}} ainda está trabalhando. Aguarde com specrails_wait(until, refs:[{{mission}}]) e depois use get com options.after.",
+  "summary.working": "{{mission}} ainda está a trabalhar. Diga-o à pessoa (sem menu), espere com specrails_wait(until, refs:[{{mission}}]) e depois conte o que ela diz (get com options.after).",
   "choice.abort": "O agente para de responder; a missão fica.",
   "choice.ci_not_now": "Deixa a CI como está.",
   "choice.ci_start": "Um agente segue a CI e corrige falhas (IA).",
@@ -148,5 +148,7 @@
   "choice.unarchive": "A missão volta para a lista.",
   "summary.created_started": "{{mission}} criada e iniciada com a mensagem da pessoa.",
   "preview.create_send": "Cria uma missão em {{project}} e envia-lhe a mensagem; o agente inicia um turno.",
-  "ask.goal": "O que quer que esta missão consiga?"
+  "ask.goal": "O que quer que esta missão consiga?",
+  "summary.intent_replied": "{{ref}} iniciada. A missão diz: {{reply}} — Conte-o por palavras suas; as opções dela estão nas offers do estado (ofereça essas, não as suas), e continue a conversa na missão com send.",
+  "summary.intent_working": "{{ref}} iniciada; a missão ainda está a trabalhar. Diga-o à pessoa (sem menu), espere com specrails_wait(until, refs:[{{mission}}]) e depois conte o que ela diz (get com options.after)."
 }

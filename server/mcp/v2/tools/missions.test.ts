@@ -44,6 +44,8 @@ let routeLog: Array<{ method: string; path: string; body: Row }>
 let flows: Map<string, IntentSession>
 let replyMode: 'reply' | 'silent' | 'error'
 let streaming: string
+/** A seeded Intent's opening turn reply (null: none). */
+let openingReply: string | null = null
 let railsState: Row[]
 let intentCalls: Array<{ op: string; input: Row }>
 
@@ -96,7 +98,18 @@ function fakeIntent(): IntentService {
   }
   return {
     availability: async () => ({ available: true, missing: [] }),
-    startFlow: async (input: Row) => { intentCalls.push({ op: 'start', input }); const flow = flowSession({ id: 'f2', conversationId: input.conversationId, ticketId: input.ticketId ?? 9 }); flows.set(flow.id, flow); return flow },
+    startFlow: async (input: Row) => {
+      intentCalls.push({ op: 'start', input })
+      const flow = flowSession({ id: 'f2', conversationId: input.conversationId, ticketId: input.ticketId ?? 9, ...(openingReply ? { returnBriefing: 'Build spec 9' } : {}) })
+      flows.set(flow.id, flow)
+      // The seeded Intent works on its own: its opening turn replies a moment later.
+      const reply = openingReply
+      if (reply) setTimeout(() => {
+        say(String(input.conversationId), 'assistant', reply)
+        h.ctx.eventBus.publish({ type: 'agent_done', conversationId: input.conversationId, fullText: reply, timestamp: 'now' } as never)
+      }, 5)
+      return flow
+    },
     listOpen: () => [...flows.values()].filter((f) => f.state === 'active' || f.state === 'paused'),
     getByConversation: (id: string) => [...flows.values()].find((f) => f.conversationId === id) ?? null,
     getFlow: (id: string) => flows.get(id)!,
@@ -138,7 +151,7 @@ function stubProjectRoutes(): Router {
 
 beforeEach(async () => {
   fs.mkdirSync(testHome, { recursive: true })
-  busy = new Set(); queue = new Map(); sent = []; routeLog = []; flows = new Map(); replyMode = 'reply'; streaming = ''; intentCalls = []
+  busy = new Set(); queue = new Map(); sent = []; openingReply = null; routeLog = []; flows = new Map(); replyMode = 'reply'; streaming = ''; intentCalls = []
   railsState = [{ railIndex: 0, availability: 'busy', ticketIds: [3] }, { railIndex: 1, availability: 'free', ticketIds: [] }]
   h = createHarness()
   const app = express()
@@ -536,6 +549,17 @@ describe('specrails_missions: Intent', () => {
     const done = await missions({ action: 'intent_discard', ref: 'intent:shop-api/f1', confirm: stale.envelope.error.confirmToken })
     expect(done.envelope.data.state).toBe('discarded')
     expect(done.envelope.state.offers).toEqual([])
+  })
+
+  it('a seeded Intent brings back what its opening turn found, with the mission\'s own choices (no invented menu)', async () => {
+    openingReply = 'Spec #9 is already covered at the base.\n```options\n["Close it as already covered","Add more edge-case tests"]\n```'
+    const started = await confirmed({ action: 'intent_start', project: 'shop-api', options: { spec: 'spec:shop-api/9' } })
+    expect(started.isError).toBe(false)
+    expect(started.envelope.data).toMatchObject({ ref: 'intent:shop-api/f2', turn: { status: 'replied', reply: { text: expect.stringContaining('already covered at the base') } } })
+    expect(started.envelope.summary).toMatch(/^Started intent:shop-api\/f2\. The mission says: Spec #9 is already covered/)
+    const labels = (started.envelope.state.offers as Array<{ label: string }>).map((offer) => offer.label)
+    expect(labels).toEqual(expect.arrayContaining(['Reply: Close it as already covered', 'Reply: Add more edge-case tests']))
+    expectUntrusted(started.envelope, '/data/turn/reply/text')
   })
 
   it('starts Intent in a new mission from a spec, lists open Intents, reads diff and cost, closes a needs-review Intent', async () => {

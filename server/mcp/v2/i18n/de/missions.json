@@ -96,7 +96,7 @@
   "summary.intent_relaunched": "Lauf von {{ref}} neu gestartet.",
   "summary.intent_resumed": "{{ref}} fortgesetzt.",
   "summary.intent_returned": "{{ref}} ist mit dem Review zurück im Intent.",
-  "summary.intent_started": "{{ref}} gestartet ({{state}}). Sprich mit ihm über send.",
+  "summary.intent_started": "{{ref}} gestartet ({{state}}). Die Mission wartet auf die nächste Nachricht der Person: Frag mit einer einzigen offenen Frage (ohne Menü), was gebaut werden soll, falls sie es noch nicht gesagt hat, und sende es.",
   "summary.intent_unavailable": "Intent ist in {{project}} nicht verfügbar.",
   "summary.limit_cancelled": "Das automatische Fortsetzen ist abgebrochen.",
   "summary.limit_scheduled": "Die Mission geht um {{at}} von selbst weiter.",
@@ -118,7 +118,7 @@
   "summary.turn_failed": "Der Turn von {{mission}} ist fehlgeschlagen: {{error}}",
   "summary.unarchived": "{{mission}} aus dem Archiv wiederhergestellt.",
   "summary.updated": "{{mission}} aktualisiert.",
-  "summary.working": "{{mission}} arbeitet noch. Warte mit specrails_wait(until, refs:[{{mission}}]) und rufe dann get mit options.after auf.",
+  "summary.working": "{{mission}} arbeitet noch. Sag es der Person (ohne Menü), warte mit specrails_wait(until, refs:[{{mission}}]) und gib dann wieder, was sie sagt (get mit options.after).",
   "choice.abort": "Der Agent hört auf; die Mission bleibt.",
   "choice.ci_not_now": "Lässt die CI, wie sie ist.",
   "choice.ci_start": "Ein Agent verfolgt die CI und behebt Fehler (KI).",
@@ -148,5 +148,7 @@
   "choice.unarchive": "Die Mission kommt zurück in die Liste.",
   "summary.created_started": "{{mission}} erstellt und mit der Nachricht der Person gestartet.",
   "preview.create_send": "Erstellt eine Mission in {{project}} und sendet ihr die Nachricht; der Agent beginnt einen Turn.",
-  "ask.goal": "Was soll diese Mission erreichen?"
+  "ask.goal": "Was soll diese Mission erreichen?",
+  "summary.intent_replied": "{{ref}} gestartet. Die Mission sagt: {{reply}} — Gib es in eigenen Worten wieder; ihre Optionen stehen in den offers des Zustands (biete diese an, keine eigenen), und führe das Gespräch in der Mission mit send weiter.",
+  "summary.intent_working": "{{ref}} gestartet; die Mission arbeitet noch. Sag es der Person (ohne Menü), warte mit specrails_wait(until, refs:[{{mission}}]) und gib dann wieder, was sie sagt (get mit options.after)."
 }

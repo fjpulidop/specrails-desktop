@@ -96,7 +96,7 @@
   "summary.intent_relaunched": "Relaunched the run of {{ref}}.",
   "summary.intent_resumed": "Resumed {{ref}}.",
   "summary.intent_returned": "{{ref}} is back in Intent with the review.",
-  "summary.intent_started": "Started {{ref}} ({{state}}). Talk to it with send.",
+  "summary.intent_started": "Started {{ref}} ({{state}}). The mission waits for the person's next message: ask what to build in one open question if they have not said it (no menu), and send it.",
   "summary.intent_unavailable": "Intent is not available in {{project}}.",
   "summary.limit_cancelled": "The automatic continue is cancelled.",
   "summary.limit_scheduled": "The mission continues by itself at {{at}}.",
@@ -118,7 +118,7 @@
   "summary.turn_failed": "The turn of {{mission}} failed: {{error}}",
   "summary.unarchived": "Restored {{mission}} from the archive.",
   "summary.updated": "Updated {{mission}}.",
-  "summary.working": "{{mission}} is still working. Wait with specrails_wait(until, refs:[{{mission}}]), then get with options.after.",
+  "summary.working": "{{mission}} is still working. Tell the person so (no menu), wait with specrails_wait(until, refs:[{{mission}}]), then relay what it says (get with options.after).",
   "choice.abort": "The agent stops answering; the mission stays.",
   "choice.ci_not_now": "Leaves CI as it is.",
   "choice.ci_start": "An agent follows CI and fixes failures (AI work).",
@@ -148,5 +148,7 @@
   "choice.unarchive": "The mission comes back to the list.",
   "summary.created_started": "Created {{mission}} and started it with the person's message.",
   "preview.create_send": "Creates a mission in {{project}} and sends it the message; the agent starts a turn.",
-  "ask.goal": "What should this mission achieve?"
+  "ask.goal": "What should this mission achieve?",
+  "summary.intent_replied": "Started {{ref}}. The mission says: {{reply}} — Relay it in your own words; its choices are in the state's offers (offer those, not your own), and keep the conversation in the mission with send.",
+  "summary.intent_working": "Started {{ref}}; the mission is still working on it. Tell the person so (no menu), wait with specrails_wait(until, refs:[{{mission}}]), then relay what it says (get with options.after)."
 }

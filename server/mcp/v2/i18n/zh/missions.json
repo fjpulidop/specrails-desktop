@@ -96,7 +96,7 @@
   "summary.intent_relaunched": "已重新启动 {{ref}} 的运行。",
   "summary.intent_resumed": "已继续 {{ref}}。",
   "summary.intent_returned": "{{ref}} 已带着审阅意见回到 Intent。",
-  "summary.intent_started": "已开始 {{ref}}（{{state}}）。使用 send 与它对话。",
+  "summary.intent_started": "已启动 {{ref}}（{{state}}）。任务在等待对方的下一条消息：如果对方还没说，用一个开放式问题（不要菜单）问要构建什么，然后发送。",
   "summary.intent_unavailable": "Intent 在 {{project}} 中不可用。",
   "summary.limit_cancelled": "自动继续已取消。",
   "summary.limit_scheduled": "任务将于 {{at}} 自动继续。",
@@ -118,7 +118,7 @@
   "summary.turn_failed": "{{mission}} 的回合失败：{{error}}",
   "summary.unarchived": "已从归档中恢复 {{mission}}。",
   "summary.updated": "已更新 {{mission}}。",
-  "summary.working": "{{mission}} 仍在工作。使用 specrails_wait(until, refs:[{{mission}}]) 等待，然后使用 get 和 options.after 获取。",
+  "summary.working": "{{mission}} 仍在处理中。告诉对方（不要菜单），用 specrails_wait(until, refs:[{{mission}}]) 等待，然后转述它说的内容（get 加 options.after）。",
   "choice.abort": "代理停止回答；任务保留。",
   "choice.ci_not_now": "保持 CI 现状。",
   "choice.ci_start": "由代理跟踪 CI 并修复失败（AI 工作）。",
@@ -148,5 +148,7 @@
   "choice.unarchive": "任务回到列表中。",
   "summary.created_started": "已创建 {{mission}}，并用对方的消息启动。",
   "preview.create_send": "在 {{project}} 中创建任务并发送消息；代理将开始一个回合。",
-  "ask.goal": "你希望这个任务达成什么？"
+  "ask.goal": "你希望这个任务达成什么？",
+  "summary.intent_replied": "已启动 {{ref}}。任务回复：{{reply}} —— 用你自己的话转述；它的选项在状态的 offers 中（提供这些，不要自己编），并用 send 在任务中继续对话。",
+  "summary.intent_working": "已启动 {{ref}}；任务仍在处理中。告诉对方（不要菜单），用 specrails_wait(until, refs:[{{mission}}]) 等待，然后转述它说的内容（get 加 options.after）。"
 }

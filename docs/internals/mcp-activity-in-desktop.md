@@ -23,6 +23,22 @@ keeps its own steps in its mission.
   provider/model only carry over for in-app agents).
 - Reads leave no trace. Titles set outside a turn broadcast `agent_title`.
 
+## A conversation, not a menu
+
+The MCP client is the person's chat with the mission, so it follows the
+mission's own conversation:
+
+- `specrails_missions(create)` with `message` creates the mission and starts it
+  in the same call (the send's tier and cost confirmation, forecast from recent
+  mission turns); without one, `data.ask` is the single open question to put to
+  the person (no menu).
+- `intent_start` of a seeded Intent (a spec or stored intent) waits for its
+  opening turn like a send and returns what it found (`data.turn.reply`); the
+  state's offers are the mission's own choices (its option chips and cards).
+- Reply, still-working and Intent summaries tell the agent to relay the mission
+  in its own words, keep the conversation there and offer a menu only for a
+  real decision (never one of its own while the mission works).
+
 ## Which mission
 
 `server/mcp/v2/core/mission-journal.ts`, called from the v2 registry around the

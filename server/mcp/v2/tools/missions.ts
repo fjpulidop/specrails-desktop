@@ -232,7 +232,7 @@ function waitMsOf(args: Row): number {
  * settles on the first reply after it starts (`agent_input_started` with its
  * queueId); the current turn's reply does not count.
  */
-async function sendAndWait(ctx: V2CallContext, conversationId: string, start: () => Promise<Row>, options: { waitMs: number; queueId: string | null; done: string[]; failed: string[]; started?: string[] }): Promise<{ response: Row; settled: Settled }> {
+async function sendAndWait(ctx: V2CallContext, conversationId: string, start: () => Promise<Row>, options: { waitMs: number; queueId: string | null; done: string[]; failed: string[]; started?: string[]; waitsFor?: () => boolean }): Promise<{ response: Row; settled: Settled }> {
   let response: Row | null = null
   let started = false
   let resolve: ((settled: Settled) => void) | null = null
@@ -252,7 +252,7 @@ async function sendAndWait(ctx: V2CallContext, conversationId: string, start: ()
     response = await start()
     started = response.queued !== true
     for (const msg of early.splice(0)) handle(msg)
-    if (!unsubscribe) return { response, settled: { status: 'pending' } }
+    if (!unsubscribe || options.waitsFor?.() === false) return { response, settled: { status: 'pending' } }
     let timer: NodeJS.Timeout | undefined
     const settled = await Promise.race([settledPromise, new Promise<Settled>((done) => { timer = setTimeout(() => done({ status: 'pending' }), options.waitMs) })])
     clearTimeout(timer)
@@ -642,10 +642,20 @@ async function sendMessage(ctx: V2CallContext, rawArgs: Row, flags: { skipSelf?:
     // The person writes from their own client: the turn tells the agent, so it names MCP actions, never app buttons.
     ...(ctx.firstPartyAgent ? {} : { surface: 'mcp' }),
   })), { waitMs: waitMsOf(args), queueId, done: ['agent_done', 'agent_turn_done'], failed: ['agent_error'], started: ['agent_input_started', 'agent_dequeued'] })
+  return turnResult(ctx, id, ref, response, settled, { queueId })
+}
+
+/**
+ * What a mission turn the caller started came to (send, a created mission's first turn, Intent's
+ * opening turn): the reply as untrusted text, and the mission's own pending choices (its option
+ * chips and cards) as the state's offers, so the person picks from what the mission proposed.
+ */
+async function turnResult(ctx: V2CallContext, id: string, ref: Ref, response: Row, settled: Settled, extra: { queueId?: string; keys?: { replied?: string; working?: string }; vars?: Row } = {}): Promise<unknown> {
+  const queueId = extra.queueId
   const sent = record(response.message)
   const after = str(sent.id)
   const data: Row = {
-    ref, queueId, accepted: response.accepted === true, queued: response.queued === true,
+    ref, ...(queueId ? { queueId } : {}), accepted: response.accepted === true, queued: response.queued === true,
     ...(response.duplicate ? { duplicate: true } : {}),
     status: settled.status === 'replied' ? 'replied' : settled.status === 'failed' ? 'failed' : response.queued ? 'queued' : 'running',
     ...(settled.text !== undefined ? { reply: { ...(settled.messageId ? { messageId: settled.messageId } : {}), text: neutralize(clip(settled.text, REPLY_CHARS)) } } : {}),
@@ -671,9 +681,9 @@ async function sendMessage(ctx: V2CallContext, rawArgs: Row, flags: { skipSelf?:
     }
   }
   const summary = settled.status === 'replied'
-    ? ctx.v2.t('missions.summary.replied', { mission: ref, reply: excerpt(settled.text, 200) })
+    ? ctx.v2.t(extra.keys?.replied ?? 'missions.summary.replied', { mission: ref, reply: excerpt(settled.text, 200), ...extra.vars })
     : settled.status === 'failed' ? ctx.v2.t('missions.summary.turn_failed', { mission: ref, error: excerpt(settled.error, 160) })
-      : ctx.v2.t(response.queued ? 'missions.summary.queued' : 'missions.summary.working', { mission: ref })
+      : ctx.v2.t(response.queued ? 'missions.summary.queued' : extra.keys?.working ?? 'missions.summary.working', { mission: ref, ...extra.vars })
   return result(data, { summary, refs: { mission: ref }, ...(state ? { state } : {}), untrusted: untrusted('/data/reply/text', '/data/error') })
 }
 
@@ -1196,10 +1206,27 @@ export const missionsTool = defineTool({
           const spec = ctx.v2.target({ project: row.slug, ref: typeof options.spec === 'number' ? String(options.spec) : options.spec }, 'spec')
           ticketId = Number(spec.id)
         }
-        const flow = record(record(await apiCall(ctx, 'POST', flowBase(row), {
-          conversationId, idea: str(args.message) ?? '', ...(ticketId ? { ticketId } : {}), ...(str(args.title) ? { title: str(args.title) } : {}), ...(str(options.repository) ? { repositoryId: str(options.repository) } : {}),
-        })).flow) as unknown as IntentSession
-        return intentResult(ctx, { row, flowId: flow.id, ref: intentRef(row, flow.id), flow }, flow, 'missions.summary.intent_started')
+        let flow = null as unknown as IntentSession
+        // A seeded Intent (a spec or a stored intent) begins with its own opening turn: wait for it like a
+        // send, so the person hears what the mission found and picks from the choices it proposed.
+        const { response, settled } = await sendAndWait(ctx, conversationId, async () => {
+          flow = record(record(await apiCall(ctx, 'POST', flowBase(row), {
+            conversationId, idea: str(args.message) ?? '', ...(ticketId ? { ticketId } : {}), ...(str(args.title) ? { title: str(args.title) } : {}), ...(str(options.repository) ? { repositoryId: str(options.repository) } : {}),
+          })).flow) as unknown as IntentSession
+          return {}
+        }, { waitMs: waitMsOf(args), queueId: null, done: ['agent_done', 'agent_turn_done'], failed: ['agent_error'], waitsFor: () => Boolean(flow?.returnBriefing) })
+        const target: IntentTarget = { row, flowId: flow.id, ref: intentRef(row, flow.id), flow }
+        if (!flow.returnBriefing) return intentResult(ctx, target, flow, 'missions.summary.intent_started')
+        const turn = await turnResult(ctx, conversationId, missionRef(conversationId), response, settled, {
+          keys: { replied: 'missions.summary.intent_replied', working: 'missions.summary.intent_working' }, vars: { ref: target.ref },
+        })
+        if (!isV2Result(turn)) return turn
+        const { ref: _missionRef, accepted: _accepted, queued: _queued, ...turnData } = turn.data as Row
+        return result({ ...intentView(target), turn: turnData }, {
+          summary: turn.summary, refs: { intent: target.ref, mission: missionRef(conversationId) },
+          state: turn.state ?? intentState(ctx, target, settled.status === 'pending'),
+          untrusted: untrusted('/data/returnBriefing', '/data/turn/reply/text', '/data/turn/error'),
+        })
       },
     },
     intent_get: {
