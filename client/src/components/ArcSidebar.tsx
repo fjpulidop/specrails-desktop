@@ -305,7 +305,10 @@ function ConversationRow({
             </span>
             {conversation.archivedAt && chat.archiveScope === 'all' && <span className="text-caption text-muted-foreground">{t('nav:missionArchive.archived')}</span>}
             {conversation.origin === 'mcp' && (
-              <span className="text-caption text-muted-foreground" title={t('agent:mcp.missionBadgeTitle', { client: conversation.origin_client ?? 'MCP' })} data-testid="conversation-mcp-badge">MCP</span>
+              <span className="text-caption text-muted-foreground" title={t('agent:mcp.missionBadgeTitle', { client: conversation.origin_client ?? 'MCP' })} data-testid="conversation-mcp-badge">
+                <span aria-hidden>MCP</span>
+                <span className="sr-only">{t('agent:mcp.missionBadgeTitle', { client: conversation.origin_client ?? 'MCP' })}</span>
+              </span>
             )}
             {unread && <span aria-hidden className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent-primary" data-testid="conversation-unread-dot" />}
             <span className="flex-1" aria-hidden />
