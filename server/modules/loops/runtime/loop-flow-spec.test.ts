@@ -72,6 +72,19 @@ describe('flow-spec definition', () => {
     expect(String(definition.nodes.review!.params.prompt)).toContain('unexplainedFiles')
   })
 
+  it('reviews convergently: blocking issues only, followUps never block, and a re-review verifies its previous verdict', () => {
+    const review = definition.nodes.review!.params as { prompt: string; structuredOutput: { required: string[]; properties: Record<string, unknown> } }
+    expect(review.structuredOutput.required).toContain('followUps')
+    expect(review.structuredOutput.properties.followUps).toMatchObject({ type: 'array' })
+    expect(review.prompt).toContain('issues are BLOCKING only')
+    expect(review.prompt).toContain('they never block approval')
+    expect(review.prompt).toContain('Correction round: {{run.correctionRounds}}')
+    expect(review.prompt).toContain('Your previous verdict (or the failing check) was: {{run.latestFindings}}')
+    // Approval is unchanged: approved and nothing unrequested; followUps are not part of the policy.
+    expect(String(definition.nodes['review-policy']!.params.expr)).not.toContain('followUps')
+    expect(String(definition.nodes.fix!.params.prompt)).toContain('followUps are optional and non-blocking')
+  })
+
   it('repairs instead of dead-ending: review rejection and failing checks route to a bounded WRITE fixer round, then re-derive', () => {
     expect(definition.nodes.fix!.params).toMatchObject({ roleId: 'developer', stance: 'fixer', sessionContinuity: 'none' })
     expect(definition.nodes.fix!.params).toMatchObject({ roleId: fixture.nodes.fix!.params.roleId, stance: fixture.nodes.fix!.params.stance })

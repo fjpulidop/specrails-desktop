@@ -93,11 +93,14 @@ export function flowChangeId(title: string | null | undefined, holder: (id: stri
 const REVIEW_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['approved', 'summary', 'issues', 'score', 'unrequested'],
+  required: ['approved', 'summary', 'issues', 'score', 'unrequested', 'followUps'],
   properties: {
     approved: { type: 'boolean' },
     summary: { type: 'string' },
+    // Blocking only: what must hold before the change can be delivered (see the review prompt).
     issues: { type: 'array', maxItems: 100, items: { type: 'string' } },
+    // Non-blocking: hardening, extra edge cases, nicer tests. Reported to the person; never a correction round.
+    followUps: { type: 'array', maxItems: 100, items: { type: 'string' } },
     score: { type: 'number', minimum: 0, maximum: 100 },
     // Changes no request or decision of the Intent supports: the person decides, so they end the run without a correction round.
     unrequested: { type: 'array', maxItems: 100, items: { type: 'string' } },
@@ -139,7 +142,12 @@ export function flowSpecGraph(): LoopGraph {
       'Scope: what the person asked for or decided during the Intent session (the accepted scope that comes with the spec, the conversation summary, the `Decision:` lines) IS requested, even where it departs from the intent\'s original constraints: a later request supersedes an earlier constraint it contradicts.',
       'Never ask to revert, remove or restore that behaviour; judge its correctness, tests, accessibility and how faithfully the artifacts describe it. When the artifacts call it out of scope or keep a superseded constraint as a Non-Goal, the issue is for the deriver: describe it as a requirement.',
       `A change that no request or decision supports is not yours to revert: list it in unrequested AND as an issue starting with "${FLOW_UNREQUESTED_PREFIX}", naming the file and the behaviour. The person decides whether to keep it as a requirement or revert it.`,
-      'Return approved, summary, issues (empty when none), score (0-100) and unrequested (empty when none).',
+      // Convergence: one complete pass, then verification. A reviewer that hunts for new edge cases every round never approves.
+      'issues are BLOCKING only: an acceptance criterion or requirement the code does not meet, requested behaviour that is broken, a failing check, artifacts that misdescribe the code, an unexplained file, or an ADDED/MODIFIED requirement with no tagged test. Hardening beyond the requirements, extra edge cases, stress experiments and nicer or broader tests are followUps: they never block approval.',
+      'Correction round: {{run.correctionRounds}}. In round 0 review completely, once: list every blocking issue you can find now, because later rounds only verify.',
+      'From round 1 on this is a RE-REVIEW. Your previous verdict (or the failing check) was: {{run.latestFindings}}. Read what the correction changed (the commits since that verdict) before judging.',
+      'In a re-review, verify that each previous blocking issue is resolved and that the fix introduced no regression; approve when they are. Raise a new blocking issue only for a defect the fix introduced or one the previous pass could not have seen; anything else is a followUp.',
+      'Return approved, summary, issues (empty when none), score (0-100), unrequested (empty when none) and followUps (empty when none).',
     ].join(' '),
     structuredOutput: REVIEW_SCHEMA,
     sessionContinuity: 'none',
@@ -156,6 +164,7 @@ export function flowSpecGraph(): LoopGraph {
     prompt: [
       `Correct the code an Intent session built for OpenSpec change ${change} so the review can approve it.`,
       'Findings to resolve (the reviewer\'s structured verdict, or the failing host verification): {{run.latestFindings}}.',
+      'Resolve every item in issues (they block delivery). followUps are optional and non-blocking: leave them unless one is a one-line fix in code you already touch.',
       'Fix the defects the findings name. Add or extend the tests the findings ask for; creating a test file is allowed for that.',
       'Tag every test that demonstrates an ADDED or MODIFIED requirement of the change\'s delta specs with `[spec:<capability>/<requirement-slug>]` in its title.',
       'Never expand scope: no new features, effects, options or behaviour.',
