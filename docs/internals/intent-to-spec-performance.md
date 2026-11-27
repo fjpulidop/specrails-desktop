@@ -4,6 +4,13 @@ Working document for the Intent → Spec optimization (2026-11-27 night). It kee
 the diagnosis, the plan, the benchmark protocol and the measured results, so the
 work can resume after an interruption (quota, restart) without losing context.
 
+Status: in progress (set to `complete` when the plan below is done).
+
+How to run: start the dev app (`~/.specrails-dev/.specrails/bench/devprobe/relaunch.sh`,
+after `npm run build:sidecar` and a host build when the server changed), then
+`node scripts/benchmarks/intent-to-spec.mjs ~/.specrails-dev/.specrails/bench/cases/<case>.json`.
+Results land in `~/.specrails-dev/.specrails/bench/results/` (`results.jsonl` one line per run).
+
 ## Baseline: the failed run of spec #10 (tetris, dev)
 
 Run `213f7ec7` (`factory:flow-spec`, codex gpt-6.2-sol), 2026-11-27 21:38–22:00:
