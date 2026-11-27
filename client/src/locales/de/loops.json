@@ -61,7 +61,8 @@
     "exportLegacy": "Ursprünglichen Graphen exportieren",
     "originalCopyName": "Original: {{name}}",
     "convert": "In Core umwandeln",
-    "more": "Weitere Aktionen"
+    "more": "Weitere Aktionen",
+    "runOnPr": "Auf einem PR ausführen…"
   },
   "card": {
     "nodes_one": "{{count}} Knoten",
@@ -88,7 +89,7 @@
       "restored": "Integrierter Loop auf die Originalversion zurückgesetzt",
       "confirmTitle": "Originalen integrierten Loop wiederherstellen?",
       "confirmBody": "Dadurch werden deine Änderungen an diesem integrierten Loop verworfen und seine Originalversion wird für alle Rails veröffentlicht, die ihn verwenden. Dupliziere ihn vorher, wenn du deine Version behalten möchtest.",
-      "prCiNote": "Eingebaute Schleife, die die CI eines Pull Requests überwacht. Sie startet über „CI reparieren“ an einer Lieferung oder dem Angebot einer Mission, nie von selbst. Prompts, Budgets und Schritte kannst du verbessern; sie muss weiter auf die Checks warten und nur verifizierte Fixes pushen. Veröffentlichte Änderungen gelten ab dem nächsten CI-Lauf; „Original wiederherstellen“ setzt zurück.",
+      "prCiNote": "Integrierter Loop, der die CI eines Pull Requests überwacht und repariert. Er startet über „CI reparieren“ an einer Lieferung, über das Angebot einer Mission oder hier mit „Auf einem PR ausführen“. Prompts, Limits und Schritte kannst du verbessern; er muss weiter auf die Checks warten und nur verifizierte Fixes pushen. Veröffentlichte Änderungen gelten für den nächsten CI-Lauf; mit „Original wiederherstellen“ gehst du zurück.",
       "confirmBodyPrCi": "Verwirft deine Änderungen und veröffentlicht die Original-Schleife für die nächsten CI-Läufe."
     },
     "addNode": "Knoten hinzufügen",
@@ -397,5 +398,31 @@
     "openFailed": "Das Loop-Fenster konnte nicht geöffnet werden"
   },
   "confirmDeleteTitle": "„{{name}}“ löschen?",
-  "confirmDeleteAction": "Loop löschen"
+  "confirmDeleteAction": "Loop löschen",
+  "runOnPr": {
+    "title": "CI eines Pull Requests reparieren",
+    "description": "Specrails überwacht die Checks des PR, behebt Fehler und pusht nur verifizierte Fixes auf seinen Branch. Fortschritt und Ergebnis erscheinen in einer Mission des Projekts, dem das Repository gehört.",
+    "urlLabel": "URL des Pull Requests",
+    "chooseProject": "Dieses Repository gehört zu mehreren Projekten. Wähle, wo es laufen soll:",
+    "openMission": "Mission öffnen",
+    "hint": "Dein GitHub-Konto muss in das Repository pushen dürfen; der PR muss offen sein und sein Branch im selben Repository liegen (kein Fork).",
+    "cancel": "Abbrechen",
+    "submit": "Starten",
+    "checking": "PR wird geprüft…",
+    "started": "CI des PR wird repariert: verfolge es in der Mission",
+    "alreadyRunning": "Auf diesem PR läuft bereits eine Reparatur: ihre Mission wird geöffnet",
+    "errors": {
+      "pr_url_invalid": "Das ist keine Pull-Request-URL. Füge den vollständigen Link ein, z. B. https://github.com/owner/repo/pull/12.",
+      "pr_no_push_access": "Dein GitHub-Konto kann nicht in dieses Repository pushen, ein Fix käme also nie im PR an. Es wurde nichts gestartet.",
+      "pr_repository_not_in_any_project": "Kein Projekt enthält dieses Repository. Füge es einem Projekt hinzu und versuche es erneut.",
+      "pr_project_ambiguous": "Dieses Repository gehört zu mehreren Projekten. Wähle eines.",
+      "pr_not_open": "Der Pull Request ist nicht offen.",
+      "pr_fork_unsupported": "Der Branch des PR liegt in einem Fork, in den Specrails nicht pushen kann. Es wurde nichts gestartet.",
+      "target_pr_not_found": "GitHub findet diesen Pull Request nicht.",
+      "pr_github_unavailable": "GitHub war nicht erreichbar oder hat den Zugriff verweigert (prüfe, ob gh angemeldet ist). Es wurde nichts gestartet.",
+      "engine_unsupported": "CI-Reparatur von PRs braucht Loops, PR-Lieferung und eine aktuelle Core.",
+      "pr_ci_disabled": "Der PR-CI-Loop ist auf diesem Rechner ausgeschaltet.",
+      "generic": "Die Reparatur konnte nicht gestartet werden."
+    }
+  }
 }

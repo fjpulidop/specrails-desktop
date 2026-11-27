@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1943 source/build files. Nearby tests are linked where names
+Includes 1947 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -652,6 +652,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [LoopTurnLimits.tsx](../../client/src/features/loops/components/LoopTurnLimits.tsx) · [test](../../client/src/features/loops/components/LoopTurnLimits.test.tsx)
 - [LoopWindowSurface.tsx](../../client/src/features/loops/components/LoopWindowSurface.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopWindowSurface.test.tsx)
 - [ReviewerFamilySuggestion.tsx](../../client/src/features/loops/components/ReviewerFamilySuggestion.tsx) · [test](../../client/src/features/loops/components/ReviewerFamilySuggestion.test.tsx)
+- [RunOnPrDialog.tsx](../../client/src/features/loops/components/RunOnPrDialog.tsx)
 - [TemplatePreviewModal.tsx](../../client/src/features/loops/components/TemplatePreviewModal.tsx) · [test](../../client/src/features/loops/components/__tests__/TemplatePreviewModal.test.tsx)
 
 ## client/src/features/loops/components/loop-log
@@ -689,6 +690,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-validate.ts](../../client/src/features/loops/lib/loop-validate.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-validate.test.ts)
 - [loop-windows.ts](../../client/src/features/loops/lib/loop-windows.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-windows.test.ts)
 - [loops-api.ts](../../client/src/features/loops/lib/loops-api.ts) · [test](../../client/src/features/loops/lib/__tests__/loops-api.test.ts)
+- [pr-ci-run.ts](../../client/src/features/loops/lib/pr-ci-run.ts)
 - [reviewer-family-suggestion.ts](../../client/src/features/loops/lib/reviewer-family-suggestion.ts) · [test](../../client/src/features/loops/lib/reviewer-family-suggestion.test.ts)
 - [runtime-graph-edges.ts](../../client/src/features/loops/lib/runtime-graph-edges.ts) · [test](../../client/src/features/loops/lib/__tests__/runtime-graph-edges.test.ts)
 
@@ -1475,6 +1477,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [desktop-router-agents.ts](../../server/desktop-router-agents.ts)
 - [desktop-router-analytics.ts](../../server/desktop-router-analytics.ts)
 - [desktop-router-core-update.ts](../../server/desktop-router-core-update.ts)
+- [desktop-router-pr-ci.ts](../../server/desktop-router-pr-ci.ts)
 - [desktop-router-projects.ts](../../server/desktop-router-projects.ts)
 - [desktop-router-providers.ts](../../server/desktop-router-providers.ts)
 - [desktop-router-runtime-providers.ts](../../server/desktop-router-runtime-providers.ts)
@@ -2152,6 +2155,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [pr-ci-admission.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-admission.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-admission.test.ts)
 - [pr-ci-handlers.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-handlers.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-handlers.test.ts)
 - [pr-ci-offer.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-offer.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-offer.test.ts)
+- [pr-ci-on-demand.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-on-demand.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-on-demand.test.ts)
 - [pr-ci-projection.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-projection.ts)
 - [pr-ci-resolver.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-resolver.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-resolver.test.ts)
 - [pr-ci-settlement.ts](../../server/modules/delivery/runtime/pr-ci/pr-ci-settlement.ts) · [test](../../server/modules/delivery/runtime/pr-ci/pr-ci-settlement.test.ts)

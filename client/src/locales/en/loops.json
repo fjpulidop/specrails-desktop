@@ -61,7 +61,8 @@
     "exportLegacy": "Export original graph",
     "originalCopyName": "Original: {{name}}",
     "convert": "Convert to Core",
-    "more": "More actions"
+    "more": "More actions",
+    "runOnPr": "Run on a PR…"
   },
   "card": {
     "nodes_one": "{{count}} node",
@@ -88,7 +89,7 @@
       "restored": "Built-in loop restored to its original version",
       "confirmTitle": "Restore the original built-in?",
       "confirmBody": "This discards your changes to this built-in and publishes its original version for every rail that uses it. Duplicate it first if you want to keep your version.",
-      "prCiNote": "Built-in loop that watches a pull request’s CI. It starts from “Fix CI” on a delivery or a mission’s offer, never on its own. Prompts, budgets and steps are yours to improve; it must keep waiting on the checks and push only verified fixes. Published changes apply to the next CI run; use Restore original to go back.",
+      "prCiNote": "Built-in loop that watches a pull request’s CI and fixes it. It starts from “Fix CI” on a delivery, from a mission’s offer, or here with Run on a PR. Prompts, limits and steps are yours to improve; it must keep waiting on the checks and push only verified fixes. Published changes apply to the next CI run; use Restore original to go back.",
       "confirmBodyPrCi": "This discards your changes and publishes the original Fix PR CI for every next CI run."
     },
     "addNode": "Add node",
@@ -397,5 +398,31 @@
     "openFailed": "Couldn’t open the loop window"
   },
   "confirmDeleteTitle": "Delete “{{name}}”?",
-  "confirmDeleteAction": "Delete loop"
+  "confirmDeleteAction": "Delete loop",
+  "runOnPr": {
+    "title": "Fix a pull request’s CI",
+    "description": "Specrails watches the PR’s checks, fixes failures and pushes verified fixes to its branch. Progress and the result show in a mission of the project that owns the repository.",
+    "urlLabel": "Pull request URL",
+    "chooseProject": "This repository belongs to more than one project. Choose where to run:",
+    "openMission": "Open the mission",
+    "hint": "Your GitHub account must be able to push to the repository; the PR must be open and its branch in the same repository (not a fork).",
+    "cancel": "Cancel",
+    "submit": "Start",
+    "checking": "Checking the PR…",
+    "started": "Fixing the PR’s CI: follow it in the mission",
+    "alreadyRunning": "A repair is already running on this PR: opening its mission",
+    "errors": {
+      "pr_url_invalid": "That is not a pull request URL. Paste the full link, e.g. https://github.com/owner/repo/pull/12.",
+      "pr_no_push_access": "Your GitHub account can’t push to this repository, so a fix could never reach the PR. Nothing was started.",
+      "pr_repository_not_in_any_project": "No project here has this repository. Add it to a project, then try again.",
+      "pr_project_ambiguous": "This repository belongs to more than one project. Choose one.",
+      "pr_not_open": "The pull request is not open.",
+      "pr_fork_unsupported": "The PR’s branch lives on a fork, which Specrails can’t push to. Nothing was started.",
+      "target_pr_not_found": "GitHub didn’t find that pull request.",
+      "pr_github_unavailable": "GitHub couldn’t be reached or refused access (check that gh is signed in). Nothing was started.",
+      "engine_unsupported": "Fixing PR CI needs Loops, PR delivery and an up-to-date Core.",
+      "pr_ci_disabled": "The PR CI loop is turned off on this machine.",
+      "generic": "The repair could not be started."
+    }
+  }
 }

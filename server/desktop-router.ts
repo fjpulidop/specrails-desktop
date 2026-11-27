@@ -19,6 +19,7 @@ import { registerUsageRoutes } from './modules/subscription-usage/adapters/http'
 import type { UsageService } from './modules/subscription-usage/runtime/usage-service'
 import { registerRuntimeRolePromptRoutes } from './runtime-role-prompts-router'
 import { registerLoopsRoutes } from './modules/loops/runtime/loops-router'
+import { registerPrCiRunRoutes } from './desktop-router-pr-ci'
 import { countRunningForLoop } from './modules/loops/runtime/loop-runs-store'
 import type { WsMessage } from './types'
 import type { ProjectRegistry } from './project-registry'
@@ -83,6 +84,9 @@ export function createDesktopRouter(
     isLoopRunning: (loopId) =>
       registry.listContexts().some((c) => countRunningForLoop(c.db, loopId) > 0),
   })
+
+  // Loops ▸ Fix PR CI ▸ Run on a PR: the PR's repository picks the project.
+  registerPrCiRunRoutes(router, { registry })
 
   // Shared by project registration and an explicit provider re-detect.
   const assembleNewlyDetected = createNewlyDetectedAssembler(registry)

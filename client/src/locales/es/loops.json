@@ -61,7 +61,8 @@
     "exportLegacy": "Exportar grafo original",
     "originalCopyName": "Original: {{name}}",
     "convert": "Convertir a Core",
-    "more": "Más acciones"
+    "more": "Más acciones",
+    "runOnPr": "Ejecutar sobre una PR…"
   },
   "card": {
     "nodes_one": "{{count}} nodo",
@@ -88,7 +89,7 @@
       "restored": "Loop integrado restaurado a su versión original",
       "confirmTitle": "¿Restaurar el loop integrado original?",
       "confirmBody": "Esto descarta tus cambios en este loop integrado y publica su versión original para todos los rails que lo usan. Duplícalo antes si quieres conservar tu versión.",
-      "prCiNote": "Loop integrado que vigila el CI de un pull request. Se inicia desde «Arreglar CI» en una entrega o desde la oferta de una misión, nunca solo. Puedes mejorar sus prompts, límites y pasos; debe seguir esperando a los checks y subir solo arreglos verificados. Los cambios publicados se aplican a la siguiente ejecución de CI; usa Restaurar original para volver.",
+      "prCiNote": "Loop integrado que vigila el CI de un pull request y lo arregla. Se inicia desde «Arreglar CI» en una entrega, desde la oferta de una misión o aquí con Ejecutar sobre una PR. Puedes mejorar sus prompts, límites y pasos; debe seguir esperando a los checks y subir solo arreglos verificados. Los cambios publicados se aplican a la siguiente ejecución de CI; usa Restaurar original para volver.",
       "confirmBodyPrCi": "Descarta tus cambios y publica el Arreglar CI del PR original para las siguientes ejecuciones de CI."
     },
     "addNode": "Añadir nodo",
@@ -397,5 +398,31 @@
     "openFailed": "No se pudo abrir la ventana del loop"
   },
   "confirmDeleteTitle": "¿Eliminar «{{name}}»?",
-  "confirmDeleteAction": "Eliminar loop"
+  "confirmDeleteAction": "Eliminar loop",
+  "runOnPr": {
+    "title": "Arreglar el CI de un pull request",
+    "description": "Specrails vigila los checks de la PR, arregla los fallos y sube a su rama solo arreglos verificados. El progreso y el resultado se ven en una misión del proyecto al que pertenece el repositorio.",
+    "urlLabel": "URL del pull request",
+    "chooseProject": "Este repositorio pertenece a más de un proyecto. Elige dónde ejecutarlo:",
+    "openMission": "Abrir la misión",
+    "hint": "Tu cuenta de GitHub debe poder hacer push al repositorio; la PR debe estar abierta y su rama en el mismo repositorio (no un fork).",
+    "cancel": "Cancelar",
+    "submit": "Iniciar",
+    "checking": "Comprobando la PR…",
+    "started": "Arreglando el CI de la PR: síguelo en la misión",
+    "alreadyRunning": "Ya hay una reparación en marcha en esta PR: abriendo su misión",
+    "errors": {
+      "pr_url_invalid": "Eso no es una URL de pull request. Pega el enlace completo, p. ej. https://github.com/owner/repo/pull/12.",
+      "pr_no_push_access": "Tu cuenta de GitHub no puede hacer push a este repositorio, así que ningún arreglo llegaría a la PR. No se ha iniciado nada.",
+      "pr_repository_not_in_any_project": "Ningún proyecto tiene este repositorio. Añádelo a un proyecto y vuelve a intentarlo.",
+      "pr_project_ambiguous": "Este repositorio pertenece a más de un proyecto. Elige uno.",
+      "pr_not_open": "El pull request no está abierto.",
+      "pr_fork_unsupported": "La rama de la PR está en un fork, donde Specrails no puede hacer push. No se ha iniciado nada.",
+      "target_pr_not_found": "GitHub no encuentra ese pull request.",
+      "pr_github_unavailable": "No se pudo contactar con GitHub o denegó el acceso (comprueba que gh tiene sesión iniciada). No se ha iniciado nada.",
+      "engine_unsupported": "Arreglar el CI de PRs necesita Loops, entrega por PR y una Core actualizada.",
+      "pr_ci_disabled": "El loop de CI de PR está desactivado en esta máquina.",
+      "generic": "No se pudo iniciar la reparación."
+    }
+  }
 }

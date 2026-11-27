@@ -61,7 +61,8 @@
     "exportLegacy": "导出原始图",
     "originalCopyName": "原始图：{{name}}",
     "convert": "转换为Core",
-    "more": "更多操作"
+    "more": "更多操作",
+    "runOnPr": "在 PR 上运行…"
   },
   "card": {
     "nodes_one": "{{count}} 个节点",
@@ -88,7 +89,7 @@
       "restored": "内置循环已恢复为原始版本",
       "confirmTitle": "恢复原始内置循环？",
       "confirmBody": "这将放弃你对此内置循环的更改，并为所有使用它的轨道发布其原始版本。如果想保留你的版本，请先复制它。",
-      "prCiNote": "内置循环，负责关注拉取请求的 CI。它从交付上的“修复 CI”或任务的建议启动，从不自行启动。你可以改进它的提示、预算和步骤；它必须继续等待检查，并且只推送已验证的修复。发布的更改会应用于下一次 CI 运行；使用“恢复原始版本”可以回退。",
+      "prCiNote": "内置循环,监控拉取请求的 CI 并修复。可从交付上的“修复 CI”、任务的提议,或在此处通过“在 PR 上运行”启动。你可以改进它的提示、限制和步骤;它必须持续等待检查,并且只推送经过验证的修复。发布的更改从下一次 CI 运行开始生效;使用“恢复原始版本”可返回。",
       "confirmBodyPrCi": "这会丢弃你的更改，并为之后的 CI 运行发布原始循环。"
     },
     "addNode": "添加节点",
@@ -397,5 +398,31 @@
     "openFailed": "无法打开循环窗口"
   },
   "confirmDeleteTitle": "删除“{{name}}”？",
-  "confirmDeleteAction": "删除循环"
+  "confirmDeleteAction": "删除循环",
+  "runOnPr": {
+    "title": "修复拉取请求的 CI",
+    "description": "Specrails 会监控 PR 的检查,修复失败,并只向其分支推送经过验证的修复。进度和结果显示在拥有该仓库的项目的任务中。",
+    "urlLabel": "拉取请求 URL",
+    "chooseProject": "此仓库属于多个项目。请选择运行位置:",
+    "openMission": "打开任务",
+    "hint": "你的 GitHub 账号必须能向该仓库推送;PR 必须处于打开状态,且其分支在同一仓库中(不是 fork)。",
+    "cancel": "取消",
+    "submit": "开始",
+    "checking": "正在检查 PR…",
+    "started": "正在修复 PR 的 CI:可在任务中跟进",
+    "alreadyRunning": "此 PR 上已有修复在运行:正在打开其任务",
+    "errors": {
+      "pr_url_invalid": "这不是拉取请求 URL。请粘贴完整链接,例如 https://github.com/owner/repo/pull/12。",
+      "pr_no_push_access": "你的 GitHub 账号无法向此仓库推送,修复永远无法到达 PR。未启动任何内容。",
+      "pr_repository_not_in_any_project": "没有项目包含此仓库。请将其添加到项目后重试。",
+      "pr_project_ambiguous": "此仓库属于多个项目。请选择一个。",
+      "pr_not_open": "该拉取请求未处于打开状态。",
+      "pr_fork_unsupported": "PR 的分支位于 fork 中,Specrails 无法推送。未启动任何内容。",
+      "target_pr_not_found": "GitHub 找不到该拉取请求。",
+      "pr_github_unavailable": "无法连接 GitHub 或访问被拒绝(请确认 gh 已登录)。未启动任何内容。",
+      "engine_unsupported": "修复 PR 的 CI 需要 Loops、PR 交付和最新的 Core。",
+      "pr_ci_disabled": "此机器上已关闭 PR CI 循环。",
+      "generic": "无法启动修复。"
+    }
+  }
 }

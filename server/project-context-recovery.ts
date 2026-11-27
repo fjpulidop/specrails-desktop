@@ -14,7 +14,7 @@ import type { DbInstance } from './db'
 import type { ProjectRow } from './desktop-db'
 import type { JiraSyncManager } from './jira/jira-sync-manager'
 import { healLegacyFlowReviews } from './modules/delivery/runtime/flow-review-legacy'
-import { createPrCiAdmissionRuntime } from './modules/delivery/runtime/pr-ci/pr-ci-admission-runtime'
+import { prCiAdmissionRuntimeOf } from './modules/delivery/runtime/pr-ci/pr-ci-admission-runtime'
 import { refreshPrCiOffer } from './modules/delivery/runtime/pr-ci/pr-ci-projection'
 import { defaultExec } from './modules/delivery/runtime/pr-publisher'
 import { reconcileRailWorktrees } from './modules/delivery/runtime/rail-isolated-launch'
@@ -107,7 +107,7 @@ export function startProjectRecovery(deps: {
         .then(async (n) => {
           if (n > 0) console.log(`[loops] reconciled ${n} orphan worktree(s) for ${project.slug}`)
           // Mission-origin CI repairs interrupted by the restart settle (or return to their offer) here.
-          await createPrCiAdmissionRuntime(ctx).replay().catch((error) => console.error(`[pr-ci] admission replay failed for ${project.slug}:`, error))
+          await prCiAdmissionRuntimeOf(ctx).replay().catch((error) => console.error(`[pr-ci] admission replay failed for ${project.slug}:`, error))
           // Intent sessions never survive a restart; unfinished sagas complete
           // or compensate before admission opens (never throws).
           if (isCurrent() && ctx.flow) {

@@ -1138,7 +1138,9 @@
       "runtime/multi-repo-execution-store.ts",
       "runtime/multi-repo-execution.ts",
       "runtime/pr-ci/pr-ci-admission-runtime.ts",
+      "runtime/pr-ci/pr-ci-admission.ts",
       "runtime/pr-ci/pr-ci-handlers.ts",
+      "runtime/pr-ci/pr-ci-on-demand.ts",
       "runtime/pr-ci/pr-ci-projection.ts",
       "runtime/pr-ci/pr-ci-target.ts",
       "runtime/pr-merge-watch.ts",
@@ -1663,6 +1665,13 @@
         "./pr-ci-admission",
         "./pr-ci-target",
         "node:path"
+      ],
+      "runtime/pr-ci/pr-ci-on-demand.ts": [
+        "../../../../project-repositories",
+        "../pr-publisher",
+        "./pr-ci-admission",
+        "./pr-ci-admission-runtime",
+        "./pr-ci-resolver"
       ],
       "runtime/pr-ci/pr-ci-projection.ts": [
         "../../../../db",

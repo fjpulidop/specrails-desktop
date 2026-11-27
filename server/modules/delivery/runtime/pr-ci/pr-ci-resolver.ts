@@ -13,6 +13,7 @@ export type PrCiResolveFailureCode =
   | 'pr_github_unavailable'
   | 'pr_not_open'
   | 'pr_fork_unsupported'
+  | 'pr_no_push_access'
   | 'target_pr_invalid'
 
 export class PrCiResolveError extends Error {
@@ -72,6 +73,28 @@ export function classifyGithubFailure(detail: string): PrCiResolveError {
 
 export const FORK_LIMITATION = 'The pull request head lives on a fork (or same-repository origin could not be proven). Specrails pushes with the project repository\'s own rights, so fork branches are not writable; no work was started.'
 
+export const NO_PUSH_ACCESS = 'Your GitHub account cannot push to this repository, so a fix could never reach the pull request; no work was started. Ask for write access, or let someone who has it run the repair.'
+
+/**
+ * Whether the signed-in GitHub account can push to the PR's repository (`permissions.push`,
+ * true for write, maintain and admin). A repair whose fix cannot be pushed would spend a run
+ * for nothing, so this is checked before anything starts. An unreadable answer is an access
+ * or connection problem, never a silent yes.
+ */
+export async function assertPushAccess(exec: Exec, repoDir: string, parsed: ParsedPrUrl): Promise<void> {
+  let result
+  try {
+    result = await exec.run('gh', ['api', ...(parsed.host === 'github.com' ? [] : ['--hostname', parsed.host]), `repos/${parsed.slug}`, '--jq', '.permissions.push'], repoDir)
+  } catch (error) {
+    throw classifyGithubFailure(error instanceof Error ? error.message : String(error))
+  }
+  if (result.code !== 0) throw classifyGithubFailure((result.stderr || result.stdout).trim().split('\n')[0] || `exit ${result.code}`)
+  const answer = result.stdout.trim()
+  if (answer === 'true') return
+  if (answer === 'false' || answer === 'null' || answer === '') throw new PrCiResolveError('pr_no_push_access', NO_PUSH_ACCESS, 403)
+  throw new PrCiResolveError('pr_github_unavailable', `GitHub returned an unreadable permission answer (${answer.slice(0, 80)}), so push access was not proven; no work was started.`, 502)
+}
+
 /** Validate the PR against GitHub and freeze the target. Pure of persistence. */
 export async function resolveProjectPrTarget(input: { exec: Exec; project: RepositoryProject; prUrl: string; originConversationId?: string | null }): Promise<PrCiAdmissionTarget> {
   const parsed = parsePrUrl(input.prUrl)
@@ -80,6 +103,7 @@ export async function resolveProjectPrTarget(input: { exec: Exec; project: Repos
   if (!observed.ok) throw classifyGithubFailure(observed.detail)
   if (observed.state !== 'OPEN') throw new PrCiResolveError('pr_not_open', `The pull request is ${observed.state.toLowerCase()}, not open.`)
   if (observed.isCrossRepository !== false) throw new PrCiResolveError('pr_fork_unsupported', FORK_LIMITATION)
+  await assertPushAccess(input.exec, repository.path, parsed)
   const head = observed.headRefName?.trim()
   const base = observed.baseRefName?.trim()
   if (!head || !base || head === base || !isValidBranchName(head) || !isValidBranchName(base) || !observed.headRefOid) {

@@ -6,6 +6,9 @@
  */
 export const OPEN_MISSION_EVENT = 'specrails:open-mission'
 
+/** The same request from another native window (a loop editor), delivered by the host to the main window. */
+export const OPEN_MISSION_NATIVE_EVENT = 'specrails://open-mission'
+
 export interface OpenMissionDetail {
   conversationId: string
 }

@@ -1,6 +1,9 @@
 //! Independent loop editors and Plugins managers. No mission ownership transfer or sidecar privileges.
 use std::{collections::HashMap, sync::{Mutex, OnceLock}};
-use tauri::{Manager, Webview, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Manager, Webview, WebviewUrl, WebviewWindowBuilder};
+
+/// Main-window event: show this mission there (Loops ▸ Fix PR CI ▸ Run on a PR).
+pub const OPEN_MISSION_EVENT: &str = "specrails://open-mission";
 
 fn registry() -> &'static Mutex<HashMap<String, String>> {
     static WINDOWS: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
@@ -8,7 +11,7 @@ fn registry() -> &'static Mutex<HashMap<String, String>> {
 }
 pub fn permits_command(label: &str, command: &str) -> bool {
     registry().lock().map(|entries| entries.values().any(|entry| entry == label)).unwrap_or(false)
-        && matches!(command, "desktop_reveal_path" | "desktop_save_text" | "desktop_save_bytes")
+        && matches!(command, "desktop_reveal_path" | "desktop_save_text" | "desktop_save_bytes" | "loop_window_open_mission")
 }
 fn allowed_navigation(origin: &tauri::Url, target: &tauri::Url, surface: &str) -> bool {
     target.scheme() == origin.scheme() && target.host_str() == origin.host_str()
@@ -78,6 +81,24 @@ fn open_editor_window(app: tauri::AppHandle, webview: Webview, project_id: Optio
     entries.insert(key, label);
     Ok(())
 }
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenMission { conversation_id: String }
+
+/// A loop editor shows a mission in the main window (where missions live) and brings it forward.
+#[tauri::command]
+pub fn loop_window_open_mission(app: tauri::AppHandle, webview: Webview, conversation_id: String) -> Result<(), String> {
+    let caller = webview.label().to_string();
+    if caller != webview.window().label() || !registry().lock().map(|entries| entries.values().any(|label| *label == caller)).unwrap_or(false) {
+        return Err("Only a loop editor window can do this.".into());
+    }
+    if conversation_id.is_empty() || conversation_id.len() > 64 || !conversation_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Err("Invalid mission.".into());
+    }
+    let main = app.get_webview_window("main").ok_or("The main window is unavailable.")?;
+    app.emit_to("main", OPEN_MISSION_EVENT, OpenMission { conversation_id }).map_err(|err| err.to_string())?;
+    main.show().and_then(|_| main.unminimize()).and_then(|_| main.set_focus()).map_err(|err| err.to_string())
+}
 pub fn handle_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
     if matches!(event, tauri::WindowEvent::Destroyed) {
         if let Ok(mut entries) = registry().lock() { entries.retain(|_, label| label != window.label()); }
@@ -103,7 +124,7 @@ mod tests {
     #[test]
     fn loop_editors_have_no_host_or_browser_privileges() {
         registry().lock().unwrap().insert("unit-test".into(), "loops-unit-test".into());
-        assert!(permits_command("loops-unit-test", "desktop_save_text"));
+        assert!(permits_command("loops-unit-test", "desktop_save_text") && permits_command("loops-unit-test", "loop_window_open_mission"));
         for command in ["restart_app", "loop_window_open", "browser_create", "mission_window_detach", "desktop_notify", "desktop_set_badge", "desktop_focus_state"] {
             assert!(!permits_command("loops-unit-test", command));
         }

@@ -22,7 +22,7 @@ import { isolatedRepositoryTarget, materializeIsolatedWorktree, readHeadSha, res
 import { isRailPrDeliveryEnabled } from '../rail-isolation'
 import { defaultExec } from '../pr-publisher'
 import { isPrCiLoopEnabled } from '../../../../feature-flags'
-import { getPrCiAdmissionByRun, upsertPrCiAdmission, type PrCiAdmissionRow } from './pr-ci-admission'
+import { getPrCiAdmissionByRun, upsertPrCiAdmission, type PrCiAdmissionRow, type PrCiAdmissionTarget } from './pr-ci-admission'
 import { PrCiResolveError, resolveProjectPrTarget } from './pr-ci-resolver'
 import { prCiCapable } from './pr-ci-projection'
 import { dismissPrCiAdmissionOffer, startPrCiAdmission, type PrCiStartResult } from './pr-ci-admission-start'
@@ -39,9 +39,23 @@ export function prCiLaunchGraph(desktopDb: DbInstance | undefined, capabilities:
   return resolveBuiltinLoop(desktopDb, PR_CI_LOOP_ID, capabilities)?.graph ?? prCiGraph(capabilities)
 }
 
+export type PrCiPrepareResult = { ok: true; admission: PrCiAdmissionRow } | { ok: false; status: number; error: string; detail: string }
+
+/** One admission runtime per project context, shared by the project routes and the app-level "Run on a PR". */
+const runtimes = new WeakMap<ProjectContext, PrCiAdmissionRuntime>()
+export function prCiAdmissionRuntimeOf(c: ProjectContext): PrCiAdmissionRuntime {
+  let runtime = runtimes.get(c)
+  if (!runtime) { runtime = createPrCiAdmissionRuntime(c); runtimes.set(c, runtime) }
+  return runtime
+}
+
 export interface PrCiAdmissionRuntime {
   /** Persist the host admission of a project PR and show its card; starts nothing. */
-  prepare(prUrl: string, originConversationId: string | null): Promise<{ ok: true; admission: PrCiAdmissionRow } | { ok: false; status: number; error: string; detail: string }>
+  prepare(prUrl: string, originConversationId: string | null): Promise<PrCiPrepareResult>
+  /** Whether a repair can be admitted at all (flags, PR mode, Core host tasks); null when it can. */
+  unavailable(): Promise<{ ok: false; status: number; error: string; detail: string } | null>
+  /** Persist an already validated target (with its mission) and show its card; starts nothing. */
+  admit(target: PrCiAdmissionTarget): PrCiPrepareResult
   start(admissionId: string): Promise<PrCiStartResult>
   dismiss(admissionId: string): ReturnType<typeof dismissPrCiAdmissionOffer>
   replay(): Promise<void>
@@ -102,18 +116,26 @@ export function createPrCiAdmissionRuntime(c: ProjectContext): PrCiAdmissionRunt
       .finally(() => { void settleAdmissionRun(settlementDeps, getPrCiAdmissionByRun(c.db, c.project.id, runId)!).catch(error => console.error('[pr-ci] settlement failed:', error)) })
   }
 
-  const refuse = (status: number, error: string, detail: string): PrCiStartResult => ({ ok: false, status, error, detail })
+  const refuse = (status: number, error: string, detail: string): { ok: false; status: number; error: string; detail: string } => ({ ok: false, status, error, detail })
 
   return {
-    async prepare(prUrl, originConversationId) {
+    async unavailable() {
       if (!isPrCiLoopEnabled()) return refuse(403, 'pr_ci_disabled', 'The PR CI loop is turned off (SPECRAILS_PR_CI_LOOP=false)')
       if (!isLoopsEnabled() || !isRailPrDeliveryEnabled() || !await prCiCapable()) return refuse(409, 'engine_unsupported', 'The PR CI loop is unavailable: it needs Loops, PR delivery and a Core with host tasks.')
+      return null
+    },
+    admit(target) {
+      if (!target.originConversationId) return refuse(400, 'origin_conversation_required', 'The offer is shown in a mission; ask from a mission conversation.')
+      const admission = upsertPrCiAdmission(c.db, target)
+      if (!projectAdmissionOffer(getAgentChatManager(), admission)) return refuse(409, 'mission_unavailable', 'The mission conversation is not available to show the offer.')
+      return { ok: true, admission }
+    },
+    async prepare(prUrl, originConversationId) {
+      const closed = await this.unavailable()
+      if (closed) return closed
       if (!originConversationId) return refuse(400, 'origin_conversation_required', 'The offer is shown in a mission; ask from a mission conversation.')
       try {
-        const target = await resolveProjectPrTarget({ exec: defaultExec, project: c.project, prUrl, originConversationId })
-        const admission = upsertPrCiAdmission(c.db, target)
-        if (!projectAdmissionOffer(getAgentChatManager(), admission)) return refuse(409, 'mission_unavailable', 'The mission conversation is not available to show the offer.')
-        return { ok: true, admission }
+        return this.admit(await resolveProjectPrTarget({ exec: defaultExec, project: c.project, prUrl, originConversationId }))
       } catch (error) {
         if (error instanceof PrCiResolveError) return refuse(error.status, error.code, error.message)
         throw error

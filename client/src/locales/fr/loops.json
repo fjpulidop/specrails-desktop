@@ -61,7 +61,8 @@
     "exportLegacy": "Exporter le graphe d’origine",
     "originalCopyName": "Original : {{name}}",
     "convert": "Convertir vers Core",
-    "more": "Plus d’actions"
+    "more": "Plus d’actions",
+    "runOnPr": "Exécuter sur une PR…"
   },
   "card": {
     "nodes_one": "{{count}} nœud",
@@ -88,7 +89,7 @@
       "restored": "Loop intégré restauré à sa version d'origine",
       "confirmTitle": "Restaurer le loop intégré d'origine ?",
       "confirmBody": "Cela annule vos modifications de ce loop intégré et publie sa version d'origine pour tous les rails qui l'utilisent. Dupliquez-le d'abord si vous voulez conserver votre version.",
-      "prCiNote": "Boucle intégrée qui surveille la CI d’une pull request. Elle démarre depuis « Réparer la CI » sur une livraison ou l’offre d’une mission, jamais seule. Ses prompts, budgets et étapes sont à vous ; elle doit continuer d’attendre les checks et ne pousser que des correctifs vérifiés. Les changements publiés s’appliquent à la prochaine exécution ; Restaurer l’original pour revenir.",
+      "prCiNote": "Boucle intégrée qui surveille la CI d’une pull request et la corrige. Elle démarre depuis « Corriger la CI » sur une livraison, depuis l’offre d’une mission ou ici avec Exécuter sur une PR. Ses prompts, limites et étapes sont à vous d’améliorer ; elle doit continuer d’attendre les checks et ne pousser que des correctifs vérifiés. Les modifications publiées s’appliquent à la prochaine exécution de CI ; utilisez Restaurer l’original pour revenir.",
       "confirmBodyPrCi": "Cela annule vos modifications et publie la boucle d’origine pour les prochaines exécutions de CI."
     },
     "addNode": "Ajouter un nœud",
@@ -397,5 +398,31 @@
     "openFailed": "Impossible d’ouvrir la fenêtre de la boucle"
   },
   "confirmDeleteTitle": "Supprimer « {{name}} » ?",
-  "confirmDeleteAction": "Supprimer la boucle"
+  "confirmDeleteAction": "Supprimer la boucle",
+  "runOnPr": {
+    "title": "Corriger la CI d’une pull request",
+    "description": "Specrails surveille les checks de la PR, corrige les échecs et pousse sur sa branche uniquement des correctifs vérifiés. La progression et le résultat s’affichent dans une mission du projet qui possède le dépôt.",
+    "urlLabel": "URL de la pull request",
+    "chooseProject": "Ce dépôt appartient à plusieurs projets. Choisissez où l’exécuter :",
+    "openMission": "Ouvrir la mission",
+    "hint": "Votre compte GitHub doit pouvoir pousser sur le dépôt ; la PR doit être ouverte et sa branche dans le même dépôt (pas un fork).",
+    "cancel": "Annuler",
+    "submit": "Démarrer",
+    "checking": "Vérification de la PR…",
+    "started": "Correction de la CI de la PR : suivez-la dans la mission",
+    "alreadyRunning": "Une correction est déjà en cours sur cette PR : ouverture de sa mission",
+    "errors": {
+      "pr_url_invalid": "Ce n’est pas une URL de pull request. Collez le lien complet, p. ex. https://github.com/owner/repo/pull/12.",
+      "pr_no_push_access": "Votre compte GitHub ne peut pas pousser sur ce dépôt : aucun correctif n’atteindrait la PR. Rien n’a été démarré.",
+      "pr_repository_not_in_any_project": "Aucun projet ne contient ce dépôt. Ajoutez-le à un projet puis réessayez.",
+      "pr_project_ambiguous": "Ce dépôt appartient à plusieurs projets. Choisissez-en un.",
+      "pr_not_open": "La pull request n’est pas ouverte.",
+      "pr_fork_unsupported": "La branche de la PR est sur un fork, où Specrails ne peut pas pousser. Rien n’a été démarré.",
+      "target_pr_not_found": "GitHub ne trouve pas cette pull request.",
+      "pr_github_unavailable": "GitHub est injoignable ou a refusé l’accès (vérifiez que gh est connecté). Rien n’a été démarré.",
+      "engine_unsupported": "Corriger la CI des PR nécessite les boucles, la livraison par PR et une Core à jour.",
+      "pr_ci_disabled": "La boucle de CI des PR est désactivée sur cette machine.",
+      "generic": "La correction n’a pas pu démarrer."
+    }
+  }
 }

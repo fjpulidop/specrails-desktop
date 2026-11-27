@@ -11,7 +11,7 @@ import { isLoopsEnabled } from '../../../feature-flags'
 import { ciFixActiveRepositories } from '../domain/decision-policy'
 import { prCiCapable } from './pr-ci/pr-ci-projection'
 import { dismissPrCiOffer, prCiOfferKey } from './pr-ci/pr-ci-offer'
-import { createPrCiAdmissionRuntime, type PrCiAdmissionRuntime } from './pr-ci/pr-ci-admission-runtime'
+import { prCiAdmissionRuntimeOf, type PrCiAdmissionRuntime } from './pr-ci/pr-ci-admission-runtime'
 import { createPrCiStatusCache, readPrCiStatus } from './pr-ci/pr-ci-status'
 import { defaultExec as prCiExec } from './pr-publisher'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
@@ -49,13 +49,7 @@ export function registerRailPrCiRoutes(router: Router): void {
 
   // Mission-origin CI repair: the PR has no delivery, so the offer is keyed by
   // its host admission (project + repository + PR), never by a delivery or rail.
-  const prCiAdmissionRuntimes = new WeakMap<object, PrCiAdmissionRuntime>()
-  const admissionRuntime = (req: Request): PrCiAdmissionRuntime => {
-    const c = ctx(req)
-    let runtime = prCiAdmissionRuntimes.get(c)
-    if (!runtime) { runtime = createPrCiAdmissionRuntime(c); prCiAdmissionRuntimes.set(c, runtime) }
-    return runtime
-  }
+  const admissionRuntime = (req: Request): PrCiAdmissionRuntime => prCiAdmissionRuntimeOf(ctx(req))
   const validAdmissionId = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9-]{1,64}$/.test(value)
   router.post('/pr-ci/admissions', async (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>

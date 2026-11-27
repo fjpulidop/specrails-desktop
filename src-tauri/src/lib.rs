@@ -980,6 +980,7 @@ pub fn run() {
             desktop_status::desktop_set_awake,
             loop_windows::loop_window_open,
             loop_windows::plugin_window_open,
+            loop_windows::loop_window_open_mission,
             surface_windows::surface_window_open,
             surface_windows::surface_window_prewarm,
             surface_windows::surface_window_spare_ready,
