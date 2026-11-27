@@ -291,6 +291,34 @@ describe('pr.rerun-failed', () => {
   })
 })
 
+describe('pr.rerun-failed waits for GitHub to show the re-run', () => {
+  const failed = { name: 'a', status: 'COMPLETED', conclusion: 'FAILURE', detailsUrl: 'https://github.com/acme/app/actions/runs/5/job/6' }
+  const queued = { name: 'a', status: 'QUEUED', conclusion: '', detailsUrl: 'https://github.com/acme/app/actions/runs/5/job/7' }
+
+  it('[spec:pr-ci-loop-editable/flaky-and-infrastructure-failures-are-re-run-once] returns once the re-run run left the failures, so the next wait judges the new attempt', async () => {
+    let views = 0
+    const f = fixture(args => {
+      if (args[0] !== 'pr') return { code: 0, stdout: '', stderr: '' }
+      views++
+      // 1: the failure to re-run; 2: GitHub still shows the old attempt; 3: the re-run is queued.
+      return { code: 0, stdout: view({ statusCheckRollup: [views <= 2 ? failed : queued] }), stderr: '' }
+    })
+    expect(await f.invoke('pr.rerun-failed')).toEqual({ outcome: 'ok', output: { rerun: ['5'] } })
+    expect(views).toBe(3)
+  })
+
+  it('is bounded: after the checks grace it returns and lets the wait judge', async () => {
+    let views = 0
+    const f = fixture(args => {
+      if (args[0] === 'pr') views++
+      return args[0] === 'pr' ? { code: 0, stdout: view({ statusCheckRollup: [failed] }), stderr: '' } : { code: 0, stdout: '', stderr: '' }
+    })
+    expect(await f.invoke('pr.rerun-failed')).toMatchObject({ outcome: 'ok' })
+    // initialDelayMs 90 s, pollMinMs 30 s: the first read, then at most 4 checks over the grace.
+    expect(views).toBeLessThanOrEqual(5)
+  })
+})
+
 describe('evidence helpers', () => {
   it('redacts credentials and keeps the end of a long log', () => {
     expect(redactCiText(`Authorization: Bearer ${FAKE_BEARER} and https://${['u', 'p'].join(':')}@host/x ${['API', 'KEY'].join('_')}=${'sec' + 'ret'}`)).not.toMatch(/abcdefghijklmnop|u:p@|=secret/)

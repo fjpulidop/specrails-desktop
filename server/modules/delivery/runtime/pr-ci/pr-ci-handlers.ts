@@ -375,7 +375,13 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
     return out
   }
 
-  const rerunFailed = withTargets(async (targets, { log }) => {
+  const failedRunIds = async (target: PrCiTarget): Promise<string[] | null> => {
+    const view = await gh(['pr', 'view', target.prUrl, '--json', 'statusCheckRollup'], target.repoDir)
+    if (view.code !== 0) return null
+    try { return summarizeChecks((JSON.parse(view.stdout) as PrCheckView).statusCheckRollup).failures.map(failure => failure.runId).filter((value): value is string => !!value) } catch { return null }
+  }
+
+  const rerunFailed = withTargets(async (targets, { log, signal }) => {
     const rerun: Array<{ target: PrCiTarget; id: string }> = []
     for (const target of targets) {
       const view = await gh(['pr', 'view', target.prUrl, '--json', 'statusCheckRollup'], target.repoDir)
@@ -391,7 +397,21 @@ export function createPrCiHandlers(deps: PrCiHandlerDeps): Record<string, HostTa
       if (result.code === 0) done.push(id)
       else log(label(targets, target, `Could not re-run ${id}: ${firstLine(result)}`))
     }
-    return done.length ? { outcome: 'ok', output: { rerun: done } } : failed('GitHub refused to re-run the failed checks')
+    if (!done.length) return failed('GitHub refused to re-run the failed checks')
+    // GitHub shows the old failed attempt for a moment after a re-run: wait (bounded by the
+    // checks' grace) until the re-run runs left the failures, so the next wait judges them.
+    const started = now()
+    for (;;) {
+      let stale = false
+      for (const target of targets) {
+        const ids = await failedRunIds(target)
+        if (ids && ids.some(id => done.includes(id))) stale = true
+      }
+      if (!stale || now() - started >= timing.initialDelayMs) break
+      await sleep(Math.min(timing.pollMinMs, Math.max(1, timing.initialDelayMs - (now() - started))), signal)
+    }
+    log(`Re-ran ${done.length} failed check run(s)`)
+    return { outcome: 'ok', output: { rerun: done } }
   })
 
   return { 'pr.update-base': updateBase, 'pr.sync': sync, 'pr.checks': checks, 'pr.rerun-failed': rerunFailed }

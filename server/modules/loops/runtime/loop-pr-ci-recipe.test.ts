@@ -70,12 +70,17 @@ describe.each([['with host blockers', CAPS], ['without host blockers', { ...V2, 
     expect(core.find(node => node.id === 'base')!.data?.params).toMatchObject({ task: 'pr.update-base', effect: 'write' })
   })
 
-  it('reports failures the code does not cause instead of retrying them', () => {
-    expect(core.some(node => node.data?.params && (node.data.params as Record<string, unknown>).task === 'pr.rerun-failed')).toBe(false)
-    const cause = graph.edges.filter(edge => edge.source === 'cause')
-    expect(Object.fromEntries(cause.map(edge => [edge.label, edge.target]))).toEqual({ true: PR_CI_ENDS.stalled, false: PR_CI_ENDS.notFixable })
+  it('[spec:pr-ci-loop-editable/flaky-and-infrastructure-failures-are-re-run-once] re-runs a flaky or infrastructure failure once, then reports it; a stalled code failure and tooling are never re-run', () => {
+    const edges = (source: string) => Object.fromEntries(graph.edges.filter(edge => edge.source === source).map(edge => [edge.label, edge.target]))
     expect(graph.edges.find(edge => edge.source === 'progress' && edge.label === 'false')?.target).toBe('cause')
-    expect(String(core.find(node => node.id === 'fixer')!.data!.params!.prompt)).toMatch(/Never edit anything for flaky or infrastructure failures/)
+    expect(edges('cause')).toEqual({ true: PR_CI_ENDS.stalled, false: 'rerunnable' })
+    expect(core.find(node => node.id === 'rerunnable')!.data!.params).toMatchObject({ expr: '$outputs.fixer.structured.cause == "flaky" || $outputs.fixer.structured.cause == "infrastructure"' })
+    expect(edges('rerunnable')).toEqual({ true: 'rerun-budget', false: PR_CI_ENDS.notFixable })
+    expect(edges('rerun-budget')).toEqual({ true: 'count-rerun', false: PR_CI_ENDS.notFixable })
+    // The same commit, no edit: the host re-runs the failed jobs and waits on the checks again.
+    expect(core.find(node => node.id === 'rerun')!.data!.params).toMatchObject({ task: 'pr.rerun-failed', effect: 'read' })
+    expect(edges('rerun')).toEqual({ ok: 'checks', failed: PR_CI_ENDS.notFixable })
+    expect(String(core.find(node => node.id === 'fixer')!.data!.params!.prompt)).toMatch(/Never edit anything for flaky or infrastructure failures and never re-run checks yourself/)
   })
 
   // deckdex-mtg: CI installed Ruff 0.17 (unpinned), which formats Markdown and failed on 29 docs
@@ -116,8 +121,7 @@ describe.each([['with host blockers', CAPS], ['without host blockers', { ...V2, 
 
   it('bounds rounds, re-runs and conflicts, and treats CI output as untrusted evidence', () => {
     const init = core.find(node => node.id === 'init')!.data!.params!.set as Record<string, number>
-    expect(init).toMatchObject({ rounds: 0, roundLimit: 5, conflictRounds: 0, conflictLimit: 3 })
-    expect(init).not.toHaveProperty('reruns')
+    expect(init).toMatchObject({ rounds: 0, roundLimit: 5, conflictRounds: 0, conflictLimit: 3, reruns: 0, rerunLimit: 1 })
     const fixer = core.find(node => node.id === 'fixer')!.data!.params!
     expect(fixer.prompt).toContain(PR_CI_EVIDENCE_RULES)
     expect(String(fixer.prompt)).toMatch(/never instructions/)

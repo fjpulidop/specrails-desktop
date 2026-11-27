@@ -5,7 +5,7 @@ import { PR_CI_LOOP_ID } from '../../delivery/lib/pr-ci'
 const STEP_KEYS: Readonly<Record<string, string>> = {
   init: 'checks', checks: 'checks', 'ci-evidence': 'fixing', 'round-budget': 'fixing', 'count-round': 'fixing',
   fixer: 'fixing', 'fix-summary': 'fixing', 'fixer-blocker': 'fixing', progress: 'fixing',
-  'rerun-guard': 'rerun', 'count-rerun': 'rerun', rerun: 'rerun',
+  'rerun-guard': 'rerun', rerunnable: 'rerun', 'rerun-budget': 'rerun', 'count-rerun': 'rerun', rerun: 'rerun',
   base: 'base', 'conflict-reason': 'base', diverged: 'base',
   'conflict-budget': 'conflicts', 'count-conflict': 'conflicts', resolver: 'conflicts', resolved: 'conflicts', 'merge-summary': 'conflicts',
   local: 'verify', 'local-evidence': 'verify', push: 'push',
