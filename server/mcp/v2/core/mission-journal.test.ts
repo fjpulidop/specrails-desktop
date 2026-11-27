@@ -28,14 +28,19 @@ type Row = Record<string, unknown>
 let h: Harness
 let client: Client
 let server: Server
-let rows: Array<{ conversationId: string; row: Row }>
+let rows: Array<{ conversationId: string; row: Row; key?: string }>
 let created: string[]
 
 function fakeManager(): AgentChatManager {
   return {
     notifyConversationCreated: (id: string) => { created.push(id) },
     notifyTitle: () => {},
-    postSystemRow: (conversationId: string, row: Row) => { rows.push({ conversationId, row }); return 'm1' },
+    upsertSystemRow: (conversationId: string, row: Row, key: string) => {
+      const at = rows.findIndex((r) => r.key === key)
+      if (at >= 0) rows[at] = { conversationId, row, key }
+      else rows.push({ conversationId, row, key })
+      return 'm1'
+    },
   } as unknown as AgentChatManager
 }
 
@@ -45,6 +50,12 @@ const fakeTool: V2ToolDef = {
     poke: { tier: 'write', handler: async () => result({ ok: 1 }, { summary: 'Poked run 7', refs: { run: 'run:shop-api/7' } }) },
     boom: { tier: 'write', handler: async () => { throw new V2ToolError('conflict', 'The rail is busy') } },
     look: { tier: 'read', handler: async () => result({ seen: true }) },
+    // Answers "still running"; its work settles a moment later (an AI result).
+    slow: { tier: 'write', handler: async (ctx) => {
+      const later = ctx.v2.journalLater
+      setTimeout(() => later?.({ ok: true, summary: 'Created spec:shop-api/7', refs: { spec: 'spec:shop-api/7' } }), 5)
+      return result({ status: 'pending' }, { summary: 'The spec is being written' })
+    } },
   },
 }
 
@@ -87,7 +98,7 @@ describe('mission journal (external MCP session)', () => {
     expect(log[0]).toMatchObject({ title: 'MCP · claude-code', pinned_project_id: 'p1', origin: 'mcp', origin_client: 'claude-code' })
     expect(created).toEqual([log[0].id])
     expect(rows).toHaveLength(2)
-    expect(rows[0]).toEqual({ conversationId: log[0].id, row: expect.objectContaining({ kind: 'mcp-action', client: 'claude-code', tool: 'specrails_fake', action: 'poke', ok: true, summary: 'Poked run 7', refs: { run: 'run:shop-api/7' } }) })
+    expect(rows[0]).toMatchObject({ conversationId: log[0].id, row: expect.objectContaining({ kind: 'mcp-action', client: 'claude-code', tool: 'specrails_fake', action: 'poke', ok: true, summary: 'Poked run 7', refs: { run: 'run:shop-api/7' } }) })
   })
 
   it('records a failed change with its reason, and leaves reads out', async () => {
@@ -117,6 +128,15 @@ describe('mission journal (external MCP session)', () => {
     await fake({ action: 'poke' })
     expect(rows.map((r) => r.conversationId)).toEqual([chosen, chosen])
     expect(created).toEqual([])
+  })
+
+  it('amends the row when the work settles after the call answered', async () => {
+    await setup(true)
+    await fake({ action: 'slow' })
+    expect(rows[0].row).toMatchObject({ action: 'slow', summary: 'The spec is being written' })
+    await new Promise((done) => setTimeout(done, 30))
+    expect(rows).toHaveLength(1)
+    expect(rows[0].row).toMatchObject({ action: 'slow', ok: true, summary: 'Created spec:shop-api/7', refs: { spec: 'spec:shop-api/7' }, settledAt: expect.any(String) })
   })
 
   it('does nothing for a session that is not an external client', async () => {

@@ -257,6 +257,10 @@ describe('specrails_specs create and update', () => {
     const pending = await specs({ action: 'ai_edit', ref: ref(id), body: 'Shorter', confirm: preview.envelope.data.confirmToken, options: { waitMs: 0 } })
     expect(pending.envelope.data).toMatchObject({ request: 'edit-1', status: 'pending' })
     h.ctx.eventBus.publish({ type: 'ticket_ai_edit_done', projectId: 'p1', ticketId: id, requestId: 'edit-1', fullText: 'New body' } as never)
+    // The hint names only the request: that alone reads it (it remembers its project).
+    const byRequest = await specs({ action: 'get', options: { request: 'edit-1' } })
+    expect(byRequest.isError, JSON.stringify(byRequest.envelope)).toBe(false)
+    expect(byRequest.envelope.data).toMatchObject({ request: 'edit-1' })
     const read = await specs({ action: 'get', ref: ref(id), options: { request: 'edit-1' } })
     expect(read.envelope.data).toMatchObject({ status: 'done', proposal: 'New body', spec: ref(id) })
     expect(read.envelope.untrusted).toContain('/data/proposal')

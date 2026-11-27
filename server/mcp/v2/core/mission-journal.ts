@@ -116,31 +116,50 @@ export function journalCreated(ctx: V2CallContext, value: unknown): JournalTarge
 /** Calls whose effect already shows in the mission itself (the message is the record). */
 const SELF_EVIDENT = new Set(['specrails_missions.send'])
 
+/** How a journaled call ended when it settled after answering (an async AI result). */
+export interface JournalPatch { ok: boolean; summary?: string; refs?: Record<string, string>; error?: { code: string; message: string } }
+
+/** The call's row, amendable when its work settles later (e.g. a spec the AI finished writing). */
+export interface JournalHandle { amend(patch: JournalPatch): void }
+
 /** Writes the call's row in its mission: what was asked, and how it ended. */
 export function recordJournalAction(ctx: V2CallContext, target: JournalTarget, entry: {
   tool: string; action: string; tier: string; args: Args; value?: unknown; error?: { code: string; message: string }
-}): void {
-  if (!entry.error && SELF_EVIDENT.has(`${entry.tool}.${entry.action}`)) return
+}): JournalHandle | null {
+  if (!entry.error && SELF_EVIDENT.has(`${entry.tool}.${entry.action}`)) return null
   const manager = getAgentChatManager()
-  if (!manager) return
+  if (!manager) return null
   const value = entry.value
   // A created mission is the row's own mission: its summary only tells the agent what to do next.
   const created = entry.tool === 'specrails_missions' && (entry.action === 'create' || entry.action === 'intent_start')
   const summary = !created && isV2Result(value) && typeof value.summary === 'string' ? value.summary : null
   const refs = isV2Result(value) && value.refs && typeof value.refs === 'object' ? value.refs as Record<string, string> : {}
-  try {
-    manager.postSystemRow(target.conversationId, {
-      kind: 'mcp-action',
-      client: clientOf(ctx.sessionState as Session),
-      tool: entry.tool,
-      action: entry.action,
-      tier: entry.tier,
-      ok: !entry.error,
-      ...(typeof entry.args.ref === 'string' ? { target: entry.args.ref.slice(0, 200) } : {}),
-      ...(summary ? { summary: summary.slice(0, SUMMARY_CHARS) } : {}),
-      ...(Object.keys(refs).length ? { refs: Object.fromEntries(Object.entries(refs).slice(0, 6)) } : {}),
-      ...(entry.error ? { error: { code: entry.error.code, message: entry.error.message.slice(0, SUMMARY_CHARS) } } : {}),
-      at: new Date().toISOString(),
-    }, `mcp-action:${randomUUID()}`)
-  } catch { /* the log never fails the tool */ }
+  const key = `mcp-action:${randomUUID()}`
+  let row: Record<string, unknown> & { kind: string } = {
+    kind: 'mcp-action',
+    client: clientOf(ctx.sessionState as Session),
+    tool: entry.tool,
+    action: entry.action,
+    tier: entry.tier,
+    ok: !entry.error,
+    ...(typeof entry.args.ref === 'string' ? { target: entry.args.ref.slice(0, 200) } : {}),
+    ...(summary ? { summary: summary.slice(0, SUMMARY_CHARS) } : {}),
+    ...(Object.keys(refs).length ? { refs: Object.fromEntries(Object.entries(refs).slice(0, 6)) } : {}),
+    ...(entry.error ? { error: { code: entry.error.code, message: entry.error.message.slice(0, SUMMARY_CHARS) } } : {}),
+    at: new Date().toISOString(),
+  }
+  try { manager.upsertSystemRow(target.conversationId, row, key) } catch { return null }
+  return {
+    amend(patch) {
+      const { error: _error, ...kept } = row
+      row = {
+        ...kept, ok: patch.ok,
+        ...(patch.summary ? { summary: patch.summary.slice(0, SUMMARY_CHARS) } : {}),
+        ...(patch.refs ? { refs: { ...(row.refs as Record<string, string> | undefined), ...patch.refs } } : {}),
+        ...(patch.error ? { error: { code: patch.error.code, message: patch.error.message.slice(0, SUMMARY_CHARS) } } : {}),
+        settledAt: new Date().toISOString(),
+      }
+      try { getAgentChatManager()?.upsertSystemRow(target.conversationId, row, key) } catch { /* the log never fails the tool */ }
+    },
+  }
 }

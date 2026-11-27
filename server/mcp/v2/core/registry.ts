@@ -1,4 +1,4 @@
-import { journalCreated, journals, openJournalMission, recordJournalAction, type JournalSessionState, type JournalTarget } from './mission-journal'
+import { journalCreated, journals, openJournalMission, recordJournalAction, type JournalHandle, type JournalPatch, type JournalSessionState, type JournalTarget } from './mission-journal'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, ServerNotification } from '@modelcontextprotocol/sdk/types.js'
 import { z, type ZodRawShape } from 'zod'
@@ -214,6 +214,8 @@ export interface V2SessionState extends JournalSessionState {
 export interface V2CallContext extends McpToolContext {
   sessionState: V2SessionState
   v2: {
+    /** Set on an external client's journaled change: amends its MCP log row when its work settles later. */
+    journalLater?: (patch: JournalPatch) => void
     tool: string
     action: string
     lang: Lang
@@ -522,9 +524,13 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
         // An external client's change lands in a mission Desktop shows (mission-journal.ts).
         const journaled = journals(callCtx, tier, Boolean(capability))
         let journal: JournalTarget | null = null
+        let handle: JournalHandle | null = null
+        let late: JournalPatch | null = null
         if (journaled) {
           try { journal = openJournalMission(callCtx, def.name, action, args) } catch (err) { console.warn('[mcp] mission journal unavailable:', err instanceof Error ? err.message : err) }
           if (journal) callCtx.originConversationId = journal.conversationId
+          // Work that settles after the call answered (an AI result) amends the call's row.
+          callCtx.v2.journalLater = (patch) => { if (handle) handle.amend(patch); else late = patch }
         }
         let value: unknown
         try {
@@ -535,7 +541,8 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
         }
         if (journaled) {
           journal ??= journalCreated(callCtx, value)
-          if (journal) recordJournalAction(callCtx, journal, { tool: def.name, action, tier, args, value })
+          if (journal) handle = recordJournalAction(callCtx, journal, { tool: def.name, action, tier, args, value })
+          if (handle && late) handle.amend(late)
         }
         if (tier !== 'read') emitActivity(callCtx, def.name, action, tier, def.title)
         const envelope = success(value, t('core.summary.done', { label }))
