@@ -79,7 +79,7 @@
   "summary.chat_get": "“{{title}}”：{{count}} 条消息。",
   "summary.chat_list": "{{project}} 中有 {{count}} 个聊天。",
   "summary.ci_started": "已从 {{mission}} 开始监视 CI。",
-  "summary.created": "已创建 {{mission}}。接下来给它发送一条消息。",
+  "summary.created": "已创建 {{mission}}。它还没有目标：用一个开放式问题（不要菜单）问对方希望它达成什么，然后用 send 发送对方的回答。",
   "summary.deleted": "已将 {{mission}} 移到回收站；restore 可撤销。",
   "summary.detached": "已从 {{mission}} 删除附件。",
   "summary.get": "“{{title}}”为 {{status}}：{{count}} 条消息，{{cards}} 张卡片等待中。",
@@ -108,7 +108,7 @@
   "summary.queue_steered": "排队的消息已进入 {{mission}} 正在进行的回合。",
   "summary.queued": "已在 {{mission}} 中排队；它会在当前回合之后被读取。使用 specrails_wait(until, refs:[{{mission}}]) 等待。",
   "summary.renewed": "已写好摘要；{{mission}} 的下一个回合将开始一个新会话。",
-  "summary.replied": "{{mission}} 回复：{{reply}}",
+  "summary.replied": "{{mission}} 回复：{{reply}} —— 用你自己的话转述，并在此任务中继续对话；只有遇到真正的决定时才提供菜单。",
   "summary.restored": "已恢复 {{mission}}。",
   "summary.search": "{{count}} 个任务匹配“{{query}}”。",
   "summary.subagent_events": "{{count}} 个活动事件。",
@@ -145,5 +145,8 @@
   "choice.reading_restated": "代理按它复述的方式继续。",
   "choice.review_delivery": "打开交付供你决定。",
   "choice.send": "发送你的消息；代理回答（AI 工作）。",
-  "choice.unarchive": "任务回到列表中。"
+  "choice.unarchive": "任务回到列表中。",
+  "summary.created_started": "已创建 {{mission}}，并用对方的消息启动。",
+  "preview.create_send": "在 {{project}} 中创建任务并发送消息；代理将开始一个回合。",
+  "ask.goal": "你希望这个任务达成什么？"
 }

@@ -79,7 +79,7 @@
   "summary.chat_get": "„{{title}}“: {{count}} Nachricht(en).",
   "summary.chat_list": "{{count}} Chat(s) in {{project}}.",
   "summary.ci_started": "Die CI-Beobachtung wurde aus {{mission}} gestartet.",
-  "summary.created": "{{mission}} erstellt. Sende ihr als Nächstes eine Nachricht.",
+  "summary.created": "{{mission}} erstellt. Sie hat noch kein Ziel: Frag die Person mit einer einzigen offenen Frage (ohne Menü), was sie erreichen soll, und sende ihre Antwort mit send.",
   "summary.deleted": "{{mission}} in den Papierkorb verschoben; restore macht das rückgängig.",
   "summary.detached": "Anhang aus {{mission}} gelöscht.",
   "summary.get": "„{{title}}“ ist {{status}}: {{count}} Nachricht(en), {{cards}} Karte(n) warten.",
@@ -108,7 +108,7 @@
   "summary.queue_steered": "Die eingereihte Nachricht ist in den laufenden Turn von {{mission}} eingeflossen.",
   "summary.queued": "In {{mission}} eingereiht; sie wird nach dem laufenden Turn gelesen. Warte mit specrails_wait(until, refs:[{{mission}}]).",
   "summary.renewed": "Zusammenfassung geschrieben; der nächste Turn von {{mission}} startet eine neue Sitzung.",
-  "summary.replied": "{{mission}} hat geantwortet: {{reply}}",
+  "summary.replied": "{{mission}} hat geantwortet: {{reply}} — Gib es in eigenen Worten wieder und führe das Gespräch in dieser Mission weiter; biete ein Menü nur bei einer echten Entscheidung an.",
   "summary.restored": "{{mission}} wiederhergestellt.",
   "summary.search": "{{count}} Mission(en) passen zu „{{query}}“.",
   "summary.subagent_events": "{{count}} Aktivitätsereignis(se).",
@@ -145,5 +145,8 @@
   "choice.reading_restated": "Der Agent macht wie umformuliert weiter.",
   "choice.review_delivery": "Öffnet die Lieferung zur Entscheidung.",
   "choice.send": "Sendet deine Nachricht; der Agent antwortet (KI).",
-  "choice.unarchive": "Die Mission kommt zurück in die Liste."
+  "choice.unarchive": "Die Mission kommt zurück in die Liste.",
+  "summary.created_started": "{{mission}} erstellt und mit der Nachricht der Person gestartet.",
+  "preview.create_send": "Erstellt eine Mission in {{project}} und sendet ihr die Nachricht; der Agent beginnt einen Turn.",
+  "ask.goal": "Was soll diese Mission erreichen?"
 }

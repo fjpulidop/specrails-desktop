@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto'
 import { z } from 'zod'
 import { defineTool, type PreviewInput, type V2ActionDef, type V2CallContext } from '../core/registry'
 import { F, WRITE_FIELDS, optionsOf, resolveFields } from '../core/views'
-import { V2ToolError, oneLine, result } from '../core/envelope'
+import { V2ToolError, isV2Result, oneLine, result } from '../core/envelope'
 import { decodeCursor, encodeCursor, pageOf } from '../core/cursor'
 import { formatRef, parseRef, type Ref } from '../core/refs'
 import { neutralize, untrusted } from '../core/untrusted'
@@ -274,6 +274,13 @@ export function missionForecast(ctx: V2CallContext, conversationId: string): [nu
   return turnCostFromLedger(ctx.desktopDb,
     "SELECT total_cost_usd AS cost FROM agent_invocations WHERE conversation_id = ? AND surface = 'agent-chat' AND status = 'success' AND total_cost_usd_estimated = 0 AND total_cost_usd > 0 ORDER BY started_at DESC LIMIT 10",
     [conversationId], { minSamples: 3, low: 'median' })
+}
+
+/** A new mission's first turn: the machine's recent mission turns (no history of its own yet). */
+export function newMissionForecast(ctx: V2CallContext): [number, number] | null {
+  return turnCostFromLedger(ctx.desktopDb,
+    "SELECT total_cost_usd AS cost FROM agent_invocations WHERE surface = 'agent-chat' AND status = 'success' AND total_cost_usd_estimated = 0 AND total_cost_usd > 0 ORDER BY started_at DESC LIMIT 10",
+    [], { minSamples: 3, low: 'median' })
 }
 
 async function spendPreview(ctx: V2CallContext, args: Row, effectKey: string): Promise<PreviewInput> {
@@ -887,7 +894,14 @@ export const missionsTool = defineTool({
     },
     get: { ...read, doc: 'One mission: state, last reply, pending cards. fields: messages (newest first; cursor pages older; options.after=<messageId> reads what followed), queue, cards, subagents, attachments, intent, links (runs/specs/deliveries), resources, processes (dev servers and preview app URLs).', handler: getMission },
     create: {
-      tier: 'write', doc: 'New mission. project pins it (omit for Home); provider, model, effort; title. Then send.',
+      // With the person's message it starts working in the same call (a turn: the send's tier and confirmation).
+      tier: (args) => str(args.message) ? 'ai-spawn' : 'write',
+      confirm: (args) => str(args.message) ? 'costly' : null,
+      doc: 'New mission. message = what the person wants: it starts working on it now (the mission names itself; title optional). Without message, ask the person its goal in one open question, then send. project pins it (omit for Home); provider, model, effort.',
+      preview: (ctx, args) => {
+        const pin = args.project !== undefined && args.project !== null && args.project !== 'home' ? ctx.v2.project(args) : null
+        return { effect: ctx.v2.t('missions.preview.create_send', { project: pin?.slug ?? 'Home' }), refs: [], version: `c${shortHash({ p: pin?.id ?? null, m: str(args.message) ?? '' })}`, cost: { forecastUsd: newMissionForecast(ctx), runs: 1 } }
+      },
       handler: async (ctx, args) => {
         const pin = args.project !== undefined && args.project !== null && args.project !== 'home' ? ctx.v2.project(args) : null
         const created = record(record(await apiCall(ctx, 'POST', AGENT, {
@@ -896,7 +910,18 @@ export const missionsTool = defineTool({
         })).conversation)
         const id = String(created.id)
         const ref = missionRef(id)
-        return result({ ref, ...(pin ? { project: pin.slug } : {}), provider: created.provider, model: created.model ?? null, effort: created.reasoning_effort ?? null }, {
+        const engine = { ...(pin ? { project: pin.slug } : {}), provider: created.provider, model: created.model ?? null, effort: created.reasoning_effort ?? null }
+        if (str(args.message)) {
+          // Created and started at once, like typing the goal in the app: the reply comes back here.
+          const sent = await sendMessage(ctx, { ...args, ref }, { skipSelf: true })
+          if (isV2Result(sent)) {
+            return result({ ...engine, ...(sent.data as Row) }, {
+              ...sent, summary: `${ctx.v2.t('missions.summary.created_started', { mission: ref })} ${sent.summary ?? ''}`.trim(), refs: { mission: ref },
+            })
+          }
+          return sent
+        }
+        return result({ ref, ...engine, ask: ctx.v2.t('missions.ask.goal') }, {
           summary: ctx.v2.t('missions.summary.created', { mission: ref }), refs: { mission: ref },
         })
       },

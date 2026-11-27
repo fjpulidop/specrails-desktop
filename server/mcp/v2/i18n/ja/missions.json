@@ -79,7 +79,7 @@
   "summary.chat_get": "「{{title}}」: メッセージ {{count}} 件。",
   "summary.chat_list": "{{project}} のチャット {{count}} 件。",
   "summary.ci_started": "{{mission}} から CI の監視を開始しました。",
-  "summary.created": "{{mission}} を作成しました。次にメッセージを送ってください。",
+  "summary.created": "{{mission}} を作成しました。まだ目的がありません。メニューではなく、ひとつの自由回答の質問で何を達成したいかを相手に尋ね、その答えを send で送ってください。",
   "summary.deleted": "{{mission}} をゴミ箱に移動しました。restore で元に戻せます。",
   "summary.detached": "{{mission}} から添付ファイルを削除しました。",
   "summary.get": "「{{title}}」は {{status}} です: メッセージ {{count}} 件、待機中のカード {{cards}} 枚。",
@@ -108,7 +108,7 @@
   "summary.queue_steered": "キューにあったメッセージが {{mission}} の実行中のターンに入りました。",
   "summary.queued": "{{mission}} のキューに入れました。実行中のターンの後に読まれます。specrails_wait(until, refs:[{{mission}}]) で待ってください。",
   "summary.renewed": "要約を書きました。{{mission}} の次のターンで新しいセッションが始まります。",
-  "summary.replied": "{{mission}} の返信: {{reply}}",
+  "summary.replied": "{{mission}} の返答: {{reply}} — 自分の言葉で伝え、このミッションで会話を続けてください。メニューは本当の判断が必要なときだけ出してください。",
   "summary.restored": "{{mission}} を復元しました。",
   "summary.search": "「{{query}}」に一致するミッション {{count}} 件。",
   "summary.subagent_events": "アクティビティイベント {{count}} 件。",
@@ -145,5 +145,8 @@
   "choice.reading_restated": "エージェントは言い直した内容で進めます。",
   "choice.review_delivery": "判断のために納品を開きます。",
   "choice.send": "送信するとエージェントが答えます（AI）。",
-  "choice.unarchive": "ミッションが一覧に戻ります。"
+  "choice.unarchive": "ミッションが一覧に戻ります。",
+  "summary.created_started": "{{mission}} を作成し、相手のメッセージで開始しました。",
+  "preview.create_send": "{{project}} にミッションを作成してメッセージを送ります。エージェントがターンを開始します。",
+  "ask.goal": "このミッションで何を達成したいですか？"
 }

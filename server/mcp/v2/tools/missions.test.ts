@@ -234,6 +234,36 @@ describe('specrails_missions: lifecycle', () => {
   })
 })
 
+describe('specrails_missions: create starts like the app does', () => {
+  it('without a goal: asks it in one open question, never a menu of chores', async () => {
+    const res = await missions({ action: 'create', project: 'shop-api', provider: 'claude' })
+    expect(res.isError).toBe(false)
+    expect(res.envelope.data.ask).toBe('What should this mission achieve?')
+    expect(res.envelope.summary).toContain('one open question (no menu)')
+    expect(sent).toEqual([])
+  })
+
+  it('with the person\'s message: creates it, starts it and returns the reply in one call', async () => {
+    const res = await confirmed({ action: 'create', project: 'shop-api', provider: 'claude', message: 'Add a ghost piece' })
+    expect(res.isError).toBe(false)
+    const ref = res.envelope.refs.mission as string
+    const id = ref.slice('mission:'.length)
+    expect(res.envelope.data).toMatchObject({ ref, project: 'shop-api', status: 'replied', reply: { text: 'Echo: Add a ghost piece' } })
+    expect(res.envelope.summary).toMatch(/^Created mission:.* and started it with the person's message\. .*replied: Echo: Add a ghost piece/)
+    expect(sent[0]).toMatchObject({ id, text: 'Add a ghost piece' })
+    // The mission names itself from the goal (no placeholder title).
+    expect(getAgentConversation(h.db, id)?.title ?? null).toBeNull()
+  })
+
+  it('starts without asking when recent mission turns forecast below the threshold', async () => {
+    const other = mission()
+    for (let i = 0; i < 3; i++) recordAgentInvocation(h.db, { id: `c${i}`, project_id: 'p1', provider: 'claude', conversation_id: other, status: 'success', started_at: `2026-11-2${i}T10:00:00Z`, total_cost_usd: 0.05 })
+    const res = await missions({ action: 'create', project: 'shop-api', provider: 'claude', message: 'Fix the login' })
+    expect(res.envelope.error?.code).toBeUndefined()
+    expect(res.envelope.data.status).toBe('replied')
+  })
+})
+
 describe('specrails_missions: send and wait', () => {
   it('confirms an unknown-cost send, waits for the reply and returns it as untrusted text', async () => {
     const id = mission()

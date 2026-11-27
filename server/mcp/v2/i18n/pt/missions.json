@@ -79,7 +79,7 @@
   "summary.chat_get": "“{{title}}”: {{count}} mensagem(ns).",
   "summary.chat_list": "{{count}} chat(s) em {{project}}.",
   "summary.ci_started": "O acompanhamento do CI começou a partir de {{mission}}.",
-  "summary.created": "{{mission}} criada. Agora envie uma mensagem para ela.",
+  "summary.created": "{{mission}} criada. Ainda não tem objetivo: pergunte à pessoa, com uma única pergunta aberta (sem menu), o que deve conseguir, e envie a resposta com send.",
   "summary.deleted": "{{mission}} movida para a lixeira; restore desfaz isso.",
   "summary.detached": "Anexo excluído de {{mission}}.",
   "summary.get": "“{{title}}” está {{status}}: {{count}} mensagem(ns), {{cards}} card(s) aguardando.",
@@ -108,7 +108,7 @@
   "summary.queue_steered": "A mensagem na fila entrou no turno em andamento de {{mission}}.",
   "summary.queued": "Na fila em {{mission}}; ela é lida depois do turno em andamento. Aguarde com specrails_wait(until, refs:[{{mission}}]).",
   "summary.renewed": "Resumo escrito; o próximo turno de {{mission}} inicia uma sessão nova.",
-  "summary.replied": "{{mission}} respondeu: {{reply}}",
+  "summary.replied": "{{mission}} respondeu: {{reply}} — Conte-o por palavras suas e continue a conversa nesta missão; ofereça um menu só perante uma decisão real.",
   "summary.restored": "{{mission}} restaurada.",
   "summary.search": "{{count}} missão(ões) correspondem a “{{query}}”.",
   "summary.subagent_events": "{{count}} evento(s) de atividade.",
@@ -145,5 +145,8 @@
   "choice.reading_restated": "O agente segue como reformulou.",
   "choice.review_delivery": "Abre a entrega para sua decisão.",
   "choice.send": "Envia sua mensagem; o agente responde (IA).",
-  "choice.unarchive": "A missão volta para a lista."
+  "choice.unarchive": "A missão volta para a lista.",
+  "summary.created_started": "{{mission}} criada e iniciada com a mensagem da pessoa.",
+  "preview.create_send": "Cria uma missão em {{project}} e envia-lhe a mensagem; o agente inicia um turno.",
+  "ask.goal": "O que quer que esta missão consiga?"
 }

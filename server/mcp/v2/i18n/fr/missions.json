@@ -79,7 +79,7 @@
   "summary.chat_get": "« {{title}} » : {{count}} message(s).",
   "summary.chat_list": "{{count}} chat(s) dans {{project}}.",
   "summary.ci_started": "La surveillance de la CI a démarré depuis {{mission}}.",
-  "summary.created": "{{mission}} créée. Envoyez-lui ensuite un message.",
+  "summary.created": "{{mission}} créée. Elle n'a pas encore d'objectif : demandez à la personne, en une seule question ouverte (sans menu), ce qu'elle doit accomplir, puis envoyez sa réponse avec send.",
   "summary.deleted": "{{mission}} déplacée dans la corbeille ; restore annule l'opération.",
   "summary.detached": "Pièce jointe supprimée de {{mission}}.",
   "summary.get": "« {{title}} » est {{status}} : {{count}} message(s), {{cards}} carte(s) en attente.",
@@ -108,7 +108,7 @@
   "summary.queue_steered": "Le message en file a été intégré au tour en cours de {{mission}}.",
   "summary.queued": "Mis en file dans {{mission}} ; il sera lu après le tour en cours. Attendez avec specrails_wait(until, refs:[{{mission}}]).",
   "summary.renewed": "Résumé rédigé ; le prochain tour de {{mission}} démarre une nouvelle session.",
-  "summary.replied": "{{mission}} a répondu : {{reply}}",
+  "summary.replied": "{{mission}} a répondu : {{reply}} — Relayez-le avec vos mots et poursuivez la conversation dans cette mission ; ne proposez un menu que pour une vraie décision.",
   "summary.restored": "{{mission}} restaurée.",
   "summary.search": "{{count}} mission(s) correspondent à « {{query}} ».",
   "summary.subagent_events": "{{count}} événement(s) d'activité.",
@@ -145,5 +145,8 @@
   "choice.reading_restated": "L'agent poursuit comme il l'a reformulée.",
   "choice.review_delivery": "Ouvre la livraison pour votre décision.",
   "choice.send": "Envoie votre message ; l'agent répond (IA).",
-  "choice.unarchive": "La mission revient dans la liste."
+  "choice.unarchive": "La mission revient dans la liste.",
+  "summary.created_started": "{{mission}} créée et lancée avec le message de la personne.",
+  "preview.create_send": "Crée une mission dans {{project}} et lui envoie le message ; l'agent commence un tour.",
+  "ask.goal": "Que doit accomplir cette mission ?"
 }
