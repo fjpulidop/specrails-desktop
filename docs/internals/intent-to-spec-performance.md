@@ -55,4 +55,16 @@ the target keeps moving.
 
 ## Results
 
-(filled in as runs complete)
+### 2026-11-27 23:10 — run 1, convergent review (case tetris-frame-pacing)
+
+Run `45b765d0` (bench project `bench-tetris-frame-pacing`, codex gpt-6.2-sol):
+derive 161 s (0.57 USD), then the second turn hit **Codex's 5-hour usage
+limit** (100 % used, resets 2026-11-28 01:43 UTC) and the run paused.
+
+**Reliability bug found:** the pause recorded `resumeAt: null, autoResume:
+false`, so it would never resume by itself. Codex says "try again at Nov 28th,
+2026 2:43 AM": `extractLimitReset` cut it at the comma (`Nov 28th`) and
+`resolveResetText` did not understand dated resets. Fixed (dated reset, local
+time or a named zone): from now on a limit-paused Intent → Spec run resumes on
+its own at the provider's reset. This run was recorded before the fix, so it is
+resumed with `--resume 45b765d0-587f-4049-a4e5-4b78fd88d9f3` after the reset.

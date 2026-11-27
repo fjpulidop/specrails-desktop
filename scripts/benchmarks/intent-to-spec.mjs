@@ -30,6 +30,9 @@ const Database = require('better-sqlite3')
 const casePath = process.argv[2]
 if (!casePath) { console.error('usage: intent-to-spec.mjs <case.json> [--dry]'); process.exit(2) }
 const dry = process.argv.includes('--dry')
+// --resume <runId>: continue a run of this case that a provider usage limit paused (it does not resume by itself).
+const resumeIndex = process.argv.indexOf('--resume')
+const resumeRun = resumeIndex > 0 ? process.argv[resumeIndex + 1] : null
 const spec = JSON.parse(fs.readFileSync(casePath, 'utf8'))
 const home = process.env.SPECRAILS_REGISTRY_HOME || path.join(os.homedir(), '.specrails-dev')
 const port = Number(process.env.SPECRAILS_DEV_SERVER_PORT || 4300)
@@ -138,6 +141,34 @@ function findKey(value, key, depth = 0) {
   return null
 }
 
+/**
+ * Waits (local database, every 20 s, at most 2 h) until the run settles. A provider usage
+ * limit pauses it without resuming by itself: that ends the wait with the resume hint.
+ */
+async function settle(project, runId) {
+  const deadline = Date.now() + 2 * 3600_000
+  for (;;) {
+    const check = projectDb(project)
+    const row = check.prepare('SELECT status, restart_reason FROM loop_runs WHERE id = ?').get(runId)
+    check.close()
+    if (row && row.status === 'paused' && row.restart_reason === 'limit_paused') {
+      throw new Error(`run ${runId} paused at a provider usage limit; once it resets: --resume ${runId}`)
+    }
+    if (row && !['running', 'queued', 'pending', 'paused'].includes(row.status)) return
+    if (Date.now() > deadline) throw new Error('run did not settle within 2 h')
+    await sleep(20_000)
+  }
+}
+
+function record(project, runId, extra) {
+  const result = { case: spec.name, at: new Date().toISOString(), provider: spec.provider ?? null, model: spec.model ?? null, ...extra, ...measure(project, runId) }
+  const file = path.join(resultsDir, `${result.at.replace(/[:.]/g, '-')}-${spec.name}.json`)
+  fs.writeFileSync(file, JSON.stringify(result, null, 2))
+  fs.appendFileSync(path.join(resultsDir, 'results.jsonl'), JSON.stringify({ ...result, steps: undefined, turns: undefined }) + '\n')
+  log(`done: ${result.outcome} · ${result.durationMin} min · $${result.costUsd} · ${result.aiTurns} turns · ${result.correctionRounds} rounds · reviews ${JSON.stringify(result.reviews)}`)
+  log(`result ${file}`)
+}
+
 async function main() {
   log(`case ${spec.name}: ${spec.baseSha.slice(0, 7)} → ${spec.headSha.slice(0, 7)}`)
   prepareFixture()
@@ -147,6 +178,13 @@ async function main() {
 
   const { call, close } = await mcp()
   try {
+    if (resumeRun) {
+      await call('specrails_runs', { action: 'resume', ref: `run:${project.slug}/${resumeRun}` })
+      log(`resumed run ${resumeRun}`)
+      await settle(project, resumeRun)
+      record(project, resumeRun, { resumed: true })
+      return
+    }
     // 1. The real conversation up to the hand-off, so the reviewer sees the same requests and decisions.
     const fork = await call('specrails_missions', { action: 'branch', ref: `mission:${spec.sourceMission}`, options: { mode: 'fork', throughMessageId: spec.forkThroughMessage } })
     const mission = fork.refs?.mission ?? fork.data?.ref
@@ -172,22 +210,9 @@ async function main() {
     if (!runId) throw new Error(`hand-off returned no run: ${JSON.stringify(handed.data).slice(0, 300)}`)
     log(`run ${runId}`)
 
-    // 5. Wait for it to settle (local database, every 20 s, at most 2 h).
-    const deadline = Date.now() + 2 * 3600_000
-    for (;;) {
-      const check = projectDb(project)
-      const row = check.prepare('SELECT status FROM loop_runs WHERE id = ?').get(runId)
-      check.close()
-      if (row && !['running', 'queued', 'pending', 'paused'].includes(row.status)) break
-      if (Date.now() > deadline) throw new Error('run did not settle within 2 h')
-      await sleep(20_000)
-    }
-    const result = { case: spec.name, at: new Date().toISOString(), provider: spec.provider ?? null, model: spec.model ?? null, mission, intent, ...measure(project, runId) }
-    const file = path.join(resultsDir, `${result.at.replace(/[:.]/g, '-')}-${spec.name}.json`)
-    fs.writeFileSync(file, JSON.stringify(result, null, 2))
-    fs.appendFileSync(path.join(resultsDir, 'results.jsonl'), JSON.stringify({ ...result, steps: undefined, turns: undefined }) + '\n')
-    log(`done: ${result.outcome} · ${result.durationMin} min · $${result.costUsd} · ${result.aiTurns} turns · ${result.correctionRounds} rounds · reviews ${JSON.stringify(result.reviews)}`)
-    log(`result ${file}`)
+    // 5. Wait for it to settle, then measure.
+    await settle(project, runId)
+    record(project, runId, { mission, intent })
   } finally {
     await close()
   }

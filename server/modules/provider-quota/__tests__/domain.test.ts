@@ -94,6 +94,12 @@ describe('resolveResetText', () => {
     expect(resolveResetText('in 2 hours', T0)).toBe(iso(T0 + 7_200_000))
     expect(resolveResetText('in 45 minutes', T0)).toBe(iso(T0 + 45 * 60_000))
     expect(resolveResetText('2026-11-18T14:00:00Z', T0)).toBe('2026-11-18T14:00:00.000Z')
+    // Codex names a date: "try again at Nov 28th, 2026 2:43 AM" (a zone when given, else local time).
+    expect(resolveResetText('Nov 19th, 2026 2:43 AM (Europe/Madrid)', T0)).toBe('2026-11-19T01:43:00.000Z')
+    expect(resolveResetText('Nov 19, 2026 14:05 (UTC)', T0)).toBe('2026-11-19T14:05:00.000Z')
+    expect(resolveResetText('Nov 19th, 2026 2:43 AM', T0)).toBe(new Date(2026, 10, 19, 2, 43).toISOString())
+    expect(resolveResetText('Nov 10th, 2026 2:43 AM (UTC)', T0)).toBeNull()
+    expect(resolveResetText('Foo 19th, 2026 2:43 AM', T0)).toBeNull()
   })
 
   it('reads a reset that passed moments ago as that reset, late, never as tomorrow', () => {
