@@ -38,6 +38,7 @@ function memoryRepository(): IntentRepository & { rows: Map<string, IntentSessio
     listUnsettled: () => [...rows.values()].filter((row) => row.state === 'active' || row.state === 'paused' || row.step !== null),
     listHandedOff: () => [...rows.values()].filter((row) => row.state === 'handed_off'),
     findByDelivery: (deliveryId) => [...rows.values()].find((row) => row.deliveryId === deliveryId) ?? null,
+    lastRepositoryId: () => [...rows.values()].filter((row) => row.repositoryId).at(-1)?.repositoryId ?? null,
   }
 }
 
@@ -321,9 +322,23 @@ describe('startFlow in a workspace / multi-repository project', () => {
     expect(worktrees.reserve).toHaveBeenCalledWith({ flowId: 'flow-1', conversationId: 'conv-1', ticketId: 7 })
   })
 
-  it('refuses before any effect: several Git members without a choice, a folder, an unknown id, no Git at all', async () => {
+  // Nobody named a repository in a workspace with several Git members: it is not asked, as Implement
+  // never asks. The project's last Intent repository, else the first Git member.
+  it('[spec:intent-repository-default/no-one-named-a-repository] runs where the last Intent ran, else in the first Git member, without asking', async () => {
+    const workspace = members({ id: 'workspace', kind: 'folder', isPrimary: true }, { id: 'web', kind: 'git' }, { id: 'api', kind: 'git' })
+    const { service, repository } = setup({ repositories: workspace })
+    expect(service.defaultRepository()).toEqual({ repositoryId: 'web' })
+    expect(await service.startFlow(startInput)).toMatchObject({ repositoryId: 'web' })
+    repository.rows.set('earlier', { ...repository.rows.get('flow-1')!, id: 'earlier', conversationId: 'other', state: 'discarded', repositoryId: 'api' })
+    expect(service.defaultRepository()).toEqual({ repositoryId: 'api' })
+    // A Git primary is the default whatever the history says.
+    const gitPrimary = setup({ repositories: members({ id: 'main', kind: 'git', isPrimary: true }, { id: 'api', kind: 'git' }) })
+    gitPrimary.repository.rows.set('earlier', { ...repository.rows.get('flow-1')!, id: 'earlier', conversationId: 'other', state: 'discarded', repositoryId: 'api' })
+    expect(gitPrimary.service.defaultRepository()).toEqual({ repositoryId: 'main' })
+  })
+
+  it('refuses before any effect: a folder, an unknown id, no Git at all', async () => {
     const cases: Array<[ReturnType<typeof members>, string | undefined, string]> = [
-      [members({ id: 'workspace', kind: 'folder', isPrimary: true }, { id: 'web', kind: 'git' }, { id: 'api', kind: 'git' }), undefined, 'flow_repository_required'],
       [members({ id: 'workspace', kind: 'folder', isPrimary: true }, { id: 'web', kind: 'git' }), 'workspace', 'flow_repository_not_git'],
       [members({ id: 'workspace', kind: 'folder', isPrimary: true }, { id: 'web', kind: 'git' }), 'nope', 'flow_repository_unknown'],
       [members({ id: 'workspace', kind: 'folder', isPrimary: true }, { id: 'notes', kind: 'folder' }), undefined, 'flow_repository_not_git'],

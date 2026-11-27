@@ -1116,7 +1116,10 @@
         "loading": "Loading repositories…",
         "loadFailed": "The project repositories could not be loaded. Try again.",
         "suggested": "Suggested by the agent",
-        "noGit": "This project has no Git repository. Intent needs one for its branch."
+        "noGit": "This project has no Git repository. Intent needs one for its branch.",
+        "target": "Runs in {{name}}",
+        "change": "Change",
+        "changeLabel": "Change the repository this Intent runs in"
       },
       "blocked": {
         "noProject": "Pin this mission to a project to use Intent.",

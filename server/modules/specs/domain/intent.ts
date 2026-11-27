@@ -276,6 +276,10 @@ export interface IntentDraft {
   readings: IntentReadings
   /** The agent judges the intent settled: the card offers Explore and Delegate. */
   ready: boolean
+  /** In a project with several Git repositories (or a folder primary): the
+   * repository the work belongs in, the agent's triage. Explore starts the
+   * Intent there; absent, the app's default (`defaultFlowRepositoryId`). */
+  repositoryId?: string
 }
 
 /**
@@ -297,5 +301,6 @@ export function parseIntentDraft(value: unknown): IntentDraft | null {
   // that can be judged deterministically (as for the legacy problem-frame).
   if (!restated || !alternative || !discriminator || restated === alternative) return null
   const title = cleanItem(raw.title, 200)
-  return { ...(title ? { title } : {}), intent, readings: { restated, alternative, discriminator }, ready: raw.ready === true }
+  const repositoryId = typeof raw.repositoryId === 'string' && /^[A-Za-z0-9._-]{1,128}$/.test(raw.repositoryId.trim()) ? raw.repositoryId.trim() : ''
+  return { ...(title ? { title } : {}), intent, readings: { restated, alternative, discriminator }, ready: raw.ready === true, ...(repositoryId ? { repositoryId } : {}) }
 }

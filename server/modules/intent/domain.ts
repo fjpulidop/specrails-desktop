@@ -470,14 +470,28 @@ export interface IntentRepositoryMember {
 }
 
 /**
- * The repository a new Intent runs in. An explicit choice must be a Git member;
- * otherwise the primary when it is Git, else the only Git member. Several Git
- * candidates without a choice, or none at all, are refused (the mission agent
- * triages the target; the entry card lets the person pick). Returns null for
- * the primary repository: such an Intent session behaves exactly as before workspaces
- * (a single-repository project is never triaged).
+ * The repository an Intent runs in when nobody named one (neither the spec, the
+ * mission agent nor the person): the primary when it is Git, else the one the
+ * project's last Intent used, else the first Git member. Implement never asks
+ * either: it runs a spec where the spec says, else in the primary; Intent needs
+ * one Git worktree, so a folder primary (a workspace) falls to its members.
+ * Null when no member is an available Git repository.
  */
-export function resolveFlowRepository(members: readonly IntentRepositoryMember[], requested: string | null | undefined): string | null {
+export function defaultFlowRepositoryId(members: readonly IntentRepositoryMember[], lastUsed: string | null | undefined): string | null {
+  const usable = (member: IntentRepositoryMember) => member.kind === 'git' && member.available !== false
+  const primary = members.find((member) => member.isPrimary) ?? members[0]
+  if (primary && usable(primary)) return primary.id
+  const candidates = members.filter(usable)
+  return candidates.find((member) => member.id === lastUsed)?.id ?? candidates[0]?.id ?? null
+}
+
+/**
+ * The repository a new Intent runs in. An explicit choice must be a Git member;
+ * otherwise `defaultFlowRepositoryId` picks it (nothing to ask). Returns null
+ * for the primary repository: such an Intent session behaves exactly as before
+ * workspaces (a single-repository project is never triaged).
+ */
+export function resolveFlowRepository(members: readonly IntentRepositoryMember[], requested: string | null | undefined, lastUsed?: string | null): string | null {
   const wanted = typeof requested === 'string' && requested.trim() ? requested.trim() : null
   // A single-repository project keeps its pre-workspace behaviour exactly.
   if (members.length <= 1 && !wanted) return null
@@ -490,11 +504,9 @@ export function resolveFlowRepository(members: readonly IntentRepositoryMember[]
     if (!usable(member)) throw new IntentValidationError('flow_repository_not_git', `${member.name} is not an available Git repository; Intent needs one to create its worktree`)
     return member.id === primary.id ? null : member.id
   }
-  if (usable(primary)) return null
-  const candidates = members.filter(usable)
-  if (candidates.length === 1) return candidates[0]!.id
-  if (candidates.length === 0) throw new IntentValidationError('flow_repository_not_git', 'This project has no available Git repository; Intent needs one to create its worktree')
-  throw new IntentValidationError('flow_repository_required', 'This project has several Git repositories; choose the one this Intent runs in')
+  const chosen = defaultFlowRepositoryId(members, lastUsed)
+  if (!chosen) throw new IntentValidationError('flow_repository_not_git', 'This project has no available Git repository; Intent needs one to create its worktree')
+  return chosen === primary.id ? null : chosen
 }
 
 /** The rail launch authority refused the hand-off (its status and code are kept). */

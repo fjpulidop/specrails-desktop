@@ -186,10 +186,11 @@ describe('IntentEntryCard', () => {
 
 describe('IntentEntryCard in a workspace (repository target)', () => {
   const member = (id: string, kind: 'git' | 'folder', isPrimary = false) => ({ id, projectId: 'p1', name: id === 'ws' ? 'Workspace' : id.toUpperCase(), path: `/ws/${id}`, isPrimary, kind, integrationBranch: null, addedAt: '' })
-  function withRepositories(repositories: unknown[]) {
+  function withRepositories(repositories: unknown[], defaultId: string | null = null) {
     const base = vi.mocked(fetch).getMockImplementation()!
     vi.mocked(fetch).mockImplementation(async (input, init) => {
       if (String(input).endsWith('/repositories')) return respond(200, { repositories })
+      if (String(input).endsWith('/flow/repository-default')) return respond(200, { repositoryId: defaultId })
       return base(input, init)
     })
   }
@@ -199,6 +200,10 @@ describe('IntentEntryCard in a workspace (repository target)', () => {
     withRepositories([member('ws', 'folder', true), member('api', 'git'), member('web', 'git')])
     const onStarted = vi.fn()
     render(<Providers><IntentEntryCard idea="Rate-limit the API" repositoryId="api" projectId="p1" conversationId="c1" onStarted={onStarted} onCancel={vi.fn()} /></Providers>)
+    // Chosen for the person, on one line; the picker opens on Change.
+    expect(await screen.findByTestId('flow-entry-repository-target')).toHaveTextContent('Runs in API')
+    expect(screen.queryByTestId('flow-entry-repository')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('flow-entry-repository-change'))
     const group = await screen.findByTestId('flow-entry-repository')
     expect(group).toHaveTextContent('Repository')
     // Only Git members are offered; the folder primary never is.
@@ -222,14 +227,26 @@ describe('IntentEntryCard in a workspace (repository target)', () => {
     expect(calls.find((c) => c.url.endsWith('/api/projects/p1/flow') && c.method === 'POST')!.body).toEqual({ conversationId: 'c1', idea: 'Rate-limit the API', repositoryId: 'web' })
   })
 
-  it('without a triage, waits for the person to choose among several Git repositories', async () => {
+  // Nobody named a repository among several Git members: the project default (the last Intent's
+  // repository) is chosen, never asked, as Implement never asks.
+  it('[spec:intent-repository-default/the-entry-never-asks] without a triage, runs in the project default and shows it', async () => {
     current = null
-    withRepositories([member('ws', 'folder', true), member('api', 'git'), member('web', 'git')])
+    withRepositories([member('ws', 'folder', true), member('api', 'git'), member('web', 'git')], 'web')
+    const onStarted = vi.fn()
+    render(<Providers><IntentEntryCard idea="x" projectId="p1" conversationId="c1" onStarted={onStarted} onCancel={vi.fn()} /></Providers>)
+    expect(await screen.findByTestId('flow-entry-repository-target')).toHaveTextContent('Runs in WEB')
+    expect(screen.queryByText('Choose the repository this Intent runs in')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
+    await act(async () => { fireEvent.click(screen.getByTestId('flow-entry-start')) })
+    await waitFor(() => expect(onStarted).toHaveBeenCalled())
+    expect(calls.find((c) => c.url.endsWith('/api/projects/p1/flow') && c.method === 'POST')!.body).toEqual({ conversationId: 'c1', idea: 'x', repositoryId: 'web' })
+  })
+
+  it('without any answer about the default, still never asks: the first Git member', async () => {
+    current = null
+    withRepositories([member('ws', 'folder', true), member('api', 'git'), member('web', 'git')], null)
     render(<Providers><IntentEntryCard idea="x" projectId="p1" conversationId="c1" onStarted={vi.fn()} onCancel={vi.fn()} /></Providers>)
-    await screen.findByTestId('flow-entry-repository')
-    expect(screen.getByText('Choose the repository this Intent runs in')).toBeInTheDocument()
-    expect(screen.getByTestId('flow-entry-start')).toBeDisabled()
-    fireEvent.click(screen.getByTestId('flow-entry-repository-api'))
+    expect(await screen.findByTestId('flow-entry-repository-target')).toHaveTextContent('Runs in API')
     await waitFor(() => expect(screen.getByTestId('flow-entry-start')).toBeEnabled())
   })
 

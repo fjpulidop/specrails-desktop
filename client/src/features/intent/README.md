@@ -112,10 +112,13 @@ bus.
 ## Repository target
 
 In a workspace (folder primary) or a project with several Git repositories,
-`IntentEntryCard` shows where the Intent runs: the Git members from
-`GET /api/projects/:id/repositories` (`flowApi.repositories`,
-`flowRepositoryChoice`), preselected from the `flow-offer` block's
-`repositoryId`. It sends `repositoryId` only for such projects; a
+`IntentEntryCard` shows where the Intent runs, chosen for the person and never
+asked (as Implement never asks): the spec's repository, else the agent's
+(`flow-offer` / `intent-draft` `repositoryId`), else the project default
+(`flowApi.repositoryDefault`: the Git primary, the last Intent's repository,
+the first Git member). It is one line, "Runs in X · Change"; Change opens the
+picker of the Git members from `GET /api/projects/:id/repositories`
+(`flowApi.repositories`, `flowRepositoryChoice`). It sends `repositoryId` only for such projects; a
 single-repository project never shows or sends it.
 The picker is `IntentRepositoryPicker` (Git members only, one tab stop, arrow
 keys / Home / End). "Explore with the agent" from the spec detail header, the

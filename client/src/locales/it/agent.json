@@ -1116,7 +1116,10 @@
         "loading": "Caricamento dei repository…",
         "loadFailed": "Impossibile caricare i repository del progetto. Riprova.",
         "suggested": "Suggerito dall’agente",
-        "noGit": "Questo progetto non ha un repository Git. Intent ne ha bisogno per il suo branch."
+        "noGit": "Questo progetto non ha un repository Git. Intent ne ha bisogno per il suo branch.",
+        "target": "Viene eseguito in {{name}}",
+        "change": "Cambia",
+        "changeLabel": "Cambia il repository in cui viene eseguito questo Intent"
       },
       "blocked": {
         "noProject": "Fissa questa missione a un progetto per usare Intent.",

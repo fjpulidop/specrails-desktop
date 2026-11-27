@@ -24,6 +24,9 @@ export interface IntentRepository {
   listHandedOff(): IntentSession[]
   /** The Intent a rail delivery belongs to. */
   findByDelivery(deliveryId: string): IntentSession | null
+  /** The repository the project's most recent Intent ran in, when it was not the primary
+   * (the default target of the next one). Absent or null ⇒ no history. */
+  lastRepositoryId?(): string | null
 }
 
 /** Durable settlement effects (`flow_effects`, project database). */

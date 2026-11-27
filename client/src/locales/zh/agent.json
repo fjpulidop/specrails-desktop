@@ -1116,7 +1116,10 @@
         "loading": "正在加载仓库…",
         "loadFailed": "无法加载项目的仓库。请重试。",
         "suggested": "由智能体建议",
-        "noGit": "此项目没有 Git 仓库。Intent 需要它来创建分支。"
+        "noGit": "此项目没有 Git 仓库。Intent 需要它来创建分支。",
+        "target": "在 {{name}} 中运行",
+        "change": "更改",
+        "changeLabel": "更改此 Intent 运行的仓库"
       },
       "blocked": {
         "noProject": "将此任务固定到某个项目后才能使用 Intent。",

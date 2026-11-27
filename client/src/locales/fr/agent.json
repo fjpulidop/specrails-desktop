@@ -1116,7 +1116,10 @@
         "loading": "Chargement des dépôts…",
         "loadFailed": "Impossible de charger les dépôts du projet. Réessayez.",
         "suggested": "Suggéré par l’agent",
-        "noGit": "Ce projet n’a pas de dépôt Git. Intent en a besoin pour sa branche."
+        "noGit": "Ce projet n’a pas de dépôt Git. Intent en a besoin pour sa branche.",
+        "target": "S’exécute dans {{name}}",
+        "change": "Changer",
+        "changeLabel": "Changer le dépôt où s’exécute cet Intent"
       },
       "blocked": {
         "noProject": "Épinglez cette mission à un projet pour utiliser Intent.",

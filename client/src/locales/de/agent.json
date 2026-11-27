@@ -1116,7 +1116,10 @@
         "loading": "Repositorys werden geladen…",
         "loadFailed": "Die Repositorys des Projekts konnten nicht geladen werden. Versuche es erneut.",
         "suggested": "Vom Agenten vorgeschlagen",
-        "noGit": "Dieses Projekt hat kein Git-Repository. Intent braucht eins für seinen Branch."
+        "noGit": "Dieses Projekt hat kein Git-Repository. Intent braucht eins für seinen Branch.",
+        "target": "Läuft in {{name}}",
+        "change": "Ändern",
+        "changeLabel": "Repository ändern, in dem dieser Intent läuft"
       },
       "blocked": {
         "noProject": "Hefte diese Mission an ein Projekt, um Intent zu nutzen.",

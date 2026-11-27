@@ -384,11 +384,13 @@ describe('Intent in a workspace project (real git: a plain folder holding two re
     expect(git(['branch', '--list', flow.branch!], api)).toBe('')
   })
 
-  it('refuses an untriaged Intent with several Git repositories, and a folder target, before any effect', async () => {
+  it('answers where an unnamed Intent runs, and refuses a folder target before any effect', async () => {
     const { ctx, server, repository, conversation } = workspace()
-    const required = await request(server).post('/proj-1/flow').send({ conversationId: conversation.id, idea: 'Something' })
-    expect(required.status).toBe(400)
-    expect(required.body.error).toBe('flow_repository_required')
+    // Nobody named one: the first Git member of the workspace, then the last one used.
+    expect((await request(server).get('/proj-1/flow/repository-default')).body).toEqual({ repositoryId: 'web' })
+    ctx.db.prepare(`INSERT INTO flow_sessions (id, conversation_id, state, repository_id, created_at, updated_at) VALUES ('old', 'x', 'discarded', 'api', '2026-01-01', '2026-01-01')`).run()
+    expect(repository.lastRepositoryId?.()).toBe('api')
+    expect((await request(server).get('/proj-1/flow/repository-default')).body).toEqual({ repositoryId: 'api' })
     const folder = await request(server).post('/proj-1/flow').send({ conversationId: conversation.id, idea: 'Something', repositoryId: 'ws' })
     expect(folder.status).toBe(400)
     expect(folder.body.error).toBe('flow_repository_not_git')
