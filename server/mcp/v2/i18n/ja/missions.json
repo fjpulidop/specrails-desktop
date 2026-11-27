@@ -150,5 +150,6 @@
   "preview.create_send": "{{project}} にミッションを作成してメッセージを送ります。エージェントがターンを開始します。",
   "ask.goal": "このミッションで何を達成したいですか？",
   "summary.intent_replied": "{{ref}} を開始しました。ミッションの返答: {{reply}} — 自分の言葉で伝えてください。選択肢は状態の offers にあります(自分で作らずそれを提示)。会話は send でこのミッションで続けてください。",
-  "summary.intent_working": "{{ref}} を開始しました。ミッションはまだ作業中です。そのことを相手に伝え(メニューなし)、specrails_wait(until, refs:[{{mission}}]) で待ってください。返答付きで戻るので、それを伝えてください。"
+  "summary.intent_working": "{{ref}} を開始しました。ミッションはまだ作業中です。そのことを相手に伝え(メニューなし)、specrails_wait(until, refs:[{{mission}}]) で待ってください。返答付きで戻るので、それを伝えてください。",
+  "summary.message": "{{mission}} のメッセージ({{chars}} 文字)。"
 }

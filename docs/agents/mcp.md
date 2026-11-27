@@ -108,7 +108,7 @@ Generated from the catalog. Actions marked *not available yet* answer `not_imple
 | `specrails_rails` |  | 9 |
 | `specrails_runs` | yes | 25 |
 | `specrails_deliveries` | yes | 3 |
-| `specrails_missions` |  | 45 |
+| `specrails_missions` |  | 46 |
 | `specrails_insights` |  | 12 |
 | `specrails_settings` |  | 5 |
 | `specrails_providers` |  | 21 |
@@ -292,6 +292,7 @@ Missions (agent conversations): create, send, ask, queue, attachments, subagents
 |---|---|---|---|
 | `list` | read | — | Missions, running first. filter.project (or "home"), filter.archived (true \| "all"), filter.active, filter.pinned. |
 | `search` | read | — | Requires `query`. Full-text search over titles and messages. |
+| `message` | read | — | Requires `ref`. One message of the mission whole (options.message=<id> from get messages, where long ones are truncated; default the last reply), up to 40 000 characters. |
 | `get` | read | — | Requires `ref`. One mission: state, last reply, pending cards. fields: messages (newest first; cursor pages older; options.after=<messageId> reads what followed), queue, cards, subagents, attachments, intent, links (runs/specs/deliveries), resources, processes (dev servers and preview app URLs). |
 | `create` | per call | — | New mission. message = what the person wants: it starts working on it now (the mission names itself; title optional). Without message, ask the person its goal in one open question, then send. project pins it (omit for Home); provider, model, effort. |
 | `send` | ai-spawn | — | Requires `ref`, `message`. Sends the person's message and waits up to options.waitMs (default and max 45000) for the reply. Busy mission: queued (options.deliveryMode queue\|steer\|interrupt). options.attachmentIds, options.queueId (idempotent retry). Not replied yet: specrails_wait(until, refs:[ref]) wakes with the reply. |

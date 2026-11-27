@@ -21,6 +21,7 @@ import { matchesPointer } from '../core/untrusted'
 import { v2Catalog } from '../index'
 import { missionsTool } from './missions'
 import { waitTool } from './wait'
+import { eventJournalFor } from '../../../modules/events-journal'
 import { createAgentChatRouter } from '../../../modules/missions/runtime/agent-chat-router'
 import type { AgentChatManager } from '../../../modules/missions/runtime/agent-chat-manager'
 import { registerIntentHttp } from '../../../modules/intent/adapters/http'
@@ -357,6 +358,36 @@ describe('specrails_missions: send and wait', () => {
     const fired = (woke.envelope.data.fired as Array<{ ref: string; data?: Row }>).find((item) => item.ref === ref)!
     expect(fired.data).toMatchObject({ reply: { text: expect.stringContaining('shadowBlur per cell') }, pendingCards: [expect.objectContaining({ kind: 'options' })] })
     expect(woke.envelope.summary).toContain(`${ref} replied: P1: shadowBlur per cell.`)
+  })
+
+  it('a wait right after a new turn starts never returns the previous turn\'s end (no cursor)', async () => {
+    const id = mission()
+    const ref = `mission:${id}`
+    eventJournalFor(h.db, h.ctx.eventBus)
+    // The previous turn ended; a new one has just started.
+    say(id, 'assistant', 'Old answer')
+    h.ctx.eventBus.publish({ type: 'agent_done', conversationId: id, fullText: 'Old answer', timestamp: 'now' } as never)
+    h.ctx.eventBus.publish({ type: 'agent_input_started', conversationId: id, queueId: null, messageId: 'u2', text: 'Next', timestamp: 'now' } as never)
+    const waiting = call(client, 'specrails_wait', { action: 'until', refs: [ref], timeoutMs: 3_000 })
+    setTimeout(() => {
+      const message = say(id, 'assistant', 'New answer')
+      h.ctx.eventBus.publish({ type: 'agent_done', conversationId: id, fullText: 'New answer', messageId: message.id, timestamp: 'now' } as never)
+    }, 50)
+    const woke = await waiting
+    const fired = (woke.envelope.data.fired as Array<{ ref: string; data?: Row }>).find((item) => item.ref === ref)!
+    expect((fired.data as { reply: { text: string } }).reply.text).toBe('New answer')
+  })
+
+  it('marks long messages as truncated in get, and message reads one whole', async () => {
+    const id = mission()
+    const report = `Analysis ${'x'.repeat(9_000)} the end`
+    const long = say(id, 'assistant', report)
+    const got = await missions({ action: 'get', ref: `mission:${id}`, fields: ['messages'] })
+    const listed = (got.envelope.data.messageList as Array<{ id: string; truncated?: boolean; chars?: number }>).find((m) => m.id === long.id)!
+    expect(listed).toMatchObject({ truncated: true, chars: report.length })
+    const whole = await missions({ action: 'message', ref: `mission:${id}`, options: { message: long.id } })
+    expect(whole.envelope.data.text).toBe(report)
+    expect((await missions({ action: 'message', ref: `mission:${id}` })).envelope.data.id).toBe(long.id)
   })
 
   it('a stale preview (provider changed) refuses the old token', async () => {

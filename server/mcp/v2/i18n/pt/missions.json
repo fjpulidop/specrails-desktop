@@ -150,5 +150,6 @@
   "preview.create_send": "Cria uma missão em {{project}} e envia-lhe a mensagem; o agente inicia um turno.",
   "ask.goal": "O que quer que esta missão consiga?",
   "summary.intent_replied": "{{ref}} iniciada. A missão diz: {{reply}} — Conte-o por palavras suas; as opções dela estão nas offers do estado (ofereça essas, não as suas), e continue a conversa na missão com send.",
-  "summary.intent_working": "{{ref}} iniciada; a missão ainda está a trabalhar. Diga-o à pessoa (sem menu) e espere com specrails_wait(until, refs:[{{mission}}]): acorda com a resposta para contar."
+  "summary.intent_working": "{{ref}} iniciada; a missão ainda está a trabalhar. Diga-o à pessoa (sem menu) e espere com specrails_wait(until, refs:[{{mission}}]): acorda com a resposta para contar.",
+  "summary.message": "Mensagem de {{mission}} ({{chars}} caracteres)."
 }

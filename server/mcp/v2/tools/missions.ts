@@ -51,6 +51,8 @@ const enc = encodeURIComponent
 
 const MISSION_SECTIONS = ['messages', 'queue', 'cards', 'subagents', 'attachments', 'intent', 'links', 'resources', 'processes'] as const
 const MESSAGE_CHARS = 2_000
+/** `message` reads one message whole, up to this. */
+const FULL_MESSAGE_CHARS = 40_000
 /** The mission's reply is the conversation itself: it arrives whole, not as an excerpt. */
 const REPLY_CHARS = 16_000
 /** Room for a whole reply in the conversational actions (send, create with a goal, Intent's opening, a card reply). */
@@ -159,7 +161,9 @@ function messageView(message: MessageLike & { attachments?: number }): Row {
     try { kind = String(record(JSON.parse(message.content)).kind ?? 'system') } catch { /* plain system row */ }
     return { id: message.id, role: 'system', card: kind, at: minute(message.created_at) }
   }
-  return { id: message.id, role: message.role, at: minute(message.created_at), text: neutralize(clip(message.content, MESSAGE_CHARS)), ...(message.attachments ? { attachments: message.attachments } : {}) }
+  // A long message is cut here; `message` (options.message=<id>) reads it whole.
+  const truncated = message.content.length > MESSAGE_CHARS
+  return { id: message.id, role: message.role, at: minute(message.created_at), text: neutralize(clip(message.content, MESSAGE_CHARS)), ...(truncated ? { truncated: true, chars: message.content.length } : {}), ...(message.attachments ? { attachments: message.attachments } : {}) }
 }
 
 /** Runs, specs and deliveries the mission's cards name. */
@@ -924,6 +928,21 @@ export const missionsTool = defineTool({
           return { ref: missionRef(String(conversation.id)), title: conversation.title ?? null, match: hit.match, ...(hit.messageId ? { messageId: hit.messageId } : {}), ...(snippet.text ? { snippet: excerpt(snippet.text, 240) } : {}) }
         })
         return result({ items }, { summary: ctx.v2.t('missions.summary.search', { count: items.length, query: excerpt(args.query, 60) }), untrusted: untrusted('/data/items/*/title', '/data/items/*/snippet') })
+      },
+    },
+    message: {
+      ...read, maxTokens: 12_000,
+      doc: 'One message of the mission whole (options.message=<id> from get messages, where long ones are truncated; default the last reply), up to 40 000 characters.',
+      handler: async (ctx, args) => {
+        const { id, ref } = missionId(ctx, args)
+        const read = await readMission(ctx, id)
+        const wanted = str(optionsOf(args).message)
+        const message = wanted ? read.messages.find((item) => item.id === wanted) : [...read.messages].reverse().find((item) => item.role === 'assistant')
+        if (!message) throw new V2ToolError('not_found', ctx.v2.t('missions.error.no_messages', { mission: ref }))
+        const text = clip(message.content, FULL_MESSAGE_CHARS)
+        return result({ mission: ref, id: message.id, role: message.role, at: minute(message.created_at), text: neutralize(text), chars: message.content.length, ...(message.content.length > FULL_MESSAGE_CHARS ? { truncated: true } : {}) }, {
+          summary: ctx.v2.t('missions.summary.message', { mission: ref, chars: message.content.length }), refs: { mission: ref }, untrusted: untrusted('/data/text'),
+        })
       },
     },
     get: { ...read, doc: 'One mission: state, last reply, pending cards. fields: messages (newest first; cursor pages older; options.after=<messageId> reads what followed), queue, cards, subagents, attachments, intent, links (runs/specs/deliveries), resources, processes (dev servers and preview app URLs).', handler: getMission },

@@ -150,5 +150,6 @@
   "preview.create_send": "Crea una missione in {{project}} e le invia il messaggio; l'agente inizia un turno.",
   "ask.goal": "Cosa deve ottenere questa missione?",
   "summary.intent_replied": "{{ref}} avviata. La missione dice: {{reply}} — Riferiscilo con parole tue; le sue opzioni sono nelle offers dello stato (proponi quelle, non le tue), e continua la conversazione nella missione con send.",
-  "summary.intent_working": "{{ref}} avviata; la missione sta ancora lavorando. Dillo alla persona (senza menu) e attendi con specrails_wait(until, refs:[{{mission}}]): si risveglia con la risposta da riferire."
+  "summary.intent_working": "{{ref}} avviata; la missione sta ancora lavorando. Dillo alla persona (senza menu) e attendi con specrails_wait(until, refs:[{{mission}}]): si risveglia con la risposta da riferire.",
+  "summary.message": "Messaggio di {{mission}} ({{chars}} caratteri)."
 }

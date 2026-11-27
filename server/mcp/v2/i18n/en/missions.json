@@ -150,5 +150,6 @@
   "preview.create_send": "Creates a mission in {{project}} and sends it the message; the agent starts a turn.",
   "ask.goal": "What should this mission achieve?",
   "summary.intent_replied": "Started {{ref}}. The mission says: {{reply}} — Relay it in your own words; its choices are in the state's offers (offer those, not your own), and keep the conversation in the mission with send.",
-  "summary.intent_working": "Started {{ref}}; the mission is still working on it. Tell the person so (no menu) and wait with specrails_wait(until, refs:[{{mission}}]): it wakes with the reply to relay."
+  "summary.intent_working": "Started {{ref}}; the mission is still working on it. Tell the person so (no menu) and wait with specrails_wait(until, refs:[{{mission}}]): it wakes with the reply to relay.",
+  "summary.message": "Message of {{mission}} ({{chars}} characters)."
 }

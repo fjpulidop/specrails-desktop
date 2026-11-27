@@ -46,6 +46,12 @@ mission's own conversation:
   with its reply and open choices (`fired[].data`); `specrails_specs(get,
   options.request)` waits for a running AI result instead of answering
   pending.
+- A mission's turn start is journaled (`agent_input_started` / `agent_dequeued`
+  → `mission.turn` running), so a wait right after a send never wakes on the
+  previous turn's end.
+- `get` marks a long message `truncated` (with `chars`); `message`
+  (`options.message=<id>`, default the last reply) reads it whole (40 000
+  characters).
 - Reply, still-working and Intent summaries tell the agent to relay the mission
   in its own words, keep the conversation there and offer a menu only for a
   real decision (never one of its own while the mission works).
