@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { createAgentConversation, getAgentConversation } from '../../../modules/agents/runtime/agent-store'
+import { createAgentConversation, findMcpLogMission, getAgentConversation } from '../../../modules/agents/runtime/agent-store'
 import { getAgentChatManager } from '../../../modules/missions/runtime/agent-chat-registry'
 import { defaultMachineProvider } from '../../../provider-selection'
 import { isV2Result } from './envelope'
@@ -94,8 +94,15 @@ export function openJournalMission(ctx: V2CallContext, tool: string, action: str
   const bound = live(ctx, session.journalMissions?.[projectId ?? HOME])
   if (bound) return { conversationId: bound.id, projectId }
   const client = clientOf(session)
+  const title = `MCP · ${client}`
+  // A reconnecting client (new MCP session, e.g. after an app restart) keeps its log mission.
+  const existing = findMcpLogMission(ctx.desktopDb, client, title, projectId)
+  if (existing) {
+    bindJournalMission(session, existing.id, projectId)
+    return { conversationId: existing.id, projectId }
+  }
   const created = createAgentConversation(ctx.desktopDb, {
-    provider: defaultMachineProvider(), pinnedProjectId: projectId, title: `MCP · ${client}`, origin: { kind: 'mcp', client },
+    provider: defaultMachineProvider(), pinnedProjectId: projectId, title, origin: { kind: 'mcp', client },
   })
   getAgentChatManager()?.notifyConversationCreated(created.id)
   bindJournalMission(session, created.id, projectId)

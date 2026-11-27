@@ -15,7 +15,7 @@ import { missionsTool } from '../tools/missions'
 import { createAgentChatRouter } from '../../../modules/missions/runtime/agent-chat-router'
 import type { AgentChatManager } from '../../../modules/missions/runtime/agent-chat-manager'
 import { setAgentChatManager } from '../../../modules/missions/runtime/agent-chat-registry'
-import { createAgentConversation, getAgentConversation, listAgentConversations } from '../../../modules/agents/runtime/agent-store'
+import { archiveAgentConversation, createAgentConversation, getAgentConversation, listAgentConversations } from '../../../modules/agents/runtime/agent-store'
 
 /**
  * mission-journal: an external MCP client's changes are logged in a mission
@@ -137,6 +137,21 @@ describe('mission journal (external MCP session)', () => {
     await new Promise((done) => setTimeout(done, 30))
     expect(rows).toHaveLength(1)
     expect(rows[0].row).toMatchObject({ action: 'slow', ok: true, summary: 'Created spec:shop-api/7', refs: { spec: 'spec:shop-api/7' }, settledAt: expect.any(String) })
+  })
+
+  it('a reconnecting client (new session) keeps logging in its log mission, a new one only once that is archived', async () => {
+    await setup(true)
+    await fake({ action: 'poke' })
+    const [log] = listAgentConversations(h.db).filter((c) => c.origin === 'mcp')
+    // A new MCP session of the same client: the app restarted, the bridge reconnected.
+    ;(h.ctx.sessionState as unknown as { journalMissions: Record<string, string> }).journalMissions = {}
+    await fake({ action: 'poke' })
+    expect(listAgentConversations(h.db).filter((c) => c.origin === 'mcp').map((c) => c.id)).toEqual([log.id])
+    expect(rows.map((r) => r.conversationId)).toEqual([log.id, log.id])
+    archiveAgentConversation(h.db, log.id)
+    ;(h.ctx.sessionState as unknown as { journalMissions: Record<string, string> }).journalMissions = {}
+    await fake({ action: 'poke' })
+    expect(rows[2].conversationId).not.toBe(log.id)
   })
 
   it('does nothing for a session that is not an external client', async () => {

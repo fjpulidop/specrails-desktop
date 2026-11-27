@@ -276,6 +276,18 @@ export function setMissionDefaultTierLevel(db: DbInstance, level: AgentTierLevel
   db.prepare('INSERT INTO desktop_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(DEFAULT_TIER_KEY, String(level))
 }
 
+/**
+ * An MCP client's log mission for a project ("MCP · <client>", Home for none) that is still in use
+ * (not archived or deleted), newest first: a reconnecting client keeps logging there instead of
+ * opening another one. A log mission the person renamed is theirs and is not reused.
+ */
+export function findMcpLogMission(db: DbInstance, client: string, title: string, projectId: string | null): AgentConversation | undefined {
+  return mapConversation(db.prepare(
+    `SELECT * FROM agent_conversations WHERE origin = 'mcp' AND origin_client = ? AND title = ? AND pinned_project_id IS ?
+       AND deleted_at IS NULL AND archived_at IS NULL ORDER BY updated_at DESC LIMIT 1`,
+  ).get(client, title, projectId) as AgentConversationRaw | undefined)
+}
+
 export function createAgentConversation(
   db: DbInstance,
   input: { forkSource?: AgentForkSource; provider?: string; model?: string | null; pinnedProjectId?: string | null; tierLevel?: AgentTierLevel; reasoningEffort?: string | null; title?: string | null; origin?: { kind: 'mcp'; client?: string | null } } = {},

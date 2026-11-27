@@ -71,8 +71,11 @@ non-in-app sessions in `server/mcp/mcp-server.ts`):
 2. A `specrails_missions` call on a mission (`ref`): that mission.
 3. `create` / `intent_start`: the mission they made, after they run.
 4. Otherwise the mission bound for the call's project (`project`, the project
-   of its `ref`, else the session's), else a new log mission
-   `MCP · <client>` pinned to that project (Home without one).
+   of its `ref`, else the session's), else the client's log mission
+   `MCP · <client>` for that project (Home without one): the one still in use
+   (not archived or deleted, `findMcpLogMission`), so a reconnecting client
+   (an app restart opens a new MCP session) keeps logging there; a new one
+   only when there is none.
 
 The binding lives in the MCP session (`journalMissions`, per project) and only
 follows live missions: a deleted one is replaced on the next change. In-app
