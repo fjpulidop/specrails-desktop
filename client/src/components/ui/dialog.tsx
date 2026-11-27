@@ -129,6 +129,34 @@ function surfaceHeaderInset(): string | undefined {
   return typeof navigator !== 'undefined' && /mac/i.test(navigator.platform) ? 'pt-[34px]!' : undefined
 }
 
+/**
+ * A dialog that is a native window's content is never dismissed by an "outside" interaction: it
+ * fills the window, so there is no outside. WebKit does deliver stray outside events around window
+ * activation (a pointerdown aimed at `<html>` when a click in the window hands focus to another
+ * window), and Radix took them for a click outside, so the live board closed whenever one of its
+ * cards opened something. Escape and the OS window controls still close it.
+ */
+export function keepWindowContentOnOutside<E extends { preventDefault(): void }>(handler?: (event: E) => void): (event: E) => void {
+  return (event) => { handler?.(event); event.preventDefault() }
+}
+
+type OutsideEvent = { preventDefault(): void; detail: { originalEvent: Event } }
+
+/**
+ * An "outside" press aimed at the document itself (`<html>`, `<body>`) is not a press outside the
+ * dialog: a real one lands on the scrim or on the page under it. WebKit sends such a pointerdown
+ * when a click hands focus between windows, and it closed a dialog that had just opened from that
+ * very click (a run opened over the live board, gone at once).
+ */
+export function isStrayOutsidePress(event: OutsideEvent): boolean {
+  const target = event.detail.originalEvent.target
+  return typeof document !== 'undefined' && (target === document.documentElement || target === document.body || target === document)
+}
+
+export function ignoreStrayOutsidePress<E extends OutsideEvent>(handler?: (event: E) => void): (event: E) => void {
+  return (event) => { if (isStrayOutsidePress(event)) { event.preventDefault(); return } handler?.(event) }
+}
+
 /** Header props that make a framed dialog's header the window's title bar. */
 export function surfaceWindowHeaderProps(framed: boolean): { 'data-tauri-drag-region'?: ''; className?: string } {
   return framed ? { 'data-tauri-drag-region': '', className: surfaceHeaderInset() } : {}
@@ -155,6 +183,7 @@ const DialogOverlay = React.forwardRef<
 >(({ className, layer = 'base', ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
+    data-dialog-scrim=""
     style={modalOverlayStyle()}
     className={cn(DIALOG_SCRIM_CLASS, DIALOG_LAYER_CLASS[layer], className)}
     {...props}
@@ -291,7 +320,7 @@ const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.C
     )
 
     const maxDvh = size === 'fullscreen' ? 92 : size === 'workspace' ? 88 : 85
-    const { onPointerDownOutside, ...rest } = props
+    const { onPointerDownOutside, onInteractOutside, ...rest } = props
 
     return (
       <DialogPortal>
@@ -308,7 +337,8 @@ const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.C
               : cn(DIALOG_PANEL_CLASS, DIALOG_LAYER_CLASS[layer], DIALOG_SIZE_CLASS[size], className)}
             onCloseAutoFocus={handleCloseAutoFocus}
             // Ignore the outside-press that ends a resize drag.
-            onPointerDownOutside={resizable ? guardBackdrop((e: Parameters<NonNullable<typeof onPointerDownOutside>>[0]) => onPointerDownOutside?.(e)) : onPointerDownOutside}
+            onPointerDownOutside={framed ? keepWindowContentOnOutside(onPointerDownOutside) : ignoreStrayOutsidePress(resizable ? guardBackdrop((e: Parameters<NonNullable<typeof onPointerDownOutside>>[0]) => onPointerDownOutside?.(e)) : onPointerDownOutside)}
+            onInteractOutside={framed ? keepWindowContentOnOutside(onInteractOutside) : onInteractOutside}
             {...rest}
           >
             {children}

@@ -468,10 +468,14 @@ pub fn surface_window_toast(app: tauri::AppHandle, webview: Webview, toast: Valu
     app.emit_to(entry.owner.as_str(), TOAST_EVENT, &SurfaceToast { window_label: label, toast }).map_err(|err| err.to_string())
 }
 
-/// The surface windows a window opened, which stay above it.
+/// The surface windows a window opened that stay above it: its modals. A surface whose results
+/// bring the opener forward (the live board, a second-screen window) does not, or it would cover
+/// the very place the opener just showed.
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-fn owned_by(owner: &str) -> Vec<String> {
-    registry().lock().map(|entries| entries.iter().filter(|(_, entry)| entry.owner == owner).map(|(label, _)| label.clone()).collect()).unwrap_or_default()
+fn kept_above(owner: &str) -> Vec<String> {
+    registry().lock().map(|entries| entries.iter()
+        .filter(|(_, entry)| entry.owner == owner && spec(entry.surface).is_some_and(|spec| !spec.focus_opener_on_result))
+        .map(|(label, _)| label.clone()).collect()).unwrap_or_default()
 }
 
 /// macOS: a surface window has no parent (see `surface_window_open`), so clicking its opener used
@@ -485,7 +489,7 @@ fn keep_above_opener(opener: &tauri::Window) {
     // SAFETY: Tauri runs window events on the main thread and these pointers are live NSWindows.
     let opener_number = unsafe { (*(opener_ns as *const NSWindow)).windowNumber() };
     let app = opener.app_handle();
-    for label in owned_by(opener.label()) {
+    for label in kept_above(opener.label()) {
         let Some(window) = app.get_webview_window(&label) else { continue };
         if !window.is_visible().unwrap_or(false) || window.is_minimized().unwrap_or(true) { continue; }
         let Ok(ns) = window.ns_window() else { continue };
@@ -600,6 +604,18 @@ mod tests {
         let control: HashMap<String, String> = [("jobId".into(), "a\nb".into())].into();
         assert!(validate_params(job, &control).is_err());
         assert!(safe_token("req-1_a", 64) && !safe_token("", 64) && !safe_token("a b", 64));
+    }
+    #[test]
+    fn modals_stay_above_their_opener_but_the_live_board_does_not() {
+        let insert = |label: &str, surface: &'static str, owner: &str| registry().lock().unwrap().insert(label.into(), Entry { key: label.into(), surface, owner: owner.into(), request_id: "r".into(), opening: false });
+        insert("surface-above-settings", "app-settings", "main-above");
+        insert("surface-above-job", "job-detail", "main-above");
+        insert("surface-above-board", "live-board", "main-above");
+        insert("surface-above-other", "job-detail", "mission-above");
+        let mut above = kept_above("main-above");
+        above.sort();
+        assert_eq!(above, vec!["surface-above-job".to_string(), "surface-above-settings".to_string()]);
+        for label in ["surface-above-settings", "surface-above-job", "surface-above-board", "surface-above-other"] { registry().lock().unwrap().remove(label); }
     }
     #[test]
     fn a_spare_is_taken_once_when_ready_and_only_by_its_owner_off_macos() {

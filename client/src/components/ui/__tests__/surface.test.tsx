@@ -192,6 +192,41 @@ describe('SurfaceWindowFrame: dialog as window content', () => {
   })
 })
 
+describe('SurfaceWindowFrame: no outside', () => {
+  // WebKit sends a stray pointerdown aimed at <html> when a click in a native window hands focus to
+  // another window; Radix took it for a click outside, so the live board closed whenever a card
+  // opened something in the main window.
+  it('[spec:native-surface-windows/stray-outside-event] a native window is never dismissed by an outside pointerdown or focus; a modal only by a press on its scrim', async () => {
+    const framedClose = vi.fn()
+    const { unmount } = render(
+      <SurfaceWindowFrame>
+        <Dialog open onOpenChange={(open) => { if (!open) framedClose() }}>
+          <DialogContent size="fullscreen"><DialogHeader><DialogTitle>Board</DialogTitle><DialogDescription>d</DialogDescription></DialogHeader><button type="button">Open</button></DialogContent>
+        </Dialog>
+      </SurfaceWindowFrame>,
+    )
+    await new Promise(resolve => setTimeout(resolve, 0))
+    fireEvent.pointerDown(document.documentElement)
+    fireEvent.focusIn(document.body)
+    expect(framedClose).not.toHaveBeenCalled()
+    unmount()
+
+    const modalClose = vi.fn()
+    render(
+      <Dialog open onOpenChange={(open) => { if (!open) modalClose() }}>
+        <DialogContent size="workspace"><DialogHeader><DialogTitle>Modal</DialogTitle><DialogDescription>d</DialogDescription></DialogHeader></DialogContent>
+      </Dialog>,
+    )
+    await new Promise(resolve => setTimeout(resolve, 0))
+    // A press aimed at the document itself is stray for a modal too (it closed a run that had just
+    // opened over the live board); a press on the scrim is a real press outside.
+    fireEvent.pointerDown(document.documentElement)
+    expect(modalClose).not.toHaveBeenCalled()
+    fireEvent.pointerDown(document.querySelector('[data-dialog-scrim]')!)
+    expect(modalClose).toHaveBeenCalled()
+  })
+})
+
 describe('SurfaceWindowFrame: remounted content', () => {
   // The window content can unmount and mount again while its project data refreshes. It used to
   // lose the frame (the first dialog's id stayed the owner), so the window fell back to the

@@ -288,7 +288,8 @@ opens, like loop and mission windows. That is tighter than a static
 `surface-*` glob, which would match any webview later created with that
 prefix.
 
-The live board window has no extra permission or command: it reads the API and reports
+The live board window has no extra permission or command: it reads the API, opens runs and reviews
+over itself, and reports
 `{ action: 'primary' | 'open', card }` results that the main window runs.
 
 | Granted to every surface window | Extra for `app-settings` |

@@ -29,6 +29,8 @@ import {
   DialogTitle,
   SURFACE_WINDOW_PANEL_CLASS,
   surfaceWindowHeaderProps,
+  ignoreStrayOutsidePress,
+  keepWindowContentOnOutside,
   useSurfaceWindowFrame,
 } from '../../../components/ui/dialog'
 import { useNativeSurface } from '../../../components/ui/surface'
@@ -394,12 +396,14 @@ function JobDetailModalContent({ jobId: initialJobId, onClose, projectId }: JobD
           onEscapeKeyDown={(e) => {
             if (showCancelConfirm) { e.preventDefault(); setShowCancelConfirm(false) }
           }}
+          // A native window has no outside (keepWindowContentOnOutside): stray events never close it.
+          onInteractOutside={framed ? keepWindowContentOnOutside() : undefined}
           // Ignore the outside press that ends a move/resize drag.
-          onPointerDownOutside={(e) => {
+          onPointerDownOutside={framed ? keepWindowContentOnOutside() : ignoreStrayOutsidePress((e) => {
             let allowed = false
             guardBackdrop(() => { allowed = true })()
             if (!allowed) e.preventDefault()
-          }}
+          })}
         >
           {/* Own TooltipProvider: this modal mounts from trees WITHOUT one (the
               Agent-Mode surface bypasses ProjectLayout) — without it Radix

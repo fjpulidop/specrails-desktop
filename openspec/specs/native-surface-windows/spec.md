@@ -43,3 +43,10 @@ On macOS a surface window SHALL be ordered right above its opener whenever the o
 #### Scenario: Clicking the opener
 - **WHEN** the person clicks the main window while a surface window it opened is visible
 - **THEN** the surface window stays visible above the main window
+
+### Requirement: Stray outside events never close a window
+A dialog that is a native window's content SHALL NOT be dismissed by an outside pointer or focus event; any dialog SHALL ignore an outside press aimed at the document itself (`<html>`, `<body>`), which WebKit sends around window activation.
+
+#### Scenario: Stray outside event
+- **WHEN** a pointerdown aimed at `<html>` reaches a native window's dialog or a modal opened in it
+- **THEN** neither closes; a press on a modal's scrim still closes the modal
