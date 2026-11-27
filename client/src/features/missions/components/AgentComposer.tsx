@@ -614,10 +614,17 @@ export function AgentComposer({
   }
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.nativeEvent.isComposing) return
-    // Shift+Tab inside the editor is reverse focus navigation (WCAG 2.1.1):
-    // it must leave the editor, never change the autonomy tier under the
-    // person's hands. The tier shortcut stays on the conversation-view wrapper
-    // for every control outside the text box, and the chip itself is a button.
+    // Shift+Tab in the message editor cycles the autonomy tier, as it does
+    // everywhere else in a mission (and in the floating panel, where it used to
+    // reach the panel's own handler while Mission mode moved focus instead). The
+    // editor is not a keyboard trap: Tab still leaves it. Stopped here so the
+    // view and panel handlers never cycle a second time.
+    if (e.shiftKey && (e.key === 'Tab' || e.code === 'Tab') && !paletteOpen) {
+      e.preventDefault()
+      e.stopPropagation()
+      cycleTier()
+      return
+    }
     if (paletteOpen) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
