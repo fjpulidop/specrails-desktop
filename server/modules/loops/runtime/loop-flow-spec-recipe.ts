@@ -150,7 +150,9 @@ export function flowSpecGraph(): LoopGraph {
       'Return approved, summary, issues (empty when none), score (0-100), unrequested (empty when none) and followUps (empty when none).',
     ].join(' '),
     structuredOutput: REVIEW_SCHEMA,
-    sessionContinuity: 'none',
+    // The same reviewer across rounds: a re-review remembers what it read and asked for, so it verifies
+    // instead of re-reading the project and reviewing from scratch (benchmark experiment 2).
+    sessionContinuity: 'run',
   }, { next: 'review-policy', invalid: 'failed', failed: 'failed' })
   node('review-policy', 'Review acceptance policy', 'condition', { expr: '$outputs.review.structured.approved == true && !exists($outputs.review.structured.unrequested.0)' }, { true: 'archive', false: 'review-findings' })
   node('review-findings', 'Capture review findings', 'assign', { set: { latestFindings: '{{outputs.review.structured}}' } }, { next: 'scope-gate', failed: 'failed' }, 720)

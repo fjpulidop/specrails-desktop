@@ -68,3 +68,13 @@ false`, so it would never resume by itself. Codex says "try again at Nov 28th,
 time or a named zone): from now on a limit-paused Intent → Spec run resumes on
 its own at the provider's reset. This run was recorded before the fix, so it is
 resumed with `--resume 45b765d0-587f-4049-a4e5-4b78fd88d9f3` after the reset.
+
+### Experiment 2 (pending measurement) — the reviewer keeps its session
+
+From commit "perf(intent-spec): the reviewer keeps its session across rounds",
+the review node uses `sessionContinuity: 'run'` (Core reuses the reviewer's
+provider session within the run): a re-review remembers what it read and asked
+for. The fixer still starts fresh, so the effect is attributable. Runs launched
+before this commit (run 1, `45b765d0`) froze the earlier graph and measure the
+convergent review alone. Measure it with a new run of the case (not `--resume`).
+
