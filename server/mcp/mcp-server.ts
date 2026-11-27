@@ -165,6 +165,10 @@ export class McpServerManager {
           get sessionKey() { return inApp ? connectionKey : confirmationKey(server.server.getClientVersion(), connectionKey) },
           // Form elicitation (an empty `elicitation: {}` is form mode too); in-app turns confirm through their own cards.
           elicitation: () => !inApp && elicitsForms(server.server.getClientCapabilities()),
+          // An external client's changes are logged in a mission (v2/core/mission-journal.ts).
+          external: !inApp,
+          journalMissions: {} as Record<string, string>,
+          clientName: () => server.server.getClientVersion()?.name ?? null,
         }
       : { activeProjectId: null }
     const context = { ...this._ctx, sessionState }

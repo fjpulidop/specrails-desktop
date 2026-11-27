@@ -76,10 +76,10 @@ describe('desktop-db', () => {
       expect(names).toContain('idx_projects_path')
     })
 
-    it('applies migrations 1 through 41 and records them', () => {
+    it('applies migrations 1 through 42 and records them', () => {
       const versions = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all() as { version: number }[]
-      expect(versions).toHaveLength(41)
-      expect(versions.map((v) => v.version)).toEqual(Array.from({ length: 41 }, (_, i) => i + 1))
+      expect(versions).toHaveLength(42)
+      expect(versions.map((v) => v.version)).toEqual(Array.from({ length: 42 }, (_, i) => i + 1))
       const columns = db.prepare('PRAGMA table_info(agent_messages)').all() as { name: string }[]
       expect(columns.map((c) => c.name)).toContain('context_refs')
       // 23: durable Builder snapshots
@@ -180,7 +180,7 @@ describe('desktop-db', () => {
       // Re-init on same DB (in-memory so we just call again)
       const db2 = makeDb()
       const versions = db2.prepare('SELECT version FROM schema_migrations').all() as { version: number }[]
-      expect(versions).toHaveLength(41)
+      expect(versions).toHaveLength(42)
     })
   })
 
@@ -894,7 +894,7 @@ it('upgrades a version-29 library without converting or fabricating backups for 
     connection.close()
     connection = initDesktopDb(file)
     expect(connection.prepare("SELECT graph,status,graph_legacy,graph_legacy_saved_at FROM loops WHERE id='original'").get()).toEqual({ graph: original, status: 'published', graph_legacy: null, graph_legacy_saved_at: null })
-    expect(connection.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 41 })
+    expect(connection.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 42 })
   } finally { if (connection.open) connection.close(); fs.rmSync(root, { recursive: true, force: true }) }
 })
 
@@ -913,7 +913,7 @@ it('migration 31 adds built-in columns, backfills published snapshots and enforc
       { id: 'draft', builtin_id: null, builtin_default_hash: null, published_graph: null },
       { id: 'pub', builtin_id: null, builtin_default_hash: null, published_graph: graph },
     ])
-    expect(connection.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 41 })
+    expect(connection.prepare('SELECT MAX(version) AS version FROM schema_migrations').get()).toEqual({ version: 42 })
     connection.prepare("INSERT INTO loops(id,name,status,graph,builtin_id) VALUES('factory:implement','Implement','published',?,'factory:implement')").run(graph)
     expect(() => connection.prepare("INSERT INTO loops(id,name,status,graph,builtin_id) VALUES('other','Other','published',?,'factory:implement')").run(graph)).toThrow(/UNIQUE/)
     // Replaying the guarded migration on a migrated database is a no-op.

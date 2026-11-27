@@ -74,6 +74,15 @@ function missionId(ctx: V2CallContext, args: Row): { id: string; ref: Ref } {
 
 const missionRef = (id: string) => formatRef('mission', id)
 
+/** A mission an external MCP client creates is marked as such (Desktop shows where it came from). */
+function mcpOrigin(ctx: V2CallContext): Row {
+  const session = ctx.sessionState
+  if (ctx.firstPartyAgent || session.external !== true) return {}
+  let client: string | null = null
+  try { client = session.clientName?.() ?? null } catch { /* unknown client */ }
+  return { origin: 'mcp', ...(client ? { originClient: client } : {}) }
+}
+
 /** A mission must not message, stop or question itself (it would loop on its own turn). */
 function refuseSelf(ctx: V2CallContext, id: string): void {
   if (ctx.firstPartyAgent && ctx.originConversationId === id) throw new V2ToolError('invalid_input', ctx.v2.t('missions.error.self'))
@@ -883,9 +892,9 @@ export const missionsTool = defineTool({
         const pin = args.project !== undefined && args.project !== null && args.project !== 'home' ? ctx.v2.project(args) : null
         const created = record(record(await apiCall(ctx, 'POST', AGENT, {
           pinnedProjectId: pin?.id ?? null, ...(args.provider ? { provider: args.provider } : {}), ...(args.model ? { model: args.model } : {}), ...(args.effort ? { reasoningEffort: args.effort } : {}),
+          ...(str(args.title) ? { title: str(args.title) } : {}), ...mcpOrigin(ctx),
         })).conversation)
         const id = String(created.id)
-        if (str(args.title)) await apiCall(ctx, 'PATCH', `${AGENT}/${enc(id)}`, { title: str(args.title) })
         const ref = missionRef(id)
         return result({ ref, ...(pin ? { project: pin.slug } : {}), provider: created.provider, model: created.model ?? null, effort: created.reasoning_effort ?? null }, {
           summary: ctx.v2.t('missions.summary.created', { mission: ref }), refs: { mission: ref },
@@ -1154,7 +1163,7 @@ export const missionsTool = defineTool({
           row = projectOfPin(ctx, conversation.pinned_project_id) ?? ctx.v2.project(args)
         } else {
           row = ctx.v2.project(args)
-          const created = record(record(await apiCall(ctx, 'POST', AGENT, { pinnedProjectId: row.id, ...(args.provider ? { provider: args.provider } : {}), ...(args.model ? { model: args.model } : {}), ...(args.effort ? { reasoningEffort: args.effort } : {}) })).conversation)
+          const created = record(record(await apiCall(ctx, 'POST', AGENT, { pinnedProjectId: row.id, ...(args.provider ? { provider: args.provider } : {}), ...(args.model ? { model: args.model } : {}), ...(args.effort ? { reasoningEffort: args.effort } : {}), ...mcpOrigin(ctx) })).conversation)
           conversationId = String(created.id)
         }
         let ticketId: number | undefined

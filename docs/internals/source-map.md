@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1947 source/build files. Nearby tests are linked where names
+Includes 1949 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -721,6 +721,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentFlowReviewBlock.tsx](../../client/src/features/missions/components/AgentFlowReviewBlock.tsx)
 - [AgentGitBar.tsx](../../client/src/features/missions/components/AgentGitBar.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentGitBar.test.tsx)
 - [AgentIntentDraftCard.tsx](../../client/src/features/missions/components/AgentIntentDraftCard.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentIntentDraftCard.test.tsx)
+- [AgentMcpActionLine.tsx](../../client/src/features/missions/components/AgentMcpActionLine.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentMcpActionLine.test.tsx)
 - [AgentMessage.tsx](../../client/src/features/missions/components/AgentMessage.tsx)
 - [AgentMissionSelector.tsx](../../client/src/features/missions/components/AgentMissionSelector.tsx)
 - [AgentModeAnalyticsPane.tsx](../../client/src/features/missions/components/AgentModeAnalyticsPane.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeAnalyticsPane.test.tsx)
@@ -1738,6 +1739,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [forecast.ts](../../server/mcp/v2/core/forecast.ts) · [test](../../server/mcp/v2/core/forecast.test.ts)
 - [lang.ts](../../server/mcp/v2/core/lang.ts) · [test](../../server/mcp/v2/core/lang.test.ts)
 - [loopback.ts](../../server/mcp/v2/core/loopback.ts)
+- [mission-journal.ts](../../server/mcp/v2/core/mission-journal.ts) · [test](../../server/mcp/v2/core/mission-journal.test.ts)
 - [refs.ts](../../server/mcp/v2/core/refs.ts) · [test](../../server/mcp/v2/core/refs.test.ts)
 - [registry.ts](../../server/mcp/v2/core/registry.ts) · [test](../../server/mcp/v2/core/registry.test.ts)
 - [size-guard.ts](../../server/mcp/v2/core/size-guard.ts) · [test](../../server/mcp/v2/core/size-guard.test.ts)

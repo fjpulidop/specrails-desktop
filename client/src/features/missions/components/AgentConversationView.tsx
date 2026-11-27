@@ -1,3 +1,4 @@
+import { AgentMcpActionLine, parseMcpActionRow } from './AgentMcpActionLine'
 import { MissionSelectionMenu } from './MissionSelectionMenu'
 import { PolicyDeniedNotice } from '../../../components/agent-policy/PolicyDeniedNotice'
 import { parsePolicyDeniedRow } from '../../../components/agent-policy/policy-denial'
@@ -574,6 +575,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // Intent delivered: the closing summary (server-authored, once per Intent).
               const flowDelivered = parseFlowDeliveredRow(m.content)
               if (flowDelivered) return <AgentFlowDeliveredCard key={m.id} row={flowDelivered} projectId={refsProjectId} conversationId={m.conversation_id} />
+              // An external MCP client's change (mission-journal): one event line.
+              const mcpAction = parseMcpActionRow(m.content)
+              if (mcpAction) return <AgentMcpActionLine key={m.id} row={mcpAction} />
               // Entered / left Intent: one event line at the boundary.
               const flowBoundary = parseFlowBoundaryRow(m.content)
               if (flowBoundary) return <AgentFlowBoundaryLine key={m.id} row={flowBoundary} />
@@ -646,6 +650,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 contextRefs={m.context_refs}
                 deliveryStatus={m.delivery_status}
                 deliveryReceipt={m.delivery_receipt}
+                viaMcp={m.surface === 'mcp'}
                 conversationId={m.conversation_id}
                 attachments={(m.attachment_ids ?? []).map((id) => attachmentById.get(id)).filter((att): att is AgentAttachment => !!att)}
               />

@@ -265,6 +265,9 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       tierLevel: body.tierLevel !== undefined ? normalizeLevel(body.tierLevel) : 0,
       // Off-catalog values fall back to null (= no provider-specific override).
       reasoningEffort: validEffort(provider, effectiveModel, body.reasoningEffort) ?? null,
+      // Created by an external MCP client: Desktop marks it (the person did not make it here).
+      ...(typeof body.title === 'string' && body.title.trim() ? { title: body.title.trim().slice(0, 200) } : {}),
+      ...(body.origin === 'mcp' ? { origin: { kind: 'mcp' as const, client: typeof body.originClient === 'string' ? body.originClient : null } } : {}),
     })
     manager.notifyConversationCreated(conversation.id)
     res.status(201).json({ conversation })
@@ -511,7 +514,9 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     ) {
       patch.reasoning_effort = null
     }
-    res.json({ conversation: updateAgentConversation(desktopDb, conversation.id, patch) })
+    const updated = updateAgentConversation(desktopDb, conversation.id, patch)
+    if (patch.title !== undefined && patch.title !== conversation.title) manager.notifyTitle(conversation.id, updated?.title ?? null)
+    res.json({ conversation: updated })
   })
 
   // Stop everything live in a mission (turn, Core session, background processes).

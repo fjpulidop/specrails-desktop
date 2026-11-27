@@ -57,6 +57,7 @@ function fakeManager(): AgentChatManager {
     scheduleLimitContinue: (_id: string, at: string | null) => ({ at }),
     activeTurns: () => ({ turns: [...busy].map((conversationId) => ({ conversationId })), sessions: [] }),
     notifyConversationCreated: () => {},
+    notifyTitle: () => {},
     abort: (id: string) => busy.delete(id),
     closeCoreSession: async () => {},
     isFlowActive: (id: string) => [...flows.values()].some((f) => f.conversationId === id && f.state === 'active'),

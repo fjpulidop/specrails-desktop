@@ -41,6 +41,10 @@ export interface AgentConversation {
   archivedAt: string | null
   /** Latest "context used" snapshot of the provider session (migration 40); absent = not measured. */
   contextUsage?: ContextUsageSnapshot
+  /** `mcp`: created by an external MCP client (or its session's log); absent = made in the app (migration 42). */
+  origin?: 'mcp'
+  /** The MCP client's name (e.g. "claude-code") when `origin` is `mcp`. */
+  origin_client?: string
   created_at: string
   updated_at: string
 }
@@ -67,6 +71,8 @@ export interface AgentMessage {
   core_turn_id?: string
   /** `subagent`/`system`: a turn Core started on its own after background work. */
   turn_origin?: 'user' | 'subagent' | 'system'
+  /** `mcp`: the person wrote it from an external MCP client (migration 42). */
+  surface?: 'mcp'
   created_at: string
 }
 
@@ -136,6 +142,7 @@ interface AgentMessageRaw {
   intent?: string | null
   core_turn_id?: string | null
   turn_origin?: string | null
+  surface?: string | null
   created_at: string
 }
 
@@ -174,6 +181,7 @@ function mapMessage(row: AgentMessageRaw): AgentMessage {
     intents: parseIntents(row.intent),
     ...(row.core_turn_id ? { core_turn_id: row.core_turn_id } : {}),
     ...(row.turn_origin === 'user' || row.turn_origin === 'subagent' || row.turn_origin === 'system' ? { turn_origin: row.turn_origin } : {}),
+    ...(row.surface === 'mcp' ? { surface: 'mcp' as const } : {}),
     created_at: row.created_at,
   }
 }
@@ -230,15 +238,17 @@ interface AgentConversationRaw {
   deleted_at?: string | null
   archived_at: string | null
   context_usage?: string | null
+  origin?: string | null
+  origin_client?: string | null
   created_at: string
   updated_at: string
 }
 
 function mapConversation(row: AgentConversationRaw | undefined): AgentConversation | undefined {
   if (!row) return undefined
-  const { archived_at, fork_source, context_usage, ...fields } = row
+  const { archived_at, fork_source, context_usage, origin, origin_client, ...fields } = row
   const contextUsage = parseContextUsageSnapshot(context_usage)
-  return { ...fields, ...(fork_source ? { forkSource: JSON.parse(fork_source) as AgentForkSource } : {}), archivedAt: archived_at, ...(contextUsage ? { contextUsage } : {}), tier_level: normalizeLevel(row.tier_level) }
+  return { ...fields, ...(fork_source ? { forkSource: JSON.parse(fork_source) as AgentForkSource } : {}), archivedAt: archived_at, ...(contextUsage ? { contextUsage } : {}), ...(origin === 'mcp' ? { origin: 'mcp' as const, ...(origin_client ? { origin_client } : {}) } : {}), tier_level: normalizeLevel(row.tier_level) }
 }
 
 /**
@@ -253,12 +263,12 @@ export function setAgentConversationContextUsage(db: DbInstance, id: string, sna
 
 export function createAgentConversation(
   db: DbInstance,
-  input: { forkSource?: AgentForkSource; provider?: string; model?: string | null; pinnedProjectId?: string | null; tierLevel?: AgentTierLevel; reasoningEffort?: string | null } = {},
+  input: { forkSource?: AgentForkSource; provider?: string; model?: string | null; pinnedProjectId?: string | null; tierLevel?: AgentTierLevel; reasoningEffort?: string | null; title?: string | null; origin?: { kind: 'mcp'; client?: string | null } } = {},
 ): AgentConversation {
   const id = randomUUID()
   db.prepare(
-    `INSERT INTO agent_conversations (id, provider, model, pinned_project_id, tier_level, reasoning_effort, fork_source)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO agent_conversations (id, provider, model, pinned_project_id, tier_level, reasoning_effort, fork_source, title, origin, origin_client)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     input.provider ?? 'claude',
@@ -267,6 +277,9 @@ export function createAgentConversation(
     input.tierLevel ?? 0,
     input.reasoningEffort ?? null,
     input.forkSource ? JSON.stringify(input.forkSource) : null,
+    input.title ?? null,
+    input.origin?.kind ?? null,
+    input.origin?.client ? input.origin.client.slice(0, 80) : null,
   )
   return getAgentConversation(db, id)!
 }
@@ -360,6 +373,11 @@ export function listDeletedAgentConversations(db: DbInstance, pinnedProjectId?: 
 export function listExpiredAgentConversationIds(db: DbInstance, now: Date = new Date(), retentionMs: number = AGENT_TRASH_RETENTION_MS): string[] {
   const cutoff = new Date(now.getTime() - retentionMs).toISOString()
   return (db.prepare('SELECT id FROM agent_conversations WHERE deleted_at IS NOT NULL AND deleted_at <= ?').all(cutoff) as Array<{ id: string }>).map((r) => r.id)
+}
+
+/** Marks a person's message as written from an external MCP client. */
+export function markAgentMessageSurface(db: DbInstance, messageId: string, surface: 'mcp'): void {
+  db.prepare('UPDATE agent_messages SET surface = ? WHERE id = ?').run(surface, messageId)
 }
 
 export function addAgentMessage(

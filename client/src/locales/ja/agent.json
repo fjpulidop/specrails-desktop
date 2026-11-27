@@ -1705,5 +1705,11 @@
     "answer": "回答",
     "defaultQuestion": "この文脈でこれが何を意味するか説明してください。",
     "providerDefault": "{{provider}} の既定モデル"
+  },
+  "mcp": {
+    "viaMcp": "MCP 経由",
+    "action": "{{client}} · {{call}}",
+    "actionFailed": "{{client}} · {{call}} 失敗",
+    "missionBadgeTitle": "{{client}} が MCP で作成しました。その操作はここに記録されます"
   }
 }

@@ -32,6 +32,10 @@ export interface AgentConversation {
   contextUsage?: AgentContextUsage | null
   /** Reasoning effort for spawns; null = no provider-specific override. */
   reasoning_effort: string | null
+  /** `mcp`: created by an external MCP client (or its session log); absent = made in the app. */
+  origin?: 'mcp'
+  /** The MCP client's name when `origin` is `mcp`. */
+  origin_client?: string
   created_at: string
   updated_at: string
 }
@@ -71,6 +75,8 @@ export interface AgentMessage {
   core_turn_id?: string
   /** `subagent`/`system`: a turn the agent started on its own after background work. */
   turn_origin?: 'user' | 'subagent' | 'system'
+  /** `mcp`: the person wrote it from an external MCP client (Claude Code, Codex…). */
+  surface?: 'mcp'
   /** Client-only, on `err-` notes: the row that preceded it, so a revalidation puts it back in place. */
   client_after_id?: string | null
   created_at: string

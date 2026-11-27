@@ -1705,5 +1705,11 @@
     "answer": "回答",
     "defaultQuestion": "解释这在此上下文中的含义。",
     "providerDefault": "{{provider}} 默认模型"
+  },
+  "mcp": {
+    "viaMcp": "通过 MCP",
+    "action": "{{client}} · {{call}}",
+    "actionFailed": "{{client}} · {{call}} 失败",
+    "missionBadgeTitle": "由 {{client}} 通过 MCP 创建:其操作记录在此"
   }
 }

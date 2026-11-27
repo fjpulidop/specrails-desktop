@@ -1147,7 +1147,7 @@ export const specsTool = defineTool({
         const options = optionsOf(args)
         const response = asRecord(await apiCall(ctx, 'POST', `${base(row)}/tickets/${id}/addenda`, {
           body: args.body, ...pass(options, ['kind']), ...(typeof args.title === 'string' ? { title: args.title } : pass(options, ['title'])),
-          createdBy: ctx.originConversationId ? 'agent' : 'mcp', originConversationId: ctx.originConversationId ?? undefined,
+          createdBy: ctx.firstPartyAgent && ctx.originConversationId ? 'agent' : 'mcp', originConversationId: ctx.originConversationId ?? undefined,
         }))
         return addendumResult(ctx, row, id, response, 'specs.summary.addendum_added')
       },

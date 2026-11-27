@@ -49,6 +49,7 @@ import {
 import {
   getAgentConversation,
   addAgentMessage,
+  markAgentMessageSurface,
   updateAgentConversation,
   listAgentMessages,
   findAgentSystemMessages,
@@ -590,6 +591,11 @@ export class AgentChatManager {
     this._broadcast({ type: 'agent_conversation_created', conversationId, timestamp: new Date().toISOString() })
   }
 
+  /** A title set outside a turn (rename, MCP `update`) reaches every open window. */
+  notifyTitle(conversationId: string, title: string | null): void {
+    this._broadcast({ type: 'agent_title', conversationId, title: title ?? '', timestamp: new Date().toISOString() })
+  }
+
   /** Spend recorded outside a turn (a side question) refreshes the project's dashboards. */
   notifySpendingInvalidated(projectId: string): void {
     this._broadcast({ type: 'spending.invalidated', projectId })
@@ -906,13 +912,16 @@ export class AgentChatManager {
       ? deliverAgentInput(this._db, conversationId, options.queueId, 'sent')
       : addAgentMessage(this._db, { conversationId, role: 'user', content: userText, attachmentIds, contextRefs: options.contextRefs })
     if (!message) return
+    // Written from an external MCP client: Desktop shows where it came from.
+    const viaMcp = options.surface === 'mcp'
+    if (viaMcp) markAgentMessageSurface(this._db, message.id, 'mcp')
     // Queued turns were announced by the drain loop. Direct turns must also
     // reach every open client, including Desktop when Companion sent the input.
     if (!currentMessageId) this._broadcast({
       type: 'agent_input_started', conversationId, queueId: options.queueId ?? null,
       messageId: message.id, text: message.content, timestamp: message.created_at,
       contextRefs: options.contextRefs ?? [], attachmentIds: attachmentIds ?? [],
-      deliveryReceipt: 'sent',
+      deliveryReceipt: 'sent', ...(viaMcp ? { surface: 'mcp' } : {}),
     })
     this._autoTitle(conversationId, conversation.title)
 

@@ -512,6 +512,9 @@ export function launchBody(ctx: V2CallContext, args: Row): Row {
   if (ctx.originConversationId) {
     body.originConversationId = ctx.originConversationId
     body.originSurface = 'agent-chat'
+  }
+  // The in-app mission's provider/model/effort carry over; an external client's log mission imposes none.
+  if (ctx.originConversationId && ctx.firstPartyAgent) {
     const defaults = originConversationDefaults(ctx)
     if (body.aiEngine === undefined && defaults.provider) body.aiEngine = defaults.provider
     if (body.model === undefined && defaults.model && body.aiEngine === defaults.provider) body.model = defaults.model

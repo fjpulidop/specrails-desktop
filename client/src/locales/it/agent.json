@@ -1705,5 +1705,11 @@
     "answer": "Risposta",
     "defaultQuestion": "Spiega cosa significa in questo contesto.",
     "providerDefault": "modello predefinito di {{provider}}"
+  },
+  "mcp": {
+    "viaMcp": "via MCP",
+    "action": "{{client}} · {{call}}",
+    "actionFailed": "{{client}} · {{call}} non riuscita",
+    "missionBadgeTitle": "Creata da {{client}} tramite MCP: qui sono registrate le sue azioni"
   }
 }

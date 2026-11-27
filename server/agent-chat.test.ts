@@ -386,6 +386,7 @@ function makeApp(db: DbInstance, manager: Partial<AgentChatManager>) {
   app.use(express.json())
   app.use('/api/agent', createAgentChatRouter({ manager: {
     notifyConversationCreated: vi.fn(),
+    notifyTitle: vi.fn(),
     pendingMessages: () => [],
     conversationLive: () => ({ isStreaming: false, streamingText: '', startedAt: undefined }),
     sessionState: () => null,
@@ -928,6 +929,9 @@ describe('AgentChatManager', () => {
     expect(prompts[0]).toContain('Surface: MCP client')
     expect(prompts[0]).toContain('never an app button')
     expect(prompts[1]).not.toContain('Surface: MCP client')
+    // Desktop shows which message came through MCP (stored and announced live).
+    const users = listAgentMessages(db, c.id).filter((m) => m.role === 'user')
+    expect(users.map((m) => m.surface ?? null)).toEqual(['mcp', null])
   })
 
   it('emits agent_error when the spawn fails', async () => {

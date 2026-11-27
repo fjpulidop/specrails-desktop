@@ -12,6 +12,10 @@ describe('filterActiveConversations', () => {
     expect(filterActiveConversations(convs, new Set(['b']), 'c')).toEqual([{ id: 'b' }, { id: 'c' }])
   })
 
+  it('keeps what the caller names (a recently active MCP mission)', () => {
+    expect(filterActiveConversations(convs, new Set(['b']), null, (c) => c.id === 'd')).toEqual([{ id: 'b' }, { id: 'd' }])
+  })
+
   it('ignores a null activeId', () => {
     expect(filterActiveConversations(convs, new Set(), null)).toEqual([])
   })

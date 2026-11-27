@@ -477,6 +477,8 @@ function AgentExtensionPending() {
 }
 
 interface Props {
+  /** The person wrote it from an external MCP client: the bubble says so. */
+  viaMcp?: boolean
   /** `system` rows are app-authored inline cards (PR-decision card, P7);
    *  until the card branch lands they render through the assistant path. */
   role: 'user' | 'assistant' | 'system'
@@ -579,7 +581,7 @@ function LiveBusyFenceCard({ Card, ...props }: { Card: ComponentType<MissionFenc
   return <Card {...props} isStreaming={busy} />
 }
 
-export function AgentMessage({ role, content, createdAt, modeMark = null, streaming, isLast, isLatest, isLatestSettledIntent, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false }: Props) {
+export function AgentMessage({ role, content, createdAt, modeMark = null, streaming, isLast, isLatest, isLatestSettledIntent, isStreaming, onPickOption, refsProjectId, onOpenRef, contextRefs, attachments, conversationId, deliveryStatus, deliveryReceipt, tolerantFences = false, messageId, intents = null, railProposalsPinned = false, viaMcp = false }: Props) {
   const { t } = useTranslation('agent')
   const localIntents = useLocalIntents()
   const extensions = useMissionExtensions()
@@ -648,9 +650,10 @@ export function AgentMessage({ role, content, createdAt, modeMark = null, stream
             {(deliveryStatus || deliveryReceipt) && <div className="mt-1 flex justify-end"><AgentDeliveryReceipt receipt={deliveryReceipt} status={deliveryStatus} /></div>}
           </div>
         </div>
-        {createdAt && (
-          <div className="pr-1.5">
-            <MessageTime iso={createdAt} />
+        {(createdAt || viaMcp) && (
+          <div className="flex items-center gap-1.5 pr-1.5">
+            {viaMcp && <span className="text-caption text-muted-foreground" data-testid="agent-message-via-mcp">{t('mcp.viaMcp')}</span>}
+            {createdAt && <MessageTime iso={createdAt} />}
           </div>
         )}
       </article>

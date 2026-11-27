@@ -21,7 +21,7 @@ describe('mission branches', () => {
   let files: AttachmentManager
   let home: string
   let app: express.Express
-  const manager = { notifyConversationCreated: vi.fn(), sendMessage: vi.fn() }
+  const manager = { notifyConversationCreated: vi.fn(), notifyTitle: vi.fn(), sendMessage: vi.fn() }
   beforeEach(() => {
     vi.clearAllMocks()
     home = fs.mkdtempSync(path.join(os.tmpdir(), 'mission-branch-'))

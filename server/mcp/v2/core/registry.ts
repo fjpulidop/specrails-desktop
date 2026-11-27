@@ -1,3 +1,4 @@
+import { journalCreated, journals, openJournalMission, recordJournalAction, type JournalSessionState, type JournalTarget } from './mission-journal'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, ServerNotification } from '@modelcontextprotocol/sdk/types.js'
 import { z, type ZodRawShape } from 'zod'
@@ -200,7 +201,7 @@ export function wireInput(def: V2ToolDef, hiddenActions: readonly string[] = [],
 
 // ── Call context ────────────────────────────────────────────────────────────
 
-export interface V2SessionState {
+export interface V2SessionState extends JournalSessionState {
   activeProjectId: string | null
   /** Per MCP session; confirmTokens bind to it. */
   sessionKey?: string
@@ -518,7 +519,24 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
         }
         if (capability) recordMissionMcpAction(callCtx, def.name, args)
         if (confirmedInClient) callCtx.v2.confirmedInClient = true
-        const value = await spec.handler(callCtx, args)
+        // An external client's change lands in a mission Desktop shows (mission-journal.ts).
+        const journaled = journals(callCtx, tier, Boolean(capability))
+        let journal: JournalTarget | null = null
+        if (journaled) {
+          try { journal = openJournalMission(callCtx, def.name, action, args) } catch (err) { console.warn('[mcp] mission journal unavailable:', err instanceof Error ? err.message : err) }
+          if (journal) callCtx.originConversationId = journal.conversationId
+        }
+        let value: unknown
+        try {
+          value = await spec.handler(callCtx, args)
+        } catch (err) {
+          if (journal) recordJournalAction(callCtx, journal, { tool: def.name, action, tier, args, error: { code: err instanceof V2ToolError ? err.code : 'internal', message: err instanceof Error ? err.message : String(err) } })
+          throw err
+        }
+        if (journaled) {
+          journal ??= journalCreated(callCtx, value)
+          if (journal) recordJournalAction(callCtx, journal, { tool: def.name, action, tier, args, value })
+        }
         if (tier !== 'read') emitActivity(callCtx, def.name, action, tier, def.title)
         const envelope = success(value, t('core.summary.done', { label }))
         if (confirmedInClient) envelope.confirmed = 'in_client'

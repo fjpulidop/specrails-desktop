@@ -1,3 +1,4 @@
+import { parseTimestampMs } from '../lib/relative-time'
 import { MissionConversationMenu } from '../features/missions/components/MissionConversationMenu'
 import { projectMonogram } from '../lib/project-monogram'
 import { useOpenMission } from '../features/missions/hooks/useOpenMission'
@@ -33,6 +34,9 @@ import { filterActiveConversations } from '../lib/filterActiveConversations'
 import { FEATURE_LOOPS_SECTION, FEATURE_AGENT_MODE } from '../lib/feature-flags'
 
 import { notifyError } from '../lib/notify-error'
+
+/** How long an MCP-driven mission stays listed under "active only" after its last activity. */
+const RECENT_MCP_MS = 30 * 60_000
 
 const TREE_EXPAND_KEY = 'specrails-desktop:agentTreeExpanded'
 const ACTIVE_ONLY_KEY = 'specrails-desktop:agentActiveOnly'
@@ -300,6 +304,9 @@ function ConversationRow({
               )}
             </span>
             {conversation.archivedAt && chat.archiveScope === 'all' && <span className="text-caption text-muted-foreground">{t('nav:missionArchive.archived')}</span>}
+            {conversation.origin === 'mcp' && (
+              <span className="text-caption text-muted-foreground" title={t('agent:mcp.missionBadgeTitle', { client: conversation.origin_client ?? 'MCP' })} data-testid="conversation-mcp-badge">MCP</span>
+            )}
             {unread && <span aria-hidden className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent-primary" data-testid="conversation-unread-dot" />}
             <span className="flex-1" aria-hidden />
             {streaming && <RunStateDot state="working" data-testid="conversation-live-dot" />}
@@ -835,16 +842,19 @@ export function ArcSidebar({
   }, [])
   // The open mission stays listed so the person never loses their place.
   const openConversationId = agentChat.active?.id ?? null
+  // A mission an external MCP client is driving has no turn of its own while it logs the
+  // client's actions: recent activity keeps it listed, so the person can follow along.
+  const keepRecentMcp = useCallback((c: AgentConversation) => c.origin === 'mcp' && Date.now() - parseTimestampMs(c.updated_at) < RECENT_MCP_MS, [])
   const visibleFavorites = useMemo(
-    () => activeOnly ? filterActiveConversations(favoriteConversations, liveConversationIds, openConversationId) : favoriteConversations,
-    [activeOnly, favoriteConversations, liveConversationIds, openConversationId],
+    () => activeOnly ? filterActiveConversations(favoriteConversations, liveConversationIds, openConversationId, keepRecentMcp) : favoriteConversations,
+    [activeOnly, favoriteConversations, liveConversationIds, openConversationId, keepRecentMcp],
   )
   const visibleGrouped = useMemo(() => {
     if (!activeOnly) return grouped
     const map = new Map<string, AgentConversation[]>()
-    for (const [key, list] of grouped) map.set(key, filterActiveConversations(list, liveConversationIds, openConversationId))
+    for (const [key, list] of grouped) map.set(key, filterActiveConversations(list, liveConversationIds, openConversationId, keepRecentMcp))
     return map
-  }, [activeOnly, grouped, liveConversationIds, openConversationId])
+  }, [activeOnly, grouped, liveConversationIds, openConversationId, keepRecentMcp])
   const visibleHome = visibleGrouped.get(HOME_KEY) ?? []
   const filterLeavesNothing = visibleFavorites.length === 0
     && [...visibleGrouped.values()].every((list) => list.length === 0)

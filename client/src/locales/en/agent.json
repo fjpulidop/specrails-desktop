@@ -1705,5 +1705,11 @@
     "answer": "Answer",
     "defaultQuestion": "Explain what this means in this context.",
     "providerDefault": "{{provider}} default model"
+  },
+  "mcp": {
+    "viaMcp": "via MCP",
+    "action": "{{client}} · {{call}}",
+    "actionFailed": "{{client}} · {{call}} failed",
+    "missionBadgeTitle": "Created by {{client}} through MCP: its actions are logged here"
   }
 }

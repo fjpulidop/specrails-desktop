@@ -25,6 +25,7 @@ describe('mission sub-agent routes', () => {
     server.use(express.json())
     server.use('/api/agent', createAgentChatRouter({ manager: {
       notifyConversationCreated: vi.fn(),
+      notifyTitle: vi.fn(),
       pendingMessages: () => [],
       conversationLive: () => ({ isStreaming: false, streamingText: '', startedAt: undefined }),
       sessionState: () => ({ residentPhase: 'background', processAlive: true, liveSubagents: 1, subagents: [] }),
