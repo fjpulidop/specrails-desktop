@@ -66,7 +66,7 @@ windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Com"
 objc2 = "0.6"
 block2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSData", "NSDictionary", "NSError", "NSGeometry", "NSString"] }
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSBitmapImageRep", "NSImage", "NSImageRep"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSBitmapImageRep", "NSGraphics", "NSImage", "NSImageRep", "NSResponder", "NSWindow"] }
 objc2-web-kit = { version = "0.3", default-features = false, features = ["std", "block2", "objc2-core-foundation", "WKContentWorld", "WKFrameInfo", "WKNavigation", "WKSnapshotConfiguration", "WKUIDelegate", "WKWebView"] }
 
 # wayland-scanner 0.31.10 still pins vulnerable quick-xml 0.39.x. Upstream has

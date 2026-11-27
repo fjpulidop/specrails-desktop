@@ -97,14 +97,25 @@ export function useSurfaceWindowFrame(): boolean {
   const frame = React.useContext(SurfaceWindowFrameContext)
   const parent = React.useContext(DialogChromeContext)
   const id = React.useId()
-  // Release on unmount: content that unmounts and mounts again (a new id) must take the frame back,
-  // not fall through to the in-page modal presentation.
-  React.useLayoutEffect(() => () => {
-    if (frame && frame.owner.current === id) frame.owner.current = null
-  }, [frame, id])
-  if (!frame || parent) return false
-  frame.owner.current ??= id
-  return frame.owner.current === id
+  const eligible = !!frame && !parent
+  const [, recheck] = React.useReducer((n: number) => n + 1, 0)
+  // The frame is claimed when the dialog commits, never while rendering: React throws renders away
+  // (something under the dialog suspends, a concurrent render restarts) and mounts the dialog again
+  // with a new id. A claim made by a discarded render was never released, so the real dialog lost
+  // the frame and the window showed the in-page modal for good. Unmounts run before mounts in a
+  // commit, so content that unmounts and mounts again takes the frame back.
+  React.useLayoutEffect(() => {
+    if (!frame || !eligible) return
+    frame.owner.current ??= id
+    return () => { if (frame.owner.current === id) frame.owner.current = null }
+  }, [frame, eligible, id])
+  // While rendering: the owner, or the first claimant of a free frame. A sibling that rendered
+  // framed but lost the claim at commit re-renders before paint.
+  const framed = eligible && (frame.owner.current === id || frame.owner.current === null)
+  React.useLayoutEffect(() => {
+    if (eligible && framed !== (frame.owner.current === id)) recheck()
+  })
+  return framed
 }
 
 /**

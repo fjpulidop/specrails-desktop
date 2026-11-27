@@ -981,6 +981,8 @@ pub fn run() {
             loop_windows::loop_window_open,
             loop_windows::plugin_window_open,
             surface_windows::surface_window_open,
+            surface_windows::surface_window_prewarm,
+            surface_windows::surface_window_spare_ready,
             surface_windows::surface_window_result,
             surface_windows::surface_window_toast,
             mission_windows::mission_windows_supported,

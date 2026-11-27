@@ -25,7 +25,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## client/src
 
 - [App.tsx](../../client/src/App.tsx) · [test](../../client/src/__tests__/App.test.tsx)
-- [SurfaceWindowContent.tsx](../../client/src/SurfaceWindowContent.tsx)
+- [SurfaceWindowContent.tsx](../../client/src/SurfaceWindowContent.tsx) · [test](../../client/src/__tests__/SurfaceWindowContent.test.tsx)
 - [main.tsx](../../client/src/main.tsx)
 - [test-setup.ts](../../client/src/test-setup.ts)
 - [test-utils.tsx](../../client/src/test-utils.tsx)

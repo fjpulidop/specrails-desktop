@@ -59,8 +59,30 @@ export function surfaceWindowRoute(search = typeof window === 'undefined' ? '' :
   return { id, requestId: query.get('requestId') ?? '', params }
 }
 
-export function isSurfaceWindowRoute(): boolean {
-  return surfaceWindowRoute() !== null
+/** Any surface window page: a surface, or the spare waiting for one (`?surfaceWindow=spare`). */
+export function isSurfaceWindowRoute(search = typeof window === 'undefined' ? '' : window.location.search): boolean {
+  return new URLSearchParams(search).has(SURFACE_QUERY)
+}
+
+/** The hidden, pre-loaded window the next surface opens in (`surface_windows.rs`, "spare"). */
+export const SPARE_SURFACE_ROUTE = 'spare'
+export const SURFACE_ASSIGN_EVENT = 'surface-window:assign'
+
+export function isSpareSurfaceWindow(search = typeof window === 'undefined' ? '' : window.location.search): boolean {
+  return new URLSearchParams(search).get(SURFACE_QUERY) === SPARE_SURFACE_ROUTE
+}
+
+/** The surface the host gives the spare: what a cold window reads from its URL. */
+export interface SurfaceAssignment { surface: NativeSurfaceId; requestId: string; params: SurfaceParams }
+
+export function readSurfaceAssignment(value: unknown): SurfaceAssignment | null {
+  const raw = value as { surface?: unknown; requestId?: unknown; params?: unknown } | null
+  if (!raw || typeof raw.surface !== 'string' || !isNativeSurfaceId(raw.surface) || typeof raw.requestId !== 'string') return null
+  const params: SurfaceParams = {}
+  if (raw.params && typeof raw.params === 'object') {
+    for (const [key, entry] of Object.entries(raw.params as Record<string, unknown>)) if (typeof entry === 'string') params[key] = entry
+  }
+  return { surface: raw.surface, requestId: raw.requestId, params }
 }
 
 function readPref(key: string): string | null {
@@ -142,6 +164,16 @@ export async function openSurfaceWindow(id: NativeSurfaceId, params: SurfacePara
   })
 }
 
+/**
+ * Asks the host to load the spare window, so the next surface opens at once. Called by the main
+ * window once it is idle; a no-op when one is already loaded.
+ */
+export async function prewarmSurfaceWindow(): Promise<void> {
+  if (!nativeWindowsAllowed()) return
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('surface_window_prewarm', { background: surfacePanelColor() })
+}
+
 export async function closeSurfaceWindow(windowLabel: string): Promise<void> {
   const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
   const window = await WebviewWindow.getByLabel(windowLabel)
@@ -161,6 +193,35 @@ export async function reportSurfaceResult(result: unknown): Promise<void> {
   if (!isTauri()) return
   const { invoke } = await import('@tauri-apps/api/core')
   await invoke('surface_window_result', { result })
+}
+
+/**
+ * Spare side: wait for the surface. `onAssign` runs once with it; the host is told this window is
+ * ready only once the listener is in place, so no assignment can be lost.
+ */
+export async function awaitSurfaceAssignment(onAssign: (assignment: SurfaceAssignment) => void): Promise<() => void> {
+  if (!isTauri()) return () => {}
+  const [{ listen }, { invoke }] = await Promise.all([import('@tauri-apps/api/event'), import('@tauri-apps/api/core')])
+  let assigned = false
+  const unlisten = await listen<unknown>(SURFACE_ASSIGN_EVENT, ({ payload }) => {
+    const assignment = readSurfaceAssignment(payload)
+    if (!assignment || assigned) return
+    assigned = true
+    // Confirm at once: the host gives up on a spare that does not, and opens the window cold.
+    void invoke('surface_window_spare_ready').catch(() => {})
+    onAssign(assignment)
+  })
+  await invoke('surface_window_spare_ready')
+  return unlisten
+}
+
+/**
+ * The page takes the URL of the surface it now shows (same document, no navigation): a reload
+ * reopens that surface, and route readers see this window's surface.
+ */
+export function adoptSurfaceRoute({ surface, requestId, params }: SurfaceAssignment): void {
+  const query = new URLSearchParams({ [SURFACE_QUERY]: surface, requestId, ...params })
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}?${query.toString()}`)
 }
 
 /**

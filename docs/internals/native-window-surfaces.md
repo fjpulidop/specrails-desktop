@@ -86,20 +86,66 @@ If `surface_window_open` fails (an older host, a refused caller), the hook logs
 a warning and renders the modal. Nothing is lost.
 
 Who may open: the main window and mission windows
-(`mission_windows::is_trusted_interface`). Surface, loop and plugin windows
+(`mission_windows::is_trusted_interface`, and `surface_window_open` is in the
+mission windows' command list). Surface, loop and plugin windows
 cannot, and fall back to the in-window modal.
 
 ## Bootstrapping the window
 
 **No visible loading gap.** The host creates the window hidden, on the opener's
 dialog panel color (`surfacePanelColor`, sent as `background`). The page shows
-it (`revealCurrentSurfaceWindow`) two frames after the framed dialog is in the
-DOM, so the first visible frame is the real content. If the page never gets
-there, the host shows the window after 2.5 s anyway. Boot is kept short: the
-token and the UI language load in parallel, and the surface content is in the
-main chunk (not lazy). The project list is still fetched once before Job
-detail renders, because the isolated `DesktopProvider` resets the API project
-until it knows its projects.
+it (`RevealWhenPainted` → `revealCurrentSurfaceWindow`) as soon as the framed
+dialog is in the DOM and its fonts are ready, in a macrotask after the commit:
+the window paints its current DOM the moment it is shown, so the first visible
+frame is the real content. Not `requestAnimationFrame`: WebKit runs no animation
+frames in a hidden window, so a frame-based reveal never fired and every window
+waited for the host's fallback. If the page never gets there, the host shows the
+window after 2.5 s anyway.
+
+**Opening is instant** through the spare window (below). A cold window (no spare
+ready yet) takes about 0.8 s: create the webview, load the bundle, mount. Boot is
+kept short: the token and the UI language load in parallel. Each surface's
+component is in its own chunk and renders once that chunk has loaded, as a plain
+component, not `React.lazy`: a lazy component suspends on its first render even
+when its chunk is loaded, and React then holds the revealed content back (its
+Suspense throttle, ~300 ms) on every open. The project list is still fetched once
+before Job detail renders, because the isolated `DesktopProvider` resets the API
+project until it knows its projects.
+
+### The spare window (instant open)
+
+One hidden window is kept loaded: `index.html?surfaceWindow=spare`, the surface
+shell (WebSocket, theme, language, isolated `DesktopProvider`, toaster) with
+every surface's chunk loaded and no surface (`SpareSurfaceWindowContent`). It
+reports `surface_window_spare_ready` once it listens for its surface.
+
+`surface_window_open` takes a ready spare when it opens a new window: it
+registers it as that surface's window, adds the surface's extra permissions,
+sets title, minimum size and size, centers it on the opener, and emits
+`surface-window:assign` `{ surface, requestId, params }` to it. The page takes
+that surface's URL (`history.replaceState`, so a reload reopens the surface and
+route readers see it), replays the `localStorage` preferences changed since it
+loaded as `storage` events (theme, language, accessibility…), refreshes the
+project list when the surface names a project it does not know yet, renders the
+surface and shows itself once painted, like a cold window. Click to painted
+window: about 0.1 s (Settings), against ~0.8 s cold and 2.6 s before the reveal
+fix.
+
+The page confirms the assignment at once (`surface_window_spare_ready` again);
+a spare that does not confirm within 0.5 s (its page died) is destroyed and the
+window opens the cold way, so a dead spare never shows a blank window. Surface
+windows are built with `background_throttling(Disabled)` (macOS 14+): WebKit
+otherwise throttles a hidden page, suspends it and unloads it after about five
+minutes, so a waiting spare could stop answering, and a cold window booting
+hidden while the app is inactive could stall.
+
+A spare is used once: it becomes that surface's window and closes with it, so no
+state carries over between opens. The host loads the next spare 1.5 s later.
+The main window asks for the first one 3 s after startup
+(`surface_window_prewarm`; mission windows do not). On Windows and Linux a
+spare's parent is the window that asked for it, so only that window can take it;
+on macOS surface windows have no parent and any opener can. Without a ready spare
+the window opens the cold way. Cost: one hidden webview (~70 MB).
 
 The window loads the same bundle, so `main.tsx` runs as usual: `initAuth()`
 reads the desktop token, `installFetchInterceptor()` and `initI18n()` apply the
@@ -119,7 +165,11 @@ window's project.
 ## Presentation inside the window
 
 `SurfaceWindowFrame` marks the window. The first dialog that mounts inside it
-is the window's content. It keeps the Radix contract (focus trap, initial
+is the window's content. The claim happens when the dialog commits, never while
+rendering (`useSurfaceWindowFrame`): React throws renders away (something under
+the dialog suspends, a concurrent render restarts) and mounts the dialog again
+with a new id, and a claim made by a discarded render was never released, so
+the window showed the in-page modal (scrim, card) for good. It keeps the Radix contract (focus trap, initial
 focus, Escape, `aria-*`), but:
 
 - no scrim, no size token, no resize grips: the panel fills the window
@@ -140,7 +190,7 @@ close, minimize or zoom buttons.
 
 | OS | Chrome | Relationship to the opener |
 |---|---|---|
-| macOS | Native traffic lights over our header (`TitleBarStyle::Overlay`, hidden title) at their standard place, in a ~28pt strip at the top. The header's title row starts right below them, at its normal left padding (`surfaceHeaderInset` in `dialog.tsx`). `traffic_light_position` is not used: it did not take effect on these owned windows | Independent window, no `parent`: a child `NSWindow` is minimized together with its parent as one group, so minimizing a surface window would minimize the whole app. It no longer moves with the opener or stays above it; the host focuses the opener when the window closes |
+| macOS | Native traffic lights over our header (`TitleBarStyle::Overlay`, hidden title) at their standard place, in a ~28pt strip at the top. The header's title row starts right below them, at its normal left padding (`surfaceHeaderInset` in `dialog.tsx`). `traffic_light_position` is not used: it did not take effect on these owned windows | No `parent`: a child `NSWindow` is minimized together with its parent as one group, so minimizing a surface window would minimize the whole app. It stays above its opener instead: when the opener comes forward, the host orders its open surface windows right above it (`keep_above_opener`), as an owned window behaves on Windows. Other apps' windows keep their place; it does not move with the opener and minimizes on its own. The host focuses the opener when the window closes |
 | Windows | Native title bar (decorations on), then our header | Owned window: always above its owner; minimizing the opener minimizes it, minimizing it alone leaves the opener up |
 | Linux | Native title bar, as on Windows | Transient for the opener (GTK); the window manager decides stacking |
 
@@ -244,6 +294,10 @@ The live board window has no extra permission or command: it reads the API and r
 | Granted to every surface window | Extra for `app-settings` |
 |---|---|
 | `core:event:default`, `core:window:default`, close, minimize, toggle-maximize, start-dragging, set-title, show, set-focus; `dialog:allow-message/confirm/ask`; clipboard read/write text; `shell:allow-open` for http(s) and editor URL schemes | `updater:default`, `process:allow-restart` (the Updates section) |
+
+The spare window gets the base set at creation; the surface's extra permissions
+are added when it is assigned. Until then it may call only
+`surface_window_spare_ready`.
 
 Custom commands (`invoke_guard`): a surface window may call
 `surface_window_result`, `surface_window_toast`, `desktop_reveal_path` and `desktop_save_text`, plus
