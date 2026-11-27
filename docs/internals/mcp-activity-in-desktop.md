@@ -35,6 +35,11 @@ mission's own conversation:
 - `intent_start` of a seeded Intent (a spec or stored intent) waits for its
   opening turn like a send and returns what it found (`data.turn.reply`); the
   state's offers are the mission's own choices (its option chips and cards).
+- Talking to a mission never asks for a cost confirmation, as typing in the
+  app never does: `send`, `ask`, `create` with a goal and answering one of the
+  mission's options or restating its draft. Work of its own keeps the
+  confirmation (card launches, Intent, CI repair, hand-off, renew). A reply
+  arrives whole (up to 16 000 characters), not as an excerpt.
 - Reply, still-working and Intent summaries tell the agent to relay the mission
   in its own words, keep the conversation there and offer a menu only for a
   real decision (never one of its own while the mission works).

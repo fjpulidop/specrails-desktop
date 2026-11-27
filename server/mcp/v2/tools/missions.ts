@@ -51,7 +51,10 @@ const enc = encodeURIComponent
 
 const MISSION_SECTIONS = ['messages', 'queue', 'cards', 'subagents', 'attachments', 'intent', 'links', 'resources', 'processes'] as const
 const MESSAGE_CHARS = 2_000
-const REPLY_CHARS = 4_000
+/** The mission's reply is the conversation itself: it arrives whole, not as an excerpt. */
+const REPLY_CHARS = 16_000
+/** Room for a whole reply in the conversational actions (send, create with a goal, Intent's opening, a card reply). */
+const CONVERSE_TOKENS = 6_000
 const DEFAULT_MESSAGES = 10
 const MESSAGES_BUDGET_SUMMARY = 800
 const MESSAGES_BUDGET_DETAIL = 5_000
@@ -860,6 +863,13 @@ async function chatSend(ctx: V2CallContext, args: Row): Promise<unknown> {
 const read: V2ActionDef = { tier: 'read', required: ['ref'] }
 const write: V2ActionDef = { tier: 'write', required: ['ref'] }
 const spend: V2ActionDef = { tier: 'ai-spawn', confirm: 'costly', required: ['ref'] }
+/**
+ * Talking to a mission (a message, a side question, answering its option): a turn, like typing in the
+ * app, which never asks. Costly work of its own (launches, Intent, hand-off, renew) keeps `spend`.
+ */
+const converse: V2ActionDef = { tier: 'ai-spawn', confirm: null, required: ['ref'], maxTokens: CONVERSE_TOKENS }
+/** Card decisions that start work of their own (a rail, Intent, CI repair): confirmed like a launch. */
+const LAUNCH_DECISIONS = new Set(['launch', 'implement', 'intent', 'start', 'explore', 'delegate'])
 
 const simpleIntent = (path: string, key: string): V2ActionDef['handler'] => async (ctx, args) => {
   const target = await intentTarget(ctx, args)
@@ -906,7 +916,9 @@ export const missionsTool = defineTool({
     create: {
       // With the person's message it starts working in the same call (a turn: the send's tier and confirmation).
       tier: (args) => str(args.message) ? 'ai-spawn' : 'write',
-      confirm: (args) => str(args.message) ? 'costly' : null,
+      // Like typing the goal in the app: no confirmation, the reply arrives whole.
+      confirm: null,
+      maxTokens: CONVERSE_TOKENS,
       doc: 'New mission. message = what the person wants: it starts working on it now (the mission names itself; title optional). Without message, ask the person its goal in one open question, then send. project pins it (omit for Home); provider, model, effort.',
       preview: (ctx, args) => {
         const pin = args.project !== undefined && args.project !== null && args.project !== 'home' ? ctx.v2.project(args) : null
@@ -937,13 +949,13 @@ export const missionsTool = defineTool({
       },
     },
     send: {
-      ...spend, required: ['ref', 'message'],
+      ...converse, required: ['ref', 'message'],
       doc: 'Sends the person\'s message and waits up to options.waitMs (default 20000, max 45000) for the reply. Busy mission: queued (options.deliveryMode queue|steer|interrupt). options.attachmentIds, options.queueId (idempotent retry). Not replied yet: specrails_wait(until, refs:[ref]) then get(options.after).',
       preview: (ctx, args) => spendPreview(ctx, args, 'missions.preview.send'),
       handler: (ctx, args) => sendMessage(ctx, args),
     },
     ask: {
-      ...spend, required: ['ref', 'message'],
+      ...converse, required: ['ref', 'message'],
       doc: 'Side question about the mission (nothing is written to it). options.selection (default: the last reply), options.throughMessageId.',
       preview: (ctx, args) => spendPreview(ctx, args, 'missions.preview.ask'),
       handler: async (ctx, rawArgs) => {
@@ -1133,7 +1145,8 @@ export const missionsTool = defineTool({
     },
     card_decide: {
       tier: (args) => isSpendDecision(args) ? 'ai-spawn' : 'write',
-      confirm: (args) => isSpendDecision(args) ? 'costly' : null,
+      confirm: (args) => LAUNCH_DECISIONS.has(String(args.decision)) ? 'costly' : null,
+      maxTokens: CONVERSE_TOKENS,
       required: ['ref', 'cardId', 'decision'],
       choose: { fields: ['decision'], point: cardPoint },
       doc: 'Decides a pending card (ids and decisions in get: pendingCards; no decision: the person picks). options: option index or text; intent-draft: restated|alternative|explore (start Intent from it)|delegate; rail-launch: launch|dismiss; flow-offer: intent|implement|dismiss; pr-ci-offer: start|dismiss. Delivery cards: specrails_deliveries.',
@@ -1182,7 +1195,7 @@ export const missionsTool = defineTool({
       },
     },
     intent_start: {
-      tier: 'ai-spawn', confirm: 'costly', oneOf: ['message', 'options.spec'],
+      tier: 'ai-spawn', confirm: 'costly', oneOf: ['message', 'options.spec'], maxTokens: CONVERSE_TOKENS,
       doc: 'Starts Intent (build in an isolated worktree, then hand off): message = the idea, or options.spec (start from that spec); ref = an existing mission (default: a new mission in project, with provider/model/effort); options.repository for multi-repository projects.',
       preview: async (ctx, args) => {
         const row = args.ref ? null : ctx.v2.project(args)

@@ -265,7 +265,7 @@ describe('specrails_missions: create starts like the app does', () => {
   })
 
   it('with the person\'s message: creates it, starts it and returns the reply in one call', async () => {
-    const res = await confirmed({ action: 'create', project: 'shop-api', provider: 'claude', message: 'Add a ghost piece' })
+    const res = await missions({ action: 'create', project: 'shop-api', provider: 'claude', message: 'Add a ghost piece' })
     expect(res.isError).toBe(false)
     const ref = res.envelope.refs.mission as string
     const id = ref.slice('mission:'.length)
@@ -286,10 +286,10 @@ describe('specrails_missions: create starts like the app does', () => {
 })
 
 describe('specrails_missions: send and wait', () => {
-  it('confirms an unknown-cost send, waits for the reply and returns it as untrusted text', async () => {
+  it('sends without asking (like typing in the app), waits for the reply and returns it whole as untrusted text', async () => {
     const id = mission()
     const ref = `mission:${id}`
-    const res = await confirmed({ action: 'send', ref, message: 'Summarize the repo' })
+    const res = await missions({ action: 'send', ref, message: 'Summarize the repo' })
     expect(res.isError).toBe(false)
     expect(res.envelope.data).toMatchObject({ ref, status: 'replied', reply: { text: 'Echo: Summarize the repo' } })
     expect(res.envelope.summary).toContain('Echo: Summarize the repo')
@@ -311,7 +311,7 @@ describe('specrails_missions: send and wait', () => {
     replyMode = 'silent'
     const id = mission()
     const ref = `mission:${id}`
-    const res = await confirmed({ action: 'send', ref, message: 'long task', options: { waitMs: 50 } })
+    const res = await missions({ action: 'send', ref, message: 'long task', options: { waitMs: 50 } })
     expect(res.envelope.data.status).toBe('running')
     expect(res.envelope.summary).toContain('specrails_wait')
     const before = (await missions({ action: 'get', ref, fields: ['messages'] })).envelope
@@ -324,19 +324,28 @@ describe('specrails_missions: send and wait', () => {
   it('queues while busy and reports a failed turn', async () => {
     const id = mission()
     busy.add(id)
-    const queued = await confirmed({ action: 'send', ref: `mission:${id}`, message: 'next', options: { waitMs: 0 } })
+    const queued = await missions({ action: 'send', ref: `mission:${id}`, message: 'next', options: { waitMs: 0 } })
     expect(queued.envelope.data).toMatchObject({ queued: true, status: 'queued' })
     busy.clear()
     replyMode = 'error'
-    const failed = await confirmed({ action: 'send', ref: `mission:${id}`, message: 'boom' })
+    const failed = await missions({ action: 'send', ref: `mission:${id}`, message: 'boom' })
     expect(failed.envelope.data).toMatchObject({ status: 'failed', error: 'provider down' })
+  })
+
+  it('returns a long reply whole, not an excerpt', async () => {
+    const id = mission()
+    const long = 'x'.repeat(9_800)
+    const res = await missions({ action: 'send', ref: `mission:${id}`, message: long })
+    expect(res.envelope.data.reply.text).toHaveLength(long.length + 'Echo: '.length)
   })
 
   it('a stale preview (provider changed) refuses the old token', async () => {
     const id = mission()
-    const first = await missions({ action: 'send', ref: `mission:${id}`, message: 'x' })
+    // A costly step of its own (renew) still confirms; its token binds to the mission's engine.
+    const first = await missions({ action: 'renew', ref: `mission:${id}` })
+    expect(first.envelope.error.code).toBe('confirmation_required')
     await missions({ action: 'update', ref: `mission:${id}`, provider: 'codex' })
-    const second = await missions({ action: 'send', ref: `mission:${id}`, message: 'x', confirm: first.envelope.error.confirmToken })
+    const second = await missions({ action: 'renew', ref: `mission:${id}`, confirm: first.envelope.error.confirmToken })
     expect(second.envelope.error.code).toBe('stale')
   })
 
@@ -453,7 +462,7 @@ describe('specrails_missions: get, cards and links', () => {
     seedCards(id)
     const cards = (await missions({ action: 'get', ref: `mission:${id}` })).envelope.data.pendingCards
     const options = cards.find((c: Row) => c.kind === 'options')
-    const reply = await confirmed({ action: 'card_decide', ref: `mission:${id}`, cardId: options.id, decision: '0' })
+    const reply = await missions({ action: 'card_decide', ref: `mission:${id}`, cardId: options.id, decision: '0' })
     expect(sent.at(-1)!.text).toBe('Ship it')
     expect(reply.envelope.data.reply.text).toBe('Echo: Ship it')
 
@@ -605,7 +614,7 @@ describe('specrails_missions: continuing an open Intent from an external client'
     expect(ids).toEqual(expect.arrayContaining(['send', 'intent', 'intent.pause', 'intent.hand_off', 'intent.discard']))
     expect(ids).not.toContain('intent.send')
 
-    const replied = await confirmed({ action: 'send', ref: `mission:${id}`, message: 'Add a farewell too', options: { waitMs: 2000 } })
+    const replied = await missions({ action: 'send', ref: `mission:${id}`, message: 'Add a farewell too', options: { waitMs: 2000 } })
     expect(replied.envelope.data).toMatchObject({ status: 'replied', reply: { text: 'Echo: Add a farewell too' } })
     expect(sent.at(-1)).toMatchObject({ id, text: 'Add a farewell too', options: expect.objectContaining({ surface: 'mcp' }) })
     // A write returns the fresh state (the settled turn: no re-read needed).
@@ -616,7 +625,7 @@ describe('specrails_missions: continuing an open Intent from an external client'
     const running = await missions({ action: 'get', ref: `mission:${id}` })
     const interrupt = running.envelope.state.offers.find((o: Row) => o.id === 'interrupt')
     expect(interrupt.call.args).toMatchObject({ action: 'send', options: { deliveryMode: 'interrupt' } })
-    const cut = await confirmed({ action: 'send', ref: `mission:${id}`, message: 'Stop, use blue instead', options: { deliveryMode: 'interrupt', waitMs: 200 } })
+    const cut = await missions({ action: 'send', ref: `mission:${id}`, message: 'Stop, use blue instead', options: { deliveryMode: 'interrupt', waitMs: 200 } })
     expect(cut.envelope.data).toMatchObject({ accepted: true, queued: true })
     expect(sent.at(-1)).toMatchObject({ text: 'Stop, use blue instead', options: expect.objectContaining({ deliveryMode: 'steer', surface: 'mcp' }) })
   })
@@ -629,7 +638,7 @@ describe('specrails_missions: continuing an open Intent from an external client'
     const got = await missions({ action: 'intent_get', ref: 'intent:shop-api/f1' })
     const card = got.envelope.data.pendingCards[0]
     expect(card).toMatchObject({ kind: 'options' })
-    const answered = await confirmed({ action: 'card_decide', ref: `mission:${id}`, cardId: card.id, decision: '0', options: { waitMs: 2000 } })
+    const answered = await missions({ action: 'card_decide', ref: `mission:${id}`, cardId: card.id, decision: '0', options: { waitMs: 2000 } })
     expect(answered.envelope.data.status).toBe('replied')
     expect(sent.at(-1)).toMatchObject({ text: 'Start the app', options: expect.objectContaining({ surface: 'mcp' }) })
   })
