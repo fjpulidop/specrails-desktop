@@ -26,6 +26,9 @@ pub async fn loop_window_open(app: tauri::AppHandle, webview: Webview, project_i
 pub async fn plugin_window_open(app: tauri::AppHandle, webview: Webview) -> Result<(), String> {
     open_editor_window(app, webview, None, None, "pluginsWindow", "Plugins")
 }
+/// The loop/plugin editor's requested and minimum content size (logical).
+const EDITOR_SIZE: (f64, f64) = (1400.0, 900.0);
+const EDITOR_MIN: (f64, f64) = (800.0, 600.0);
 fn open_editor_window(app: tauri::AppHandle, webview: Webview, project_id: Option<String>, loop_id: Option<String>, surface: &'static str, title: &str) -> Result<(), String> {
     if webview.label() != webview.window().label() || !crate::mission_windows::is_trusted_interface(webview.label()) {
         return Err("This action belongs to a registered Specrails interface.".into());
@@ -56,14 +59,22 @@ fn open_editor_window(app: tauri::AppHandle, webview: Webview, project_id: Optio
     }
     let path = format!("index.html?{}", target.query().unwrap_or_default());
     let builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(path.into()))
-        .title(format!("Specrails — {title}")).inner_size(1400.0, 900.0).min_inner_size(800.0, 600.0).center()
+        .title(format!("Specrails — {title}")).inner_size(EDITOR_SIZE.0, EDITOR_SIZE.1).min_inner_size(EDITOR_MIN.0, EDITOR_MIN.1).center().visible(false)
         .on_navigation(move |url| allowed_navigation(&origin, url, surface))
         .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
     #[cfg(target_os = "macos")]
     let builder = builder.decorations(true).title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
     #[cfg(not(target_os = "macos"))]
     let builder = builder.decorations(false);
-    builder.build().map_err(|err| err.to_string())?;
+    let window = builder.build().map_err(|err| err.to_string())?;
+    // `center()` alone centers the requested size on the screen before AppKit shrinks it to a
+    // smaller screen, which leaves the window hanging off the left edge. Like every surface
+    // window, place it (fitted to the work area) on the window that opened it, then show it.
+    if let Some(parent) = app.get_webview_window(webview.label()) {
+        let _ = crate::surface_windows::center_on_opener(&parent, &window, EDITOR_SIZE, EDITOR_MIN);
+    }
+    window.show().map_err(|err| err.to_string())?;
+    let _ = window.set_focus();
     entries.insert(key, label);
     Ok(())
 }

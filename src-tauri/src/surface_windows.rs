@@ -155,7 +155,7 @@ fn centered_frame(anchor: Frame, size: (f64, f64), min: (f64, f64), work: Frame)
 /// it on that monitor's work area instead, a fullscreen one on the monitor. On
 /// any failure (e.g. Wayland, which forbids positioning) the builder's
 /// `center()` stands.
-fn center_on_opener(parent: &tauri::WebviewWindow, window: &tauri::WebviewWindow, inner: (f64, f64), min_inner: (f64, f64)) -> Option<()> {
+pub(crate) fn center_on_opener(parent: &tauri::WebviewWindow, window: &tauri::WebviewWindow, inner: (f64, f64), min_inner: (f64, f64)) -> Option<()> {
     let monitor = parent.current_monitor().ok().flatten().or_else(|| parent.primary_monitor().ok().flatten())?;
     let scale = monitor.scale_factor();
     let area = monitor.work_area();
