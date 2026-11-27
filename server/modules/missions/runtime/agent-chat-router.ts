@@ -17,6 +17,8 @@ import {
   archiveAgentConversation,
   unarchiveAgentConversation,
   createAgentConversation,
+  missionDefaultTierLevel,
+  setMissionDefaultTierLevel,
   copyAgentHistory,
   listAgentConversations,
   getAgentConversation,
@@ -238,6 +240,17 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     res.json(manager.activeTurns())
   })
 
+  // The permission level new missions start at, wherever they are created (app, MCP, Run on a PR).
+  router.get('/mission-defaults', (_req: Request, res: Response) => {
+    res.json({ tierLevel: missionDefaultTierLevel(desktopDb) })
+  })
+  router.patch('/mission-defaults', (req: Request, res: Response) => {
+    const level = (req.body ?? {}).tierLevel
+    if (![0, 1, 2, 3].includes(level)) { res.status(400).json({ error: 'tier_level_invalid', message: 'tierLevel must be 0, 1, 2 or 3.' }); return }
+    setMissionDefaultTierLevel(desktopDb, level)
+    res.json({ tierLevel: missionDefaultTierLevel(desktopDb) })
+  })
+
   router.post('/conversations', (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>
     // No explicit provider ⇒ the machine's primary (a local-only machine lands
@@ -262,7 +275,8 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       provider,
       model: requestedModel,
       pinnedProjectId: typeof body.pinnedProjectId === 'string' ? body.pinnedProjectId : null,
-      tierLevel: body.tierLevel !== undefined ? normalizeLevel(body.tierLevel) : 0,
+      // Absent: the person's default (the level they last chose in the app; Autonomous until then).
+      tierLevel: body.tierLevel !== undefined ? normalizeLevel(body.tierLevel) : missionDefaultTierLevel(desktopDb),
       // Off-catalog values fall back to null (= no provider-specific override).
       reasoningEffort: validEffort(provider, effectiveModel, body.reasoningEffort) ?? null,
       // Created by an external MCP client: Desktop marks it (the person did not make it here).

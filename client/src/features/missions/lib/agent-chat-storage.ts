@@ -32,16 +32,19 @@ export function loadArchiveScope(): ArchiveScope {
 }
 
 // Sticky agent-autonomy tier (Observe/Edit/Operate/Autonomous): the last
-// explicitly selected level survives across missions and app restarts.
+// explicitly selected level survives across missions and app restarts. The
+// server keeps the same value as the default of missions created anywhere
+// (MCP clients, Run on a PR); Autonomous until the person picks a level.
 const LAST_TIER_KEY = 'specrails-desktop:agent-tier-last'
+const DEFAULT_TIER: AgentTierLevel = 3
 
 export function readLastTierLevel(): AgentTierLevel {
   try {
     const raw = localStorage.getItem(LAST_TIER_KEY)
-    const n = raw === null ? 0 : Number.parseInt(raw, 10)
-    return (n === 0 || n === 1 || n === 2 || n === 3 ? n : 0) as AgentTierLevel
+    const n = raw === null ? DEFAULT_TIER : Number.parseInt(raw, 10)
+    return (n === 0 || n === 1 || n === 2 || n === 3 ? n : DEFAULT_TIER) as AgentTierLevel
   } catch {
-    return 0
+    return DEFAULT_TIER
   }
 }
 

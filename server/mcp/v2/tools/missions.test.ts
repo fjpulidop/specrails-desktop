@@ -24,7 +24,7 @@ import { createAgentChatRouter } from '../../../modules/missions/runtime/agent-c
 import type { AgentChatManager } from '../../../modules/missions/runtime/agent-chat-manager'
 import { registerIntentHttp } from '../../../modules/intent/adapters/http'
 import { IntentTransitionError, transition, type IntentService, type IntentSession } from '../../../modules/intent'
-import { addAgentMessage, createAgentConversation, getAgentConversation } from '../../../modules/agents/runtime/agent-store'
+import { addAgentMessage, createAgentConversation, getAgentConversation, setMissionDefaultTierLevel } from '../../../modules/agents/runtime/agent-store'
 import { recordAgentInvocation } from '../../../desktop-db'
 import { coerceRailLaunch, openLimit, parseOptions, projectCards, projectIntentState } from '../projectors/mission-state'
 
@@ -254,6 +254,14 @@ describe('specrails_missions: create starts like the app does', () => {
     expect(res.envelope.data.ask).toBe('What should this mission achieve?')
     expect(res.envelope.summary).toContain('one open question (no menu)')
     expect(sent).toEqual([])
+  })
+
+  it('starts at the person\'s default permission level (Autonomous until they pick one in the app)', async () => {
+    const first = await missions({ action: 'create', project: 'shop-api', provider: 'claude' })
+    expect(getAgentConversation(h.db, String(first.envelope.data.ref).slice('mission:'.length))?.tier_level).toBe(3)
+    setMissionDefaultTierLevel(h.db, 1)
+    const second = await missions({ action: 'create', project: 'shop-api', provider: 'claude' })
+    expect(getAgentConversation(h.db, String(second.envelope.data.ref).slice('mission:'.length))?.tier_level).toBe(1)
   })
 
   it('with the person\'s message: creates it, starts it and returns the reply in one call', async () => {

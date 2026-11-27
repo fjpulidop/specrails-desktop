@@ -301,6 +301,15 @@ export async function getAgentActiveTurns(): Promise<AgentActiveTurnsSnapshot> {
   return requestJson(`${base}/active-turns`)
 }
 
+/** The permission level new missions start at everywhere (app, MCP clients, Run on a PR). */
+export async function fetchMissionDefaultTier(): Promise<AgentTierLevel> {
+  return (await requestJson<{ tierLevel: AgentTierLevel }>(`${base}/mission-defaults`)).tierLevel
+}
+
+export async function saveMissionDefaultTier(tierLevel: AgentTierLevel): Promise<void> {
+  await requestJson(`${base}/mission-defaults`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tierLevel }) })
+}
+
 export async function createAgentConversation(input: {
   provider?: string
   model?: string | null

@@ -5,7 +5,7 @@
  * mission.
  */
 import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
-import { patchAgentConversation, type AgentConversation, type AgentTierLevel } from '../../lib/agent-api'
+import { patchAgentConversation, saveMissionDefaultTier, type AgentConversation, type AgentTierLevel } from '../../lib/agent-api'
 import { saveLastTierLevel } from '../../lib/agent-chat-storage'
 import type { UiMode } from '../../../../context/UiModeContext'
 import type { useDesktop } from '../../../../hooks/useDesktop'
@@ -37,6 +37,8 @@ export function useConversationSettings(core: AgentChatCore, opts: {
   const setTier = useCallback(async (level: AgentTierLevel) => {
     if (!editable(active?.id)) return
     saveLastTierLevel(level) // sticky across missions
+    // …and the default of missions created outside the app (MCP clients, Run on a PR).
+    void saveMissionDefaultTier(level).catch(() => {})
     if (active) await patchActive({ tierLevel: level })
     else setDraftTierLevel(level)
   }, [active, patchActive])

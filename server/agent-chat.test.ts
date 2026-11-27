@@ -23,6 +23,8 @@ import {
   softDeleteAgentConversation,
   restoreAgentConversation,
   createAgentConversation,
+  missionDefaultTierLevel,
+  setMissionDefaultTierLevel,
   getAgentConversation,
   listAgentConversations,
   updateAgentConversation,
@@ -137,11 +139,14 @@ describe('agent-store', () => {
     expect(restoreAgentConversation(db, c.id)?.archivedAt).toBe('2026-01-01T00:00:00.000Z')
   })
 
-  it('defaults a bare conversation to observe/claude', () => {
+  it('defaults a bare conversation to claude at the person\'s default level (autonomous until they choose)', () => {
     const c = createAgentConversation(db)
     expect(c.provider).toBe('claude')
-    expect(c.tier_level).toBe(0)
+    expect(c.tier_level).toBe(3)
     expect(c.pinned_project_id).toBeNull()
+    setMissionDefaultTierLevel(db, 0)
+    expect(missionDefaultTierLevel(db)).toBe(0)
+    expect(createAgentConversation(db).tier_level).toBe(0)
   })
 
   it('adds + lists messages in order and cascade-deletes', () => {
@@ -892,7 +897,7 @@ describe('AgentChatManager', () => {
       return { code: 0, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult
     })
 
-    const c = createAgentConversation(db, { provider: 'claude', pinnedProjectId: project.id })
+    const c = createAgentConversation(db, { provider: 'claude', pinnedProjectId: project.id, tierLevel: 0 })
     await manager.sendMessage(c.id, 'analizalo y dime', {
       contextRefs: [{
         kind: 'trace',

@@ -261,6 +261,21 @@ export function setAgentConversationContextUsage(db: DbInstance, id: string, sna
   return db.prepare('UPDATE agent_conversations SET context_usage = ? WHERE id = ? AND context_usage IS NOT ?').run(value, id, value).changes > 0
 }
 
+const DEFAULT_TIER_KEY = 'missions.default_tier_level'
+
+/**
+ * The permission level a new mission starts at, wherever it is created (the app, an MCP client,
+ * Run on a PR): the level the person last chose in the app, Autonomous until they choose one.
+ */
+export function missionDefaultTierLevel(db: DbInstance): AgentTierLevel {
+  const row = db.prepare('SELECT value FROM desktop_settings WHERE key = ?').get(DEFAULT_TIER_KEY) as { value?: string } | undefined
+  return row?.value === undefined ? 3 : normalizeLevel(Number(row.value))
+}
+
+export function setMissionDefaultTierLevel(db: DbInstance, level: AgentTierLevel): void {
+  db.prepare('INSERT INTO desktop_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(DEFAULT_TIER_KEY, String(level))
+}
+
 export function createAgentConversation(
   db: DbInstance,
   input: { forkSource?: AgentForkSource; provider?: string; model?: string | null; pinnedProjectId?: string | null; tierLevel?: AgentTierLevel; reasoningEffort?: string | null; title?: string | null; origin?: { kind: 'mcp'; client?: string | null } } = {},
@@ -274,7 +289,7 @@ export function createAgentConversation(
     input.provider ?? 'claude',
     input.model ?? null,
     input.pinnedProjectId ?? null,
-    input.tierLevel ?? 0,
+    input.tierLevel ?? missionDefaultTierLevel(db),
     input.reasoningEffort ?? null,
     input.forkSource ? JSON.stringify(input.forkSource) : null,
     input.title ?? null,

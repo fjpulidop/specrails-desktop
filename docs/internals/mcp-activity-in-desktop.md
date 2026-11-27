@@ -39,6 +39,16 @@ mission's own conversation:
   in its own words, keep the conversation there and offer a menu only for a
   real decision (never one of its own while the mission works).
 
+## Permission level
+
+A mission starts at the person's default level wherever it is created: the
+app, an MCP client, its `MCP · <client>` log mission, Run on a PR
+(`missionDefaultTierLevel`, desktop setting `missions.default_tier_level`,
+`GET/PATCH /api/agent/mission-defaults`). It is Autonomous until the person
+picks a level in the app; that pick becomes the default (the app adopts the
+server value at startup). An MCP client never changes a mission's level
+(`update` keeps it the person's).
+
 ## Which mission
 
 `server/mcp/v2/core/mission-journal.ts`, called from the v2 registry around the
