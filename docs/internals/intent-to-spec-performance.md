@@ -126,13 +126,47 @@ Five synthetic cases (the night's first valid runs; Codex was out of quota):
   person. `unrequested` is now product behaviour only. (A synthetic case has no conversation, so
   its scope evidence is thinner than a real hand-off's.)
 
-### Experiment 3 — a tag step between derive and check (measuring)
+### 2026-11-28 02:55 — experiment 3: a tag step between derive and check
 
 After each derivation a `tag` role-turn (developer, fixer stance; test titles and tag comments
 only, no assertions, tests, production code or `openspec/`) tags the existing tests with the
 derived requirement ids, so the first review judges real gaps instead of missing ids. Mirrored in
-the Core reference definition. Measured on the ten synthetic cases (Claude) and on
-tetris-frame-pacing (Codex, comparable with the baseline).
+the Core reference definition. Same run also has the setup and `unrequested` fixes.
+
+**Baseline case on its own engine (Codex gpt-6.2-sol, real conversation forked):**
+
+| Run | Outcome | Minutes | USD | Tokens | AI turns | Rounds | Reviews |
+|---|---|---|---|---|---|---|---|
+| baseline `213f7ec7` | **failed** | 21.5 | 7.27 | 14.1 M | 8 | 2 (budget spent) | 65 → 78 → 68, new issues every round |
+| `58357f6f` | **success** | 10.9 | 4.68 | 6.8 M | 8 | 1 | 67 (4 issues) → 91 approved |
+
+The four first-round issues were real (the benchmark run aborting on pause, the report dialog's
+keyboard priority, two requirements without a test), the re-review verified them and approved.
+
+**Ten synthetic cases on Claude (sonnet):**
+
+| Case | Outcome | Minutes | USD | AI turns | Rounds | Reviews |
+|---|---|---|---|---|---|---|
+| tetrisex-2 (2,595 lines) | success | 1.4 | 0.76 | 3 | 0 | 86 |
+| tetrisex-9 | success | 2.2 | 0.74 | 3 | 0 | 88 |
+| arkanoidex-11 | success | 2.2 | 0.82 | 3 | 0 | 86 |
+| arkanoidex-8 (1,485 lines) | success | 2.2 | 0.89 | 3 | 0 | 86 |
+| tetrisex-4 | success | 2.7 | 0.97 | 3 | 0 | 90 |
+| deckdex-3 (python) | success | 3.0 | 0.86 | 3 | 0 | 88 |
+| tetrisex-3 | success | 5.7 | 3.60 | 8 | 1 | 72 → 84 |
+| arkanoidex-14 | success | 5.9 | 3.32 | 8 | 1 | 66 → 86 |
+| tetrisex-11 | success | 6.1 | 3.65 | 8 | 1 | 72 → 86 |
+| arkanoidex-12 | changes-requested | 3.1 | 1.17 | 4 | 1 | 68 (1 issue for the deriver) |
+
+- 9/10 succeed; 6 need no correction round at all (one derive, one tag, one review). Before the
+  tag step 4 of 5 comparable cases needed a round. The rounds left are real gaps (requirements no
+  test demonstrated).
+- Quality check of the fastest (tetrisex-2): the reviewer compared each of the 14 ADDED
+  requirements against the code, all tagged by a test, 91/91 tests green, three followUps.
+- **Dead end found (arkanoidex-12):** the one blocking issue was for the deriver (a baseline
+  requirement the code now contradicts). The fixer rightly changed no code (it may not edit
+  `openspec/`), and `fix-progress` ended the run as "no progress". Fixed: it re-derives either way
+  (the correction budget still bounds the rounds); mirrored in Core. → experiment 4.
 
 ### Experiment 2 (measured in the table above) — the reviewer keeps its session
 
