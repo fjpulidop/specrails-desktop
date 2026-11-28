@@ -34,3 +34,10 @@
 - [x] 6.2 Observed background processes; a mission's run in its Processes with the run log, Tapflow's log, the build PID and the outcome
 - [x] 6.3 Resources: device ids and simulator names, builds in the app-wide Tapflow category, mission kinds `mobile-device`, `mobile-build`, `tapflow-service`, footprints in the mission view, recording while a run is in progress
 - [x] 6.4 Pin Tapflow's whole tree: shipped lockfile, `npm ci`
+
+## 7. Mission card and MCP control
+
+- [x] 7.1 A run the mission's agent started posts the offer card (keyed by run, no Retry); the device window opens once when the asked-for run is running
+- [x] 7.2 Detect the Kotlin Multiplatform wizard's `libs.plugins.androidApplication` alias
+- [x] 7.3 MCP `mobile_options`, `mobile_status`, `mobile_open_device` (main window opens it over WS), `mobile_release_device` (grace or now)
+- [x] 7.4 Wait out Tapflow admission refusals (busy Mac) like its own runner, with the reason in the log

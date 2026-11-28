@@ -112,7 +112,7 @@ Generated from the catalog. Actions marked *not available yet* answer `not_imple
 | `specrails_insights` |  | 12 |
 | `specrails_settings` |  | 5 |
 | `specrails_providers` |  | 21 |
-| `specrails_integrations` |  | 45 |
+| `specrails_integrations` |  | 49 |
 | `specrails_system` |  | 15 |
 
 ### `specrails_overview`
@@ -419,6 +419,10 @@ jira_* sync, plugins_* (incl. Headroom), loops_* library, code_* exploration, gi
 | `plugins_uninstall` | destructive | irreversible | Requires `id`. Reverts contributors and removes owned MCP servers, installed files and state. |
 | `plugins_activate` | write | — | Requires `id`. Turns an installed plugin back on (Headroom: options.provider claude\|codex; Tapflow starts its device service, then mission agents get its MCP). |
 | `mobile_test` | write | — | Builds the iOS/Android app for the simulator and runs it on a Tapflow device inside Specrails (factory:mobile-test); the person watches it in a native device window. What to test: options.target "mission" (a mission agent: the code of your own active Intent session), options.delivery (a delivery ref or id, on review or merged locally), options.target "checkout" (the project checkout as it is) or "branch" with options.branch (built in a temporary worktree; the checkout is untouched). options.platforms: ["ios"], ["android"] or both. options.devices: { ios?, android? } Tapflow device ids to use (else Tapflow picks). A mission's run shows in its Processes (build and Tapflow log) and Resources. Returns the run ref: wait on it with specrails_wait. |
+| `mobile_options` | read | — | What Test in Mobile Device can run in a project now: whether Tapflow is installed and Core runs host tasks, the checkout's apps (platforms, current branch, recommended platform), deliveries on review with an app, local branches, and Tapflow's devices (id, name, platform, booted; null while Tapflow is off). Use the ids in mobile_test options.devices. |
+| `mobile_status` | read | — | Requires `ref`. A Test in Mobile Device run (ref: the run ref mobile_test returned): state running \| launched \| failed, the devices it runs on, or why it stopped (with the build command). specrails_wait on the run ref first. |
+| `mobile_open_device` | write | — | Requires `ref`. Opens the device of a launched run in its native Specrails window (the person sees and uses it; the window releases the device when closed). ref: the run ref; options.platform picks one of a both-platform run. |
+| `mobile_release_device` | write | — | Requires `ref`. Releases the device of a run so it stops costing CPU and memory: shut down after the grace period (as closing its window does), or at once with options.now true. ref: the run ref; options.platform for a both-platform run. |
 | `plugins_deactivate` | write | — | Requires `id`. Turns a plugin off without uninstalling (Headroom: options.provider). |
 | `plugins_update` | write | — | Requires `id`. Applies manifest drift (Headroom: options.port changes the relay port). |
 | `plugins_health` | read | — | On-demand verify of one installed plugin (id), or Headroom diagnostics (id: headroom). |

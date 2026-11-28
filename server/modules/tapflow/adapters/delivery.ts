@@ -38,7 +38,24 @@ export interface DeliveryDeps {
   upload?: (port: number, token: string, file: string) => Promise<number>
   openTools?: (opts: { nodePath: string; mcpServer: string; port: number; token: string }) => Promise<TapflowTools>
   zipApp?: (appDir: string, zipFile: string) => Promise<void>
+  /** Waiting out a busy Mac (tests shorten it). */
+  sleep?: (ms: number) => Promise<void>
+  now?: () => number
+  admissionTimeoutMs?: number
 }
+
+/**
+ * Tapflow's relay refuses a session while the Mac is busy rather than broken: CPU or memory over its limit
+ * (80 %; right after a build the CPU almost always is), another boot in progress, every automation device in
+ * use, or critical memory pressure. Its own runner waits those out (flow-runner `retryAdmission`: 5 s doubling
+ * to 30 s), letting go of the session before each wait; so does Specrails.
+ */
+const ADMISSION_REFUSAL = /agent-resources-exhausted|agent resources exhausted|host-booting|host-at-capacity|host-memory-critical/i
+const ADMISSION_TIMEOUT_MS = 4 * 60_000
+const busyReason = (text: string) => /exhausted/i.test(text) ? 'your Mac is over Tapflow\'s CPU or memory limit (80 %), usual right after a build'
+  : /booting/i.test(text) ? 'another device is booting'
+  : /capacity/i.test(text) ? 'every automation device is in use'
+  : 'memory pressure is critical'
 
 const zipWithDitto = (appDir: string, zipFile: string) => new Promise<void>((resolve, reject) => {
   // `ditto -c -k --keepParent`: the zip layout Tapflow (and Xcode) expect for a simulator .app.
@@ -110,6 +127,8 @@ export function createTapflowDelivery(deps: DeliveryDeps) {
   const upload = deps.upload ?? uploadBuild
   const openTools = deps.openTools ?? openTapflowTools
   const zipApp = deps.zipApp ?? zipWithDitto
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms).unref?.() }))
+  const now = deps.now ?? Date.now
 
   return async function deliver(request: DeliveryRequest): Promise<DeliveryOutcome> {
     const { log, platform } = request
@@ -137,15 +156,42 @@ export function createTapflowDelivery(deps: DeliveryDeps) {
       if (!device) {
         return { outcome: 'unavailable', detail: platform === 'android' ? 'Tapflow has no Android emulator. Run its setup for Android in Plugins ▸ Tapflow.' : 'Tapflow has no iOS simulator. Install an iOS Simulator runtime in Xcode.' }
       }
-      const connected = await tools.call('connect_device', { sessionId: device.sessionId })
-      if (connected.isError) return { outcome: 'failed', detail: `${device.name} is busy in Tapflow: ${connected.text}` }
-      const watchUrl = (() => { try { return (JSON.parse(connected.text) as { watchUrl?: string }).watchUrl ?? null } catch { return null } })()
-      try {
-        if (!/booted/i.test(device.status)) {
-          log(`Booting ${device.name}…`)
-          const booted = await tools.call('boot_device', { sessionId: device.sessionId, deviceId: device.id })
-          if (booted.isError) return { outcome: 'failed', detail: `${device.name} did not boot: ${booted.text}` }
+      // Join (and boot) the device, waiting out a busy Mac; the session is let go before each wait.
+      const deadline = now() + (deps.admissionTimeoutMs ?? ADMISSION_TIMEOUT_MS)
+      const started = now()
+      let delay = 5_000
+      let watchUrl: string | null = null
+      const waitOrFail = async (text: string): Promise<DeliveryOutcome | null> => {
+        if (!ADMISSION_REFUSAL.test(text) || now() >= deadline) {
+          return ADMISSION_REFUSAL.test(text)
+            ? { outcome: 'failed', detail: `Tapflow kept refusing ${device.name} for ${Math.round((now() - started) / 1000)} s: ${busyReason(text)}. Close something heavy (another emulator, Xcode, Android Studio) and run it again.` }
+            : null
         }
+        const wait = Math.min(delay, Math.max(0, deadline - now()))
+        log(`Tapflow is waiting: ${busyReason(text)}. Trying ${device.name} again in ${Math.round(wait / 1000)} s…`)
+        await sleep(wait)
+        delay = Math.min(delay * 2, 30_000)
+        return null
+      }
+      for (;;) {
+        const connected = await tools.call('connect_device', { sessionId: device.sessionId })
+        if (connected.isError) {
+          const verdict = await waitOrFail(connected.text)
+          if (verdict) return verdict
+          if (ADMISSION_REFUSAL.test(connected.text)) continue
+          return { outcome: 'failed', detail: `${device.name} is busy in Tapflow: ${connected.text}` }
+        }
+        watchUrl = (() => { try { return (JSON.parse(connected.text) as { watchUrl?: string }).watchUrl ?? null } catch { return null } })()
+        if (/booted/i.test(device.status)) break
+        log(`Booting ${device.name}…`)
+        const booted = await tools.call('boot_device', { sessionId: device.sessionId, deviceId: device.id })
+        if (!booted.isError) { device.status = 'Booted'; break }
+        await tools.call('disconnect_device', { sessionId: device.sessionId }, 30_000).catch(() => undefined)
+        const verdict = await waitOrFail(booted.text)
+        if (verdict) return verdict
+        if (!ADMISSION_REFUSAL.test(booted.text)) return { outcome: 'failed', detail: `${device.name} did not boot: ${booted.text}` }
+      }
+      try {
         log(`Installing on ${device.name}…`)
         const installed = await tools.call('install_app', { sessionId: device.sessionId, buildId })
         if (installed.isError) return { outcome: 'failed', detail: `Tapflow could not install the build: ${installed.text}` }

@@ -19,7 +19,7 @@ import { createHostTaskDispatcher } from './modules/agent-runtime/runtime/host-t
 import type { ProjectAgentAudit } from './modules/audit/adapters/runtime'
 import { createPrCiHandlers } from './modules/delivery/runtime/pr-ci/pr-ci-handlers'
 import { createMobileTestHandlersFor, mobileOfferEnv } from './modules/tapflow'
-import { refreshMobileTestOffer } from './modules/tapflow/adapters/mobile-offer'
+import { refreshMissionRunCard, refreshMobileTestOffer } from './modules/tapflow/adapters/mobile-offer'
 import { createMobileRunsStore } from './modules/tapflow/adapters/mobile-runs-store'
 import { resolvePrCiTargets } from './modules/delivery/runtime/pr-ci/pr-ci-target'
 import { defaultExec } from './modules/delivery/runtime/pr-publisher'
@@ -136,6 +136,7 @@ export function createProjectLoopRuntime(deps: {
     const deliveryId = createMobileRunsStore(db).get(runId)?.deliveryId
     const projectContext = deps.getProjectContext()
     if (deliveryId && projectContext) void refreshMobileTestOffer(projectContext, deliveryId, mobileOfferEnv)
+    else if (projectContext) refreshMissionRunCard(projectContext, runId)
   })
   const hostTaskDispatcher = createHostTaskDispatcher({ db, projectId: project.id, handlers: {
     ...(isPrCiLoopEnabled() ? createPrCiHandlers({

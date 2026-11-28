@@ -1739,6 +1739,8 @@
       "ios": "iOS",
       "android": "Android"
     },
-    "openDevice": "{{device}} を開く"
+    "openDevice": "{{device}} を開く",
+    "startedBodyMission": "このセッションのコードをビルドしてインストールしています。進行状況とログは「プロセス」にあります。",
+    "failedBodyMission": "解決したら、もう一度実行するようエージェントに頼んでください。"
   }
 }

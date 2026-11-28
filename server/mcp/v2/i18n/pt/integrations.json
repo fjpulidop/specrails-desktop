@@ -73,5 +73,10 @@
   "confirm.mobile_revoke": "Revoga o dispositivo pareado {{device}}; ele precisará parear de novo.",
   "confirm.webhooks_url": "Envia os eventos do app para {{url}} a partir de agora.",
   "confirm.mobile_rotate": "Renova o certificado do gateway e revoga os {{devices}} dispositivos pareados; cada um precisa parear de novo.",
-  "summary.mobile_test_started": "A compilar e instalar no simulador {{platforms}}; aguarde a execução."
+  "summary.mobile_test_started": "A compilar e instalar no simulador {{platforms}}; aguarde a execução.",
+  "summary.mobile_options": "Teste em móvel: a cópia de trabalho compila {{platforms}}; {{devices}} dispositivo(s) Tapflow disponíveis.",
+  "summary.mobile_status": "Teste em móvel {{state}}: {{detail}}",
+  "summary.mobile_open_device": "A abrir {{device}} na sua janela do Specrails.",
+  "summary.mobile_device_released": "{{device}} desliga-se após o período de tolerância, salvo se for reaberto.",
+  "summary.mobile_device_stopped": "{{device}} está a desligar-se agora."
 }

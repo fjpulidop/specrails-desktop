@@ -6,7 +6,7 @@
 import type { Request, Response, Router } from 'express'
 import type { TapflowPlugin } from '../application'
 import type { ProjectContext } from '../../../project-registry'
-import { dismissMobileTestOffer, mobileTestOptions, mobileTestRunView, startMobileTest, type MobileOfferEnv, type MobileTestTargetRequest } from './mobile-offer'
+import { dismissMobileTestOffer, mobileTestOptions, mobileTestRunView, runDevice, startMobileTest, type MobileOfferEnv, type MobileTestTargetRequest } from './mobile-offer'
 import { validDeviceTarget, type createDeviceWindows } from './device-window'
 
 export function registerTapflowRoutes(router: Router, tapflow: TapflowPlugin, deviceWindows?: () => ReturnType<typeof createDeviceWindows>): void {
@@ -46,6 +46,8 @@ export function registerTapflowRoutes(router: Router, tapflow: TapflowPlugin, de
  *   `{ kind: 'mission' }` (the Intent worktree of `conversationId`). A bare `deliveryId` still means a
  *   delivery (the mission card). `conversationId`: the mission the run shows in (Processes, Resources).
  * - `GET /options`: what the Loops start form offers; `GET /runs/:runId`: a run's state and devices.
+ * - `POST /runs/:runId/open-device` `{ platform? }`: the app's main window opens the device (MCP).
+ * - `POST /runs/:runId/release-device` `{ platform?, now? }`: shut the device down after the grace period, or now.
  * - `POST /dismiss` `{ deliveryId }`.
  */
 export function registerMobileTestRoutes(router: Router, env: MobileOfferEnv): void {
@@ -66,6 +68,24 @@ export function registerMobileTestRoutes(router: Router, env: MobileOfferEnv): v
   })
   router.get('/options', async (req: Request, res: Response) => {
     res.json(await mobileTestOptions(ctx(req), env))
+  })
+  router.post('/runs/:runId/open-device', (req: Request, res: Response) => {
+    const c = ctx(req)
+    const platform = (req.body ?? {}).platform
+    const target = runDevice(c, String(req.params.runId), platform === 'ios' || platform === 'android' ? platform : undefined)
+    if (!target) { res.status(409).json({ error: 'This run has no running device to open (it is still building, or it failed).', code: 'no_device' }); return }
+    // The main window holds device windows (and releases them on close): it opens this one.
+    c.broadcast({ type: 'mobile_test.open_device', projectId: c.project.id, target } as never)
+    res.json({ ok: true, device: target })
+  })
+  router.post('/runs/:runId/release-device', async (req: Request, res: Response) => {
+    const c = ctx(req)
+    const body = (req.body ?? {}) as { platform?: unknown; now?: unknown }
+    const target = runDevice(c, String(req.params.runId), body.platform === 'ios' || body.platform === 'android' ? body.platform : undefined)
+    if (!target) { res.status(409).json({ error: 'This run has no device to release.', code: 'no_device' }); return }
+    if (!env.releaseDevice) { res.status(409).json({ error: 'Tapflow is not set up by Specrails.', code: 'tapflow_not_installed' }); return }
+    await env.releaseDevice(target, body.now === true)
+    res.json({ ok: true, device: target, now: body.now === true })
   })
   router.get('/runs/:runId', (req: Request, res: Response) => {
     const view = mobileTestRunView(ctx(req), String(req.params.runId))

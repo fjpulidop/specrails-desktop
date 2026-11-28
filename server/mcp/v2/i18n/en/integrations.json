@@ -73,5 +73,10 @@
   "confirm.mobile_revoke": "Revokes the paired device {{device}}; it must pair again.",
   "confirm.webhooks_url": "Sends the app's events to {{url}} from now on.",
   "confirm.mobile_rotate": "Rotates the gateway certificate and revokes all {{devices}} paired devices; each must pair again.",
-  "summary.mobile_test_started": "Building and installing on the {{platforms}} simulator; wait on the run."
+  "summary.mobile_test_started": "Building and installing on the {{platforms}} simulator; wait on the run.",
+  "summary.mobile_options": "Mobile test: checkout builds {{platforms}}; {{devices}} Tapflow device(s) available.",
+  "summary.mobile_status": "Mobile test {{state}}: {{detail}}",
+  "summary.mobile_open_device": "Opening {{device}} in its Specrails window.",
+  "summary.mobile_device_released": "{{device}} shuts down after the grace period unless it is opened again.",
+  "summary.mobile_device_stopped": "{{device}} is shutting down now."
 }

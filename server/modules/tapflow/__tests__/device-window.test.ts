@@ -72,6 +72,14 @@ describe('device windows', () => {
     h.timers[1]!.fn()
     expect(h.shutdown).toHaveBeenCalledWith(target)
   })
+
+  it('shuts a device down now on request (MCP), cancelling a pending release', async () => {
+    const h = setup()
+    h.windows.release(target)
+    await h.windows.shutdownNow(target)
+    expect(h.timers[0]!.cleared).toBe(true)
+    expect(h.shutdown).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('Android release', () => {

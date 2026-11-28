@@ -1739,6 +1739,8 @@
       "ios": "iOS",
       "android": "Android"
     },
-    "openDevice": "Apri {{device}}"
+    "openDevice": "Apri {{device}}",
+    "startedBodyMission": "Compilazione del codice di questa sessione e installazione; avanzamento e log sono in Processi.",
+    "failedBodyMission": "Chiedi all'agente di eseguirla di nuovo quando è risolto."
   }
 }

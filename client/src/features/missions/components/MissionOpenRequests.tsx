@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useSharedWebSocket } from '../../../hooks/useSharedWebSocket'
 import { useUiMode } from '../../../context/UiModeContext'
 import { OPEN_MISSION_EVENT, OPEN_MISSION_NATIVE_EVENT, requestOpenMission, type OpenMissionDetail } from '../../../lib/mission-events'
 import { isTauri } from '../../../lib/tauri-shell'
@@ -15,6 +16,7 @@ const OPEN_DEVICE_NATIVE_EVENT = 'specrails://open-device'
  * mode opens it in the floating agent panel, like the live board's mission cards.
  * Loop editor windows ask through the host's `specrails://open-mission` event, and for a device window
  * through `specrails://open-device`: the main window opens it so it also releases the device on close.
+ * An MCP client asks over WS (`mobile_test.open_device`, specrails_integrations mobile_open_device).
  */
 export function MissionOpenRequests() {
   const { uiMode } = useUiMode()
@@ -22,6 +24,15 @@ export function MissionOpenRequests() {
   const openMission = useOpenMission()
   const latest = useRef({ uiMode, selectConversation, open, openMission })
   latest.current = { uiMode, selectConversation, open, openMission }
+  const { registerHandler, unregisterHandler } = useSharedWebSocket()
+  useEffect(() => {
+    registerHandler('mission-open-device', (raw: unknown) => {
+      const msg = raw as { type?: string; target?: DeviceTarget }
+      if (msg.type !== 'mobile_test.open_device' || !msg.target || !isTauri()) return
+      void openDeviceWindow(msg.target).catch(() => {})
+    })
+    return () => unregisterHandler('mission-open-device')
+  }, [registerHandler, unregisterHandler])
   useEffect(() => {
     const onRequest = (event: Event) => {
       const id = (event as CustomEvent<OpenMissionDetail>).detail?.conversationId

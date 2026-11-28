@@ -1739,6 +1739,8 @@
       "ios": "iOS",
       "android": "Android"
     },
-    "openDevice": "{{device}} öffnen"
+    "openDevice": "{{device}} öffnen",
+    "startedBodyMission": "Der Code dieser Sitzung wird gebaut und installiert; Fortschritt und Log stehen unter Prozesse.",
+    "failedBodyMission": "Bitte den Agenten, es erneut auszuführen, sobald das behoben ist."
   }
 }

@@ -39,6 +39,17 @@ describe('detectMobileApps', () => {
     expect(apps.map((app) => [app.platform, app.root])).toEqual([['android', ''], ['ios', 'iosApp']])
   })
 
+  it('[spec:mobile-device-testing/app-detection] recognises the camelCase plugin alias of the Kotlin Multiplatform wizard (JetBrains\' KMP-App-Template)', () => {
+    const apps = detectMobileApps(repo({
+      'iosApp/iosApp.xcodeproj/project.pbxproj': IOS_PBX, 'settings.gradle.kts': 'include(":shared")\ninclude(":androidApp")',
+      'androidApp/build.gradle.kts': 'plugins {\n    alias(libs.plugins.androidApplication)\n    alias(libs.plugins.composeCompiler)\n}',
+      'shared/build.gradle.kts': 'plugins { alias(libs.plugins.androidKotlinMultiplatformLibrary) }',
+    }))
+    expect(apps.map((app) => [app.platform, app.root, app.gradleModule])).toEqual([['android', '', 'androidApp'], ['ios', 'iosApp', undefined]])
+    // The library alias is not an app.
+    expect(detectMobileApps(repo({ 'settings.gradle.kts': '', 'lib/build.gradle.kts': 'plugins { alias(libs.plugins.androidLibrary) }' }))).toEqual([])
+  })
+
   it('recognises Flutter once for each platform, not its native folders again', () => {
     const apps = detectMobileApps(repo({ 'pubspec.yaml': 'dependencies:\n  flutter:\n    sdk: flutter\n', 'ios/Runner.xcodeproj/project.pbxproj': IOS_PBX, 'android/settings.gradle': '', 'android/app/build.gradle': ANDROID_APP }))
     expect(apps).toEqual([{ platform: 'ios', stack: 'flutter', root: '' }, { platform: 'android', stack: 'flutter', root: '' }])

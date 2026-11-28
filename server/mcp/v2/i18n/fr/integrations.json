@@ -73,5 +73,10 @@
   "confirm.mobile_revoke": "Révoque l'appareil appairé {{device}} ; il devra être appairé à nouveau.",
   "confirm.webhooks_url": "Envoie désormais les événements de l'application à {{url}}.",
   "confirm.mobile_rotate": "Renouvelle le certificat de la passerelle et révoque les {{devices}} appareils appairés ; chacun doit être appairé à nouveau.",
-  "summary.mobile_test_started": "Compilation et installation sur le simulateur {{platforms}} ; attendez le run."
+  "summary.mobile_test_started": "Compilation et installation sur le simulateur {{platforms}} ; attendez le run.",
+  "summary.mobile_options": "Test mobile : la copie de travail compile {{platforms}} ; {{devices}} appareil(s) Tapflow disponible(s).",
+  "summary.mobile_status": "Test mobile {{state}} : {{detail}}",
+  "summary.mobile_open_device": "Ouverture de {{device}} dans sa fenêtre Specrails.",
+  "summary.mobile_device_released": "{{device}} s'éteindra après le délai de grâce s'il n'est pas rouvert.",
+  "summary.mobile_device_stopped": "{{device}} s'éteint maintenant."
 }

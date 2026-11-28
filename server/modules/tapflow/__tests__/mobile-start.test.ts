@@ -12,6 +12,11 @@ import { finishMobileRun, mobileRunPid } from '../adapters/mobile-run-process'
 import { listBackgroundProcesses } from '../../../transient-children'
 import { missionTapflowRoots } from '../runtime'
 
+const upserts = vi.hoisted(() => [] as Array<{ conversationId: string; row: Record<string, unknown>; key: string }>)
+vi.mock('../../missions/runtime/agent-chat-registry', () => ({
+  getAgentChatManager: () => ({ upsertSystemRow: (conversationId: string, row: Record<string, unknown>, key: string) => { upserts.push({ conversationId, row, key }); return 'row-1' } }),
+}))
+
 const dirs: string[] = []
 afterEach(() => { for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true }) })
 const temp = (prefix: string) => { const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix))); dirs.push(dir); return dir }
@@ -108,6 +113,8 @@ describe('starting Test in Mobile Device by hand', () => {
     const [entry] = listBackgroundProcesses({ projectId: 'p1', chatId: 'mission-1' })
     expect(entry).toMatchObject({ observed: true, status: 'running', flowId: 'flow-1', command: 'Test in Mobile Device · Android · Intent session' })
     expect(c.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'background_process.started', projectId: 'p1' }))
+    // The mission shows the run as a card that opens the device once it runs.
+    expect(upserts.at(-1)).toMatchObject({ conversationId: 'mission-1', key: `mobile-test-run:${runId}`, row: { kind: 'mobile-test-offer', deliveryId: '', state: 'started', runId, autoOpen: true, platforms: ['android'] } })
     finish()
     await vi.waitFor(() => expect(listBackgroundProcesses({ projectId: 'p1', chatId: 'mission-1', includeFinished: true })[0]).toMatchObject({ status: 'failed' }))
   })

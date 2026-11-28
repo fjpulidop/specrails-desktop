@@ -73,5 +73,10 @@
   "confirm.mobile_revoke": "Widerruft das gekoppelte Gerät {{device}}; es muss sich erneut koppeln.",
   "confirm.webhooks_url": "Sendet die Ereignisse der App ab jetzt an {{url}}.",
   "confirm.mobile_rotate": "Erneuert das Zertifikat des Gateways und widerruft alle {{devices}} gekoppelten Geräte; jedes muss neu gekoppelt werden.",
-  "summary.mobile_test_started": "Wird gebaut und im {{platforms}}-Simulator installiert; auf den Run warten."
+  "summary.mobile_test_started": "Wird gebaut und im {{platforms}}-Simulator installiert; auf den Run warten.",
+  "summary.mobile_options": "Mobiltest: Checkout baut {{platforms}}; {{devices}} Tapflow-Gerät(e) verfügbar.",
+  "summary.mobile_status": "Mobiltest {{state}}: {{detail}}",
+  "summary.mobile_open_device": "{{device}} wird in seinem Specrails-Fenster geöffnet.",
+  "summary.mobile_device_released": "{{device}} fährt nach der Schonfrist herunter, sofern es nicht erneut geöffnet wird.",
+  "summary.mobile_device_stopped": "{{device}} fährt jetzt herunter."
 }

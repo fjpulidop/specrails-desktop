@@ -225,6 +225,23 @@ describe('plugins and Headroom', () => {
     expect((await tool({ action: 'mobile_test', options: { target: 'mission', platforms: ['ios'] } })).envelope.error.code).toBe('unauthorized')
   })
 
+  it('[spec:mobile-device-testing/mcp-control] controls a mobile test end to end: options, status, open and release its device', async () => {
+    route(`GET ${P}/mobile-test/options`, { body: { ready: true, hostTasks: true, checkout: { branch: 'main', platforms: ['ios', 'android'], recommended: 'ios' }, deliveries: [], branches: ['main'], devices: [{ id: 'avd:tapflow-phone', name: 'tapflow-phone', platform: 'android', booted: false }] } })
+    route(`GET ${P}/mobile-test/runs/r-7`, { body: { runId: 'r-7', state: 'launched', summary: 'Android on tapflow-phone', devices: [{ platform: 'android', name: 'tapflow-phone', id: 'avd:tapflow-phone', sessionId: 's', buildId: 8 }] } })
+    route(`POST ${P}/mobile-test/runs/r-7/open-device`, { body: { ok: true, device: { name: 'tapflow-phone' } } })
+    route(`POST ${P}/mobile-test/runs/r-7/release-device`, { body: { ok: true, device: { name: 'tapflow-phone' }, now: true } })
+    const options = await tool({ action: 'mobile_options' })
+    expect(options.envelope.ok).toBe(true)
+    expect(options.envelope.data.devices).toHaveLength(1)
+    const status = await tool({ action: 'mobile_status', ref: 'run:p1/r-7' })
+    expect(status.envelope.data).toMatchObject({ state: 'launched', summary: 'Android on tapflow-phone' })
+    expect((await tool({ action: 'mobile_open_device', ref: 'run:p1/r-7', options: { platform: 'android' } })).envelope.ok).toBe(true)
+    expect(calls(`POST ${P}/mobile-test/runs/r-7/open-device`)[0].body).toEqual({ platform: 'android' })
+    expect((await tool({ action: 'mobile_release_device', ref: 'r-7', options: { now: true } })).envelope.ok).toBe(true)
+    expect(calls(`POST ${P}/mobile-test/runs/r-7/release-device`)[0].body).toEqual({ now: true })
+    expect((await tool({ action: 'mobile_status' })).envelope.error.code).toBe('invalid_input')
+  })
+
   it('refuses the mission target to a client that is not a mission agent', async () => {
     expect((await tool({ action: 'mobile_test', options: { target: 'mission', platforms: ['ios'] } })).envelope.error.code).toBe('invalid_input')
   })

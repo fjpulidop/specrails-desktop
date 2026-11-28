@@ -5,8 +5,12 @@
 // the app for the simulator and runs it on a Tapflow device (`factory:mobile-test`);
 // a multiplatform project asks iOS, Android or both, recommending one. The row is
 // updated in place: started → running on <device> | failed (reason).
+//
+// The same card follows a run the mission's agent started (no delivery: no Start,
+// no Retry). Either way the person asked for the run, so once it runs the device
+// window opens by itself, once per run and only when it just happened.
 
-import { Suspense, lazy, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, CheckCircle2, Loader2, Smartphone } from 'lucide-react'
 import { cn } from '../../../lib/utils'
@@ -30,6 +34,22 @@ export interface MobileTestOfferRow {
   reason: string | null
   /** Where the app runs; id/sessionId/buildId open the device window (absent on older rows). */
   devices: Array<{ platform: MobilePlatform; name: string; id?: string; sessionId?: string; buildId?: number }>
+  /** The person asked for this run: open the device once it runs. */
+  autoOpen: boolean
+  /** When the server last wrote the row (ISO), to open only a launch that just happened. */
+  at: string | null
+}
+
+/** A launch older than this (a reload, another device's session) never opens a window by itself. */
+const AUTO_OPEN_WINDOW_MS = 3 * 60_000
+const openedKey = (runId: string) => `specrails:mobile-test-opened:${runId}`
+/** Claims the one automatic open of a run (shared by every window of the app). */
+function claimAutoOpen(runId: string): boolean {
+  try {
+    if (localStorage.getItem(openedKey(runId))) return false
+    localStorage.setItem(openedKey(runId), '1')
+    return true
+  } catch { return false }
 }
 
 const STATES: readonly MobileTestOfferState[] = ['offered', 'started', 'launched', 'failed', 'expired', 'dismissed']
@@ -55,6 +75,8 @@ export function parseMobileTestOfferRow(content: string): MobileTestOfferRow | n
     runId: typeof o.runId === 'string' ? o.runId : null,
     reason: typeof o.reason === 'string' && o.reason.trim() ? o.reason : null,
     devices,
+    autoOpen: o.autoOpen === true,
+    at: typeof o.at === 'string' ? o.at : null,
   }
 }
 
@@ -77,6 +99,17 @@ export function AgentMobileTestOfferCard({ row }: { row: MobileTestOfferRow }) {
   const inFlight = useRef(false)
   // The server row wins once it moved past what this click set.
   const state = row.state !== 'offered' ? row.state : (local ?? row.state)
+  const fromAgent = !row.deliveryId
+  // Launched just now for the person: show them the device without another click.
+  useEffect(() => {
+    if (state !== 'launched' || !row.autoOpen || !row.runId) return
+    const at = row.at ? Date.parse(row.at) : NaN
+    if (!Number.isFinite(at) || Date.now() - at > AUTO_OPEN_WINDOW_MS) return
+    const device = row.devices.find((candidate) => candidate.id && candidate.sessionId && candidate.buildId)
+    if (!device || !claimAutoOpen(row.runId)) return
+    void openDeviceWindow({ deviceId: device.id!, sessionId: device.sessionId!, buildId: device.buildId!, platform: device.platform, name: device.name })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
+  }, [state, row.autoOpen, row.runId, row.at, row.devices])
   const platformName = (platform: MobilePlatform) => t(`mobileTest.platform.${platform}`)
   const choices: Array<{ id: string; platforms: MobilePlatform[] }> = row.platforms.length > 1
     ? [{ id: 'ios', platforms: ['ios'] }, { id: 'android', platforms: ['android'] }, { id: 'both', platforms: ['ios', 'android'] }]
@@ -120,14 +153,14 @@ export function AgentMobileTestOfferCard({ row }: { row: MobileTestOfferRow }) {
           </p>
           <p className="mt-1 whitespace-pre-line leading-4 text-muted-foreground">
             {state === 'offered' ? (row.platforms.length > 1 ? t('mobileTest.bodyChoose') : t('mobileTest.body', { platform: platformName(row.platforms[0] ?? 'ios') }))
-              : state === 'started' ? t('mobileTest.startedBody')
+              : state === 'started' ? t(fromAgent ? 'mobileTest.startedBodyMission' : 'mobileTest.startedBody')
               : state === 'launched' ? t('mobileTest.launchedBody')
               : state === 'expired' ? t('mobileTest.expiredBody')
-              : row.reason ?? t('mobileTest.failedBody')}
+              : (row.reason ?? t('mobileTest.failedBody')) + (fromAgent ? `\n${t('mobileTest.failedBodyMission')}` : '')}
           </p>
           {error && <p role="alert" className="mt-1.5 flex items-start gap-1.5 leading-4 text-destructive"><AlertTriangle className="mt-px h-3 w-3 shrink-0" aria-hidden />{error}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            {(state === 'offered' ? choices : state === 'failed' ? [choices.find((choice) => choice.id === row.recommended) ?? choices[0]!] : []).map((choice) => {
+            {(state === 'offered' ? choices : state === 'failed' && !fromAgent ? [choices.find((choice) => choice.id === row.recommended) ?? choices[0]!] : []).map((choice) => {
               const recommended = choice.id === row.recommended || choices.length === 1
               return (
                 <button key={choice.id} type="button" data-agent-interactive data-testid={`agent-mobile-test-start-${choice.id}`} disabled={busy !== null}

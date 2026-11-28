@@ -61,4 +61,34 @@ describe('mobile test offer card: device window', () => {
     render(<AgentMobileTestOfferCard row={parseMobileTestOfferRow(row({ state: 'launched', devices: [{ platform: 'ios', name: 'iPhone 17' }] }))!} />)
     expect(screen.queryByTestId('agent-mobile-test-open-device-ios')).toBeNull()
   })
+
+  it('[spec:mobile-device-testing/agent-runs-the-app] follows a run the agent started, without Retry, and opens the device once when it runs', async () => {
+    opened.length = 0
+    localStorage.clear()
+    const device = { platform: 'android', name: 'tapflow-phone', id: 'avd:tapflow-phone', sessionId: 's1', buildId: 8 }
+    const started = parseMobileTestOfferRow(row({ deliveryId: '', state: 'started', runId: 'r-agent', platforms: ['android'], autoOpen: true, at: new Date().toISOString() }))!
+    const { rerender } = render(<AgentMobileTestOfferCard row={started} />)
+    expect(screen.getByText(/this session/i)).toBeInTheDocument()
+    expect(screen.queryByTestId(/agent-mobile-test-start-/)).not.toBeInTheDocument()
+    const launched = parseMobileTestOfferRow(row({ deliveryId: '', state: 'launched', runId: 'r-agent', platforms: ['android'], autoOpen: true, devices: [device], at: new Date().toISOString() }))!
+    rerender(<AgentMobileTestOfferCard row={launched} />)
+    await waitFor(() => expect(opened).toEqual([{ deviceId: 'avd:tapflow-phone', sessionId: 's1', buildId: 8, platform: 'android', name: 'tapflow-phone' }]))
+    // Re-rendered (or reopened in another window): never a second automatic window.
+    rerender(<AgentMobileTestOfferCard row={{ ...launched }} />)
+    expect(opened).toHaveLength(1)
+    const failed = parseMobileTestOfferRow(row({ deliveryId: '', state: 'failed', runId: 'r-2', reason: 'Android: Tapflow is off.', platforms: ['android'] }))!
+    rerender(<AgentMobileTestOfferCard row={failed} />)
+    expect(screen.getByText(/Ask the agent to run it again/)).toBeInTheDocument()
+    expect(screen.queryByText('Retry')).not.toBeInTheDocument()
+  })
+
+  it('never opens a launch that is not recent (a reload of an old mission)', async () => {
+    opened.length = 0
+    localStorage.clear()
+    const old = parseMobileTestOfferRow(row({ deliveryId: '', state: 'launched', runId: 'r-old', platforms: ['ios'], autoOpen: true, devices: [{ platform: 'ios', name: 'iPhone 17 Pro', id: 'UDID', sessionId: 's', buildId: 3 }], at: '2026-01-01T00:00:00Z' }))!
+    render(<AgentMobileTestOfferCard row={old} />)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(opened).toEqual([])
+    expect(screen.getByTestId('agent-mobile-test-open-device-ios')).toBeInTheDocument()
+  })
 })

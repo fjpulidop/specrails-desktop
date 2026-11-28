@@ -42,10 +42,13 @@ import { createMobileRunsStore, type MobileTestRun } from './mobile-runs-store'
 
 export const MOBILE_TEST_OFFER_KIND = 'mobile-test-offer'
 export const mobileTestOfferKey = (deliveryId: string) => `mobile-test-offer:${deliveryId}`
+/** The card of a run a mission's agent started (no delivery): one per run. */
+export const mobileTestRunCardKey = (runId: string) => `mobile-test-run:${runId}`
 
 export interface MobileTestOfferRow {
   kind: typeof MOBILE_TEST_OFFER_KIND
   projectId: string
+  /** Empty for a run the mission's agent started (no delivery to offer or retry). */
   deliveryId: string
   /** Platforms the project builds; more than one means the card asks. */
   platforms: MobilePlatform[]
@@ -55,6 +58,8 @@ export interface MobileTestOfferRow {
   reason?: string
   /** Where the app runs; enough to open the device window. */
   devices?: Array<{ platform: MobilePlatform; name: string; id: string; sessionId: string; buildId: number }>
+  /** The person asked for this run (Start on the card, or their agent): the client opens the device once it runs. */
+  autoOpen?: boolean
   at: string
 }
 
@@ -66,6 +71,17 @@ export interface MobileOfferEnv {
   devices?: () => Promise<ChoosableDevice[] | null>
   /** Tapflow's service log while Specrails runs it: a mission's Processes entry follows it during a run. */
   serviceLog?: () => string | null
+  /** Releases a device: shut down after the grace period (as when its window closes), or now. */
+  releaseDevice?: (target: { deviceId: string; sessionId: string; buildId: number; platform: MobilePlatform; name: string }, now: boolean) => Promise<void> | void
+}
+
+/** The device a run put the app on (the first, or the one of `platform`), as a device window target. */
+export function runDevice(c: Pick<ProjectContext, 'db'>, runId: string, platform?: MobilePlatform): { deviceId: string; sessionId: string; buildId: number; platform: MobilePlatform; name: string } | null {
+  const view = mobileTestRunView(c, runId)
+  const devices = (view?.devices ?? []) as Array<{ platform?: unknown; name?: unknown; id?: unknown; sessionId?: unknown; buildId?: unknown }>
+  const device = devices.find((candidate) => !platform || candidate.platform === platform)
+  if (!device || typeof device.id !== 'string' || typeof device.sessionId !== 'string' || typeof device.buildId !== 'number' || (device.platform !== 'ios' && device.platform !== 'android')) return null
+  return { deviceId: device.id, sessionId: device.sessionId, buildId: device.buildId, platform: device.platform, name: typeof device.name === 'string' ? device.name : device.id }
 }
 
 const REVIEW_DECISIONS = new Set(['on_review'])
@@ -108,7 +124,7 @@ function rowFor(projectId: string, deliveryId: string, base: Pick<MobileTestOffe
   if (!run) return { kind: MOBILE_TEST_OFFER_KIND, projectId, deliveryId, ...base, state: 'offered', at }
   const result = run.result ?? {}
   return {
-    kind: MOBILE_TEST_OFFER_KIND, projectId, deliveryId, ...base, runId: run.runId, at,
+    kind: MOBILE_TEST_OFFER_KIND, projectId, deliveryId, ...base, runId: run.runId, at, autoOpen: true,
     state: run.state === 'running' ? 'started' : run.state,
     ...(typeof result.detail === 'string' ? { reason: result.detail } : {}),
     ...(Array.isArray(result.devices) ? { devices: (result.devices as Array<{ platform: MobilePlatform; name: string; id: string; sessionId: string; buildId: number }>).map((device) => ({ platform: device.platform, name: device.name, id: device.id, sessionId: device.sessionId, buildId: device.buildId })) } : {}),
@@ -137,6 +153,22 @@ export async function refreshMobileTestOffer(c: ProjectContext, deliveryId: stri
     chat.upsertSystemRow(conversationId, { ...row }, mobileTestOfferKey(deliveryId))
   } catch (err) {
     console.error('[tapflow] mobile test offer failed:', err)
+  }
+}
+
+/**
+ * The card of a run the mission's agent started (no delivery): building → running on <device> (with Open
+ * <device>, opened for the person once it runs) | failed (reason). Advisory: never throws.
+ */
+export function refreshMissionRunCard(c: Pick<ProjectContext, 'db' | 'project'>, runId: string): void {
+  try {
+    const run = createMobileRunsStore(c.db).get(runId)
+    const chat = getAgentChatManager()
+    if (!run?.conversationId || run.deliveryId || !chat) return
+    const row = rowFor(c.project.id, '', { platforms: run.platforms, recommended: run.platforms.length > 1 ? 'both' : run.platforms[0]! }, run)
+    chat.upsertSystemRow(run.conversationId, { ...row }, mobileTestRunCardKey(runId))
+  } catch (err) {
+    console.error('[tapflow] mobile test card failed:', err)
   }
 }
 
@@ -290,8 +322,10 @@ export async function startMobileTest(c: ProjectContext, request: MobileStartReq
       // The app is installed on the device: the branch's worktree is no longer needed.
       if (scratch) void removeScratchWorktree(repository.path, scratch)
       if (delivery) void refreshMobileTestOffer(c, delivery.id, env)
+      else refreshMissionRunCard(c, runId)
     })
   if (delivery) void refreshMobileTestOffer(c, delivery.id, env)
+  else refreshMissionRunCard(c, runId)
   return { ok: true, runId }
 }
 

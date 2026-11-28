@@ -80,3 +80,57 @@ describe('server bundle safety', () => {
     expect(source).toContain("import('@modelcontextprotocol/sdk/client/index.js')")
   })
 })
+
+describe('a busy Mac (Tapflow admission refusals)', () => {
+  function busy(script: Record<string, string[]>, timeoutMs = 240_000) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tapflow-busy-')); dirs.push(root)
+    const paths = tapflowPaths(root)
+    fs.mkdirSync(paths.secretsDir, { recursive: true }); fs.writeFileSync(path.join(paths.secretsDir, 'token.json'), JSON.stringify({ token: 'tflw_pat_x' }))
+    const calls: string[] = []
+    const devices = [{ id: 'avd:tapflow-compact', name: 'tapflow-compact', platform: 'android', status: 'shutdown', formFactor: 'phone', sessionId: 'S1' }]
+    const tools: TapflowTools = {
+      call: vi.fn(async (name: string) => {
+        calls.push(name)
+        const refusal = script[name]?.shift()
+        if (refusal) return { text: refusal, isError: true }
+        if (name === 'list_devices') return { text: JSON.stringify([{ devices }]), isError: false }
+        return { text: '{}', isError: false }
+      }),
+      close: vi.fn(async () => {}),
+    }
+    let clock = 0
+    const waits: number[] = []
+    const deliver = createTapflowDelivery({
+      paths, target: () => ({ port: 4310, nodePath: '/n/node' }), answering: async () => true, upload: async () => 11, openTools: async () => tools,
+      zipApp: async () => {}, now: () => clock, sleep: async (ms) => { waits.push(ms); clock += ms }, admissionTimeoutMs: timeoutMs,
+    })
+    const apk = path.join(root, 'app-debug.apk'); fs.writeFileSync(apk, 'apk')
+    return { deliver, calls, waits, apk }
+  }
+
+  it('[spec:mobile-device-testing/run-on-device] waits out a Mac over the limit after a build, letting the session go before each wait', async () => {
+    const h = busy({
+      connect_device: ['connect_device failed: Agent resources exhausted (agent-resources-exhausted)', 'connect_device failed: Agent resources exhausted (agent-resources-exhausted)'],
+      boot_device: ['boot refused (host-booting)'],
+    })
+    const lines: string[] = []
+    const result = await h.deliver({ artifactPath: h.apk, platform: 'android', log: (line) => lines.push(line) })
+    expect(result).toMatchObject({ outcome: 'launched', device: { name: 'tapflow-compact' } })
+    expect(h.waits).toEqual([5_000, 10_000, 20_000])
+    expect(lines.filter((line) => line.startsWith('Tapflow is waiting'))[0]).toContain('CPU or memory limit')
+    // The boot refusal let the session go before waiting, then joined again.
+    expect(h.calls.join(' ')).toContain('boot_device disconnect_device connect_device boot_device install_app')
+  })
+
+  it('gives up with the reason and what to do once the wait runs out', async () => {
+    const h = busy({ connect_device: Array(20).fill('connect_device failed: Agent resources exhausted (agent-resources-exhausted)') }, 60_000)
+    const result = await h.deliver({ artifactPath: h.apk, platform: 'android', log: () => {} })
+    expect(result).toMatchObject({ outcome: 'failed', detail: expect.stringMatching(/kept refusing tapflow-compact for 60 s: .*CPU or memory.*Close something heavy/) })
+  })
+
+  it('fails at once for a refusal that is not about load', async () => {
+    const h = busy({ connect_device: ['Session busy (session-busy)'] })
+    expect(await h.deliver({ artifactPath: h.apk, platform: 'android', log: () => {} })).toMatchObject({ outcome: 'failed', detail: expect.stringContaining('is busy in Tapflow: Session busy') })
+    expect(h.waits).toEqual([])
+  })
+})

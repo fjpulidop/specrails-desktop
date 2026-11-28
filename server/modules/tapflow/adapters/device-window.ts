@@ -134,6 +134,13 @@ export function createDeviceWindows(deps: DeviceWindowDeps) {
       }
     },
 
+    /** Shut the device down now (MCP `mobile_release_device` with `now`), cancelling a pending release. */
+    shutdownNow(target: DeviceTarget): Promise<void> {
+      const pending = pendingShutdowns.get(target.deviceId)
+      if (pending !== undefined) { clearTimer(pending); pendingShutdowns.delete(target.deviceId) }
+      return (deps.shutdown ?? shutdownDevice)(target).catch(() => undefined)
+    },
+
     /** The window closed: shut the device down after the grace period unless it is reopened. */
     release(target: DeviceTarget): void {
       const previous = pendingShutdowns.get(target.deviceId)

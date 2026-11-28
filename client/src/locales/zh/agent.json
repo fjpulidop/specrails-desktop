@@ -1739,6 +1739,8 @@
       "ios": "iOS",
       "android": "Android"
     },
-    "openDevice": "打开 {{device}}"
+    "openDevice": "打开 {{device}}",
+    "startedBodyMission": "正在构建并安装此会话的代码；进度和日志在“进程”中。",
+    "failedBodyMission": "解决后请让智能体再次运行。"
   }
 }

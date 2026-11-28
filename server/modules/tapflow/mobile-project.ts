@@ -58,7 +58,8 @@ function xcodeContainerIn(files: ProjectFiles, dir: string): string | null {
   return workspace ?? project
 }
 
-const ANDROID_APP_PLUGIN = /com\.android\.application|android\.application\b|alias\(libs\.plugins\.android\.application\)/
+// `libs.plugins.androidApplication`: the camelCase alias of Kotlin Multiplatform's wizard and JetBrains' template.
+const ANDROID_APP_PLUGIN = /com\.android\.application|android\.application\b|alias\(libs\.plugins\.android\.application\)|libs\.plugins\.androidApplication\b/
 
 /** The Gradle application module under `dir` (Android Studio's default is `app`). */
 function gradleAppModuleIn(files: ProjectFiles, dir: string): string | null {

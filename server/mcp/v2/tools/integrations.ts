@@ -301,6 +301,15 @@ async function mobilePreview(ctx: V2CallContext, args: Row): Promise<PreviewInpu
 const constantsOp = (args: Row) => str(optionsOf(args).op) ?? 'list'
 
 /** WP10. Jira, plugins (and global Headroom), the loops library, code exploration, read-only git, webhooks and the mobile gateway. */
+/** The project and run id of a mobile test run ref (`run:<project>/<id>`), or a bare id in the session project. */
+function mobileRun(ctx: V2CallContext, args: Record<string, unknown>): { row: { id: string; slug: string }; base: string; runId: string } {
+  const parsed = parseRef(args.ref)
+  const runId = parsed?.kind === 'run' ? parsed.id : str(args.ref)
+  if (!runId) throw new V2ToolError('invalid_input', 'ref must be the run ref mobile_test returned (run:<project>/<id>).')
+  const { row, base } = projectBase(ctx, parsed?.project && args.project === undefined ? { ...args, project: parsed.project } : args)
+  return { row, base, runId }
+}
+
 export const integrationsTool = defineTool({
   name: 'specrails_integrations',
   title: 'Integrations',
@@ -595,6 +604,49 @@ export const integrationsTool = defineTool({
         }))
         const run = formatRef('run', String(out.runId), row.slug)
         return result({ run, platforms }, writeMeta(ctx.v2.t('integrations.summary.mobile_test_started', { platforms: platforms.map((platform) => (platform === 'ios' ? 'iOS' : 'Android')).join(' + ') }), { refs: { run, ...(deliveryId ? { delivery: formatRef('delivery', deliveryId, row.slug) } : {}) } }))
+      },
+    },
+    mobile_options: {
+      tier: 'read',
+      doc: 'What Test in Mobile Device can run in a project now: whether Tapflow is installed and Core runs host tasks, the checkout\'s apps (platforms, current branch, recommended platform), deliveries on review with an app, local branches, and Tapflow\'s devices (id, name, platform, booted; null while Tapflow is off). Use the ids in mobile_test options.devices.',
+      handler: async (ctx, args) => {
+        const { base } = projectBase(ctx, args)
+        const out = asRecord(await apiCall(ctx, 'GET', `${base}/mobile-test/options`))
+        const devices = Array.isArray(out.devices) ? out.devices : null
+        return result(out, { summary: ctx.v2.t('integrations.summary.mobile_options', { platforms: asArray(asRecord(out.checkout).platforms).join(' + ') || '—', devices: devices ? devices.length : 0 }) })
+      },
+    },
+    mobile_status: {
+      tier: 'read',
+      required: ['ref'],
+      doc: 'A Test in Mobile Device run (ref: the run ref mobile_test returned): state running | launched | failed, the devices it runs on, or why it stopped (with the build command). specrails_wait on the run ref first.',
+      handler: async (ctx, args) => {
+        const { row, base, runId } = mobileRun(ctx, args)
+        const out = asRecord(await apiCall(ctx, 'GET', `${base}/mobile-test/runs/${enc(runId)}`))
+        return result(out, { summary: ctx.v2.t('integrations.summary.mobile_status', { state: String(out.state), detail: String(out.summary ?? out.detail ?? '') }), refs: { run: formatRef('run', runId, row.slug) }, untrusted: untrusted('/data/detail', '/data/command') })
+      },
+    },
+    mobile_open_device: {
+      tier: 'write',
+      required: ['ref'],
+      doc: 'Opens the device of a launched run in its native Specrails window (the person sees and uses it; the window releases the device when closed). ref: the run ref; options.platform picks one of a both-platform run.',
+      handler: async (ctx, args) => {
+        const { row, base, runId } = mobileRun(ctx, args)
+        const platform = str(optionsOf(args).platform)
+        const out = asRecord(await apiCall(ctx, 'POST', `${base}/mobile-test/runs/${enc(runId)}/open-device`, platform ? { platform } : {}))
+        return result(out, writeMeta(ctx.v2.t('integrations.summary.mobile_open_device', { device: String(asRecord(out.device).name ?? '') }), { refs: { run: formatRef('run', runId, row.slug) } }))
+      },
+    },
+    mobile_release_device: {
+      tier: 'write',
+      required: ['ref'],
+      doc: 'Releases the device of a run so it stops costing CPU and memory: shut down after the grace period (as closing its window does), or at once with options.now true. ref: the run ref; options.platform for a both-platform run.',
+      handler: async (ctx, args) => {
+        const { row, base, runId } = mobileRun(ctx, args)
+        const options = optionsOf(args)
+        const platform = str(options.platform)
+        const out = asRecord(await apiCall(ctx, 'POST', `${base}/mobile-test/runs/${enc(runId)}/release-device`, { ...(platform ? { platform } : {}), now: options.now === true }))
+        return result(out, writeMeta(ctx.v2.t(options.now === true ? 'integrations.summary.mobile_device_stopped' : 'integrations.summary.mobile_device_released', { device: String(asRecord(out.device).name ?? '') }), { refs: { run: formatRef('run', runId, row.slug) } }))
       },
     },
     plugins_deactivate: { tier: 'write', required: ['id'], doc: 'Turns a plugin off without uninstalling (Headroom: options.provider).', handler: (ctx, args) => pluginOp(ctx, args, 'deactivate') },

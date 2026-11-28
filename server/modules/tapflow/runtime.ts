@@ -16,7 +16,7 @@ import { createMobileBuilder } from './adapters/mobile-build'
 import { createMobileTestHandlers } from './adapters/mobile-handlers'
 import { refreshMobileTestOffer, type MobileOfferEnv } from './adapters/mobile-offer'
 /** Starting a mobile test and reading a run, for the in-app agent's MCP tool. */
-export { mobileTestRunView, startMobileTest } from './adapters/mobile-offer'
+export { mobileTestRunView, refreshMissionRunCard, startMobileTest } from './adapters/mobile-offer'
 import { createMobileRunsStore } from './adapters/mobile-runs-store'
 import { mobileRunActivePid, mobileRunActivePids, mobileRunLine, mobileRunPid } from './adapters/mobile-run-process'
 import { createSimulatorNames } from './adapters/simulator-names'
@@ -132,6 +132,7 @@ export const mobileOfferEnv: MobileOfferEnv = {
   devices: () => tapflowDevices(),
   // Followed in a mission's Processes only while Specrails runs the service (it writes this log).
   serviceLog: () => (currentStore?.read()?.installedVersion ? tapflowPaths().serviceLog : null),
+  releaseDevice: (target, now) => (now ? tapflowDeviceWindows().shutdownNow(target) : tapflowDeviceWindows().release(target)),
 }
 
 let deviceWindowsInstance: ReturnType<typeof createDeviceWindows> | null = null

@@ -59,6 +59,15 @@ background process store), and in its Resources (`missionTapflowRoots`: the laun
 the build in progress, the service). The app-wide Resources' Tapflow category lists builds, devices (simulators
 by name, [adapters/simulator-names.ts](adapters/simulator-names.ts)) and the service.
 
+**MCP control** (everything above, for Claude, Codex or any client): `specrails_integrations` `plugins_*`
+for the plugin, `mobile_options` (what can be tested, Tapflow's devices), `mobile_test` (delivery,
+checkout, branch, or `mission` = the caller's Intent), `mobile_status`, `mobile_open_device` (the main
+window opens it: WS `mobile_test.open_device`), `mobile_release_device` (grace period, or `now`); the run
+itself through `specrails_runs` / `specrails_wait`; the mission's processes and resources through
+`specrails_missions` and `specrails_insights` (`resources`). In-app agents use `specrails_background`
+`mobile_test` / `mobile_status`. A run the agent started shows in its mission as the offer card
+(`refreshMissionRunCard`), and the client opens the device once it runs (`autoOpen`, once per run).
+
 Routes under `/api/projects/:id/mobile-test`: `POST /start`, `GET /options` (what the dialog offers,
 Tapflow's devices included while it is on), `GET /runs/:runId`, `POST /dismiss`. The loop is an editable
 built-in: it keeps its id (never copied), and publishing an edit keeps its build and device steps

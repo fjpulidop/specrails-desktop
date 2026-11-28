@@ -40,6 +40,10 @@ The loop SHALL upload the build to Tapflow, boot or reuse one device of the plat
 - **WHEN** install and launch succeed
 - **THEN** the run succeeds and reports the device and the build
 
+#### Scenario: Busy Mac
+- **WHEN** Tapflow refuses the device because the Mac is over its CPU or memory limit (usual right after a build), another device is booting or every automation device is in use
+- **THEN** the run lets the session go, waits (5 s doubling to 30 s, up to 4 minutes) and retries, logging why; if the Mac stays busy it fails with the reason and what to close
+
 ### Requirement: Offer after delivery
 After Implement delivers code for a project with a mobile app, while Tapflow is installed, the mission SHALL show a "Test in Mobile Device" offer; it SHALL not appear otherwise.
 
@@ -105,3 +109,21 @@ A mission's Resources SHALL include the device its mobile tests launched while i
 #### Scenario: Device running
 - **WHEN** the mission's run launched the app on a simulator that is still booted
 - **THEN** the mission's Resources lists that simulator by name and the Tapflow service, and not other simulators
+
+### Requirement: Mission run card
+A run a mission's agent started SHALL show in the mission as the same card as the delivery offer (building → running on <device> with Open <device> | failed with the reason, no Retry), and the device window SHALL open by itself once the run the person asked for is running: once per run, and only for a launch that just happened.
+
+#### Scenario: Agent launches on Android
+- **WHEN** the agent's run reaches the app running on tapflow-phone
+- **THEN** the card says so with Open tapflow-phone, and the device window opens without another click
+
+#### Scenario: Reload later
+- **WHEN** the person reopens the mission an hour later
+- **THEN** the card is there with Open tapflow-phone, and no window opens by itself
+
+### Requirement: MCP control
+Everything a person does with Test in Mobile Device SHALL be possible through the Specrails MCP: the plugin (install, activate, deactivate, uninstall, health), what can be tested and Tapflow's devices (`mobile_options`), starting a run on a delivery, the checkout, a branch or the caller's Intent (`mobile_test`), its state and devices (`mobile_status`, or `specrails_runs` / `specrails_wait` on its ref), opening its device in its Specrails window (`mobile_open_device`), releasing or stopping its device (`mobile_release_device`), the built-in loop in the loop library, and the mission's processes and resources.
+
+#### Scenario: An external client tests the app
+- **WHEN** an MCP client calls mobile_options, mobile_test on the checkout, waits on the run and calls mobile_open_device
+- **THEN** the app runs on a device and its window opens in Specrails, and mobile_release_device with now shuts the device down

@@ -1739,6 +1739,8 @@
       "ios": "iOS",
       "android": "Android"
     },
-    "openDevice": "Abrir {{device}}"
+    "openDevice": "Abrir {{device}}",
+    "startedBodyMission": "A compilar o código desta sessão e a instalá-lo; o progresso e o log estão em Processos.",
+    "failedBodyMission": "Peça ao agente para a executar de novo quando estiver resolvido."
   }
 }
