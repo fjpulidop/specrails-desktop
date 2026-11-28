@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle, CheckCircle2, Loader2, Smartphone } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import { API_ORIGIN } from '../../../lib/origin'
+import { openDeviceWindow } from '../lib/device-windows'
 
 const JobDetailModal = lazy(() =>
   import('../../jobs/components/JobDetailModal').then((m) => ({ default: m.JobDetailModal })),
@@ -27,7 +28,8 @@ export interface MobileTestOfferRow {
   state: MobileTestOfferState
   runId: string | null
   reason: string | null
-  devices: Array<{ platform: MobilePlatform; name: string }>
+  /** Where the app runs; id/sessionId/buildId open the device window (absent on older rows). */
+  devices: Array<{ platform: MobilePlatform; name: string; id?: string; sessionId?: string; buildId?: number }>
 }
 
 const STATES: readonly MobileTestOfferState[] = ['offered', 'started', 'launched', 'failed', 'expired', 'dismissed']
@@ -40,7 +42,12 @@ export function parseMobileTestOfferRow(content: string): MobileTestOfferRow | n
   try { o = JSON.parse(content) as Record<string, unknown> } catch { return null }
   if (!o || o.kind !== 'mobile-test-offer' || typeof o.projectId !== 'string' || typeof o.deliveryId !== 'string' || !STATES.includes(o.state as MobileTestOfferState)) return null
   const platforms = Array.isArray(o.platforms) ? o.platforms.filter(isPlatform) : []
-  const devices = Array.isArray(o.devices) ? o.devices.flatMap((d) => (d && typeof d === 'object' && isPlatform((d as Record<string, unknown>).platform) && typeof (d as Record<string, unknown>).name === 'string' ? [{ platform: (d as { platform: MobilePlatform }).platform, name: (d as { name: string }).name }] : [])) : []
+  const devices = Array.isArray(o.devices) ? o.devices.flatMap((d) => {
+    const v = d && typeof d === 'object' ? d as Record<string, unknown> : null
+    if (!v || !isPlatform(v.platform) || typeof v.name !== 'string') return []
+    const openable = typeof v.id === 'string' && typeof v.sessionId === 'string' && typeof v.buildId === 'number'
+    return [{ platform: v.platform, name: v.name, ...(openable ? { id: v.id as string, sessionId: v.sessionId as string, buildId: v.buildId as number } : {}) }]
+  }) : []
   return {
     kind: 'mobile-test-offer', projectId: o.projectId, deliveryId: o.deliveryId, platforms,
     recommended: isPlatform(o.recommended) || o.recommended === 'both' ? o.recommended as MobilePlatform | 'both' : 'both',
@@ -138,6 +145,19 @@ export function AgentMobileTestOfferCard({ row }: { row: MobileTestOfferRow }) {
                 {t('mobileTest.notNow')}
               </button>
             )}
+            {state === 'launched' && row.devices.filter((device) => device.id && device.sessionId && device.buildId).map((device) => (
+              <button key={device.id} type="button" data-agent-interactive data-testid={`agent-mobile-test-open-device-${device.platform}`} disabled={busy !== null}
+                onClick={() => {
+                  setBusy(`open-${device.id}`); setError(null)
+                  void openDeviceWindow({ deviceId: device.id!, sessionId: device.sessionId!, buildId: device.buildId!, platform: device.platform, name: device.name })
+                    .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
+                    .finally(() => setBusy(null))
+                }}
+                className="inline-flex min-h-7 items-center gap-1.5 rounded-md bg-accent-primary px-2.5 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60">
+                {busy === `open-${device.id}` ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Smartphone className="h-3 w-3" aria-hidden />}
+                {t('mobileTest.openDevice', { device: device.name })}
+              </button>
+            ))}
             {row.runId && state !== 'offered' && (
               <button type="button" data-agent-interactive data-testid="agent-mobile-test-open-log" onClick={() => setLogOpen(true)}
                 className="inline-flex min-h-7 items-center rounded-md border border-border/60 px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">

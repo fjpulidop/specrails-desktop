@@ -46,3 +46,14 @@ After Implement delivers code for a project with a mobile app, while Tapflow is 
 #### Scenario: Web project
 - **WHEN** a web project's run delivers
 - **THEN** no mobile offer appears
+
+### Requirement: Device window
+Once the app runs, the offer SHALL open the device in a native Specrails window showing Tapflow's interactive device view, signed in without asking the person; the window SHALL have no host command access, navigate only within loopback HTTP, and closing it SHALL shut the device down after a grace period unless it is reopened.
+
+#### Scenario: Open the device
+- **WHEN** the person presses Open <device> on a launched offer
+- **THEN** a native window opens on the device, live and interactive, already signed in to Tapflow
+
+#### Scenario: Close the window
+- **WHEN** the person closes the device window and does not reopen it within the grace period
+- **THEN** the device is shut down and its screen capture stops

@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1970 source/build files. Nearby tests are linked where names
+Includes 1973 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -861,6 +861,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [agent-context-palette.ts](../../client/src/features/missions/lib/agent-context-palette.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-context-palette.test.ts)
 - [agent-refs.ts](../../client/src/features/missions/lib/agent-refs.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-refs.test.ts)
 - [agent-spec-drag.ts](../../client/src/features/missions/lib/agent-spec-drag.ts) · [test](../../client/src/features/missions/lib/__tests__/agent-spec-drag.test.ts)
+- [device-windows.ts](../../client/src/features/missions/lib/device-windows.ts)
 - [live-store.ts](../../client/src/features/missions/lib/live-store.ts) · [test](../../client/src/features/missions/lib/__tests__/live-store.test.ts)
 - [mission-run-state.ts](../../client/src/features/missions/lib/mission-run-state.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-run-state.test.ts)
 - [mission-search.ts](../../client/src/features/missions/lib/mission-search.ts) · [test](../../client/src/features/missions/lib/__tests__/mission-search.test.ts)
@@ -2554,6 +2555,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 ## server/modules/tapflow/adapters
 
 - [delivery.ts](../../server/modules/tapflow/adapters/delivery.ts)
+- [device-window.ts](../../server/modules/tapflow/adapters/device-window.ts)
 - [footprint.ts](../../server/modules/tapflow/adapters/footprint.ts)
 - [http.ts](../../server/modules/tapflow/adapters/http.ts)
 - [mobile-build.ts](../../server/modules/tapflow/adapters/mobile-build.ts)
@@ -2689,6 +2691,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [browser_popup_windows.rs](../../src-tauri/src/browser_popup_windows.rs)
 - [desktop_actions.rs](../../src-tauri/src/desktop_actions.rs)
 - [desktop_status.rs](../../src-tauri/src/desktop_status.rs)
+- [device_windows.rs](../../src-tauri/src/device_windows.rs)
 - [host_profile.rs](../../src-tauri/src/host_profile.rs)
 - [invoke_guard.rs](../../src-tauri/src/invoke_guard.rs)
 - [lib.rs](../../src-tauri/src/lib.rs)

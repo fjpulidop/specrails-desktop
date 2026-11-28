@@ -39,7 +39,8 @@ export interface MobileTestOfferRow {
   state: 'offered' | 'started' | 'launched' | 'failed' | 'expired' | 'dismissed'
   runId?: string
   reason?: string
-  devices?: Array<{ platform: MobilePlatform; name: string }>
+  /** Where the app runs; enough to open the device window. */
+  devices?: Array<{ platform: MobilePlatform; name: string; id: string; sessionId: string; buildId: number }>
   at: string
 }
 
@@ -89,7 +90,7 @@ function rowFor(projectId: string, deliveryId: string, base: Pick<MobileTestOffe
     kind: MOBILE_TEST_OFFER_KIND, projectId, deliveryId, ...base, runId: run.runId, at,
     state: run.state === 'running' ? 'started' : run.state,
     ...(typeof result.detail === 'string' ? { reason: result.detail } : {}),
-    ...(Array.isArray(result.devices) ? { devices: (result.devices as Array<{ platform: MobilePlatform; name: string }>).map((device) => ({ platform: device.platform, name: device.name })) } : {}),
+    ...(Array.isArray(result.devices) ? { devices: (result.devices as Array<{ platform: MobilePlatform; name: string; id: string; sessionId: string; buildId: number }>).map((device) => ({ platform: device.platform, name: device.name, id: device.id, sessionId: device.sessionId, buildId: device.buildId })) } : {}),
   }
 }
 

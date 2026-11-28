@@ -1735,6 +1735,7 @@
     "platform": {
       "ios": "iOS",
       "android": "Android"
-    }
+    },
+    "openDevice": "打开 {{device}}"
   }
 }

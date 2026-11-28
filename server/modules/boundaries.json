@@ -4260,6 +4260,12 @@
         "node:fs",
         "node:path"
       ],
+      "adapters/device-window.ts": [
+        "./relay",
+        "express",
+        "node:child_process",
+        "node:crypto"
+      ],
       "adapters/footprint.ts": [
         "../domain",
         "node:child_process"
@@ -4267,6 +4273,7 @@
       "adapters/http.ts": [
         "../../../project-registry",
         "../application",
+        "./device-window",
         "./mobile-offer",
         "express"
       ],
@@ -4346,6 +4353,7 @@
         "../delivery/runtime/delivery-observers",
         "../terminals/runtime/terminal-manager",
         "./adapters/delivery",
+        "./adapters/device-window",
         "./adapters/footprint",
         "./adapters/mobile-build",
         "./adapters/mobile-handlers",

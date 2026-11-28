@@ -7,8 +7,23 @@ import type { Request, Response, Router } from 'express'
 import type { TapflowPlugin } from '../application'
 import type { ProjectContext } from '../../../project-registry'
 import { dismissMobileTestOffer, startMobileTest, type MobileOfferEnv } from './mobile-offer'
+import { validDeviceTarget, type createDeviceWindows } from './device-window'
 
-export function registerTapflowRoutes(router: Router, tapflow: TapflowPlugin): void {
+export function registerTapflowRoutes(router: Router, tapflow: TapflowPlugin, deviceWindows?: () => ReturnType<typeof createDeviceWindows>): void {
+  // Device windows: a single-use link the native window opens (signed in to Tapflow), and release on close.
+  router.post('/tapflow/device-window', (req: Request, res: Response) => {
+    const target = validDeviceTarget((req.body ?? {}).target)
+    const host = req.get('host') ?? ''
+    if (!target || !deviceWindows) { res.status(400).json({ error: 'A device target is required.' }); return }
+    if (!/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)) { res.status(400).json({ error: 'Device windows open from the local app only.' }); return }
+    res.json({ url: `http://${host.replace(/^localhost/, '127.0.0.1')}/tapflow-window/${deviceWindows().issue(target)}`, title: target.name })
+  })
+  router.post('/tapflow/device-window/release', (req: Request, res: Response) => {
+    const target = validDeviceTarget((req.body ?? {}).target)
+    if (!target || !deviceWindows) { res.status(400).json({ error: 'A device target is required.' }); return }
+    deviceWindows().release(target)
+    res.json({ ok: true })
+  })
   router.get('/tapflow', async (_req: Request, res: Response) => { res.json({ status: await tapflow.status() }) })
   const action = (name: 'install' | 'activate' | 'deactivate' | 'uninstall') => async (_req: Request, res: Response) => {
     try {

@@ -17,6 +17,7 @@ import { createMobileTestHandlers } from './adapters/mobile-handlers'
 import { refreshMobileTestOffer, type MobileOfferEnv } from './adapters/mobile-offer'
 import { createMobileRunsStore } from './adapters/mobile-runs-store'
 import { observeDeliveries } from '../delivery/runtime/delivery-observers'
+import { createDeviceWindows } from './adapters/device-window'
 import { deviceTreePids, tapflowResourceRoots } from './domain'
 
 /** Tapflow's own default port: a Tapflow the person runs themselves answers there. */
@@ -73,6 +74,16 @@ export async function tapflowReady(): Promise<boolean> {
 }
 
 export const mobileOfferEnv: MobileOfferEnv = { tapflowReady }
+
+let deviceWindowsInstance: ReturnType<typeof createDeviceWindows> | null = null
+/** Device windows (tickets, the signed-in redirect, release on close), bound to the managed install. */
+export function tapflowDeviceWindows(): ReturnType<typeof createDeviceWindows> {
+  deviceWindowsInstance ??= createDeviceWindows({
+    secretsDir: tapflowPaths().secretsDir,
+    port: () => { const state = currentStore?.read(); return state?.installedVersion ? state.port : null },
+  })
+  return deviceWindowsInstance
+}
 
 /** Host-task handlers of `factory:mobile-test` for one project database. */
 export function createMobileTestHandlersFor(db: DbInstance, onFinished?: (runId: string) => void) {

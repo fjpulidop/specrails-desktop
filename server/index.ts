@@ -79,7 +79,7 @@ import { isNavigableUrl } from './modules/browser/runtime/browser-playwright'
 import { createTelemetryRouter } from './modules/accounting/runtime/telemetry-receiver'
 import { HEADROOM_RELAY_PATH, HeadroomManager } from './headroom-manager'
 import { createGlobalPluginsRouter } from './global-plugins-router'
-import { createTapflowRuntime, type TapflowPlugin } from './modules/tapflow'
+import { createTapflowRuntime, tapflowDeviceWindows, type TapflowPlugin } from './modules/tapflow'
 import { runCompactionForAll } from './modules/accounting/runtime/telemetry-compactor'
 import { FrameworkManager } from './framework-manager'
 import { withFileLock } from './artifact-registry'
@@ -598,6 +598,10 @@ app.get('/api/health', (_req, res) => {
 app.get('/api/token', requireLoopback, (_req, res) => {
   res.json({ token: loadOrGenerateToken() })
 })
+
+// Tapflow device windows open here with a single-use ticket the authenticated API issued (a native
+// window's navigation carries no bearer): sign in to Tapflow, set its cookie, redirect to the device.
+app.get('/tapflow-window/:ticket', requireLoopback, (req, res) => { void tapflowDeviceWindows().handler(req, res) })
 
 app.use('/api', requireAuth)
 

@@ -23,4 +23,4 @@ With Tapflow installed (change `add-tapflow-plugin`), a person who built a nativ
 - `server/modules/tapflow`: mobile-project domain, host-task handlers and their adapters (build runner, Tapflow MCP client), offer projection.
 - `server/modules/loops`: the `factory:mobile-test` recipe and factory registration; host-task handler composition in `server/project-context-loops.ts`.
 - Client: the offer row with platform choice; strings in the 8 locales.
-- Native device windows are phase 2b (separate change).
+- Device windows (`src-tauri/src/device_windows.rs`): an external webview with no capability on Tapflow's device view, opened through a single-use server link (`/tapflow-window/:ticket`, loopback only) that signs in to Tapflow (its cookie is host-scoped, so Specrails on 127.0.0.1 can set it) and redirects; closing it releases the device (shut down after 60 s unless reopened).

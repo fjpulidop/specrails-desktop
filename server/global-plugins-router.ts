@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import type { HeadroomProvider } from './headroom-routing'
 import { HeadroomManager } from './headroom-manager'
-import { registerTapflowRoutes, type TapflowPlugin } from './modules/tapflow'
+import { registerTapflowRoutes, tapflowDeviceWindows, type TapflowPlugin } from './modules/tapflow'
 
 function isProvider(value: unknown): value is HeadroomProvider {
   return value === 'codex' || value === 'claude'
@@ -9,7 +9,7 @@ function isProvider(value: unknown): value is HeadroomProvider {
 
 export function createGlobalPluginsRouter(headroom: HeadroomManager, tapflow?: TapflowPlugin): Router {
   const router = Router()
-  if (tapflow) registerTapflowRoutes(router, tapflow)
+  if (tapflow) registerTapflowRoutes(router, tapflow, tapflowDeviceWindows)
 
   router.get('/', async (_req, res) => {
     res.json({

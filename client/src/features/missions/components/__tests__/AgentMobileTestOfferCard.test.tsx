@@ -46,3 +46,19 @@ describe('mobile test offer card', () => {
     expect(screen.getAllByText('Try again')).toHaveLength(1)
   })
 })
+
+const opened: unknown[] = []
+vi.mock('../../lib/device-windows', () => ({ openDeviceWindow: async (target: unknown) => { opened.push(target) } }))
+
+describe('mobile test offer card: device window', () => {
+  it('opens the device the app runs on, in its own window', async () => {
+    render(<AgentMobileTestOfferCard row={parseMobileTestOfferRow(row({ state: 'launched', runId: 'r1', devices: [{ platform: 'ios', name: 'iPhone 17', id: 'U1', sessionId: 'S1', buildId: 2 }] }))!} />)
+    fireEvent.click(screen.getByTestId('agent-mobile-test-open-device-ios'))
+    await waitFor(() => expect(opened).toEqual([{ deviceId: 'U1', sessionId: 'S1', buildId: 2, platform: 'ios', name: 'iPhone 17' }]))
+  })
+
+  it('offers no window for a device without its session (an older row)', () => {
+    render(<AgentMobileTestOfferCard row={parseMobileTestOfferRow(row({ state: 'launched', devices: [{ platform: 'ios', name: 'iPhone 17' }] }))!} />)
+    expect(screen.queryByTestId('agent-mobile-test-open-device-ios')).toBeNull()
+  })
+})
