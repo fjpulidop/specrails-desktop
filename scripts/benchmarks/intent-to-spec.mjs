@@ -63,6 +63,10 @@ function prepareFixture() {
   git(['fetch', '--quiet', spec.sourceRepo, spec.headSha], fixtureDir)
   git(['checkout', '--quiet', '-B', 'main', spec.baseSha], fixtureDir)
   git(['reset', '--quiet', '--hard', spec.baseSha], fixtureDir)
+  // No remote: an Intent branches from the remote default branch when there is one, and the
+  // source repository's main has moved past the case base (the derived change would then
+  // "revert" everything merged since). The fixture's own main is the only base.
+  if (git(['remote'], fixtureDir).split('\n').includes('origin')) git(['remote', 'remove', 'origin'], fixtureDir)
   // Earlier runs' Intent worktrees and branches stay as evidence; prune stale registrations only.
   git(['worktree', 'prune'], fixtureDir)
 }
@@ -247,8 +251,9 @@ async function main() {
     const intent = started.refs?.intent ?? started.data?.ref
     const flowId = intent.split('/').pop()
     const db = projectDb(project)
-    const flow = db.prepare('SELECT worktree_path, branch FROM flow_sessions WHERE id = ?').get(flowId)
+    const flow = db.prepare('SELECT worktree_path, branch, base_sha FROM flow_sessions WHERE id = ?').get(flowId)
     db.close()
+    if (flow.base_sha && flow.base_sha !== spec.baseSha) throw new Error(`Intent based on ${flow.base_sha.slice(0, 7)}, not the case base ${spec.baseSha.slice(0, 7)}: not handed off`)
     // 3. The Intent's code: exactly the commit the real session handed off.
     git(['fetch', '--quiet', spec.sourceRepo, spec.headSha], flow.worktree_path)
     git(['reset', '--quiet', '--hard', spec.headSha], flow.worktree_path)
