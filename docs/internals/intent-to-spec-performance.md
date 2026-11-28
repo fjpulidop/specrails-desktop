@@ -285,6 +285,44 @@ as `final-claude-repeat` samples of the final configuration (tetrisex-11 5.5 min
 tetrisex-3 6.9 min / 1 round, arkanoidex-14 3.5 min / 0 rounds, the same artifact findings). The
 harness now records each run's definition hash so a stale build shows in the results.
 
+Exp. 7 on the other seven cases (08:40): 7/7 success, 0 rounds (1.6–4.8 min, 0.74–1.15 USD).
+**Exp. 7 on Claude: 10/10 success, all without a correction round.**
+
+But one of them hid a defect: arkanoidex-12 succeeded in 4.8 min with the Play button still
+named "Play ↗". The tag step ran the e2e suite, saw 12 tests fail and only mentioned it in its
+summary; the deriver had proposed no e2e command this time, so `check` and the final `verify`
+ran without it, and the reviewer approved at 86. The cause is older than exp. 7 (which
+commands the deriver proposes varies), but it is a hole in the quality floor.
+
+### 2026-11-28 09:05 — experiment 8: the reviewer sees the tests the tag step saw fail
+
+The tag step runs every test file it touched in full and lists each failing test (command and
+error) under `incomplete`. A new `tag-report` assign node keeps that report in `run.tagReport`
+(reset at `init` and every correction round; a tag turn that ends `invalid` skips it, so the
+review never fails on a missing output), and the review prompt treats a failing test in it as a
+failing check. Mirrored in Core (fixture node, docs, two engine tests).
+
+**Claude, all ten cases: 10/10 success, 9 without a round.**
+
+| Case | Exp. 7 | Exp. 8 |
+|---|---|---|
+| tetrisex-2 | 1.6 min, 0.81 USD | 1.1 min, 0.64 USD (86) |
+| tetrisex-9 | 2.1 min, 0.74 USD | 2.2 min, 0.76 USD (88) |
+| tetrisex-4 | 2.5 min, 1.00 USD | 2.8 min, 1.02 USD (88) |
+| arkanoidex-11 | 2.7 min, 0.91 USD | 3.1 min, 1.00 USD (86) |
+| arkanoidex-8 | 2.5 min, 0.97 USD | 3.2 min, 1.11 USD (86) |
+| deckdex-3 | 3.5 min, 0.97 USD | 3.2 min, 0.95 USD (88) |
+| arkanoidex-14 | 3.6 min, 1.09 USD | 4.3 min, 1.23 USD (88) |
+| tetrisex-11 | 3.5 min, 1.20 USD | 5.5 min, 1.14 USD (86) |
+| tetrisex-3 | 6.5 min, 1.75 USD | 6.2 min, 1.60 USD (86) |
+| arkanoidex-12 | 4.8 min, 1.15 USD, **defect shipped** | 11.8 min, 3.36 USD, 1 round, **defect fixed** (86) |
+
+In this arkanoidex-12 run the deriver did propose the e2e suite, so `check` itself failed and the
+fixer gave the button its accessible name back; either way the defect can no longer reach the
+review unnoticed. Running the touched suites in full makes the tag step slower where they are
+end-to-end (tetrisex-11 207 s, tetrisex-3 182 s, arkanoidex-14 138 s) at about the same cost: the
+price of the quality floor, accepted.
+
 ### Experiment 2 (reverted, see above) — the reviewer keeps its session
 
 From commit "perf(intent-spec): the reviewer keeps its session across rounds",
