@@ -323,6 +323,25 @@ review unnoticed. Running the touched suites in full makes the tag step slower w
 end-to-end (tetrisex-11 207 s, tetrisex-3 182 s, arkanoidex-14 138 s) at about the same cost: the
 price of the quality floor, accepted.
 
+### 2026-11-28 09:57 — experiment 8 on Codex (gpt-6.2-sol, effort low)
+
+Effort: no run passes one. Core launches `claude` with `--setting-sources project,local` (the
+user's global `effortLevel` never applies, so Sonnet runs at the CLI default) and passes no
+`model_reasoning_effort` to `codex`, which then reads the user's `~/.codex/config.toml`: `low` on
+this machine. Every Codex figure in this document is at effort low.
+
+| Case | Final pass (exp. 6) | Exp. 8 |
+|---|---|---|
+| tetris-frame-pacing (spec #10) | 10.3 min, 3.40 USD, 1 round (83 → 92) | 10.9 min, 2.80 USD, 1 round (82 → 95) |
+
+The round had two issues: a real defect (the benchmark checked pause and game over only when
+recording a frame, so a run paused and resumed between callbacks still reported success) and the
+stale test evidence in tasks.md. **Experiment 7 cannot work on Codex as built**: the tag step's
+evidence edits went through Core's scoped OpenSpec writer, which allows the developer role only
+task checkboxes (`artifacts: 'tasks-checkboxes'`), and was refused; on Claude the developer edits
+the file directly, bypassing that policy. The consistent fix is a per-node artifact access for the
+tag step in Core (pending). tetrisex-11 on Codex runs after the 12:51 quota reset.
+
 ### Experiment 2 (reverted, see above) — the reviewer keeps its session
 
 From commit "perf(intent-spec): the reviewer keeps its session across rounds",
