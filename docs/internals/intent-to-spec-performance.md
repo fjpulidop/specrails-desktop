@@ -192,6 +192,35 @@ Codex (gpt-6.2-sol), with the tag step and the re-derive fix:
 - Codex's slowest steps are the fixer (109–224 s) and each derivation (74–148 s); the tag step
   takes 41–58 s on Codex (8–20 s on Claude).
 
+### 2026-11-28 03:45 — experiments 5 and 6 on Claude
+
+**Experiment 5** (fresh reviewer each round, re-derive on no progress), the four cases that
+needed a round: all four succeed, arkanoidex-12 included (its artifact finding now goes through
+the re-derivation). Fresh re-reviews still take 13–30 s.
+
+| Case | Outcome | Minutes | USD | Rounds | Reviews |
+|---|---|---|---|---|---|
+| tetrisex-11 | success | 2.8 | 0.97 | 0 | 84 |
+| arkanoidex-14 | success | 5.7 | 2.82 | 1 | 68 (3) → 86 |
+| arkanoidex-12 | success | 6.1 | 2.96 | 1 | 68 (2) → 84 |
+| tetrisex-3 | success | 6.5 | 3.44 | 1 | 62 (5) → 86 |
+
+Every remaining first-round issue was a requirement no test demonstrated (the tag step listed
+them as incomplete). **Experiment 6**: the tag step also adds one focused, tagged test per such
+requirement, in a test file the change already touches (never production code, existing
+assertions or `openspec/`); the reviewer still judges them.
+
+| Case | Exp. 5 | Exp. 6 |
+|---|---|---|
+| arkanoidex-14 | 5.7 min, 2.82 USD, 1 round | **3.6 min, 1.07 USD, 0 rounds** (84) |
+| arkanoidex-12 | 6.1 min, 2.96 USD, 1 round | **4.1 min, 1.16 USD, 0 rounds** (86) |
+| tetrisex-3 | 6.5 min, 3.44 USD, 1 round | 7.4 min, 4.00 USD, 1 round (72 (3) → 86) |
+
+tetrisex-3's round was the side effect to expect: the tests the tag step added made three
+artifact lines stale (tasks.md "no direct test", a design assumption), a finding for the
+deriver that the re-derivation fixed (fixer 20 s, no code). Re-deriving after every tag step
+would cost ~60 s on each run to save it in one of three, so it is not done.
+
 ### Experiment 2 (reverted, see above) — the reviewer keeps its session
 
 From commit "perf(intent-spec): the reviewer keeps its session across rounds",
