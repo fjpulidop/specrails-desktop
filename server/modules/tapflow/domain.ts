@@ -118,9 +118,13 @@ export function tapflowConfig(port: number): Record<string, unknown> {
 /**
  * Environment of the supervised service: the lightest profile that still streams well on a laptop.
  * Lean mode (~0.5 GB less per iOS simulator), no audio, the display may sleep, a smaller stream and
- * one automated device at a time. The loopback preload keeps the relay off the network.
+ * two automated devices (one per platform: "Both" boots an iPhone and an Android emulator; with one, the
+ * second boot was refused as host-at-capacity). The loopback preload keeps the relay off the network.
  */
-export function serviceEnvironment(opts: { home: string; port: number; preloadPath: string; nodeBinDir: string; basePath: string }): Record<string, string> {
+export function serviceEnvironment(opts: { home: string; port: number; preloadPath: string; nodeBinDir: string; basePath: string; androidSdk?: string | null }): Record<string, string> {
+  // Tapflow registers its Android agent only when `which adb` finds adb (android-agent/src/index.ts): the
+  // SDK's tools join the PATH, or a Mac set up for Android would show iOS devices only.
+  const android = opts.androidSdk ? [`${opts.androidSdk}/platform-tools`, `${opts.androidSdk}/emulator`] : []
   return {
     TAPFLOW_HOME: opts.home,
     TAPFLOW_PORT: String(opts.port),
@@ -128,10 +132,16 @@ export function serviceEnvironment(opts: { home: string; port: number; preloadPa
     TAPFLOW_AUDIO: 'off',
     TAPFLOW_ALLOW_DISPLAY_SLEEP: '1',
     TAPFLOW_MAX_SIZE: '1000',
-    TAPFLOW_MAX_AUTOMATED_DEVICES: '1',
+    TAPFLOW_MAX_AUTOMATED_DEVICES: '2',
     NODE_OPTIONS: `--require ${JSON.stringify(opts.preloadPath)}`,
-    PATH: [opts.nodeBinDir, opts.basePath].filter(Boolean).join(':'),
+    PATH: [opts.nodeBinDir, ...android, opts.basePath].filter(Boolean).join(':'),
+    ...(opts.androidSdk ? { ANDROID_HOME: opts.androidSdk } : {}),
   }
+}
+
+/** The Android SDK Tapflow's setup installs (or the person's): ANDROID_HOME, ANDROID_SDK_ROOT, else the macOS default. */
+export function androidSdkCandidates(env: Record<string, string | undefined>, home: string): string[] {
+  return [env.ANDROID_HOME, env.ANDROID_SDK_ROOT, `${home}/Library/Android/sdk`].filter((value): value is string => Boolean(value && value.trim()))
 }
 
 /**
@@ -174,7 +184,9 @@ export function isTapflowServiceCommand(command: string): boolean {
 export function tapflowResourceRoots(table: readonly ProcessRow[], servicePid: number | null): TapflowResourceRoot[] {
   const service = servicePid ?? table.find((row) => isTapflowServiceCommand(row.command))?.pid ?? null
   if (service === null || !table.some((row) => row.pid === service)) return []
-  const roots: TapflowResourceRoot[] = [{ label: 'Tapflow service', pid: service }]
+  // Devices first: an emulator Tapflow starts is the service's child, and the first root that reaches a
+  // process claims it; listed after the service, it was counted as "Tapflow service".
+  const roots: TapflowResourceRoot[] = []
   for (const row of table) {
     const ios = /launchd_sim/.test(row.command) ? IOS_DEVICE.exec(row.command) : null
     if (ios) { roots.push({ label: `iOS Simulator ${ios[1]!.slice(0, 8)}`, pid: row.pid }); continue }
@@ -183,6 +195,7 @@ export function tapflowResourceRoots(table: readonly ProcessRow[], servicePid: n
       if (avd) roots.push({ label: `Android Emulator ${avd[1]}`, pid: row.pid })
     }
   }
+  roots.push({ label: 'Tapflow service', pid: service })
   return roots
 }
 

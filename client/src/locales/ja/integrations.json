@@ -369,7 +369,8 @@
         "running-external": "オン（Specrails の外で起動）",
         "failed": "失敗"
       },
-      "rerunSetup": "セットアップを再実行"
+      "rerunSetup": "セットアップを再実行",
+      "configurePlatforms": "iOS と Android を設定"
     }
   }
 }

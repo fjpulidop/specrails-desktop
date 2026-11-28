@@ -57,9 +57,18 @@ describe('service configuration', () => {
 
   it('runs the lightest profile, loopback-only through the preload, with its Node first on PATH', () => {
     const env = serviceEnvironment({ home: '/t/home', port: 4310, preloadPath: '/t/a b/loopback.cjs', nodeBinDir: '/n/bin', basePath: '/usr/bin:/bin' })
-    expect(env).toMatchObject({ TAPFLOW_HOME: '/t/home', TAPFLOW_PORT: '4310', TAPFLOW_LEAN: 'on', TAPFLOW_AUDIO: 'off', TAPFLOW_ALLOW_DISPLAY_SLEEP: '1', TAPFLOW_MAX_AUTOMATED_DEVICES: '1' })
+    expect(env).toMatchObject({ TAPFLOW_HOME: '/t/home', TAPFLOW_PORT: '4310', TAPFLOW_LEAN: 'on', TAPFLOW_AUDIO: 'off', TAPFLOW_ALLOW_DISPLAY_SLEEP: '1', TAPFLOW_MAX_AUTOMATED_DEVICES: '2' })
     expect(env.NODE_OPTIONS).toBe('--require "/t/a b/loopback.cjs"')
     expect(env.PATH).toBe('/n/bin:/usr/bin:/bin')
+  })
+
+  it('puts the Android SDK tools on the PATH and sets ANDROID_HOME, so Tapflow registers its Android agent', async () => {
+    const { androidSdkCandidates } = await import('../domain')
+    const env = serviceEnvironment({ home: '/t/home', port: 4310, preloadPath: '/t/l.cjs', nodeBinDir: '/n/bin', basePath: '/usr/bin', androidSdk: '/u/Library/Android/sdk' })
+    expect(env.PATH).toBe('/n/bin:/u/Library/Android/sdk/platform-tools:/u/Library/Android/sdk/emulator:/usr/bin')
+    expect(env.ANDROID_HOME).toBe('/u/Library/Android/sdk')
+    expect(serviceEnvironment({ home: '/t', port: 1, preloadPath: '/p', nodeBinDir: '/n', basePath: '/usr/bin' }).ANDROID_HOME).toBeUndefined()
+    expect(androidSdkCandidates({ ANDROID_HOME: '/a', ANDROID_SDK_ROOT: ' ' }, '/u')).toEqual(['/a', '/u/Library/Android/sdk'])
   })
 
   it('installs the pinned packages with the given Node and npm, then runs tapflow setup, quoting every path', () => {
@@ -90,16 +99,28 @@ describe('tapflowResourceRoots', () => {
 
   it('claims the service, each booted simulator and each emulator while Tapflow runs', () => {
     expect(tapflowResourceRoots(table, 100)).toEqual([
-      { label: 'Tapflow service', pid: 100 },
       { label: 'iOS Simulator A1B1366D', pid: 200 },
       { label: 'Android Emulator tapflow-phone', pid: 300 },
+      { label: 'Tapflow service', pid: 100 },
     ])
   })
 
   it('finds a Tapflow the person started by its command line', () => {
-    expect(tapflowResourceRoots(table, null)[0]).toEqual({ label: 'Tapflow service', pid: 100 })
+    expect(tapflowResourceRoots(table, null).at(-1)).toEqual({ label: 'Tapflow service', pid: 100 })
     expect(isTapflowServiceCommand('node /usr/local/bin/tapflow start')).toBe(true)
     expect(isTapflowServiceCommand('tapflow doctor --json')).toBe(false)
+  })
+
+  it('lists an emulator Tapflow started (its child) as the emulator, not as the service', async () => {
+    const { measureAppResources } = await import('../../terminals/domain/app-resources')
+    const child = [
+      { pid: 100, ppid: 1, command: 'node tapflow.js start', rssBytes: 100, cpuPercent: 0 },
+      { pid: 300, ppid: 100, command: '/sdk/emulator/qemu/darwin-aarch64/qemu-system-aarch64-headless -avd tapflow-phone -no-window', rssBytes: 4000, cpuPercent: 300 },
+      { pid: 301, ppid: 300, command: '/sdk/emulator/netsimd', rssBytes: 16, cpuPercent: 2 },
+    ]
+    const roots = tapflowResourceRoots(child, 100).map((root) => ({ category: 'tapflow' as const, ...root }))
+    const items = measureAppResources(child, roots, 1).categories.find((c) => c.id === 'tapflow')!.items
+    expect(items.map((item) => [item.label, item.processCount, item.memoryBytes])).toEqual([['Android Emulator tapflow-phone', 2, 4016], ['Tapflow service', 1, 100]])
   })
 
   it('claims nothing when no Tapflow runs, even with a simulator booted', () => {

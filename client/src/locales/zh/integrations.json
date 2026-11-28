@@ -369,7 +369,8 @@
         "running-external": "已开启（在 Specrails 外启动）",
         "failed": "失败"
       },
-      "rerunSetup": "重新运行设置"
+      "rerunSetup": "重新运行设置",
+      "configurePlatforms": "设置 iOS 和 Android"
     }
   }
 }

@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createDeviceWindows, deviceViewerUrl, validDeviceTarget, type DeviceTarget } from '../adapters/device-window'
+import { createDeviceWindows, deviceViewerUrl, emulatorSerials, validDeviceTarget, type DeviceTarget } from '../adapters/device-window'
 
 const dirs: string[] = []
 afterEach(() => { for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true }) })
@@ -71,5 +71,13 @@ describe('device windows', () => {
     h.windows.release(target)
     h.timers[1]!.fn()
     expect(h.shutdown).toHaveBeenCalledWith(target)
+  })
+})
+
+describe('Android release', () => {
+  it('reads the running emulator serials from adb devices (Tapflow names them avd:<name>)', () => {
+    expect(emulatorSerials('List of devices attached\nemulator-5554\tdevice\nemulator-5556\toffline\nR58M\tdevice\n\n')).toEqual(['emulator-5554'])
+    expect(validDeviceTarget({ deviceId: 'avd:tapflow-phone', sessionId: 's', buildId: 1, platform: 'android', name: 'tapflow-phone' })).toMatchObject({ deviceId: 'avd:tapflow-phone' })
+    expect(validDeviceTarget({ deviceId: 'avd:../x', sessionId: 's', buildId: 1, platform: 'android', name: 'x' })).toBeNull()
   })
 })

@@ -369,7 +369,8 @@
         "running-external": "On (started outside Specrails)",
         "failed": "Failed"
       },
-      "rerunSetup": "Run setup again"
+      "rerunSetup": "Run setup again",
+      "configurePlatforms": "Set up iOS and Android"
     }
   }
 }

@@ -369,7 +369,8 @@
         "running-external": "Ativo (iniciado fora do Specrails)",
         "failed": "Erro"
       },
-      "rerunSetup": "Repetir a configuração"
+      "rerunSetup": "Repetir a configuração",
+      "configurePlatforms": "Configurar iOS e Android"
     }
   }
 }

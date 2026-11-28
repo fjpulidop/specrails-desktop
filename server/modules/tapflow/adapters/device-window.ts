@@ -13,6 +13,10 @@
  */
 import crypto from 'node:crypto'
 import { execFile } from 'node:child_process'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { androidSdkCandidates } from '../domain'
 import type { Request, Response } from 'express'
 import { createTapflowSecrets } from './relay'
 
@@ -25,12 +29,13 @@ export interface DeviceTarget {
 }
 
 const TICKET_TTL_MS = 60_000
-const ID = /^[A-Za-z0-9-]{1,128}$/
+/** Simulator UDIDs, session ids, and Tapflow's Android ids (`avd:<name>`, AVD names allow `_` and `.`). */
+const ID = /^[A-Za-z0-9:._-]{1,128}$/
 
 export function validDeviceTarget(value: unknown): DeviceTarget | null {
   const v = value as Partial<DeviceTarget> | null
   if (!v || typeof v !== 'object') return null
-  if (typeof v.deviceId !== 'string' || !ID.test(v.deviceId) || typeof v.sessionId !== 'string' || !ID.test(v.sessionId)) return null
+  if (typeof v.deviceId !== 'string' || !ID.test(v.deviceId) || v.deviceId.includes('..') || typeof v.sessionId !== 'string' || !ID.test(v.sessionId) || v.sessionId.includes('..')) return null
   if (typeof v.buildId !== 'number' || !Number.isInteger(v.buildId) || v.buildId < 1) return null
   if (v.platform !== 'ios' && v.platform !== 'android') return null
   const name = typeof v.name === 'string' && v.name.length <= 120 ? v.name : v.platform === 'ios' ? 'iOS Simulator' : 'Android Emulator'
@@ -59,11 +64,30 @@ export interface DeviceWindowDeps {
   clearTimer?: (handle: unknown) => void
 }
 
-/** iOS: `simctl` (no Tapflow session needed). Android: the emulator console via adb. Best effort. */
-const shutdownDevice = (target: DeviceTarget) => new Promise<void>((resolve) => {
-  const [cmd, args] = target.platform === 'ios' ? ['xcrun', ['simctl', 'shutdown', target.deviceId]] : ['adb', ['-s', target.deviceId, 'emu', 'kill']]
-  execFile(cmd, args, { timeout: 30_000 }, () => resolve())
+const run = (cmd: string, args: string[]) => new Promise<string>((resolve) => {
+  execFile(cmd, args, { timeout: 30_000 }, (err, stdout) => resolve(err ? '' : stdout))
 })
+
+/** Serials of the running emulators in `adb devices` output. */
+export function emulatorSerials(adbDevices: string): string[] {
+  return adbDevices.split('\n').map((line) => line.trim().split(/\s+/)).filter(([serial, state]) => /^emulator-\d+$/.test(serial ?? '') && state === 'device').map(([serial]) => serial!)
+}
+
+/**
+ * iOS: `simctl shutdown` (no Tapflow session needed). Android: Tapflow names an emulator `avd:<name>`,
+ * while adb knows it by serial (`emulator-5554`): find the serial whose `emu avd name` is that AVD, then
+ * kill it through its console. Best effort.
+ */
+async function shutdownDevice(target: DeviceTarget): Promise<void> {
+  if (target.platform === 'ios') { await run('xcrun', ['simctl', 'shutdown', target.deviceId]); return }
+  const sdk = androidSdkCandidates(process.env, os.homedir()).find((dir) => fs.existsSync(path.join(dir, 'platform-tools', 'adb')))
+  const adb = sdk ? path.join(sdk, 'platform-tools', 'adb') : 'adb'
+  const avd = target.deviceId.replace(/^avd:/, '')
+  for (const serial of emulatorSerials(await run(adb, ['devices']))) {
+    const name = (await run(adb, ['-s', serial, 'emu', 'avd', 'name'])).split('\n')[0]?.trim()
+    if (name === avd) { await run(adb, ['-s', serial, 'emu', 'kill']); return }
+  }
+}
 
 export function createDeviceWindows(deps: DeviceWindowDeps) {
   const fetchImpl = deps.fetchImpl ?? fetch

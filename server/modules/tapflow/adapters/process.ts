@@ -7,7 +7,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {
-  installerScript, nodeMajor, serviceEnvironment, tapflowConfig, TAPFLOW_MIN_NODE_MAJOR,
+  androidSdkCandidates, installerScript, nodeMajor, serviceEnvironment, tapflowConfig, TAPFLOW_MIN_NODE_MAJOR,
   type TapflowIssue,
 } from '../domain'
 import type { InstallerTerminal, TapflowInstallation, TapflowService } from '../application'
@@ -156,7 +156,8 @@ export function createTapflowService(deps: { paths: TapflowPaths; spawnImpl?: ty
       const log = fs.openSync(paths.serviceLog, 'w')
       const base = { ...process.env }
       delete base.NODE_OPTIONS
-      const env = { ...base, ...serviceEnvironment({ home: paths.home, port, preloadPath: paths.preload, nodeBinDir: path.dirname(nodePath), basePath: process.env.PATH ?? '/usr/bin:/bin:/usr/sbin' }) }
+      const androidSdk = androidSdkCandidates(process.env, os.homedir()).find((sdk) => fs.existsSync(path.join(sdk, 'platform-tools', 'adb'))) ?? null
+      const env = { ...base, ...serviceEnvironment({ home: paths.home, port, preloadPath: paths.preload, nodeBinDir: path.dirname(nodePath), basePath: process.env.PATH ?? '/usr/bin:/bin:/usr/sbin', androidSdk }) }
       const proc = spawnImpl(nodePath, [paths.tapflowCli, 'start'], { cwd: paths.home, env, stdio: ['ignore', log, log] })
       fs.closeSync(log)
       child = proc

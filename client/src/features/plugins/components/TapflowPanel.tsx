@@ -185,10 +185,12 @@ export function TapflowPanel({ tapflow }: { tapflow: ReturnType<typeof useTapflo
       )}
 
       <div className="flex flex-wrap gap-2">
-        {(status.phase === 'not-installed' || (status.phase === 'installed' && status.issue?.code === 'setup-incomplete')) && (
-          <Button size="sm" onClick={() => { setInstallerDone(undefined); void run('install') }} disabled={busy !== null}>
+        {(status.phase === 'not-installed' || (status.managed && status.phase !== 'installing')) && (
+          <Button size="sm" variant={status.phase === 'not-installed' || status.issue?.code === 'setup-incomplete' ? 'default' : 'outline'}
+            onClick={() => { setInstallerDone(undefined); void run('install') }} disabled={busy !== null}>
             {busy === 'install' ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Download className="h-3.5 w-3.5" aria-hidden />}
-            {status.phase === 'not-installed' ? t('plugins.tapflow.install') : t('plugins.tapflow.rerunSetup')}
+            {status.phase === 'not-installed' ? t('plugins.tapflow.install')
+              : status.issue?.code === 'setup-incomplete' ? t('plugins.tapflow.rerunSetup') : t('plugins.tapflow.configurePlatforms')}
           </Button>
         )}
         {status.managed && status.phase !== 'installing' && (

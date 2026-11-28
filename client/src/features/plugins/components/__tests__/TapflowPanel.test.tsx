@@ -79,6 +79,13 @@ describe('TapflowPanel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('boom')
   })
 
+  it('lets a managed install set up its platforms again at any time (Android after iOS)', async () => {
+    current = status({ phase: 'running', managed: true, version: '0.33.0' })
+    render(<Harness />)
+    fireEvent.click(await screen.findByRole('button', { name: /Set up iOS and Android/ }))
+    await waitFor(() => expect(calls).toContain('POST /api/global-plugins/tapflow/install'))
+  })
+
   it('follows the live status pushed over the WebSocket', async () => {
     current = status({ phase: 'installed', managed: true })
     render(<Harness />)

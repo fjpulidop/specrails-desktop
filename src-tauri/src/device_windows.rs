@@ -33,9 +33,10 @@ pub fn allowed_navigation(url: &tauri::Url) -> bool {
     url.scheme() == "http" && url.host_str() == Some("127.0.0.1")
 }
 
-/// A device key (the Tapflow device id: a simulator UDID or an emulator serial).
+/// A device key: the Tapflow device id (a simulator UDID, or `avd:<name>` for an Android emulator).
 pub fn valid_key(key: &str) -> bool {
-    !key.is_empty() && key.len() <= 128 && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+    !key.is_empty() && key.len() <= 128 && !key.contains("..")
+        && key.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | ':' | '_' | '.'))
 }
 
 #[tauri::command]
@@ -102,6 +103,7 @@ mod tests {
     fn accepts_device_ids_only() {
         assert!(valid_key("A1B1366D-EDEF-4CB9-9355-9D2CDBB942F4"));
         assert!(valid_key("emulator-5554"));
+        assert!(valid_key("avd:tapflow-phone") && valid_key("avd:Pixel_8_API_35"));
         assert!(!valid_key("") && !valid_key("../x") && !valid_key("a b") && !valid_key(&"a".repeat(129)));
     }
 }
