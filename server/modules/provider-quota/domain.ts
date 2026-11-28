@@ -168,7 +168,14 @@ export function applyUsageWindows(state: ProviderQuotaState, windows: Array<{ id
 export function expireQuota(state: ProviderQuotaState, now: number): ProviderQuotaState {
   let changed = false
   const rejected: Record<string, string | null> = {}
-  for (const [id, resetsAt] of Object.entries(state.rejected)) {
+  // A refusal whose prose gave no reset ends when the full window behind it resets: without this
+  // it would read "rejected indefinitely" long after the provider accepts requests again.
+  const fullReset = Object.values(state.windows)
+    .filter((window) => (window.usedPercent ?? 0) >= 100 && window.resetsAt)
+    .map((window) => window.resetsAt!).sort().at(-1) ?? null
+  for (const [id, stated] of Object.entries(state.rejected)) {
+    const resetsAt = stated ?? fullReset
+    if (resetsAt !== stated) changed = true
     if (resetsAt && Date.parse(resetsAt) <= now) { changed = true; continue }
     rejected[id] = resetsAt
   }

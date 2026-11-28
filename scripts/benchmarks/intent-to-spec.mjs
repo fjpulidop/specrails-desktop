@@ -8,10 +8,14 @@
  * rounds, review scores and whether review issues converge. Never touches the
  * source project: the case runs in a fixture clone registered as its own project.
  *
- *   node scripts/benchmarks/intent-to-spec.mjs <case.json> [--dry]
+ *   node scripts/benchmarks/intent-to-spec.mjs <case.json> [--dry] [--resume <runId>]
+ *     [--measure <runId>] [--provider <id>] [--model <id>] [--effort <level>] [--tag <label>] [--max-quota <percent>]
  *
- * Case file: { name, sourceRepo, baseSha, headSha, sourceMission, forkThroughMessage,
- *   idea, provider?, model?, effort? }. Results: <registry>/.specrails/bench/results/.
+ * Case file: { name, sourceRepo, baseSha, headSha, idea, sourceMission?, forkThroughMessage?,
+ *   provider?, model?, effort? }. With sourceMission the real conversation up to the hand-off is
+ * forked; without it (a synthetic case) the Intent starts from the idea alone. Flags override the
+ * case's engine; --tag labels the variant being measured. Results: <registry>/.specrails/bench/results/.
+ * Exits 3 without launching when the provider's usage is at or above --max-quota (default 70 %).
  * Spends real provider money (one full Intent → Spec run).
  */
 import { createRequire } from 'node:module'
@@ -33,7 +37,11 @@ const dry = process.argv.includes('--dry')
 // --resume <runId>: continue a run of this case that a provider usage limit paused (it does not resume by itself).
 const resumeIndex = process.argv.indexOf('--resume')
 const resumeRun = resumeIndex > 0 ? process.argv[resumeIndex + 1] : null
+const flag = (name) => { const index = process.argv.indexOf(`--${name}`); return index > 0 ? process.argv[index + 1] : undefined }
 const spec = JSON.parse(fs.readFileSync(casePath, 'utf8'))
+for (const key of ['provider', 'model', 'effort']) if (flag(key)) spec[key] = flag(key)
+const tag = flag('tag') ?? null
+const maxQuota = Number(flag('max-quota') ?? 70)
 const home = process.env.SPECRAILS_REGISTRY_HOME || path.join(os.homedir(), '.specrails-dev')
 const port = Number(process.env.SPECRAILS_DEV_SERVER_PORT || 4300)
 const state = path.join(home, '.specrails')
@@ -102,9 +110,9 @@ function measure(project, runId) {
   try {
     const run = db.prepare('SELECT * FROM loop_runs WHERE id = ?').get(runId)
     const turns = db.prepare('SELECT surface_ref_id, started_at, duration_ms, tokens_in, tokens_out, tokens_cache_read, total_cost_usd FROM ai_invocations WHERE loop_run_id = ? ORDER BY started_at').all(runId)
-    const store = path.join(state, 'projects', project.slug, 'workspace', '.specrails', 'pipeline', runId, 'agent-workflow', 'run.sqlite')
+    const store = coreStore(project, runId)
     const steps = []
-    if (fs.existsSync(store)) {
+    if (store) {
       const core = new Database(store, { readonly: true })
       try {
         for (const attempt of core.prepare("SELECT node_path, visit, started_at, ended_at, outcome, output_json FROM attempts WHERE node_path IN ('derive','check','review','fix','archive','verify') ORDER BY started_at").all()) {
@@ -134,6 +142,33 @@ function measure(project, runId) {
   } finally { db.close() }
 }
 
+/** Refuses to start a run the provider's quota cannot finish (exit 3): the next scheduled pass retries. */
+async function quotaGate() {
+  const provider = spec.provider ?? 'codex'
+  const quota = (await api('GET', '/provider-quota')).providers?.find((entry) => entry.providerId === provider)
+  if (!quota) return
+  const used = Math.max(0, ...(quota.windows ?? []).filter((window) => Date.parse(window.resetsAt ?? '') > Date.now()).map((window) => window.usedPercent ?? 0))
+  const expired = (quota.windows ?? []).every((window) => Date.parse(window.resetsAt ?? '') <= Date.now())
+  if (used >= maxQuota || (quota.level === 'rejected' && !expired && used >= 100)) {
+    log(`skip: ${provider} usage ${used} % (limit ${maxQuota} %)`)
+    process.exit(3)
+  }
+}
+
+/** The run's Core store: in the Intent worktree the rail ran in (worktrees/<flow>/<ticket>), else the workspace. */
+function coreStore(project, runId) {
+  const base = path.join(state, 'projects', project.slug)
+  const tail = path.join('.specrails', 'pipeline', runId, 'agent-workflow', 'run.sqlite')
+  const candidates = [path.join(base, 'workspace', tail)]
+  const worktrees = path.join(base, 'worktrees')
+  if (fs.existsSync(worktrees)) for (const flow of fs.readdirSync(worktrees)) {
+    const dir = path.join(worktrees, flow)
+    if (!fs.statSync(dir).isDirectory()) continue
+    for (const ticket of fs.readdirSync(dir)) candidates.push(path.join(dir, ticket, tail))
+  }
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null
+}
+
 function findKey(value, key, depth = 0) {
   if (!value || typeof value !== 'object' || depth > 6) return null
   if (Object.hasOwn(value, key)) return value[key]
@@ -146,13 +181,18 @@ function findKey(value, key, depth = 0) {
  * limit pauses it without resuming by itself: that ends the wait with the resume hint.
  */
 async function settle(project, runId) {
-  const deadline = Date.now() + 2 * 3600_000
+  let deadline = Date.now() + 2 * 3600_000
   for (;;) {
     const check = projectDb(project)
     const row = check.prepare('SELECT status, restart_reason FROM loop_runs WHERE id = ?').get(runId)
+    const pause = check.prepare('SELECT value FROM queue_state WHERE key = ?').get(`limit_pause:${runId}`)
     check.close()
-    if (row && row.status === 'paused' && row.restart_reason === 'limit_paused') {
-      throw new Error(`run ${runId} paused at a provider usage limit; once it resets: --resume ${runId}`)
+    if (row && row.status === 'paused' && pause) {
+      let limit = {}
+      try { limit = JSON.parse(pause.value) } catch { /* unreadable */ }
+      // A limit pause that knows its reset resumes by itself: keep waiting past it.
+      if (!limit.autoResume || !limit.resumeAt) throw new Error(`run ${runId} paused at a provider usage limit; once it resets: --resume ${runId}`)
+      deadline = Math.max(deadline, Date.parse(limit.resumeAt) + 2 * 3600_000)
     }
     if (row && !['running', 'queued', 'pending', 'paused'].includes(row.status)) return
     if (Date.now() > deadline) throw new Error('run did not settle within 2 h')
@@ -161,7 +201,7 @@ async function settle(project, runId) {
 }
 
 function record(project, runId, extra) {
-  const result = { case: spec.name, at: new Date().toISOString(), provider: spec.provider ?? null, model: spec.model ?? null, ...extra, ...measure(project, runId) }
+  const result = { case: spec.name, at: new Date().toISOString(), tag, commit: git(['rev-parse', '--short', 'HEAD'], root), provider: spec.provider ?? null, model: spec.model ?? null, effort: spec.effort ?? null, ...extra, ...measure(project, runId) }
   const file = path.join(resultsDir, `${result.at.replace(/[:.]/g, '-')}-${spec.name}.json`)
   fs.writeFileSync(file, JSON.stringify(result, null, 2))
   fs.appendFileSync(path.join(resultsDir, 'results.jsonl'), JSON.stringify({ ...result, steps: undefined, turns: undefined }) + '\n')
@@ -175,6 +215,9 @@ async function main() {
   const project = await ensureProject()
   log(`fixture project ${project.slug} (${project.id})`)
   if (dry) { log('dry run: fixture ready, nothing launched'); return }
+  // --measure <runId>: record an already settled run again (after a measurement fix).
+  if (flag('measure')) { record(project, flag('measure'), { remeasured: true }); return }
+  if (!resumeRun) await quotaGate()
 
   const { call, close } = await mcp()
   try {
@@ -185,14 +228,22 @@ async function main() {
       record(project, resumeRun, { resumed: true })
       return
     }
-    // 1. The real conversation up to the hand-off, so the reviewer sees the same requests and decisions.
-    const fork = await call('specrails_missions', { action: 'branch', ref: `mission:${spec.sourceMission}`, options: { mode: 'fork', throughMessageId: spec.forkThroughMessage } })
-    const mission = fork.refs?.mission ?? fork.data?.ref
-    await call('specrails_missions', { action: 'update', ref: mission, title: `bench ${spec.name} ${new Date().toISOString().slice(0, 16)}`, options: { pin: project.id }, ...(spec.provider ? { provider: spec.provider } : {}), ...(spec.model ? { model: spec.model } : {}), ...(spec.effort ? { effort: spec.effort } : {}) })
-    log(`mission ${mission}`)
-
-    // 2. A fresh Intent on the fixture base (no seeded opening turn: started from the idea).
-    const started = await call('specrails_missions', { action: 'intent_start', ref: mission, message: spec.idea })
+    const engine = { ...(spec.provider ? { provider: spec.provider } : {}), ...(spec.model ? { model: spec.model } : {}), ...(spec.effort ? { effort: spec.effort } : {}) }
+    let mission = null
+    let started
+    if (spec.sourceMission) {
+      // 1. The real conversation up to the hand-off, so the reviewer sees the same requests and decisions.
+      const fork = await call('specrails_missions', { action: 'branch', ref: `mission:${spec.sourceMission}`, options: { mode: 'fork', throughMessageId: spec.forkThroughMessage } })
+      mission = fork.refs?.mission ?? fork.data?.ref
+      await call('specrails_missions', { action: 'update', ref: mission, title: `bench ${spec.name} ${new Date().toISOString().slice(0, 16)}`, options: { pin: project.id }, ...engine })
+      log(`mission ${mission}`)
+      // 2. A fresh Intent on the fixture base (no seeded opening turn: started from the idea).
+      started = await call('specrails_missions', { action: 'intent_start', ref: mission, message: spec.idea })
+    } else {
+      // 1–2. Synthetic case: a new mission in the fixture project whose Intent starts from the idea.
+      started = await call('specrails_missions', { action: 'intent_start', project: project.slug, message: spec.idea, ...engine })
+      mission = started.refs?.mission ?? null
+    }
     const intent = started.refs?.intent ?? started.data?.ref
     const flowId = intent.split('/').pop()
     const db = projectDb(project)

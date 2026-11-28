@@ -50,6 +50,17 @@ describe('applyReport / expireQuota / presentQuota', () => {
     expect(presentQuota(refused, T0 + 3_600_001).level).not.toBe('rejected')
   })
 
+  it('ends a refusal with no stated reset when the full window behind it resets', () => {
+    // Codex run 45b765d0: the prose reset was unreadable, the usage window said 100 % until T0+1h.
+    let state = applyRefusal(emptyQuota('codex'), null, iso(T0))
+    state = applyUsageWindows(state, [{ id: 'codex:primary', usedPercent: 100, resetsAt: iso(T0 + 3_600_000), durationMinutes: 300 }, { id: 'codex:secondary', usedPercent: 16, resetsAt: iso(T0 + 86_400_000), durationMinutes: 10_080 }], iso(T0 + 1))
+    expect(presentQuota(state, T0 + 2)).toMatchObject({ level: 'rejected', rejectedUntil: iso(T0 + 3_600_000), rejectedIndefinitely: false })
+    expect(nextExpiry(expireQuota(state, T0 + 2), T0 + 2)).toBe(T0 + 3_600_000)
+    expect(presentQuota(state, T0 + 3_600_001)).toMatchObject({ level: 'ok', rejectedIndefinitely: false })
+    // Without a full window there is nothing to end it: it stays indefinite.
+    expect(presentQuota(applyRefusal(emptyQuota('codex'), null, iso(T0)), T0 + 1).rejectedIndefinitely).toBe(true)
+  })
+
   it('needs every refusing window to reset: requests resume at the LAST reset', () => {
     let state = applyReport(emptyQuota('claude'), report({ status: 'rejected' }), iso(T0), 'session')
     state = applyReport(state, report({ status: 'rejected', rateLimitType: 'seven_day', resetsAt: iso(T0 + 86_400_000) }), iso(T0 + 1), 'session')
