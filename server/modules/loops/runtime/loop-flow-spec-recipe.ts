@@ -129,16 +129,17 @@ export function flowSpecGraph(): LoopGraph {
   node('derive', 'Derive OpenSpec change', 'derive-change', { change, summaryPath: FLOW_SUMMARY_FILE, feedback: '{{run.latestFindings}}' }, { pass: 'tag', fail: 'repair-guard' })
   // The requirement ids only exist once derive wrote the delta specs, so the Intent's tests cannot carry
   // them yet: without this step every first review failed on missing tags alone and spent a whole
-  // correction round (fix, re-derive, re-review) on them (benchmark experiment 3).
-  node('tag', 'Tag tests with their requirements', 'role-turn', {
+  // correction round (fix, re-derive, re-review) on them (benchmark experiment 3). The rounds left were
+  // all a requirement no test demonstrated, so the step also writes that test (experiment 6).
+  node('tag', 'Tag tests and demonstrate every requirement', 'role-turn', {
     roleId: 'developer',
     stance: 'fixer',
     prompt: [
       `Tag the existing tests of OpenSpec change ${change} with the requirements they demonstrate.`,
       `Read the delta specs under openspec/changes/${change}/specs/. For every ADDED or MODIFIED requirement, find the tests in this worktree that demonstrate it and add its id to their titles as \`[spec:<capability>/<requirement-slug>]\` (or a \`// spec: <capability>/<requirement-slug>\` comment, \`# spec:\` in Python and shell, on the line before the test).`,
       'The slug is the requirement name after `### Requirement:`, lowercased, accents removed, every run of other characters one dash. A test already carrying the right tag stays as it is.',
-      'Change test titles and tag comments only: no assertions, no new tests, no production code, nothing under openspec/. Only touch test files that already differ from the base (part of this change).',
-      'A requirement no existing test demonstrates stays untagged: list it under incomplete with the reason (the reviewer decides whether a test is missing).',
+      'Then, for every ADDED or MODIFIED requirement no existing test demonstrates, add one focused test that asserts its observable behaviour (its scenarios), tagged with its id, in a test file that already differs from the base (part of this change), reusing that file\'s harness and helpers. Run the tests you touched.',
+      'Never change production code, existing assertions or anything under openspec/, and never expand scope: a test only demonstrates behaviour the code already has. A requirement only documentation can show needs no test. List under incomplete each requirement you could not demonstrate, with the reason.',
       'Return summary and incomplete.',
     ].join(' '),
     structuredOutput: FIX_SCHEMA,
