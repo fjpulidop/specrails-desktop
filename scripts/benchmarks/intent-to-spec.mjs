@@ -116,10 +116,13 @@ function measure(project, runId) {
     const turns = db.prepare('SELECT surface_ref_id, started_at, duration_ms, tokens_in, tokens_out, tokens_cache_read, total_cost_usd FROM ai_invocations WHERE loop_run_id = ? ORDER BY started_at').all(runId)
     const store = coreStore(project, runId)
     const steps = []
+    // The definition the run executed: a sidecar left unrebuilt runs the previous recipe whatever HEAD says.
+    let definitionHash = null
     if (store) {
       const core = new Database(store, { readonly: true })
       try {
-        for (const attempt of core.prepare("SELECT node_path, visit, started_at, ended_at, outcome, output_json FROM attempts WHERE node_path IN ('derive','check','review','fix','archive','verify') ORDER BY started_at").all()) {
+        definitionHash = core.prepare('SELECT definition_hash FROM runs').get()?.definition_hash?.slice(0, 12) ?? null
+        for (const attempt of core.prepare("SELECT node_path, visit, started_at, ended_at, outcome, output_json FROM attempts WHERE node_path IN ('derive','tag','check','review','fix','archive','verify') ORDER BY started_at").all()) {
           let output = {}
           try { output = JSON.parse(attempt.output_json || '{}') } catch { /* unreadable */ }
           const review = attempt.node_path === 'review' ? findKey(output, 'structured') ?? output : null
@@ -133,7 +136,7 @@ function measure(project, runId) {
     }
     const reviews = steps.filter((step) => step.node === 'review')
     return {
-      runId, outcome: run?.final_outcome ?? run?.status ?? null, status: run?.status ?? null,
+      runId, definitionHash, outcome: run?.final_outcome ?? run?.status ?? null, status: run?.status ?? null,
       durationMin: run?.total_duration_ms ? +(run.total_duration_ms / 60000).toFixed(1) : null,
       costUsd: run?.total_cost_usd != null ? +Number(run.total_cost_usd).toFixed(2) : null,
       tokensM: run?.total_tokens != null ? +(run.total_tokens / 1e6).toFixed(1) : null,
