@@ -170,9 +170,11 @@ export function flowSpecGraph(): LoopGraph {
       'Return approved, summary, issues (empty when none), score (0-100), unrequested (empty when none) and followUps (empty when none).',
     ].join(' '),
     structuredOutput: REVIEW_SCHEMA,
-    // The same reviewer across rounds: a re-review remembers what it read and asked for, so it verifies
-    // instead of re-reading the project and reviewing from scratch (benchmark experiment 2).
-    sessionContinuity: 'run',
+    // A fresh reviewer each round: convergence comes from the prompt (the previous verdict and the
+    // re-review rules), not from the session. Experiment 2 kept the reviewer's session: 15-30 s faster
+    // re-reviews on Claude, nothing on Codex, where 2 of 5 resumed re-reviews answered outside the
+    // structured schema and failed the run (invalid_role_output even after Core's repair turn).
+    sessionContinuity: 'none',
   }, { next: 'review-policy', invalid: 'failed', failed: 'failed' })
   node('review-policy', 'Review acceptance policy', 'condition', { expr: '$outputs.review.structured.approved == true && !exists($outputs.review.structured.unrequested.0)' }, { true: 'archive', false: 'review-findings' })
   node('review-findings', 'Capture review findings', 'assign', { set: { latestFindings: '{{outputs.review.structured}}' } }, { next: 'scope-gate', failed: 'failed' }, 720)

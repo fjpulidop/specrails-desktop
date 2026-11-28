@@ -104,8 +104,8 @@ describe('flow-spec definition', () => {
     // Approval is unchanged: approved and nothing unrequested; followUps are not part of the policy.
     expect(String(definition.nodes['review-policy']!.params.expr)).not.toContain('followUps')
     expect(String(definition.nodes.fix!.params.prompt)).toContain('followUps are optional and non-blocking')
-    // The reviewer keeps its session across rounds (it verifies its own verdict); the fixer starts fresh.
-    expect(definition.nodes.review!.params).toMatchObject({ sessionContinuity: 'run' })
+    // Reviewer and fixer start fresh each round: a resumed Codex reviewer broke the structured schema.
+    expect(definition.nodes.review!.params).toMatchObject({ sessionContinuity: 'none' })
     expect(definition.nodes.fix!.params).toMatchObject({ sessionContinuity: 'none' })
   })
 
