@@ -66,6 +66,7 @@ import { BackgroundProcessHistoryModal } from '../../background/components/Backg
 import { useMissionResourceHistory } from '../../background/hooks/useMissionResourceHistory'
 import { BackgroundProcessesPanel } from '../../background/components/BackgroundProcessesPanel'
 import { HoverPopover } from '../../../components/ui/hover-popover'
+import { MissionPlanPill } from './MissionPlanPill'
 import { backgroundProcessKey } from '../../background/lib/background-processes-api'
 import { useAvailableProviders } from '../../providers/hooks/useAvailableProviders'
 import { isPublicProvider, reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
@@ -943,6 +944,7 @@ export function AgentComposer({
         />}
           <AgentTierChip compact level={active?.tier_level ?? draftTierLevel} onCycle={cycleTier} />
           {composerMode && (active === null || showModeBadge) && <MissionModeBadge badge={composerMode.badge} variant="composer" testId="agent-composer-mode-chip" />}
+          {activeId && <MissionPlanPill messages={messages} />}
           {activeId && backgroundProjectId && (
             <HoverPopover
               label={t('backgroundProcess.history.title')}

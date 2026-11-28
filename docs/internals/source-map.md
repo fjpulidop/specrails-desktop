@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1979 source/build files. Nearby tests are linked where names
+Includes 1981 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -760,6 +760,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [MissionModeBadge.tsx](../../client/src/features/missions/components/MissionModeBadge.tsx)
 - [MissionOpenRequests.tsx](../../client/src/features/missions/components/MissionOpenRequests.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionOpenRequests.test.tsx)
 - [MissionPaneLayoutMenu.tsx](../../client/src/features/missions/components/MissionPaneLayoutMenu.tsx)
+- [MissionPlanPill.tsx](../../client/src/features/missions/components/MissionPlanPill.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionPlanPill.test.tsx)
 - [MissionSelectionMenu.tsx](../../client/src/features/missions/components/MissionSelectionMenu.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionSelectionMenu.test.tsx)
 - [MissionSplitDivider.tsx](../../client/src/features/missions/components/MissionSplitDivider.tsx)
 - [MissionSplitLayout.tsx](../../client/src/features/missions/components/MissionSplitLayout.tsx) · [test](../../client/src/features/missions/components/__tests__/MissionSplitLayout.test.tsx)
@@ -2416,6 +2417,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mission-connectors.ts](../../server/modules/missions/runtime/mission-connectors.ts) · [test](../../server/modules/missions/runtime/mission-connectors.test.ts)
 - [mission-context-usage.ts](../../server/modules/missions/runtime/mission-context-usage.ts) · [test](../../server/modules/missions/runtime/mission-context-usage.test.ts)
 - [mission-core-sessions.ts](../../server/modules/missions/runtime/mission-core-sessions.ts) · [test](../../server/modules/missions/runtime/mission-core-sessions.test.ts)
+- [mission-plan.ts](../../server/modules/missions/runtime/mission-plan.ts) · [test](../../server/modules/missions/runtime/mission-plan.test.ts)
 - [mission-run-notify.ts](../../server/modules/missions/runtime/mission-run-notify.ts) · [test](../../server/modules/missions/runtime/mission-run-notify.test.ts)
 - [mission-session-projector.ts](../../server/modules/missions/runtime/mission-session-projector.ts) · [test](../../server/modules/missions/runtime/mission-session-projector.test.ts)
 - [mission-session-summary.ts](../../server/modules/missions/runtime/mission-session-summary.ts) · [test](../../server/modules/missions/runtime/mission-session-summary.test.ts)

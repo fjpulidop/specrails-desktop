@@ -82,7 +82,8 @@ const warnedSystemRows = new Set<string>()
 // System rows that are records rather than cards: recognised, rendered as
 // nothing, and deliberately NOT warned about. Kept in sync with
 // server/modules/missions/runtime/agent-spec-framing.ts SPEC_FRAMING_MARKER_KIND.
-const SILENT_SYSTEM_ROW_KINDS = new Set(['spec-framing.committed'])
+// `mission-plan`: the agent's plan of work, shown in the composer's Plan pill (MissionPlanPill), not inline.
+const SILENT_SYSTEM_ROW_KINDS = new Set(['spec-framing.committed', 'mission-plan'])
 
 function isSilentSystemRow(content: string): boolean {
   if (!content.startsWith('{')) return false

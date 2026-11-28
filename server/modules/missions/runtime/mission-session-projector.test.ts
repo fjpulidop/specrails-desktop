@@ -1,4 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const plans = vi.hoisted(() => [] as Array<{ conversationId: string; plan: unknown; source: string }>)
+vi.mock('./mission-plan', async (load) => ({
+  ...(await load<typeof import('./mission-plan')>()),
+  publishMissionPlan: (conversationId: string, plan: unknown, source: string) => { plans.push({ conversationId, plan, source }); return true },
+}))
 
 import { initDesktopDb } from '../../../desktop-db'
 import type { DbInstance } from '../../../db'
@@ -170,6 +176,22 @@ describe('MissionSessionProjector', () => {
       expect.objectContaining({ runId: pinned, role: 'mission', kind: 'read', target: 'README.md', source: 'core-session' }),
       expect.objectContaining({ runId: pinned, role: 'subagent', kind: 'exec', target: 'npm test', source: 'core-session' }),
     ])
+  })
+
+  it('[spec:mission-plan/todo-tool] the agent\'s TodoWrite list becomes the mission\'s plan', () => {
+    const pinned = createAgentConversation(db, { provider: 'claude', model: 'haiku', pinnedProjectId: 'p1' }).id
+    ensureSessionCursor(db, pinned, pinned, 'p1')
+    conversationId = pinned
+    state = initialProjection(pinned)
+    plans.length = 0
+    projector = new MissionSessionProjector(pinned, { db, broadcast: () => {}, adapterFor: getAdapter })
+    feed([
+      { type: 'session.process', state: 'started', generation: 1 },
+      { type: 'turn.started', turnId: 't1', origin: 'user', inputIds: ['u1'] },
+      { type: 'turn.tool', turnId: 't1', toolUseId: 'td', name: 'TodoWrite', phase: 'started', input: { todos: [{ content: 'Read the screen', status: 'completed', activeForm: 'Reading' }, { content: 'Add the form', status: 'in_progress', activeForm: 'Adding' }] } },
+      { type: 'turn.tool', turnId: 't1', toolUseId: 'r', name: 'Read', phase: 'started', input: { file_path: 'README.md' } },
+    ])
+    expect(plans).toEqual([{ conversationId: pinned, source: 'todo-tool', plan: { title: null, steps: [{ content: 'Read the screen', status: 'completed' }, { content: 'Add the form', status: 'in_progress' }] } }])
   })
 
   it('a Core tool call denied by the policy hook is audited and handed to the transcript', () => {

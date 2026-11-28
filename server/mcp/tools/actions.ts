@@ -197,7 +197,7 @@ export const V1_TO_V2: Record<string, V1Mapping> = {
   specrails_select_project: { tool: 'specrails_projects', action: 'select' },
   specrails_projects: { tool: 'specrails_projects', actions: { ...same('list', 'get', 'repositories', 'repository_add', 'repository_update', 'repository_remove', 'unregister'), resolve: 'get' } },
   specrails_inbox: { tool: 'specrails_inbox', actions: { ...same('list', 'open', 'answer'), question: 'open', resume: { tool: 'specrails_runs', action: 'resume' }, retry: { tool: 'specrails_runs', action: 'remedy' } } },
-  specrails_missions: { tool: 'specrails_missions', actions: { ...same('list', 'get', 'send', 'ask', 'abort'), active: 'list' } },
+  specrails_missions: { tool: 'specrails_missions', actions: { ...same('list', 'get', 'send', 'ask', 'abort'), active: 'list', plan: { tool: 'specrails_missions', action: 'get', args: { fields: ['plan'] } } } },
   specrails_settings: {
     tool: 'specrails_settings',
     actions: {

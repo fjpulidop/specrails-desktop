@@ -3508,6 +3508,7 @@
       "runtime/mission-connectors-discovery.ts",
       "runtime/mission-connectors.ts",
       "runtime/mission-core-sessions.ts",
+      "runtime/mission-plan.ts",
       "runtime/mission-run-notify.ts"
     ],
     "dependencies": {
@@ -3558,6 +3559,7 @@
         "./mission-connectors-discovery",
         "./mission-context-usage",
         "./mission-core-sessions",
+        "./mission-plan",
         "./mission-session-summary",
         "./mission-tool-policy",
         "child_process",
@@ -3582,6 +3584,7 @@
         "./agent-input-store",
         "./agent-session-store",
         "./agent-tier",
+        "./mission-plan",
         "./mission-session-summary",
         "./mission-side-question",
         "express",
@@ -3694,6 +3697,11 @@
         "./mission-session-projector",
         "./mission-tool-policy"
       ],
+      "runtime/mission-plan.ts": [
+        "../../../db",
+        "../../agents/runtime/agent-store",
+        "./agent-chat-registry"
+      ],
       "runtime/mission-run-notify.ts": [
         "../../../feature-flags",
         "../../../types",
@@ -3711,7 +3719,8 @@
         "../../agent-sessions",
         "../../agents/runtime/agent-store",
         "../../audit",
-        "./agent-session-store"
+        "./agent-session-store",
+        "./mission-plan"
       ],
       "runtime/mission-session-summary.ts": [
         "../../../db",

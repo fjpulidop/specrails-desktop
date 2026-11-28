@@ -27,6 +27,7 @@ exports[`v1 → v2 alias bridge > snapshots the full deprecation table 1`] = `
   "specrails_missions(send) → specrails_missions(send)",
   "specrails_missions(ask) → specrails_missions(ask)",
   "specrails_missions(abort) → specrails_missions(abort)",
+  "specrails_missions(plan) → specrails_missions(get, fields:["plan"])",
   "specrails_settings(get) → specrails_settings(get)",
   "specrails_settings(set) → specrails_settings(set)",
   "specrails_settings(runtime_providers.list) → specrails_providers(runtime_list)",

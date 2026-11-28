@@ -49,7 +49,7 @@ const excerpt = (value: unknown, max = 200) => neutralize(oneLine(typeof value =
 const minute = (iso: unknown) => typeof iso === 'string' ? iso.replace(/:\d\d(\.\d+)?Z$/, 'Z') : iso
 const enc = encodeURIComponent
 
-const MISSION_SECTIONS = ['messages', 'queue', 'cards', 'subagents', 'attachments', 'intent', 'links', 'resources', 'processes'] as const
+const MISSION_SECTIONS = ['messages', 'queue', 'cards', 'subagents', 'attachments', 'intent', 'links', 'resources', 'processes', 'plan'] as const
 const MESSAGE_CHARS = 2_000
 /** `message` reads one message whole, up to this. */
 const FULL_MESSAGE_CHARS = 40_000
@@ -787,6 +787,13 @@ async function getMission(ctx: V2CallContext, args: Row): Promise<unknown> {
     const processes = rows(record(await apiCall(ctx, 'GET', `/projects/${enc(row.id)}/background-processes?chatId=${enc(id)}`)).processes)
     data.processes = processes.slice(0, 20).map((p) => ({ pid: p.pid, command: neutralize(clip(String(p.command ?? ''), 200)), status: p.status, ...(p.flowId ? { intent: intentRef(row, String(p.flowId)) } : {}), ...(Array.isArray(p.appUrls) && p.appUrls.length ? { appUrls: p.appUrls } : p.appUrl ? { appUrls: [p.appUrl] } : {}), ...(p.startedAt ? { started: minute(p.startedAt) } : {}) }))
     marks.push('/data/processes/*/command')
+  }
+  if (sections.includes('plan')) {
+    // The agent's plan of work and each step's status (the mission's Plan pill).
+    const plan = record(record(await apiCall(ctx, 'GET', `${AGENT}/${enc(id)}/plan`)).plan)
+    const steps = rows(plan.steps)
+    data.plan = steps.length ? { ...(plan.title ? { title: plan.title } : {}), done: steps.filter((step) => step.status === 'completed').length, total: steps.length, steps: steps.map((step) => ({ step: step.content, status: step.status })), at: plan.at } : null
+    marks.push('/data/plan/title', '/data/plan/steps/*/step')
   }
   const summary = ctx.v2.t(busy ? 'missions.summary.get_running' : 'missions.summary.get', {
     title: excerpt(conversation.title, 80) || ref, status: state.label, count: read.messages.length, cards: pendingCards.length,

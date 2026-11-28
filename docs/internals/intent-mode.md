@@ -351,6 +351,14 @@ an active Intent:
   in-app agent turns; external MCP clients keep the Settings ▸ MCP tiers.
   Outside an active Intent, or without confirmation, the ladder applies as before.
 
+**The plan.** The persona's "Your plan" section has the agent keep its plan of
+work visible: Claude's own `TodoWrite` list is read from the turn's tool calls,
+other providers call `specrails_missions` action `plan` (its own mission only).
+The plan is a silent `mission-plan` system row
+(server/modules/missions/runtime/mission-plan.ts) shown in the composer's Plan
+pill (`MissionPlanPill`) and readable with `specrails_missions get` field `plan`
+(OpenSpec change `add-mission-plan`).
+
 **A mobile app on a device.** When the user asks to run the iOS or Android
 app, the persona's "Running a mobile app on a device" section sends the agent
 to `specrails_background` action `mobile_test` (in-app agents get the v1

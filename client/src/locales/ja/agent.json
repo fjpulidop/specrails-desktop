@@ -1742,5 +1742,19 @@
     "openDevice": "{{device}} を開く",
     "startedBodyMission": "このセッションのコードをビルドしてインストールしています。進行状況とログは「プロセス」にあります。",
     "failedBodyMission": "解決したら、もう一度実行するようエージェントに頼んでください。"
+  },
+  "missionPlan": {
+    "button": "プラン",
+    "title": "作業プラン",
+    "description": "エージェントが行うと決めたことと、現在の進み具合です。",
+    "open": "作業プラン: {{total}} ステップ中 {{done}} 完了",
+    "progress": "{{done}} / {{total}}",
+    "now": "進行中: {{step}}",
+    "allDone": "すべてのステップが完了しました。",
+    "status": {
+      "pending": "未着手",
+      "in_progress": "進行中",
+      "completed": "完了"
+    }
   }
 }

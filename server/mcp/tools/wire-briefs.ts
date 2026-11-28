@@ -70,9 +70,11 @@ export const TOOL_BRIEFS: Record<string, ToolBrief> = {
     fields: { runId: 'question/answer/resume: the item\'s subjectId', sourceId: 'retry: delivery id or run:<id> from the item' },
   },
   specrails_missions: {
-    description: 'Agent missions. Actions: list, active, get (messages, context usage), send / ask (ai-spawn; ask never writes to the mission), abort (destructive — stop the running turn). Never changes permissions, provider or pin.',
+    description: 'Agent missions. Actions: list, active, get (messages, context usage), send / ask (ai-spawn; ask never writes to the mission), abort (destructive — stop the running turn), plan (in-app agent: your plan of work and each step\'s status, shown in your mission). Never changes permissions, provider or pin.',
     fields: {
       limit: 'list: missions (default 20); get: recent messages (default 10)',
+      steps: 'plan: every step in order, each with its status',
+      title: 'plan: a short name for the plan',
       deliveryMode: 'send while a turn runs: queue (default) or steer',
       selection: 'ask: passage asked about (default latest reply)',
       throughMessageId: 'ask: read history up to this message',

@@ -1742,5 +1742,19 @@
     "openDevice": "打开 {{device}}",
     "startedBodyMission": "正在构建并安装此会话的代码；进度和日志在“进程”中。",
     "failedBodyMission": "解决后请让智能体再次运行。"
+  },
+  "missionPlan": {
+    "button": "计划",
+    "title": "工作计划",
+    "description": "智能体打算做什么，以及进行到哪里了。",
+    "open": "工作计划：已完成 {{done}}/{{total}} 步",
+    "progress": "{{done}} / {{total}}",
+    "now": "当前：{{step}}",
+    "allDone": "所有步骤已完成。",
+    "status": {
+      "pending": "待办",
+      "in_progress": "进行中",
+      "completed": "已完成"
+    }
   }
 }

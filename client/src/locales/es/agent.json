@@ -1742,5 +1742,19 @@
     "openDevice": "Abrir {{device}}",
     "startedBodyMission": "Compilando el código de esta sesión e instalándolo; el progreso y el log están en Procesos.",
     "failedBodyMission": "Pídele al agente que lo ejecute de nuevo cuando esté resuelto."
+  },
+  "missionPlan": {
+    "button": "Plan",
+    "title": "Plan de trabajo",
+    "description": "Lo que el agente se propuso hacer y por dónde va.",
+    "open": "Plan de trabajo: {{done}} de {{total}} pasos hechos",
+    "progress": "{{done}} de {{total}}",
+    "now": "Ahora: {{step}}",
+    "allDone": "Todos los pasos hechos.",
+    "status": {
+      "pending": "pendiente",
+      "in_progress": "en curso",
+      "completed": "hecho"
+    }
   }
 }

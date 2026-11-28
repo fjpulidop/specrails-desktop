@@ -8,6 +8,7 @@ import { addAgentMessage, getAgentConversation } from '../../agents/runtime/agen
 import { recordPolicyDenial, recordToolCall, type AgentAuditRecorder } from '../../audit'
 import { parsePolicyDenial, type PolicyDenial } from '../../agent-policy'
 import { advanceSessionCursor, appendSubagentEvent, conversationSessionState, coreTurnInvocationId, getSessionCursor, isCoreTurnRecorded, setResidentState, upsertSubagent } from './agent-session-store'
+import { isTodoTool, planFromTodoWrite, publishMissionPlan } from './mission-plan'
 
 type Broadcast = (message: Record<string, unknown>) => void
 
@@ -139,6 +140,11 @@ export class MissionSessionProjector implements ProjectionSink {
             break
           case 'turn.tool':
             if (op.tool.phase === 'started') audited.push({ name: op.tool.name, input: op.tool.input, role: 'mission' })
+            // The agent's own todo list is the mission's plan (Plan pill, MCP).
+            if (op.tool.phase === 'started' && isTodoTool(op.tool.name)) {
+              const plan = planFromTodoWrite(op.tool.input)
+              if (plan) publishMissionPlan(conversationId, plan, 'todo-tool')
+            }
             noteTool(op.tool, 'mission')
             if (!this.background.has(op.turnId)) break
             outbox.push(op.tool.phase === 'started'

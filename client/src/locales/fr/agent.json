@@ -1742,5 +1742,19 @@
     "openDevice": "Ouvrir {{device}}",
     "startedBodyMission": "Compilation du code de cette session et installation ; la progression et le journal sont dans Processus.",
     "failedBodyMission": "Demandez à l'agent de relancer une fois le problème réglé."
+  },
+  "missionPlan": {
+    "button": "Plan",
+    "title": "Plan de travail",
+    "description": "Ce que l'agent s'est fixé et où il en est.",
+    "open": "Plan de travail : {{done}} étape(s) sur {{total}} faite(s)",
+    "progress": "{{done}} sur {{total}}",
+    "now": "En cours : {{step}}",
+    "allDone": "Toutes les étapes sont faites.",
+    "status": {
+      "pending": "à faire",
+      "in_progress": "en cours",
+      "completed": "fait"
+    }
   }
 }

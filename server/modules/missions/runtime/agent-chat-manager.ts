@@ -89,6 +89,7 @@ import { FAILURE_BRIEFING_REF_KIND } from './agent-failure-briefing'
 import { buildSessionSeedBlock, SESSION_SUMMARY_KIND, SessionRenewalError, type SessionSummaryResult, type SessionSummaryRow } from './mission-session-summary'
 import { conversationSessionState, listActiveSessionCursors, listSubagents, settleOrphanedSessionCursors } from './agent-session-store'
 import { observeQuotaLine } from '../../provider-quota/runtime/stream-observer'
+import { isTodoTool, planFromTodoWrite, publishMissionPlan } from './mission-plan'
 
 export type { AgentContextReference } from './agent-context-resolver'
 
@@ -1353,6 +1354,11 @@ export class AgentChatManager {
                 break
               case 'tool-use':
                 if (ev.toolUseId) legacyToolCalls.set(ev.toolUseId, { name: ev.name, input: ev.inputPreview })
+                // The agent's own todo list is the mission's plan (a preview cut short is skipped).
+                if (isTodoTool(ev.name)) {
+                  const plan = planFromTodoWrite(ev.inputPreview)
+                  if (plan) publishMissionPlan(conversationId, plan, 'todo-tool')
+                }
                 // Core-session turns are audited by the session projector (full
                 // input); native provider turns are audited here from the preview.
                 if (!coreContext && this._agentAudit && conversation.pinned_project_id) {

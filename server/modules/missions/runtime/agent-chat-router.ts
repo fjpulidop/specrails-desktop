@@ -41,6 +41,7 @@ import { killBackgroundProcessesForChat, listBackgroundProcesses, purgeBackgroun
 import { decorateAgentInputMessages, getAgentInput, AgentInputConflictError, AgentInputLimitError } from './agent-input-store'
 import { askSideQuestion, SideQuestionError, validateSideQuestionRequest, type SideQuestionDeps } from './mission-side-question'
 import { SessionRenewalError, summaryLanguage, writeSessionSummary, type SessionSummaryDeps } from './mission-session-summary'
+import { latestMissionPlan } from './mission-plan'
 
 // ─── Agent chat REST surface (/api/agent) ─────────────────────────────────────
 //
@@ -378,6 +379,13 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       purgeAt: conversation.deleted_at ? new Date(Date.parse(`${conversation.deleted_at}`) + AGENT_TRASH_RETENTION_MS).toISOString() : null,
     }))
     res.json({ items, retentionDays: Math.round(AGENT_TRASH_RETENTION_MS / 86_400_000) })
+  })
+
+  // The mission's work plan (Plan pill; MCP specrails_missions get field plan).
+  router.get('/conversations/:id/plan', (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation || conversation.deleted_at) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    res.json({ plan: latestMissionPlan(desktopDb, conversation.id) })
   })
 
   router.get('/conversations/:id', (req: Request, res: Response) => {

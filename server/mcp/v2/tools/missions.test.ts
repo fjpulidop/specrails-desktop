@@ -403,6 +403,16 @@ describe('specrails_missions: send and wait', () => {
     expect(second.envelope.error.code).toBe('stale')
   })
 
+  it('[spec:mission-plan/mcp] reads the mission\'s plan of work and each step\'s status', async () => {
+    const id = mission()
+    const ref = `mission:${id}`
+    expect((await missions({ action: 'get', ref, fields: ['plan'] })).envelope.data.plan).toBeNull()
+    say(id, 'system', JSON.stringify({ kind: 'mission-plan', title: 'Login', steps: [{ content: 'Form', status: 'completed' }, { content: 'Tests', status: 'in_progress' }], source: 'todo-tool', at: '2026-11-28T16:00:00Z' }))
+    const got = await missions({ action: 'get', ref, fields: ['plan'] })
+    expect(got.envelope.data.plan).toEqual({ title: 'Login', done: 1, total: 2, steps: [{ step: 'Form', status: 'completed' }, { step: 'Tests', status: 'in_progress' }], at: '2026-11-28T16:00:00Z' })
+    expect(got.envelope.untrusted).toEqual(expect.arrayContaining(['/data/plan/steps/*/step']))
+  })
+
   it('edits, steers and removes queued messages', async () => {
     const id = mission()
     queue.set(id, [{ queueId: 'q1', text: 'old', deliveryMode: 'queue', timestamp: 't' }])
