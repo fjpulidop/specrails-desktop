@@ -49,6 +49,15 @@ describe('factory:flow-spec gating', () => {
 describe('flow-spec definition', () => {
   const definition = compileLoopToDefinition(flowSpecGraph(), { id: FLOW_SPEC_LOOP_ID, title: 'Intent → Spec', constants: {}, provider: 'claude', roles: { reviewer: { access: 'read' } } })
 
+  it('tags the tests with the derived requirement ids between derive and check (test titles only)', () => {
+    expect(definition.nodes.derive!.ends).toMatchObject({ pass: 'tag' })
+    expect(definition.nodes.tag!).toMatchObject({ kind: 'role-turn', ends: { next: 'check', invalid: 'check', failed: 'failed' } })
+    const tag = definition.nodes.tag!.params as { roleId: string; stance: string; prompt: string; sessionContinuity: string }
+    expect(tag).toMatchObject({ roleId: 'developer', stance: 'fixer', sessionContinuity: 'none' })
+    expect(tag.prompt).toContain('[spec:<capability>/<requirement-slug>]')
+    expect(tag.prompt).toContain('no assertions, no new tests, no production code, nothing under openspec/')
+  })
+
   it('prepares the configured setup before both verifications (a fresh worktree lacks git-ignored environments)', () => {
     expect(definition.nodes.check!.params).toMatchObject({ commands: 'configured', setup: 'configured' })
     expect(definition.nodes.verify!.params).toMatchObject({ commands: 'configured', setup: 'configured' })
@@ -82,6 +91,8 @@ describe('flow-spec definition', () => {
     expect(review.structuredOutput.required).toContain('followUps')
     expect(review.structuredOutput.properties.followUps).toMatchObject({ type: 'array' })
     expect(review.prompt).toContain('issues are BLOCKING only')
+    // Test scaffolding is never a scope question for the person (benchmark case deckdex-3 stopped on mocked setUp).
+    expect(review.prompt).toContain('unrequested is for product behaviour only')
     expect(review.prompt).toContain('they never block approval')
     expect(review.prompt).toContain('Correction round: {{run.correctionRounds}}')
     expect(review.prompt).toContain('Your previous verdict (or the failing check) was: {{run.latestFindings}}')

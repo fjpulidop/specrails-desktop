@@ -126,7 +126,24 @@ export function flowSpecGraph(): LoopGraph {
     for (const [outcome, target] of Object.entries(outcomes)) edges.push({ id: `e-${id}-${outcome}`, source: id, target, label: outcome })
   }
   node('init', 'Initialize repair budgets', 'assign', { set: { derivationRepairs: 0, correctionRounds: 0, correctionLimit: FLOW_CORRECTION_ROUNDS, latestFindings: '' } }, { next: 'derive', failed: 'failed' })
-  node('derive', 'Derive OpenSpec change', 'derive-change', { change, summaryPath: FLOW_SUMMARY_FILE, feedback: '{{run.latestFindings}}' }, { pass: 'check', fail: 'repair-guard' })
+  node('derive', 'Derive OpenSpec change', 'derive-change', { change, summaryPath: FLOW_SUMMARY_FILE, feedback: '{{run.latestFindings}}' }, { pass: 'tag', fail: 'repair-guard' })
+  // The requirement ids only exist once derive wrote the delta specs, so the Intent's tests cannot carry
+  // them yet: without this step every first review failed on missing tags alone and spent a whole
+  // correction round (fix, re-derive, re-review) on them (benchmark experiment 3).
+  node('tag', 'Tag tests with their requirements', 'role-turn', {
+    roleId: 'developer',
+    stance: 'fixer',
+    prompt: [
+      `Tag the existing tests of OpenSpec change ${change} with the requirements they demonstrate.`,
+      `Read the delta specs under openspec/changes/${change}/specs/. For every ADDED or MODIFIED requirement, find the tests in this worktree that demonstrate it and add its id to their titles as \`[spec:<capability>/<requirement-slug>]\` (or a \`// spec: <capability>/<requirement-slug>\` comment, \`# spec:\` in Python and shell, on the line before the test).`,
+      'The slug is the requirement name after `### Requirement:`, lowercased, accents removed, every run of other characters one dash. A test already carrying the right tag stays as it is.',
+      'Change test titles and tag comments only: no assertions, no new tests, no production code, nothing under openspec/. Only touch test files that already differ from the base (part of this change).',
+      'A requirement no existing test demonstrates stays untagged: list it under incomplete with the reason (the reviewer decides whether a test is missing).',
+      'Return summary and incomplete.',
+    ].join(' '),
+    structuredOutput: FIX_SCHEMA,
+    sessionContinuity: 'none',
+  }, { next: 'check', invalid: 'check', failed: 'failed' }, 360)
   node('repair-guard', 'Repair the derivation once', 'condition', { expr: `$vars.derivationRepairs < ${FLOW_DERIVATION_REPAIRS}` }, { true: 'repair-count', false: 'failed' }, 360)
   node('repair-count', 'Count derivation repair', 'assign', { increment: { derivationRepairs: 1 } }, { next: 'derive', failed: 'failed' }, 360)
   // The configured setup runs first (a Python project's venv, for example): the Intent worktree is a
@@ -144,6 +161,7 @@ export function flowSpecGraph(): LoopGraph {
       'Scope: what the person asked for or decided during the Intent session (the accepted scope that comes with the spec, the conversation summary, the `Decision:` lines) IS requested, even where it departs from the intent\'s original constraints: a later request supersedes an earlier constraint it contradicts.',
       'Never ask to revert, remove or restore that behaviour; judge its correctness, tests, accessibility and how faithfully the artifacts describe it. When the artifacts call it out of scope or keep a superseded constraint as a Non-Goal, the issue is for the deriver: describe it as a requirement.',
       `A change that no request or decision supports is not yours to revert: list it in unrequested AND as an issue starting with "${FLOW_UNREQUESTED_PREFIX}", naming the file and the behaviour. The person decides whether to keep it as a requirement or revert it.`,
+      'unrequested is for product behaviour only: tests, test fixtures, mocks and test setup, and the tooling needed to build or verify the change are never unrequested (judge their correctness as issues or followUps instead).',
       // Convergence: one complete pass, then verification. A reviewer that hunts for new edge cases every round never approves.
       'issues are BLOCKING only: an acceptance criterion or requirement the code does not meet, requested behaviour that is broken, a failing check, artifacts that misdescribe the code, an unexplained file, or an ADDED/MODIFIED requirement with no tagged test. Hardening beyond the requirements, extra edge cases, stress experiments and nicer or broader tests are followUps: they never block approval.',
       'Correction round: {{run.correctionRounds}}. In round 0 review completely, once: list every blocking issue you can find now, because later rounds only verify.',
