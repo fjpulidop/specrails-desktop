@@ -1644,7 +1644,8 @@
     "lastActive": "Last activity while it was running",
     "history": "History",
     "peakValue": "Peak {{value}}",
-    "historyHint": "One point every 3 s while the mission worked. Hover a line to see the time and value."
+    "historyHint": "One point every 3 s while the mission worked. Hover a line to see the time and value.",
+    "cpuShareHint": "Of the whole Mac ({{cores}} cores): 100 % is every core busy."
   },
   "contextUsage": {
     "open": "Context used: {{percent}}%",

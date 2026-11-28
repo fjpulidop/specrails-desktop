@@ -159,5 +159,6 @@
     "deleteSelected_one": "Delete {{count}} folder",
     "deleteSelected_other": "Delete {{count}} folders",
     "result": "{{deleted}} deleted, {{kept}} not deleted."
-  }
+  },
+  "cpuShareHint": "Of the whole Mac ({{cores}} cores): 100 % is every core busy."
 }

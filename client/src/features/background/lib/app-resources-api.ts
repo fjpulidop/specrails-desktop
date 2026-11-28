@@ -28,6 +28,8 @@ export interface AppResourcesSnapshot {
   categories: AppResourceCategory[]
   /** Oldest first; kept by the server only while the view is polled. */
   history?: ResourceSample[]
+  /** Logical cores: every `cpuPercent` is a share of the whole machine (absent from older servers). */
+  cpuCores?: number
 }
 
 export async function getAppResources(signal?: AbortSignal): Promise<AppResourcesSnapshot> {

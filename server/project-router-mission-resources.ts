@@ -4,10 +4,11 @@ import { listBackgroundProcesses } from './transient-children'
 import { getAgentChatManager } from './modules/missions/runtime/agent-chat-registry'
 import { missionTapflowRoots, missionsWithRunningMobileTests, withDeviceFootprints } from './modules/tapflow'
 import {
-  findWorktreeRoots, measureRoots, totalEntries,
+  findWorktreeRoots, measureRoots, totalEntries, withMachineCpu,
   type MissionResourceEntry, type MissionResourceRoot, type MissionResourceTotals, type ProcessSample,
 } from './modules/terminals/domain/mission-resources'
 import { createDiskScanner, createProcessTableReader, readDiskUsage } from './modules/terminals/runtime/resource-sampler'
+import { logicalCores } from './modules/terminals/runtime/app-resources'
 import {
   createMissionResourceHistoryStore, createMissionResourceRecorder,
   type MissionResourceHistoryStore,
@@ -106,12 +107,15 @@ export function registerMissionResourceRoutes({ router, ctx }: ProjectRoutesDeps
     const measured = table ? measureMission(c, chatId, table) : null
     const worktreePath = measured?.worktreePath ?? worktreeOf(c, chatId)
     const entries = measured?.entries ?? []
+    // Every CPU value out of the whole machine (0-100 %): the table measures each process against one core.
+    const cores = logicalCores()
     res.json({
       sampledAt: Date.now(),
       supported: table !== null,
-      entries,
-      totals: measured?.totals ?? totalEntries(entries),
-      history: historyStore(c.db).list(chatId, HISTORY_POINTS),
+      entries: entries.map((entry) => withMachineCpu(entry, cores)),
+      totals: withMachineCpu(measured?.totals ?? totalEntries(entries), cores),
+      history: historyStore(c.db).list(chatId, HISTORY_POINTS).map((point) => withMachineCpu(point, cores)),
+      cpuCores: cores,
       worktree: worktreePath ? { path: worktreePath, disk: disk.get(`${c.project.id}:${chatId}`) } : null,
     })
   })

@@ -5,7 +5,7 @@ import { listBackgroundProcesses } from './transient-children'
 import { getAgentChatManager } from './modules/missions/runtime/agent-chat-registry'
 import type { AppResourceRoot } from './modules/terminals/domain/app-resources'
 import type { ProcessSample } from './modules/terminals/domain/mission-resources'
-import { createAppResourcesSampler } from './modules/terminals/runtime/app-resources'
+import { createAppResourcesSampler, logicalCores } from './modules/terminals/runtime/app-resources'
 import { cacheProcessTableReader, createProcessTableReader, type ProcessTableReader } from './modules/terminals/runtime/resource-sampler'
 import { getTerminalManager } from './modules/terminals/runtime/terminal-manager'
 import { attributeListeners, type AttributedListener, type RunPortLease } from './modules/terminals/domain/run-ports'
@@ -154,6 +154,7 @@ export function registerAppResourceRoutes(router: Router, registry: Registry, op
     readProcessTable: options.readProcessTable ?? (async () => { const table = await readProcessTable(); return table && withDeviceFootprints(table) }),
     listRoots: options.listRoots ?? ((table) => listAppResourceRoots(registry, table)),
     serverPid: options.serverPid,
+    cpuCores: logicalCores(),
   })
   router.get('/resources', async (_req, res) => {
     try {

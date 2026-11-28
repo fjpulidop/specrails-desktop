@@ -159,5 +159,6 @@
     "deleteSelected_one": "Excluir {{count}} pasta",
     "deleteSelected_other": "Excluir {{count}} pastas",
     "result": "{{deleted}} excluídas, {{kept}} não excluídas."
-  }
+  },
+  "cpuShareHint": "De todo o Mac ({{cores}} núcleos): 100 % é todos os núcleos ocupados."
 }

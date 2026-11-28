@@ -1,5 +1,6 @@
 import { measureAppResources, type AppResourceCategory, type AppResourceRoot } from '../domain/app-resources'
-import type { MissionResourceSample, MissionResourceTotals, ProcessSample } from '../domain/mission-resources'
+import os from 'node:os'
+import { withMachineCpu, type MissionResourceSample, type MissionResourceTotals, type ProcessSample } from '../domain/mission-resources'
 import type { ProcessTableReader } from './resource-sampler'
 
 export interface AppResourcesSnapshot {
@@ -10,6 +11,13 @@ export interface AppResourcesSnapshot {
   categories: AppResourceCategory[]
   /** Totals sampled while the view is polled, oldest first (in memory only). */
   history: MissionResourceSample[]
+  /** Logical cores: every `cpuPercent` is a share of the whole machine (0-100 %), not of one core. */
+  cpuCores: number
+}
+
+/** Logical cores of this machine (the denominator of every CPU share). */
+export function logicalCores(): number {
+  return (typeof os.availableParallelism === 'function' ? os.availableParallelism() : os.cpus().length) || 1
 }
 
 export interface AppResourcesSamplerOptions {
@@ -23,6 +31,8 @@ export interface AppResourcesSamplerOptions {
   historyIdleMs?: number
   /** Requests closer than this share one history point. */
   historyIntervalMs?: number
+  /** Logical cores (tests fix it). */
+  cpuCores?: number
 }
 
 /**
@@ -32,16 +42,21 @@ export interface AppResourcesSamplerOptions {
  */
 export function createAppResourcesSampler({
   readProcessTable, listRoots, serverPid = process.pid, now = Date.now,
-  historySize = 100, historyIdleMs = 30_000, historyIntervalMs = 1_000,
+  historySize = 100, historyIdleMs = 30_000, historyIntervalMs = 1_000, cpuCores = logicalCores(),
 }: AppResourcesSamplerOptions) {
   let history: MissionResourceSample[] = []
   return {
     async snapshot(): Promise<AppResourcesSnapshot> {
       const table = await readProcessTable()
       const measuredAt = now()
-      const measured = table
+      const raw = table
         ? measureAppResources(table, listRoots(table), serverPid)
         : { totals: { cpuPercent: 0, memoryBytes: 0, processCount: 0 }, categories: [] }
+      // Out of the whole machine, like memory (the table measures each process against one core).
+      const measured = {
+        totals: withMachineCpu(raw.totals, cpuCores),
+        categories: raw.categories.map((category) => ({ ...withMachineCpu(category, cpuCores), items: category.items.map((item) => withMachineCpu(item, cpuCores)) })),
+      }
       const last = history[history.length - 1]
       if (last && measuredAt - last.at > historyIdleMs) history = []
       const previous = history[history.length - 1]
@@ -49,7 +64,7 @@ export function createAppResourcesSampler({
         history.push({ at: measuredAt, ...measured.totals })
         if (history.length > historySize) history = history.slice(-historySize)
       }
-      return { measuredAt, supported: table !== null, ...measured, history: [...history] }
+      return { measuredAt, supported: table !== null, ...measured, history: [...history], cpuCores }
     },
   }
 }

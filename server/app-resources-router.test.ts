@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   ]),
   terminals: vi.fn(() => [{ id: 't1', projectId: 'p1', name: 'zsh', pid: 400 }]),
 }))
+vi.mock('./modules/terminals/runtime/app-resources', async (load) => ({ ...(await load<typeof import('./modules/terminals/runtime/app-resources')>()), logicalCores: () => 1 }))
 vi.mock('./modules/missions/runtime/agent-chat-registry', () => ({ getAgentChatManager: () => mocks.agent }))
 vi.mock('./transient-children', () => ({ listBackgroundProcesses: mocks.background }))
 vi.mock('./modules/terminals/runtime/terminal-manager', () => ({ getTerminalManager: () => ({ listProcessRoots: mocks.terminals }) }))

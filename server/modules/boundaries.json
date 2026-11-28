@@ -4447,7 +4447,8 @@
       "runtime/app-resources.ts": [
         "../domain/app-resources",
         "../domain/mission-resources",
-        "./resource-sampler"
+        "./resource-sampler",
+        "node:os"
       ],
       "runtime/app-urls.ts": [
         "../../../transient-children",

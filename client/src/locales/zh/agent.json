@@ -1644,7 +1644,8 @@
     "lastActive": "运行期间的最后活动",
     "history": "历史",
     "peakValue": "峰值 {{value}}",
-    "historyHint": "任务工作期间每 3 秒一个点。将鼠标悬停在线条上可查看时间和数值。"
+    "historyHint": "任务工作期间每 3 秒一个点。将鼠标悬停在线条上可查看时间和数值。",
+    "cpuShareHint": "占整台 Mac 的比例（{{cores}} 核）：100 % 表示所有核心都在忙。"
   },
   "contextUsage": {
     "open": "已用上下文：{{percent}}%",

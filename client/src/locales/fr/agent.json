@@ -1644,7 +1644,8 @@
     "lastActive": "Dernière activité pendant l'exécution",
     "history": "Historique",
     "peakValue": "Pic {{value}}",
-    "historyHint": "Un point toutes les 3 s pendant que la mission travaillait. Survolez une ligne pour voir l'heure et la valeur."
+    "historyHint": "Un point toutes les 3 s pendant que la mission travaillait. Survolez une ligne pour voir l'heure et la valeur.",
+    "cpuShareHint": "Du Mac entier ({{cores}} cœurs) : 100 % = tous les cœurs occupés."
   },
   "contextUsage": {
     "open": "Contexte utilisé : {{percent}} %",

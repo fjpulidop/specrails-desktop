@@ -73,6 +73,7 @@ process table per platform and runs the worktree disk scan only on
 `POST .../resources/worktree-scan`, asynchronously, with the result cached per
 project and chat. Jobs are measured when they descend from an owned process or their command lines reference the mission worktree. Core provider roots are matched through the mission-specific MCP capability file in their command line; the shared host itself is excluded.
 
+- **CPU scale:** the table measures each process as a percent of ONE core; every API response converts it to a share of the whole machine (0-100 %, divided by the logical cores: `cpuShareOfMachine`) and carries `cpuCores`. Stored mission history keeps the raw value and is converted on read.
 - **macOS/Linux:** one `ps -axo` call; CPU is `ps`'s own percent, disk is `du -sk`.
 - **Windows:** one PowerShell `Get-CimInstance Win32_Process` query (`powershell.exe`,
   hidden window). Windows reports cumulative CPU time, so CPU is derived from the

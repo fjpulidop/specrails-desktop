@@ -13,6 +13,8 @@ import { createMissionResourceHistoryStore } from './modules/terminals/runtime/m
 
 const tableReader = vi.hoisted(() => vi.fn())
 const agentManager = vi.hoisted(() => ({ activeConversationIds: vi.fn(), getProcessPids: vi.fn() }))
+// A 10-core machine: every CPU value is a share of it.
+vi.mock('./modules/terminals/runtime/app-resources', async (load) => ({ ...(await load<typeof import('./modules/terminals/runtime/app-resources')>()), logicalCores: () => 10 }))
 vi.mock('./transient-children', () => ({ listBackgroundProcesses: vi.fn() }))
 vi.mock('./modules/missions/runtime/agent-chat-registry', () => ({ getAgentChatManager: () => agentManager }))
 vi.mock('./modules/terminals/runtime/resource-sampler', async (orig) => ({
@@ -53,7 +55,9 @@ describe('mission resources routes', () => {
     const res = await request(app('/tmp/wt')).get('/api/projects/p1/missions/chat-1/resources')
     expect(res.status).toBe(200)
     expect(res.body.entries.map((e: { kind: string }) => e.kind)).toEqual(['agent-session', 'background-process'])
-    expect(res.body.totals).toEqual({ cpuPercent: 15, memoryBytes: 3000, processCount: 2 })
+    // 15 % of one core is 1.5 % of the 10-core machine.
+    expect(res.body.totals).toEqual({ cpuPercent: 1.5, memoryBytes: 3000, processCount: 2 })
+    expect(res.body.cpuCores).toBe(10)
     expect(res.body.worktree).toEqual({ path: '/tmp/wt', disk: { status: 'not-scanned' } })
   })
 
@@ -90,7 +94,8 @@ describe('mission resources routes', () => {
     store.append('chat-2', { at: 1500, cpuPercent: 9, memoryBytes: 90, processCount: 1 })
     const res = await request(app('/tmp/wt', db)).get('/api/projects/p1/missions/chat-1/resources')
     expect(res.body.history.map((h: { at: number }) => h.at)).toEqual([1000, 2000])
-    expect(res.body.history[1]).toEqual({ at: 2000, cpuPercent: 7, memoryBytes: 70, processCount: 2 })
+    // Stored raw (one core), read as a share of the machine.
+    expect(res.body.history[1]).toEqual({ at: 2000, cpuPercent: 0.7, memoryBytes: 70, processCount: 2 })
   })
 
   it('[spec:mission-resources/resource-snapshots-measure-selected-process-trees] shows nothing for another mission', async () => {

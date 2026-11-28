@@ -1644,7 +1644,8 @@
     "lastActive": "Letzte Aktivität während der Ausführung",
     "history": "Verlauf",
     "peakValue": "Spitze {{value}}",
-    "historyHint": "Ein Punkt alle 3 s, solange die Mission gearbeitet hat. Fahren Sie über eine Linie, um Uhrzeit und Wert zu sehen."
+    "historyHint": "Ein Punkt alle 3 s, solange die Mission gearbeitet hat. Fahren Sie über eine Linie, um Uhrzeit und Wert zu sehen.",
+    "cpuShareHint": "Vom ganzen Mac ({{cores}} Kerne): 100 % heißt alle Kerne ausgelastet."
   },
   "contextUsage": {
     "open": "Kontext belegt: {{percent}} %",

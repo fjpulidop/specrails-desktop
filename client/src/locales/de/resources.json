@@ -159,5 +159,6 @@
     "deleteSelected_one": "{{count}} Ordner löschen",
     "deleteSelected_other": "{{count}} Ordner löschen",
     "result": "{{deleted}} gelöscht, {{kept}} nicht gelöscht."
-  }
+  },
+  "cpuShareHint": "Vom ganzen Mac ({{cores}} Kerne): 100 % heißt alle Kerne ausgelastet."
 }

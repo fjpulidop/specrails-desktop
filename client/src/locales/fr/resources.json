@@ -159,5 +159,6 @@
     "deleteSelected_one": "Supprimer {{count}} dossier",
     "deleteSelected_other": "Supprimer {{count}} dossiers",
     "result": "{{deleted}} supprimé(s), {{kept}} non supprimé(s)."
-  }
+  },
+  "cpuShareHint": "Du Mac entier ({{cores}} cœurs) : 100 % = tous les cœurs occupés."
 }

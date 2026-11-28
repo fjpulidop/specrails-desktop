@@ -43,8 +43,8 @@ function Sparkline({ samples }: { samples: ResourceSample[] }) {
   </svg>
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0 rounded-card bg-muted px-2 py-1.5">
+function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return <div className="min-w-0 rounded-card bg-muted px-2 py-1.5" title={hint}>
     <div className="text-caption text-muted-foreground">{label}</div>
     <div className="num truncate text-title text-foreground">{value}</div>
   </div>
@@ -102,7 +102,7 @@ export function AppResourcesPanel({ snapshot, error, open = false, ports = null 
     {snapshot && !snapshot.supported && <p className="text-caption text-muted-foreground">{t('unsupported')}</p>}
     {snapshot?.supported && <>
       <div className="grid grid-cols-3 gap-2">
-        <Metric label={t('cpu')} value={formatCpu(snapshot.totals.cpuPercent)} />
+        <Metric label={t('cpu')} value={formatCpu(snapshot.totals.cpuPercent)} hint={snapshot.cpuCores ? t('cpuShareHint', { cores: snapshot.cpuCores }) : undefined} />
         <Metric label={t('memory')} value={formatBytes(snapshot.totals.memoryBytes)} />
         <Metric label={t('processes')} value={String(snapshot.totals.processCount)} />
       </div>

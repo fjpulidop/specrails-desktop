@@ -31,6 +31,8 @@ export interface MissionResourcesSnapshot {
   /** Oldest first. Absent from servers that predate history recording. */
   history?: ResourceSample[]
   worktree: { path: string; disk: WorktreeDiskState } | null
+  /** Logical cores: every `cpuPercent` is a share of the whole machine (absent from older servers). */
+  cpuCores?: number
 }
 
 const base = (projectId: string, chatId: string) =>

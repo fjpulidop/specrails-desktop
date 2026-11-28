@@ -159,5 +159,6 @@
     "deleteSelected_one": "删除 {{count}} 个文件夹",
     "deleteSelected_other": "删除 {{count}} 个文件夹",
     "result": "已删除 {{deleted}} 个,{{kept}} 个未删除。"
-  }
+  },
+  "cpuShareHint": "占整台 Mac 的比例（{{cores}} 核）：100 % 表示所有核心都在忙。"
 }
