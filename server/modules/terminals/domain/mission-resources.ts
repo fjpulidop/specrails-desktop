@@ -13,7 +13,8 @@ export interface ProcessSample {
   command: string
 }
 
-export type MissionResourceKind = 'agent-session' | 'background-process' | 'mission-activity'
+/** `mobile-*` / `tapflow-service`: a mobile test the mission ran (server/modules/tapflow). */
+export type MissionResourceKind = 'agent-session' | 'background-process' | 'mission-activity' | 'mobile-device' | 'mobile-build' | 'tapflow-service'
 
 /** A root the mission owns; its OS descendants are measured with it. */
 export interface MissionResourceRoot {

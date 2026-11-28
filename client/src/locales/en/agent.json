@@ -1635,7 +1635,10 @@
     "kind": {
       "agent-session": "Agent",
       "background-process": "Background process",
-      "mission-activity": "Mission activity"
+      "mission-activity": "Mission activity",
+      "mobile-device": "Mobile device",
+      "mobile-build": "Mobile build",
+      "tapflow-service": "Tapflow"
     },
     "finishedAt": "Finished at {{time}}",
     "lastActive": "Last activity while it was running",

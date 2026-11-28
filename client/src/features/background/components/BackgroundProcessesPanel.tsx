@@ -40,7 +40,7 @@ export function BackgroundProcessesPanel({ processes, loading, error, onRefresh,
               className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary">
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{process.command}</span>
-                <span className="block text-xs text-muted-foreground">PID {process.pid}{process.repositoryName ? ` · ${process.repositoryName}` : ''}</span>
+                <span className="block text-xs text-muted-foreground">{[process.pid ? `PID ${process.pid}` : null, process.repositoryName].filter(Boolean).join(' · ')}</span>
               </span>
               <span className={`shrink-0 text-xs ${isBackgroundProcessFinished(process) ? 'text-muted-foreground' : 'text-accent-info'}`}>{t(`backgroundProcess.status.${process.status}`)}</span>
             </button>

@@ -37,6 +37,13 @@ Install SHALL open an installer terminal that installs the pinned Tapflow packag
 - **WHEN** the installer exits before the packages are installed
 - **THEN** the plugin stays not-installed and the card shows the exit code
 
+### Requirement: Pinned version
+Specrails SHALL install exactly the Tapflow dependency tree it was reviewed with: `TAPFLOW_VERSION` for Tapflow's packages and a shipped lockfile for every dependency, installed with `npm ci` (integrity-checked, never resolving newer versions). Tapflow SHALL change only when Specrails bumps the version and regenerates the lockfile.
+
+#### Scenario: A newer Tapflow is published
+- **WHEN** a newer Tapflow or one of its dependencies is published
+- **THEN** an install or a setup run still installs the pinned tree, unchanged
+
 ### Requirement: Activate and deactivate
 Activating SHALL start a supervised Tapflow service bound to loopback only, with lean mode, audio off and display sleep allowed, and SHALL bootstrap its admin account and token without asking the person; deactivating SHALL stop it with SIGTERM.
 
@@ -53,7 +60,7 @@ Activating SHALL start a supervised Tapflow service bound to loopback only, with
 - **THEN** the service is started again
 
 ### Requirement: Resource metering
-While a Tapflow service runs, the Resources view SHALL show a `tapflow` category with the service tree and the simulator and emulator processes; with no Tapflow running the category SHALL not appear.
+While a Tapflow service runs, the Resources view SHALL show a `tapflow` category with the service tree, the simulator and emulator processes (a simulator by its name) and the build of a mobile test in progress; with no Tapflow running the category SHALL not appear.
 
 #### Scenario: Device booted
 - **WHEN** Tapflow runs and an iOS simulator is booted

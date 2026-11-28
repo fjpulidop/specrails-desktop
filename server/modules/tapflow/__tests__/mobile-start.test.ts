@@ -8,6 +8,9 @@ import { initDesktopDb } from '../../../desktop-db'
 import type { ProjectContext } from '../../../project-registry'
 import { mobileTestOptions, mobileTestRunView, startMobileTest, type MobileOfferEnv } from '../adapters/mobile-offer'
 import { createMobileRunsStore } from '../adapters/mobile-runs-store'
+import { finishMobileRun, mobileRunPid } from '../adapters/mobile-run-process'
+import { listBackgroundProcesses } from '../../../transient-children'
+import { missionTapflowRoots } from '../runtime'
 
 const dirs: string[] = []
 afterEach(() => { for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true }) })
@@ -29,6 +32,9 @@ function project() {
   git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'android')
   git(repo, 'checkout', '-q', 'main')
   const data = temp('mobile-start-data-')
+  // The mission's Intent worktree: a copy with the Android app.
+  const intent = temp('mobile-start-intent-')
+  for (const [file, content] of Object.entries({ ...IOS_APP, ...ANDROID_APP })) write(intent, file, content)
   const runs: Array<Record<string, unknown>> = []
   let finish: () => void = () => {}
   const finished = new Promise<void>((resolve) => { finish = resolve })
@@ -38,8 +44,11 @@ function project() {
     project: { id: 'p1', name: 'Shop', path: repo, db_path: path.join(data, 'jobs.sqlite'), provider: 'claude' },
     loopRunManager: { run: vi.fn(async (input: Record<string, unknown>) => { runs.push(input); await finished; return { runId: input.runId, outcome: 'success' } }) },
     onLoopRunFinished: vi.fn(),
+    broadcast: vi.fn(),
+    flow: { getByConversation: (id: string) => (id === 'mission-1' ? { id: 'flow-1', state: 'active', step: null, worktreePath: intent } : null) },
   } as unknown as ProjectContext
-  return { c, repo, data, runs, finish: () => { finish() } }
+  c.desktopDb.prepare("INSERT INTO agent_conversations (id, pinned_project_id) VALUES ('mission-1', 'p1'), ('mission-elsewhere', 'p2')").run()
+  return { c, repo, data, intent, runs, finish: () => { finish() } }
 }
 
 const env = (over: Partial<MobileOfferEnv> = {}): MobileOfferEnv => ({
@@ -87,6 +96,50 @@ describe('starting Test in Mobile Device by hand', () => {
     expect(await startMobileTest(c, { target: { kind: 'checkout' }, platforms: ['ios'] }, env({ capabilities: async () => ({ engineV2: 1 }) }))).toMatchObject({ ok: false, code: 'engine_unsupported' })
     expect(await startMobileTest(c, { target: { kind: 'delivery', deliveryId: 'ghost' }, platforms: ['ios'] }, env())).toMatchObject({ ok: false, status: 404 })
     expect(runs).toEqual([])
+  })
+
+  it('[spec:mobile-device-testing/agent-runs-the-app] runs the mission\'s own Intent worktree and shows the run in its Processes', async () => {
+    const { c, intent, runs, finish } = project()
+    const started = await startMobileTest(c, { target: { kind: 'mission' }, platforms: ['android'], conversationId: 'mission-1' }, env())
+    expect(started).toMatchObject({ ok: true })
+    const runId = (started as { runId: string }).runId
+    expect(runs[0]).toMatchObject({ cwd: intent, repoDir: intent })
+    expect(createMobileRunsStore(c.db).get(runId)).toMatchObject({ targetKind: 'intent', targetPath: intent, conversationId: 'mission-1' })
+    const [entry] = listBackgroundProcesses({ projectId: 'p1', chatId: 'mission-1' })
+    expect(entry).toMatchObject({ observed: true, status: 'running', flowId: 'flow-1', command: 'Test in Mobile Device · Android · Intent session' })
+    expect(c.broadcast).toHaveBeenCalledWith(expect.objectContaining({ type: 'background_process.started', projectId: 'p1' }))
+    finish()
+    await vi.waitFor(() => expect(listBackgroundProcesses({ projectId: 'p1', chatId: 'mission-1', includeFinished: true })[0]).toMatchObject({ status: 'failed' }))
+  })
+
+  it('refuses the mission target without an active Intent, and a mission of another project', async () => {
+    const { c, runs } = project()
+    c.desktopDb.prepare("INSERT INTO agent_conversations (id, pinned_project_id) VALUES ('mission-2', 'p1')").run()
+    expect(await startMobileTest(c, { target: { kind: 'mission' }, platforms: ['ios'], conversationId: 'mission-2' }, env())).toMatchObject({ ok: false, status: 409, code: 'no_intent_session' })
+    expect(await startMobileTest(c, { target: { kind: 'mission' }, platforms: ['ios'] }, env())).toMatchObject({ ok: false, code: 'no_intent_session' })
+    expect(await startMobileTest(c, { target: { kind: 'checkout' }, platforms: ['ios'], conversationId: 'mission-elsewhere' }, env())).toMatchObject({ ok: false, status: 404, code: 'mission_not_found' })
+    expect(runs).toEqual([])
+  })
+
+  it('[spec:mobile-device-testing/mission-resources] gives the mission its device, its build in progress and the Tapflow service', async () => {
+    const { c, finish } = project()
+    const started = await startMobileTest(c, { target: { kind: 'checkout' }, platforms: ['ios'], conversationId: 'mission-1' }, env())
+    const runId = (started as { runId: string }).runId
+    const UDID = 'D656F70B-FFE8-46C9-83BE-D1FBC13B8779'
+    const table = [
+      { pid: 100, ppid: 1, command: '/n/node /t/node_modules/tapflow/bin/tapflow.js start' },
+      { pid: 200, ppid: 1, command: `launchd_sim /Users/me/Library/Developer/CoreSimulator/Devices/${UDID}/data/var/run/launchd_bootstrap.plist` },
+      { pid: 210, ppid: 1, command: 'launchd_sim /Users/me/Library/Developer/CoreSimulator/Devices/AAAAAAAA-0000-0000-0000-000000000000/data/x' },
+      { pid: 300, ppid: 1, command: 'xcodebuild build -scheme Shop' },
+    ]
+    mobileRunPid(runId, 300)
+    expect(missionTapflowRoots(c.db, 'mission-1', table).map((root) => [root.kind, root.pid])).toEqual([['mobile-build', 300], ['tapflow-service', 100]])
+    // Launched on the iPhone: that simulator (not another one booted) is the mission's.
+    createMobileRunsStore(c.db).finish(runId, 'launched', { summary: 'iOS on iPhone 17 Pro', devices: [{ platform: 'ios', id: UDID, name: 'iPhone 17 Pro' }] })
+    finishMobileRun(runId, 'exited')
+    expect(missionTapflowRoots(c.db, 'mission-1', table).map((root) => [root.kind, root.pid])).toEqual([['mobile-device', 200], ['tapflow-service', 100]])
+    expect(missionTapflowRoots(c.db, 'other-mission', table)).toEqual([])
+    finish()
   })
 
   it('offers the checkout apps, the current branch, local branches and Tapflow devices', async () => {

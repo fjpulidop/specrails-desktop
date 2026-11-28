@@ -29,6 +29,9 @@ export interface BackgroundProcess {
   /** Addresses a running app announced: `local` for this computer, `network`
    *  for a phone on the same Wi-Fi/VPN. Absent once it stops. */
   appUrls?: { local: string[]; network: string[] }
+  /** Observed, not owned (a mobile test through Tapflow): Specrails reports its state and log; it cannot be
+   *  stopped here and has a PID only while a step runs. */
+  observed?: boolean
 }
 
 export type JobPriority = 'low' | 'normal' | 'high' | 'critical'

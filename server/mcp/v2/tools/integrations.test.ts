@@ -209,6 +209,26 @@ describe('plugins and Headroom', () => {
     expect((await tool({ action: 'mobile_test', options: { delivery: 'd-7', platforms: ['web'] } })).envelope.error.code).toBe('invalid_input')
   })
 
+  it('[spec:mobile-device-testing/agent-runs-the-app] lets a mission agent run its own Intent session on a device, at any permission level', async () => {
+    route(`POST ${P}/mobile-test/start`, { status: 202, body: { runId: 'r-44' } })
+    const flow = { state: 'active', step: null, worktreePath: '/intent/w' }
+    const context = { project: { id: 'p1' }, flow: { getByConversation: (id: string) => (id === 'conv-intent' ? flow : null) } }
+    Object.assign(h.ctx, { firstPartyAgent: true, originConversationId: 'conv-intent', agentTierLevel: 0, requestProjectId: 'p1' })
+    const getContext = h.ctx.registry.getContext
+    h.ctx.registry.getContext = ((id: string) => (id === 'p1' ? context : getContext(id))) as never
+    const started = await tool({ action: 'mobile_test', options: { target: 'mission', platforms: ['android'] } })
+    expect(started.envelope.ok).toBe(true)
+    // The mission comes from the agent's capability, never from its arguments.
+    expect(calls(`POST ${P}/mobile-test/start`)[0].body).toEqual({ target: { kind: 'mission' }, platforms: ['android'], conversationId: 'conv-intent' })
+    // Observe level outside an Intent: the write tier still applies.
+    flow.state = 'paused'
+    expect((await tool({ action: 'mobile_test', options: { target: 'mission', platforms: ['ios'] } })).envelope.error.code).toBe('unauthorized')
+  })
+
+  it('refuses the mission target to a client that is not a mission agent', async () => {
+    expect((await tool({ action: 'mobile_test', options: { target: 'mission', platforms: ['ios'] } })).envelope.error.code).toBe('invalid_input')
+  })
+
   it('[spec:mobile-device-testing/run-from-loops] starts a mobile test on the checkout or a branch, with chosen devices', async () => {
     route(`POST ${P}/mobile-test/start`, { status: 202, body: { runId: 'r-43' } })
     expect((await tool({ action: 'mobile_test', options: { target: 'checkout', platforms: ['ios'], devices: { ios: 'SIM-1', web: 'x' } } })).envelope.ok).toBe(true)

@@ -68,7 +68,7 @@ off. `resolveBackgroundCwd` takes the root's name for its refusal. See
 uses. `domain/mission-resources.ts` parses a process-table snapshot and totals the
 process tree of each root the mission owns (its agent session, its registered
 background processes and any process whose command line references the mission
-worktree), counting a shared descendant once. `runtime/resource-sampler.ts` reads the
+worktree), counting a shared descendant once. A mission that ran Test in Mobile Device also owns its device while it runs, the build in progress and the Tapflow service (`missionTapflowRoots`, server/modules/tapflow), listed first and measured by physical footprint (`withDeviceFootprints`). An observed background process (`registerObservedProcess`: work Specrails runs elsewhere, reported into the mission's Processes with its log and outcome, never stoppable from the list) is not a root of its own. `runtime/resource-sampler.ts` reads the
 process table per platform and runs the worktree disk scan only on
 `POST .../resources/worktree-scan`, asynchronously, with the result cached per
 project and chat. Jobs are measured when they descend from an owned process or their command lines reference the mission worktree. Core provider roots are matched through the mission-specific MCP capability file in their command line; the shared host itself is excluded.

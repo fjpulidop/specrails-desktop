@@ -87,7 +87,7 @@ describe('mobile test host tasks', () => {
     const deliver = vi.fn(async ({ platform }: { platform: string }) => ({ outcome: 'launched', device: { id: platform, name: platform === 'ios' ? 'iPhone 17' : 'tapflow-phone', platform }, buildId: 1, sessionId: 's', watchUrl: null }))
     const { store, handlers, finished } = setup(build, deliver)
     expect(await handlers['mobile.build'](invocation('r1'))).toEqual({ outcome: 'built', output: { artifacts: [{ platform: 'ios', file: 'Shop.app' }, { platform: 'android', file: 'app-debug.apk' }] } })
-    expect(build).toHaveBeenCalledWith('/w', ['ios', 'android'], expect.any(Function))
+    expect(build).toHaveBeenCalledWith('/w', ['ios', 'android'], expect.any(Function), expect.any(Function))
     const delivered = await handlers['tapflow.deliver'](invocation('r1'))
     expect(delivered).toMatchObject({ outcome: 'launched', output: { summary: 'iOS on iPhone 17, Android on tapflow-phone' } })
     expect(store.get('r1')).toMatchObject({ state: 'launched' })

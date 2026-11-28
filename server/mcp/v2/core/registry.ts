@@ -55,6 +55,11 @@ export interface V2ActionDef {
   oneOf?: readonly string[]
   /** One line for `specrails_system(help, describe)`. */
   doc?: string
+  /**
+   * Admits a call the tier ladder would refuse, for a narrow case the action owns (e.g. a mission agent
+   * acting inside its own active Intent session, which already granted it write in that worktree).
+   */
+  tierException?: (ctx: V2CallContext, args: Record<string, unknown>) => boolean
   /** Response cap override (o200k tokens), e.g. logs pages. */
   maxTokens?: number
   preview?: (ctx: V2CallContext, args: Record<string, unknown>) => Promise<PreviewInput> | PreviewInput
@@ -430,7 +435,8 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
     }
 
     const tier = resolveTier(spec.tier, args)
-    if (!toolTierAllowed(callCtx, tier)) {
+    const excepted = (() => { try { return spec.tierException?.(callCtx, args) === true } catch { return false } })()
+    if (!toolTierAllowed(callCtx, tier) && !excepted) {
       // An external client is told the exact setting, and the call that turns it on (the person confirms it in the client's dialog).
       const raise = !callCtx.firstPartyAgent && tier !== 'read' ? { next: [{ tool: 'specrails_settings', args: { action: 'set', section: 'mcp', values: { [TIER_VALUE_KEY[tier]]: true } }, why: 'Turn the tier on (the person confirms it in this client\'s dialog).' }] } : {}
       return fail(new V2ToolError('unauthorized', tierRefusalMessage(tier), raise))

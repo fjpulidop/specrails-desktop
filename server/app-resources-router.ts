@@ -12,7 +12,7 @@ import { attributeListeners, type AttributedListener, type RunPortLease } from '
 import { listeningPorts, type ListenerReader } from './modules/terminals/runtime/listening-ports'
 import { runPortLeases } from './modules/terminals/runtime/run-port-leases'
 import { listRailWorktrees } from './modules/delivery/runtime/rail-worktrees-store'
-import { tapflowResourceRoots, tapflowServicePid, withDeviceFootprints } from './modules/tapflow'
+import { mobileBuildRoots, tapflowRoots, withDeviceFootprints } from './modules/tapflow'
 import fs from 'node:fs'
 
 type Registry = Pick<ProjectRegistry, 'listContexts' | 'getProjectRow' | 'desktopDb'>
@@ -64,14 +64,17 @@ export function listAppResourceRoots(registry: Registry, table: ProcessSample[])
     }
   }
   for (const p of listBackgroundProcesses()) {
-    if (!LIVE_BACKGROUND.has(p.status)) continue
+    // An observed entry (a mobile test) reports work measured under its own category (Tapflow).
+    if (!LIVE_BACKGROUND.has(p.status) || p.observed) continue
     roots.push({ category: 'background', label: p.command, pid: p.pid, chatId: p.chatId || undefined, projectId: p.projectId, projectName: projectName(p.projectId) })
   }
   for (const t of getTerminalManager().listProcessRoots()) {
     roots.push({ category: 'terminals', label: t.name, pid: t.pid, projectId: t.projectId, projectName: projectName(t.projectId) })
   }
   // Tapflow (supervised or the person's own) and its booted devices; nothing when no Tapflow runs.
-  for (const root of tapflowResourceRoots(table, tapflowServicePid())) roots.push({ category: 'tapflow', ...root })
+  // The build of a mobile test in progress, then the devices and the service.
+  for (const build of mobileBuildRoots()) roots.push({ category: 'tapflow', label: 'Mobile build', pid: build.pid })
+  for (const root of tapflowRoots(table)) roots.push({ category: 'tapflow', label: root.label, pid: root.pid })
   return roots
 }
 

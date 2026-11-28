@@ -6,7 +6,7 @@ import type { DbInstance } from '../../db'
 import { resolveBundledNodeExe } from '../../path-resolver'
 import { getTerminalManager } from '../terminals/runtime/terminal-manager'
 import { createTapflowPlugin, type TapflowPlugin } from './application'
-import type { TapflowStatus } from './domain'
+import type { ProcessRow, TapflowResourceRoot, TapflowStatus } from './domain'
 import { createInstallation, createInstallerTerminal, createTapflowService, tapflowPaths } from './adapters/process'
 import { createTapflowRelay } from './adapters/relay'
 import { createTapflowStore } from './adapters/store'
@@ -15,7 +15,11 @@ import { createTapflowDelivery, createTapflowDeviceList, type ChoosableDevice } 
 import { createMobileBuilder } from './adapters/mobile-build'
 import { createMobileTestHandlers } from './adapters/mobile-handlers'
 import { refreshMobileTestOffer, type MobileOfferEnv } from './adapters/mobile-offer'
+/** Starting a mobile test and reading a run, for the in-app agent's MCP tool. */
+export { mobileTestRunView, startMobileTest } from './adapters/mobile-offer'
 import { createMobileRunsStore } from './adapters/mobile-runs-store'
+import { mobileRunActivePid, mobileRunActivePids, mobileRunLine, mobileRunPid } from './adapters/mobile-run-process'
+import { createSimulatorNames } from './adapters/simulator-names'
 import { observeDeliveries } from '../delivery/runtime/delivery-observers'
 import { createDeviceWindows } from './adapters/device-window'
 import { createTapflowSecrets } from './adapters/relay'
@@ -31,13 +35,53 @@ let currentStore: ReturnType<typeof createTapflowStore> | null = null
 let currentRelay: ReturnType<typeof createTapflowRelay> | null = null
 
 const footprints = createFootprintReader()
+const simulatorNames = createSimulatorNames()
+
+/** The `tapflow` resource roots now: the service and each device, simulators by name. */
+export function tapflowRoots(table: readonly ProcessRow[]): TapflowResourceRoot[] {
+  return tapflowResourceRoots(table, tapflowServicePid(), simulatorNames.current())
+}
+
+/**
+ * What a mission's Resources shows of Tapflow: the devices its mobile tests launched (matched by Tapflow
+ * id, while they run), the build of a run in progress, and the Tapflow service while either is there.
+ */
+export function missionTapflowRoots(db: DbInstance, conversationId: string, table: readonly ProcessRow[]): Array<{ id: string; kind: 'mobile-device' | 'mobile-build' | 'tapflow-service'; label: string; pid: number }> {
+  const runs = createMobileRunsStore(db).listForConversation(conversationId)
+  if (!runs.length) return []
+  const wanted = new Set<string>()
+  const roots: Array<{ id: string; kind: 'mobile-device' | 'mobile-build' | 'tapflow-service'; label: string; pid: number }> = []
+  for (const run of runs) {
+    for (const device of Array.isArray(run.result?.devices) ? run.result.devices as Array<{ id?: unknown }> : []) if (typeof device.id === 'string') wanted.add(device.id.toUpperCase())
+    if (run.state !== 'running') continue
+    for (const id of Object.values(run.devices)) if (id) wanted.add(id.toUpperCase())
+    const pid = mobileRunActivePid(run.runId)
+    if (pid) roots.push({ id: `mobile-build:${run.runId}`, kind: 'mobile-build', label: 'Mobile build', pid })
+  }
+  const live = tapflowRoots(table)
+  const devices = live.filter((root) => root.kind === 'device' && root.deviceId && wanted.has(root.deviceId.toUpperCase()))
+  for (const device of devices) roots.unshift({ id: `mobile-device:${device.deviceId}`, kind: 'mobile-device', label: device.label, pid: device.pid })
+  const service = live.find((root) => root.kind === 'service')
+  if (service && roots.length) roots.push({ id: 'tapflow-service', kind: 'tapflow-service', label: service.label, pid: service.pid })
+  return roots
+}
+
+/** Mobile test builds in progress (the app-wide Resources' Tapflow category). */
+export function mobileBuildRoots(): Array<{ runId: string; pid: number }> {
+  return mobileRunActivePids()
+}
+
+/** Conversations with a mobile test building or installing (the mission resource recorder samples them). */
+export function missionsWithRunningMobileTests(db: DbInstance): string[] {
+  try { return createMobileRunsStore(db).runningConversations() } catch { return [] }
+}
 
 /**
  * The process table with each Tapflow device's processes measured by physical footprint instead of RSS
  * (RSS counts a simulator's shared memory once per process). Unchanged when no device runs.
  */
 export function withDeviceFootprints<Row extends { pid: number; ppid: number; command: string; rssBytes: number }>(table: Row[]): Row[] {
-  const pids = deviceTreePids(table, tapflowResourceRoots(table, tapflowServicePid()))
+  const pids = deviceTreePids(table, tapflowRoots(table))
   if (!pids.length) return table
   const known = footprints.current(pids)
   if (!known.size) return table
@@ -83,7 +127,12 @@ export async function tapflowReady(): Promise<boolean> {
   return phase !== 'unsupported' && phase !== 'not-installed' && phase !== 'installing'
 }
 
-export const mobileOfferEnv: MobileOfferEnv = { tapflowReady, devices: () => tapflowDevices() }
+export const mobileOfferEnv: MobileOfferEnv = {
+  tapflowReady,
+  devices: () => tapflowDevices(),
+  // Followed in a mission's Processes only while Specrails runs the service (it writes this log).
+  serviceLog: () => (currentStore?.read()?.installedVersion ? tapflowPaths().serviceLog : null),
+}
 
 let deviceWindowsInstance: ReturnType<typeof createDeviceWindows> | null = null
 /** Device windows (tickets, the signed-in redirect, release on close), bound to the managed install. */
@@ -109,6 +158,7 @@ export function createMobileTestHandlersFor(db: DbInstance, onFinished?: (runId:
     build: createMobileBuilder(),
     deliver: createTapflowDelivery({ paths: tapflowPaths(), target: managedTarget, answering: managedAnswering }),
     onFinished,
+    watch: { line: mobileRunLine, pid: mobileRunPid },
   })
 }
 

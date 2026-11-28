@@ -10,7 +10,7 @@
 
 /** Pinned: Tapflow drives SimulatorKit private APIs that break on Xcode majors; an upgrade is a reviewed change. */
 export const TAPFLOW_VERSION = '0.33.0'
-export const TAPFLOW_PACKAGES = [`tapflow@${TAPFLOW_VERSION}`, `@tapflowio/mcp-server@${TAPFLOW_VERSION}`] as const
+
 /** Not Tapflow's 4000, so a Tapflow the person runs themselves keeps its port. */
 export const TAPFLOW_DEFAULT_PORT = 4310
 export const TAPFLOW_MIN_NODE_MAJOR = 22
@@ -161,8 +161,8 @@ export function androidBuildEnvironment(env: Record<string, string | undefined>,
 }
 
 /**
- * Shell script the installer terminal runs (macOS only, so zsh is always there): the pinned packages with
- * Specrails' Node and npm, then Tapflow's own interactive setup, whose prompts the person answers.
+ * Shell script the installer terminal runs (macOS only, so zsh is always there): the pinned tree with
+ * Specrails' Node and npm (`npm ci` on the pinned lockfile), then Tapflow's own interactive setup, whose prompts the person answers.
  */
 export function installerScript(opts: { nodePath: string; npmCli: string; toolsDir: string; tapflowCli: string; home: string }): string {
   const q = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`
@@ -171,8 +171,9 @@ export function installerScript(opts: { nodePath: string; npmCli: string; toolsD
     `echo ${q(`Installing Tapflow ${TAPFLOW_VERSION} with Specrails' Node…`)}`,
     `mkdir -p ${q(opts.toolsDir)} ${q(opts.home)}`,
     `cd ${q(opts.toolsDir)}`,
-    `[ -f package.json ] || printf '%s\\n' '{ "name": "specrails-tapflow", "private": true, "version": "0.0.0" }' > package.json`,
-    `${q(opts.nodePath)} ${q(opts.npmCli)} install --prefix ${q(opts.toolsDir)} --no-audit --no-fund --save-exact ${TAPFLOW_PACKAGES.join(' ')}`,
+    // package.json and package-lock.json were written by Specrails (adapters/pinned.ts): `npm ci` installs
+    // exactly that tree, verifying each package's integrity, and fails rather than resolve anything newer.
+    `${q(opts.nodePath)} ${q(opts.npmCli)} ci --prefix ${q(opts.toolsDir)} --no-audit --no-fund`,
     'echo',
     `echo ${q('Tapflow is installed. Its setup checks Xcode and the Android SDK and asks before each step:')}`,
     `TAPFLOW_HOME=${q(opts.home)} ${q(opts.nodePath)} ${q(opts.tapflowCli)} setup`,
@@ -182,7 +183,8 @@ export function installerScript(opts: { nodePath: string; npmCli: string; toolsD
 /** Minimal process row (the shared sampler's `ProcessSample`). */
 export interface ProcessRow { pid: number; ppid: number; command: string }
 
-export interface TapflowResourceRoot { label: string; pid: number }
+/** A root of the `tapflow` category: a device (with Tapflow's id: simulator UDID or `avd:<name>`) or the service. */
+export interface TapflowResourceRoot { label: string; pid: number; kind: 'device' | 'service'; deviceId?: string }
 
 const IOS_DEVICE = /CoreSimulator\/Devices\/([0-9A-F-]{36})\//i
 const ANDROID_AVD = /(?:^|\s)-avd\s+(\S+)/
@@ -197,7 +199,7 @@ export function isTapflowServiceCommand(command: string): boolean {
  * simulator (its `launchd_sim`, which every simulator process descends from) and per Android emulator.
  * Only while a Tapflow service runs: a simulator Xcode booted on its own is not Tapflow's.
  */
-export function tapflowResourceRoots(table: readonly ProcessRow[], servicePid: number | null): TapflowResourceRoot[] {
+export function tapflowResourceRoots(table: readonly ProcessRow[], servicePid: number | null, simulatorNames: ReadonlyMap<string, string> = new Map()): TapflowResourceRoot[] {
   const service = servicePid ?? table.find((row) => isTapflowServiceCommand(row.command))?.pid ?? null
   if (service === null || !table.some((row) => row.pid === service)) return []
   // Devices first: an emulator Tapflow starts is the service's child, and the first root that reaches a
@@ -205,13 +207,18 @@ export function tapflowResourceRoots(table: readonly ProcessRow[], servicePid: n
   const roots: TapflowResourceRoot[] = []
   for (const row of table) {
     const ios = /launchd_sim/.test(row.command) ? IOS_DEVICE.exec(row.command) : null
-    if (ios) { roots.push({ label: `iOS Simulator ${ios[1]!.slice(0, 8)}`, pid: row.pid }); continue }
+    if (ios) {
+      const udid = ios[1]!.toUpperCase()
+      const name = simulatorNames.get(udid)
+      roots.push({ label: name ? `${name} (iOS Simulator)` : `iOS Simulator ${udid.slice(0, 8)}`, pid: row.pid, kind: 'device', deviceId: udid })
+      continue
+    }
     if (/(?:^|\/)(qemu-system-[\w-]+|emulator)(?:\s|$)/.test(row.command)) {
       const avd = ANDROID_AVD.exec(row.command)
-      if (avd) roots.push({ label: `Android Emulator ${avd[1]}`, pid: row.pid })
+      if (avd) roots.push({ label: `${avd[1]} (Android Emulator)`, pid: row.pid, kind: 'device', deviceId: `avd:${avd[1]}` })
     }
   }
-  roots.push({ label: 'Tapflow service', pid: service })
+  roots.push({ label: 'Tapflow service', pid: service, kind: 'service' })
   return roots
 }
 
@@ -221,7 +228,7 @@ export function tapflowResourceRoots(table: readonly ProcessRow[], servicePid: n
  * framebuffers, so summing RSS reported 12.9 GB for a device whose footprint was 2.9 GB (spike, 2026-11-28).
  */
 export function deviceTreePids(table: readonly ProcessRow[], roots: readonly TapflowResourceRoot[]): number[] {
-  const deviceRoots = roots.filter((root) => root.label !== 'Tapflow service').map((root) => root.pid)
+  const deviceRoots = roots.filter((root) => root.kind === 'device').map((root) => root.pid)
   if (!deviceRoots.length) return []
   const children = new Map<number, number[]>()
   for (const row of table) {

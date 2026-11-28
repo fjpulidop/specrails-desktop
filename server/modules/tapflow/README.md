@@ -5,13 +5,23 @@ emulator streaming, with an MCP server agents can drive. Not installed and inact
 only on macOS on Apple Silicon, where Tapflow's agents run. OpenSpec change: `add-tapflow-plugin`.
 
 Lifecycle: **Install** opens an installer terminal (app scope `__app__`) that installs the pinned
-`tapflow@0.33.0` and `@tapflowio/mcp-server@0.33.0` with Specrails' Node and npm into
+`tapflow@0.33.0` and `@tapflowio/mcp-server@0.33.0`, and their whole dependency tree from
+[pinned/package-lock.json](pinned/package-lock.json) with `npm ci`, with Specrails' Node and npm into
 `~/.specrails/tools/tapflow`, then runs Tapflow's interactive `tapflow setup`; exit 0 records the install.
 **Activate** starts a supervised `tapflow start` on port 4310 (lean, no audio, display sleep allowed, one
 automated devices, one per platform), kept on loopback by a preload, and creates its admin account and token on first use.
 **Deactivate** stops it with SIGTERM. A crash shows as inactive with the reason; an active service is
 started again at app start; a Tapflow the person runs themselves is shown as running-external and never
 stopped.
+
+## Updating Tapflow (only on purpose)
+
+Tapflow never updates itself, and an install never resolves newer dependencies. To move to a new version:
+bump `TAPFLOW_VERSION` in [domain.ts](domain.ts) and the two versions in
+[pinned/package.json](pinned/package.json), regenerate the lockfile in a scratch folder with Specrails'
+Node (`npm install --package-lock-only` there, then copy `package-lock.json` into `pinned/`), run the
+tapflow tests (they check the lockfile matches the version and that every package has an integrity hash),
+and verify iOS and Android live before shipping it.
 
 ## Where to change behavior
 
@@ -39,6 +49,15 @@ chosen device, boot, install, launch, always disconnect). The run's target lives
 - Loops ▸ Test in Mobile Device ▸ Run on a device (the checkout as it is, a delivery on review, or a branch
   built in a temporary worktree beside the project database, removed when the run ends);
 - the agents' MCP `specrails_integrations(mobile_test)` with the same targets.
+
+A mission sees its runs: the agent of an Intent session runs the app with `specrails_background`
+`mobile_test` (in-app v1 catalog; external clients: `specrails_integrations` `mobile_test` target `mission`) on the Intent worktree (persona section in
+[agent-flow-prompt.ts](../missions/runtime/agent-flow-prompt.ts)). A run with a mission shows in its
+Processes as an observed background process ([adapters/mobile-run-process.ts](adapters/mobile-run-process.ts):
+the run log, Tapflow's service log tailed during the run, the build PID, the outcome; history in the
+background process store), and in its Resources (`missionTapflowRoots`: the launched device while it runs,
+the build in progress, the service). The app-wide Resources' Tapflow category lists builds, devices (simulators
+by name, [adapters/simulator-names.ts](adapters/simulator-names.ts)) and the service.
 
 Routes under `/api/projects/:id/mobile-test`: `POST /start`, `GET /options` (what the dialog offers,
 Tapflow's devices included while it is on), `GET /runs/:runId`, `POST /dismiss`. The loop is an editable

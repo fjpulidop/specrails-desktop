@@ -351,6 +351,19 @@ an active Intent:
   in-app agent turns; external MCP clients keep the Settings ▸ MCP tiers.
   Outside an active Intent, or without confirmation, the ladder applies as before.
 
+**A mobile app on a device.** When the user asks to run the iOS or Android
+app, the persona's "Running a mobile app on a device" section sends the agent
+to `specrails_background` action `mobile_test` (in-app agents get the v1
+catalog; external clients use `specrails_integrations` `mobile_test` with
+`options.target: "mission"`): the server builds the Intent worktree with the built-in Test in Mobile Device loop
+and opens it on a Tapflow device inside Specrails (never `xcodebuild`,
+`gradlew` or an emulator from the agent's shell). The mission comes from the
+agent's capability; the action's `tierException` admits it at any level inside
+the agent's own active Intent. The agent waits with `specrails_watch`
+(`loop_run`) and reads `specrails_background(mobile_status)`. The run shows in the mission's Processes (an
+observed entry with the build and Tapflow's log) and its device in the
+mission's Resources (server/modules/tapflow/README.md).
+
 The `stopProcesses` effect runs first on pause, discard and hand-off
 (`IntentProcesses.stop` → `stopBackgroundProcessesForFlow`, which requests stop
 and waits up to 4 s for exit) because the worktree is about to be frozen,

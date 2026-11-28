@@ -1635,7 +1635,10 @@
     "kind": {
       "agent-session": "Agente",
       "background-process": "Proceso en segundo plano",
-      "mission-activity": "Actividad de la misión"
+      "mission-activity": "Actividad de la misión",
+      "mobile-device": "Dispositivo móvil",
+      "mobile-build": "Compilación móvil",
+      "tapflow-service": "Tapflow"
     },
     "finishedAt": "Terminó a las {{time}}",
     "lastActive": "Última actividad mientras estaba en marcha",

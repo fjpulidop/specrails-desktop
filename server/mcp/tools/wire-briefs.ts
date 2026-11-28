@@ -201,7 +201,7 @@ export const TOOL_BRIEFS: Record<string, ToolBrief> = {
     },
   },
   specrails_background: {
-    description: `Long-running processes (dev servers, watchers) of an in-app agent conversation. Actions: start (destructive, in-app agent only; confirmed:true after the person approved this exact command), list, logs, kill (destructive, in-app agent only). ${DETAIL}`,
+    description: `Long-running processes (dev servers, watchers) of an in-app agent conversation, and running a mobile app on a device. Actions: start (destructive, in-app agent only; confirmed:true after the person approved this exact command), list, logs, kill (destructive, in-app agent only), mobile_test (build the iOS/Android app and open it on a simulator in Specrails; target mission = your Intent), mobile_status. ${DETAIL}`,
     fields: {
       confirmed: 'start: true after the person approved this exact command',
       allowWhileBusy: 'start: override the active-run guard after confirmation',
@@ -210,6 +210,10 @@ export const TOOL_BRIEFS: Record<string, ToolBrief> = {
       processId: 'logs/kill: execution UUID; pass with pid',
       chatId: 'External clients only: the owning conversation id',
       limit: 'list: page size (default 50); logs: last N lines (default 100)',
+      target: 'mobile_test: mission (your Intent worktree, default), checkout, branch',
+      platforms: 'mobile_test: ["ios"], ["android"] or both',
+      devices: 'mobile_test: Tapflow device id per platform (else Tapflow picks)',
+      runId: 'mobile_status: the runId mobile_test returned',
     },
   },
   specrails_recovery: {

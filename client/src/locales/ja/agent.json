@@ -1635,7 +1635,10 @@
     "kind": {
       "agent-session": "エージェント",
       "background-process": "バックグラウンドプロセス",
-      "mission-activity": "ミッションのアクティビティ"
+      "mission-activity": "ミッションのアクティビティ",
+      "mobile-device": "モバイルデバイス",
+      "mobile-build": "モバイルビルド",
+      "tapflow-service": "Tapflow"
     },
     "finishedAt": "{{time}} に終了",
     "lastActive": "実行中の最後のアクティビティ",

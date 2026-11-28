@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1976 source/build files. Nearby tests are linked where names
+Includes 1979 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -217,7 +217,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [AppResourcesFooter.tsx](../../client/src/features/background/components/AppResourcesFooter.tsx) · [test](../../client/src/features/background/components/__tests__/AppResourcesFooter.test.tsx)
 - [BackgroundProcessAppLinks.tsx](../../client/src/features/background/components/BackgroundProcessAppLinks.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessAppLinks.test.tsx)
-- [BackgroundProcessChip.tsx](../../client/src/features/background/components/BackgroundProcessChip.tsx)
+- [BackgroundProcessChip.tsx](../../client/src/features/background/components/BackgroundProcessChip.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessChip.test.tsx)
 - [BackgroundProcessHistoryModal.tsx](../../client/src/features/background/components/BackgroundProcessHistoryModal.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessHistoryModal.test.tsx)
 - [BackgroundProcessLogsModal.tsx](../../client/src/features/background/components/BackgroundProcessLogsModal.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessLogsModal.test.tsx)
 - [BackgroundProcessesPanel.tsx](../../client/src/features/background/components/BackgroundProcessesPanel.tsx) · [test](../../client/src/features/background/components/__tests__/BackgroundProcessesPanel.test.tsx)
@@ -2564,9 +2564,12 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [mobile-build.ts](../../server/modules/tapflow/adapters/mobile-build.ts)
 - [mobile-handlers.ts](../../server/modules/tapflow/adapters/mobile-handlers.ts)
 - [mobile-offer.ts](../../server/modules/tapflow/adapters/mobile-offer.ts)
+- [mobile-run-process.ts](../../server/modules/tapflow/adapters/mobile-run-process.ts)
 - [mobile-runs-store.ts](../../server/modules/tapflow/adapters/mobile-runs-store.ts)
+- [pinned.ts](../../server/modules/tapflow/adapters/pinned.ts)
 - [process.ts](../../server/modules/tapflow/adapters/process.ts)
 - [relay.ts](../../server/modules/tapflow/adapters/relay.ts)
+- [simulator-names.ts](../../server/modules/tapflow/adapters/simulator-names.ts)
 - [store.ts](../../server/modules/tapflow/adapters/store.ts)
 
 ## server/modules/terminals/domain

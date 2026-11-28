@@ -35,6 +35,9 @@ export interface BackgroundProcess {
   signal?: string | null
   /** Addresses a running process announced (derived on read, never persisted). */
   appUrls?: { local: string[]; network: string[] }
+  /** Observed, not owned: Specrails runs it elsewhere (a mobile test through Tapflow) and reports its state
+   * and log here; it cannot be stopped from the list and is not a resource root of its own. */
+  observed?: boolean
 }
 export interface BackgroundProcessLogLine {
   sequence: number
@@ -114,7 +117,9 @@ const BACKGROUND_LOG_MAX_LINES = 2000
 const BACKGROUND_FINISHED_MAX = 32
 export const BACKGROUND_LOG_RETENTION_MS = 10 * 60 * 1000
 export const BACKGROUND_PERSISTENCE_FLUSH_MS = 250
-const pendingPersistence = new Map<string, { record: BackgroundRecord; lines: Map<number, BackgroundProcessLogLine> }>()
+/** What persistence needs of a record: an owned process, or an observed one (`registerObservedProcess`). */
+type PersistableRecord = Pick<BackgroundRecord, 'process' | 'hooks' | 'nextSequence' | 'clippedOutput' | 'skipPersistence'>
+const pendingPersistence = new Map<string, { record: PersistableRecord; lines: Map<number, BackgroundProcessLogLine> }>()
 let backgroundStore: BackgroundProcessStore | undefined
 let persistenceAttempted = false
 let persistenceError: string | undefined
@@ -163,7 +168,7 @@ export function initializeBackgroundProcessPersistence(file: string): void {
   }
 }
 
-function queuePersistence(record: BackgroundRecord, line?: BackgroundProcessLogLine): void {
+function queuePersistence(record: PersistableRecord, line?: BackgroundProcessLogLine): void {
   if (!backgroundStore || record.skipPersistence) return
   let pending = pendingPersistence.get(record.process.processId)
   if (!pending) { pending = { record, lines: new Map() }; pendingPersistence.set(record.process.processId, pending) }
@@ -550,6 +555,8 @@ function findRecord(pid: number, processId?: string): BackgroundRecord | Finishe
   return [...finishedBackgroundById.values()].reverse().find(record => record.process.pid === pid)
 }
 export function getBackgroundProcess(pid: number, processId?: string): BackgroundProcess | null {
+  const observed = processId ? observedById.get(processId) : undefined
+  if (observed) return cloneProcess(observed.process)
   const record = findRecord(pid, processId)
   return record ? cloneProcess(record.process) : ensureBackgroundProcessStore()?.get(pid, processId) ?? null
 }
@@ -557,7 +564,7 @@ export function getBackgroundProcessLogs(
   pid: number,
   filter: { projectId?: string; chatId?: string; processId?: string; limit?: number } = {},
 ): BackgroundProcessLogSnapshot | null {
-  const record = findRecord(pid, filter.processId)
+  const record = (filter.processId ? observedById.get(filter.processId) : undefined) ?? findRecord(pid, filter.processId)
   if (!record) return ensureBackgroundProcessStore()?.logs(pid, filter) ?? null
   if ((filter.projectId && record.process.projectId !== filter.projectId) || (filter.chatId && record.process.chatId !== filter.chatId)) return null
   const maxLines = backgroundStore ? BACKGROUND_HISTORY_MAX_LINES : BACKGROUND_LOG_MAX_LINES
@@ -578,7 +585,8 @@ export function getBackgroundProcessLogs(
   }
 }
 export function listBackgroundProcesses(filter: { projectId?: string; chatId?: string; includeFinished?: boolean } = {}): BackgroundProcess[] {
-  const records = [...backgroundByPid.values(), ...(filter.includeFinished ? finishedBackgroundById.values() : [])]
+  const records = [...backgroundByPid.values(), ...(filter.includeFinished ? finishedBackgroundById.values() : []),
+    ...[...observedById.values()].filter(record => filter.includeFinished || !backgroundTerminal.has(record.process.status))]
   const combined = new Map((ensureBackgroundProcessStore()?.list(filter) ?? []).map(process => [process.processId, process]))
   for (const record of records) if ((!filter.projectId || record.process.projectId === filter.projectId) && (!filter.chatId || record.process.chatId === filter.chatId)) combined.set(record.process.processId, cloneProcess(record.process))
   return [...combined.values()].sort((a, b) => a.startedAt - b.startedAt)
@@ -638,4 +646,79 @@ export async function stopBackgroundProcessesForFlow(flowId: string, projectId: 
   const stopped = [...backgroundByPid.values()].filter(record => matches(record) && !backgroundTerminal.has(record.process.status)).length
   if (stopped === 0) return { stopped, unresolved: [] }
   return { stopped, unresolved: await stopRecordsAndWait(matches, timeoutMs) }
+}
+
+/** An observed process's handle: its owner reports what happens; nothing here controls the work itself. */
+export interface ObservedProcessHandle {
+  processId: string
+  /** One log line (split on newlines, clipped like owned output). */
+  appendLine(line: string, source?: 'stdout' | 'stderr'): void
+  /** The OS process that currently does the work (shown as the PID), or 0 for none. */
+  setPid(pid: number): void
+  /** Ends it: `exited` (success) or `failed` with the reason. Idempotent. */
+  finish(status: 'exited' | 'failed', detail?: string): void
+}
+interface ObservedRecord extends PersistableRecord {
+  outputLines: BackgroundProcessLogLine[]
+  droppedOutputLines: number
+  cleanupTimer?: ReturnType<typeof setTimeout>
+}
+const observedById = new Map<string, ObservedRecord>()
+
+/**
+ * Registers work Specrails runs outside this module (no child of its own here) in a mission's process list:
+ * same record, history, WS events and logs as an owned background process, with state and lines pushed by
+ * the owner. Used by Test in Mobile Device so its build, the device steps and Tapflow's log show in the
+ * mission's Processes with their history.
+ */
+export function registerObservedProcess(
+  input: { projectId: string; chatId: string; label: string; cwd: string; pid?: number; repositoryId?: string; repositoryName?: string; flowId?: string },
+  hooks: BackgroundProcessHooks,
+): ObservedProcessHandle {
+  const record: ObservedRecord = {
+    process: {
+      processId: randomUUID(), pid: input.pid ?? 0, command: input.label, cwd: input.cwd, startedAt: Date.now(), status: 'running',
+      chatId: input.chatId, projectId: input.projectId, observed: true,
+      ...(input.repositoryId ? { repositoryId: input.repositoryId } : {}), ...(input.repositoryName ? { repositoryName: input.repositoryName } : {}),
+      ...(input.flowId ? { flowId: input.flowId } : {}),
+    },
+    hooks, nextSequence: 0, clippedOutput: false, outputLines: [], droppedOutputLines: 0,
+  }
+  observedById.set(record.process.processId, record)
+  queuePersistence(record)
+  safelyNotify(() => hooks.onStarted?.(cloneProcess(record.process)))
+  const done = () => backgroundTerminal.has(record.process.status)
+  return {
+    processId: record.process.processId,
+    appendLine(text, source = 'stdout') {
+      if (done()) return
+      for (const raw of text.split(/\r?\n/)) {
+        const clipped = raw.length > BACKGROUND_OUTPUT_MAX_LINE_CHARS
+        if (clipped) record.clippedOutput = true
+        const line: BackgroundProcessLogLine = { sequence: record.nextSequence++, at: Date.now(), source, line: clipped ? raw.slice(0, BACKGROUND_OUTPUT_MAX_LINE_CHARS) : raw }
+        record.outputLines.push(line)
+        if (record.outputLines.length > BACKGROUND_LOG_MAX_LINES) { record.outputLines.shift(); record.droppedOutputLines++ }
+        queuePersistence(record, line)
+        safelyNotify(() => hooks.onOutput?.({ ...cloneLogLine(line), processId: record.process.processId, pid: record.process.pid, chatId: record.process.chatId, projectId: record.process.projectId }))
+      }
+    },
+    setPid(pid) {
+      if (done() || record.process.pid === pid || !Number.isSafeInteger(pid) || pid < 0) return
+      record.process.pid = pid
+      queuePersistence(record)
+      safelyNotify(() => hooks.onUpdated?.(cloneProcess(record.process)))
+    },
+    finish(status, detail) {
+      if (done()) return
+      record.process.status = status
+      record.process.endedAt = Date.now()
+      record.process.exitCode = status === 'exited' ? 0 : 1
+      if (detail) record.process.error = detail
+      queuePersistence(record)
+      safelyNotify(() => hooks.onExited?.(cloneProcess(record.process)))
+      // The durable history keeps it; memory keeps it as long as a finished owned process.
+      record.cleanupTimer = setTimeout(() => observedById.delete(record.process.processId), BACKGROUND_LOG_RETENTION_MS)
+      record.cleanupTimer.unref?.()
+    },
+  }
 }

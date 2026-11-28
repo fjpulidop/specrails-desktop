@@ -41,16 +41,17 @@ export function registerTapflowRoutes(router: Router, tapflow: TapflowPlugin, de
 
 /**
  * Project routes of Test in Mobile Device, under `/api/projects/:projectId/mobile-test`:
- * - `POST /start` `{ target, platforms, devices? }` (202 `{ runId }`); `target` is `{ kind: 'delivery',
- *   deliveryId }`, `{ kind: 'checkout' }` or `{ kind: 'branch', branch }`. A bare `deliveryId` still means
- *   a delivery (the mission card).
+ * - `POST /start` `{ target, platforms, devices?, conversationId? }` (202 `{ runId }`); `target` is
+ *   `{ kind: 'delivery', deliveryId }`, `{ kind: 'checkout' }`, `{ kind: 'branch', branch }` or
+ *   `{ kind: 'mission' }` (the Intent worktree of `conversationId`). A bare `deliveryId` still means a
+ *   delivery (the mission card). `conversationId`: the mission the run shows in (Processes, Resources).
  * - `GET /options`: what the Loops start form offers; `GET /runs/:runId`: a run's state and devices.
  * - `POST /dismiss` `{ deliveryId }`.
  */
 export function registerMobileTestRoutes(router: Router, env: MobileOfferEnv): void {
   const ctx = (req: Request) => (req as Request & { projectCtx?: ProjectContext }).projectCtx!
   router.post('/start', async (req: Request, res: Response) => {
-    const body = (req.body ?? {}) as { deliveryId?: unknown; target?: unknown; platforms?: unknown; devices?: unknown }
+    const body = (req.body ?? {}) as { deliveryId?: unknown; target?: unknown; platforms?: unknown; devices?: unknown; conversationId?: unknown }
     const target = parseTarget(body.target, body.deliveryId)
     if (!target || !Array.isArray(body.platforms)) { res.status(400).json({ error: 'target (or deliveryId) and platforms are required', code: 'invalid_input' }); return }
     const devices = body.devices && typeof body.devices === 'object' ? body.devices as Record<string, unknown> : {}
@@ -58,6 +59,7 @@ export function registerMobileTestRoutes(router: Router, env: MobileOfferEnv): v
       target,
       platforms: body.platforms.filter((p): p is 'ios' | 'android' => p === 'ios' || p === 'android'),
       devices: { ...(typeof devices.ios === 'string' ? { ios: devices.ios } : {}), ...(typeof devices.android === 'string' ? { android: devices.android } : {}) },
+      ...(typeof body.conversationId === 'string' && body.conversationId ? { conversationId: body.conversationId } : {}),
     }, env)
     if (!result.ok) { res.status(result.status).json({ error: result.error, ...(result.code ? { code: result.code } : {}) }); return }
     res.status(202).json({ runId: result.runId })
@@ -82,6 +84,7 @@ function parseTarget(target: unknown, deliveryId: unknown): MobileTestTargetRequ
   const t = target as Record<string, unknown> | null
   if (!t || typeof t !== 'object') return null
   if (t.kind === 'checkout') return { kind: 'checkout' }
+  if (t.kind === 'mission') return { kind: 'mission' }
   if (t.kind === 'delivery' && typeof t.deliveryId === 'string' && t.deliveryId) return { kind: 'delivery', deliveryId: t.deliveryId }
   if (t.kind === 'branch' && typeof t.branch === 'string' && t.branch.trim() && t.branch.length <= 250) return { kind: 'branch', branch: t.branch.trim() }
   return null

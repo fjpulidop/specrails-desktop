@@ -2271,6 +2271,35 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_mobile_test_runs_delivery ON mobile_test_runs(delivery_id);
     `)
   },
+
+  // Migration 100: mobile_test_runs.target_kind 'intent' — a mission agent runs the app of its Intent
+  // session's worktree (MCP mobile_test, target mission). Rebuilt like 99 when the CHECK lacks it.
+  (db) => {
+    const table = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'mobile_test_runs'").get() as { sql: string } | undefined
+    if (!table || table.sql.includes("'intent'")) return
+    db.exec(`
+      CREATE TABLE mobile_test_runs_v3 (
+        run_id           TEXT PRIMARY KEY,
+        project_id       TEXT NOT NULL,
+        platforms        TEXT NOT NULL,
+        target_path      TEXT NOT NULL,
+        target_kind      TEXT NOT NULL CHECK (target_kind IN ('review', 'checkout', 'branch', 'intent')),
+        delivery_id      TEXT,
+        conversation_id  TEXT,
+        state            TEXT NOT NULL DEFAULT 'running' CHECK (state IN ('running', 'launched', 'failed')),
+        artifacts        TEXT NOT NULL DEFAULT '[]',
+        result           TEXT,
+        created_at       TEXT NOT NULL,
+        updated_at       TEXT NOT NULL,
+        devices          TEXT
+      );
+      INSERT INTO mobile_test_runs_v3 SELECT run_id, project_id, platforms, target_path, target_kind, delivery_id, conversation_id, state, artifacts, result, created_at, updated_at, devices FROM mobile_test_runs;
+      DROP TABLE mobile_test_runs;
+      ALTER TABLE mobile_test_runs_v3 RENAME TO mobile_test_runs;
+      CREATE INDEX IF NOT EXISTS idx_mobile_test_runs_delivery ON mobile_test_runs(delivery_id);
+      CREATE INDEX IF NOT EXISTS idx_mobile_test_runs_conversation ON mobile_test_runs(conversation_id);
+    `)
+  },
 ]
 
 export function applyMigrations(db: DbInstance): void {

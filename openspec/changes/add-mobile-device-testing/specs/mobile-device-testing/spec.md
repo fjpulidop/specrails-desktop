@@ -80,3 +80,28 @@ Test in Mobile Device SHALL be listed in Loops with the built-ins while Core run
 #### Scenario: Gradle build in a worktree
 - **WHEN** an Android app is built in a worktree, which has no `local.properties`
 - **THEN** the build gets the Android SDK (ANDROID_HOME) and a JDK 17+ (JAVA_HOME, else Android Studio's) unless the person set their own
+
+### Requirement: Agent runs the app
+In a mission with an active Intent session, when the person asks to run the app on iOS or Android, the agent SHALL start Test in Mobile Device on the Intent worktree through the Specrails MCP (`mobile_test`, target `mission`) instead of building or booting devices itself, wait for the run and report the device or the failure. The mission SHALL come from the agent's capability, never from arguments, and the call SHALL be admitted at any permission level inside the agent's own active Intent.
+
+#### Scenario: Run on iOS
+- **WHEN** the person says "run it on the iPhone" in an Intent session
+- **THEN** the agent calls `mobile_test` with target `mission` and platform iOS, and the app opens on an iOS simulator inside Specrails
+
+#### Scenario: No Intent
+- **WHEN** a mission without an active Intent asks for target `mission`
+- **THEN** nothing starts and the agent is told to use checkout or branch
+
+### Requirement: Mission processes
+A run started from a mission (its agent, or its delivery card) SHALL appear in the mission's Processes with the run's log (build, upload, boot, install, launch), the lines Tapflow's service writes meanwhile, the PID of the step at work and the outcome, kept in the process history like any other process; it cannot be stopped from the list.
+
+#### Scenario: History
+- **WHEN** the run ended and the person reopens the mission's Processes later
+- **THEN** the entry is there with its full log and its outcome
+
+### Requirement: Mission resources
+A mission's Resources SHALL include the device its mobile tests launched while it runs, the build of a run in progress and the Tapflow service, each with CPU and memory (simulators by physical footprint), and the mission's resource history SHALL be recorded while a run is in progress.
+
+#### Scenario: Device running
+- **WHEN** the mission's run launched the app on a simulator that is still booted
+- **THEN** the mission's Resources lists that simulator by name and the Tapflow service, and not other simulators

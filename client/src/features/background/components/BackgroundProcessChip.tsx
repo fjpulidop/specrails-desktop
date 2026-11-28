@@ -65,7 +65,7 @@ export function BackgroundProcessChip({
           <ExternalLink className="h-3 w-3" aria-hidden />
         </button>}
         {stopFailed && <span role="alert" title={t('backgroundProcess.stopFailed')} className="flex shrink-0 items-center px-1 text-destructive"><AlertCircle className="h-3 w-3" aria-hidden /><span className="sr-only">{t('backgroundProcess.stopFailed')}</span></span>}
-        {!terminal && <button type="button" disabled={busy} aria-label={t('backgroundProcess.stopCommand', { command: process.command })}
+        {!terminal && !process.observed && <button type="button" disabled={busy} aria-label={t('backgroundProcess.stopCommand', { command: process.command })}
           title={t('backgroundProcess.stopCommand', { command: process.command })}
           onClick={event => { event.preventDefault(); event.stopPropagation(); void stop() }}
           className="mr-1 rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive disabled:opacity-50">

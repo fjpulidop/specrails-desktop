@@ -12,6 +12,7 @@ import {
 } from '../domain'
 import type { InstallerTerminal, TapflowInstallation, TapflowService } from '../application'
 import { findAndroidSdk } from './android-toolchain'
+import { TAPFLOW_PINNED_FILES } from './pinned'
 import { resolveSpecrailsHome } from '../../../util/specrails-home'
 
 /** `<SPECRAILS_REGISTRY_HOME or ~>/.specrails/tools/tapflow`, beside Headroom's tools. */
@@ -125,6 +126,8 @@ export function createInstallerTerminal(deps: { paths: TapflowPaths; terminals: 
       const npmCli = npmCliFor(nodePath)
       if (!npmCli) throw new Error(`No npm next to ${nodePath}`)
       fs.mkdirSync(paths.toolsDir, { recursive: true })
+      // The pinned tree `npm ci` installs (replaces whatever manifest an older install left).
+      for (const [name, content] of Object.entries(TAPFLOW_PINNED_FILES)) fs.writeFileSync(path.join(paths.toolsDir, name), JSON.stringify(content, null, 2) + '\n')
       const script = installerScript({ nodePath, npmCli, toolsDir: paths.toolsDir, tapflowCli: paths.tapflowCli, home: paths.home })
       const nodeBin = path.dirname(nodePath)
       const session = deps.terminals().create(APP_TERMINAL_SCOPE, {

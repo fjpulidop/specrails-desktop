@@ -1,7 +1,7 @@
 import { API_ORIGIN } from '../../../lib/origin'
 import { requestJson } from '../../../lib/api-response'
 
-export type MissionResourceKind = 'agent-session' | 'background-process' | 'mission-activity'
+export type MissionResourceKind = 'agent-session' | 'background-process' | 'mission-activity' | 'mobile-device' | 'mobile-build' | 'tapflow-service'
 
 export interface MissionResourceEntry {
   id: string

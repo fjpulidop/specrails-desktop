@@ -44,16 +44,17 @@ export function chooseScheme(schemes: readonly string[], container: string | und
 
 export interface StepRunner {
   /** `env` adds to the server's environment for this step. */
-  run(argv: readonly string[], cwd: string, onLine: (line: string) => void, timeoutMs: number, env?: Record<string, string>): Promise<{ code: number | null; tail: string }>
+  run(argv: readonly string[], cwd: string, onLine: (line: string) => void, timeoutMs: number, env?: Record<string, string>, onSpawn?: (pid: number) => void): Promise<{ code: number | null; tail: string }>
 }
 
 const TAIL_LINES = 40
 
 export const processStepRunner: StepRunner = {
-  run: (argv, cwd, onLine, timeoutMs, extraEnv) => new Promise((resolve) => {
+  run: (argv, cwd, onLine, timeoutMs, extraEnv, onSpawn) => new Promise((resolve) => {
     const tail: string[] = []
     const keep = (line: string) => { tail.push(line); if (tail.length > TAIL_LINES) tail.shift() }
     const child = spawn(argv[0]!, argv.slice(1), { cwd, env: { ...process.env, ...extraEnv, CI: '1' }, stdio: ['ignore', 'pipe', 'pipe'] })
+    if (child.pid) onSpawn?.(child.pid)
     const timer = setTimeout(() => { keep(`[timed out after ${Math.round(timeoutMs / 60_000)} min]`); if (child.pid) treeKill(child.pid, 'SIGKILL') }, timeoutMs)
     let pending = ''
     const feed = (chunk: Buffer) => {
@@ -96,7 +97,8 @@ export function createMobileBuilder(deps: { runner?: StepRunner; schemes?: (cwd:
   const schemes = deps.schemes ?? listSchemes
   const filesAt = deps.files ?? projectFilesAt
   const androidToolchain = deps.android ?? localAndroidToolchain
-  return async function build(targetPath: string, platforms: readonly MobilePlatform[], log: (line: string) => void): Promise<BuildOutcome> {
+  /** `onProcess`: the PID of each build step as it starts (a mission's Processes shows it). */
+  return async function build(targetPath: string, platforms: readonly MobilePlatform[], log: (line: string) => void, onProcess?: (pid: number) => void): Promise<BuildOutcome> {
     const apps = detectMobileApps(filesAt(targetPath))
     const wanted = platforms.map((platform) => apps.find((app) => app.platform === platform)).filter((app): app is MobileApp => Boolean(app))
     if (!wanted.length) return { outcome: 'none', detail: `This project has no ${platforms.join(' or ')} app Specrails can build.` }
@@ -106,7 +108,7 @@ export function createMobileBuilder(deps: { runner?: StepRunner; schemes?: (cwd:
       if (app.stack === 'expo') {
         const prebuild = ['npx', '--yes', 'expo', 'prebuild', '--platform', app.platform, '--no-install']
         log(`$ ${prebuild.join(' ')}`)
-        const generated = await runner.run(prebuild, targetPath, (line) => log(`  ${line}`), STEP_TIMEOUT_MS)
+        const generated = await runner.run(prebuild, targetPath, (line) => log(`  ${line}`), STEP_TIMEOUT_MS, undefined, onProcess)
         if (generated.code !== 0) return { outcome: 'failed', detail: `expo prebuild exited with ${generated.code ?? 'no code'}.`, command: prebuild.join(' '), tail: generated.tail }
         const native = detectMobileApps(filesAt(targetPath)).find((candidate) => candidate.platform === app.platform && candidate.stack === 'react-native')
         if (!native) return { outcome: 'failed', detail: `expo prebuild did not produce a native ${app.platform} project.` }
@@ -131,7 +133,7 @@ export function createMobileBuilder(deps: { runner?: StepRunner; schemes?: (cwd:
       log(`Building the ${app.platform === 'ios' ? 'iOS' : 'Android'} app (${app.stack})…`)
       for (const step of plan.steps) {
         log(`$ ${step.join(' ')}`)
-        const result = await runner.run(step, path.join(targetPath, plan.cwd), (line) => log(`  ${line}`), STEP_TIMEOUT_MS, env)
+        const result = await runner.run(step, path.join(targetPath, plan.cwd), (line) => log(`  ${line}`), STEP_TIMEOUT_MS, env, onProcess)
         if (result.code !== 0) return { outcome: 'failed', detail: `${step[0]} exited with ${result.code ?? 'no code'} while building the ${app.platform} app.`, command: step.join(' '), tail: result.tail }
       }
       const dir = path.join(targetPath, plan.artifactDir)

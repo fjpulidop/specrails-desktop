@@ -12,10 +12,12 @@ import type { MobileRunsStore } from './mobile-runs-store'
 
 export interface MobileTestHandlerDeps {
   store: MobileRunsStore
-  build: (targetPath: string, platforms: readonly MobilePlatform[], log: (line: string) => void) => Promise<BuildOutcome>
+  build: (targetPath: string, platforms: readonly MobilePlatform[], log: (line: string) => void, onProcess?: (pid: number) => void) => Promise<BuildOutcome>
   deliver: (request: { artifactPath: string; platform: MobilePlatform; deviceId?: string; log: (line: string) => void; signal?: AbortSignal }) => Promise<DeliveryOutcome>
   /** Called after a run ends in a handler (the offer card follows it). */
   onFinished?: (runId: string) => void
+  /** A mission watching the run (its Processes entry): each log line, and the PID at work. */
+  watch?: { line(runId: string, line: string): void; pid(runId: string, pid: number): void }
 }
 
 const platformName = (platform: MobilePlatform) => (platform === 'ios' ? 'iOS' : 'Android')
@@ -27,11 +29,16 @@ export function createMobileTestHandlers(deps: MobileTestHandlerDeps): Record<'m
     try { deps.onFinished?.(runId) } catch { /* the card is advisory */ }
   }
 
+  /** The run's log, also to the mission that watches it. */
+  const tee = (runId: string, log: (line: string) => void) => (line: string) => { log(line); try { deps.watch?.line(runId, line) } catch { /* advisory */ } }
+
   return {
-    'mobile.build': async ({ runId, log }) => {
+    'mobile.build': async ({ runId, log: runLog }) => {
+      const log = tee(runId, runLog)
       const run = store.get(runId)
       if (!run) return { outcome: 'error', output: { detail: 'This run has no mobile test target; start it from the Test in Mobile Device offer or Loops.' } }
-      const outcome = await deps.build(run.targetPath, run.platforms, log)
+      const outcome = await deps.build(run.targetPath, run.platforms, log, (pid) => deps.watch?.pid(runId, pid))
+      deps.watch?.pid(runId, 0)
       if (outcome.outcome === 'built') {
         store.setArtifacts(runId, outcome.artifacts)
         return { outcome: 'built', output: { artifacts: outcome.artifacts.map((artifact) => ({ platform: artifact.platform, file: artifact.path.split('/').pop() })) } }
@@ -45,7 +52,8 @@ export function createMobileTestHandlers(deps: MobileTestHandlerDeps): Record<'m
       return { outcome: 'error', output }
     },
 
-    'tapflow.deliver': async ({ runId, log, signal }) => {
+    'tapflow.deliver': async ({ runId, log: runLog, signal }) => {
+      const log = tee(runId, runLog)
       const run = store.get(runId)
       if (!run || !run.artifacts.length) return { outcome: 'error', output: { detail: 'Nothing was built for this run.' } }
       const devices: Array<{ platform: MobilePlatform; name: string; id: string; buildId: number; sessionId: string; watchUrl: string | null }> = []

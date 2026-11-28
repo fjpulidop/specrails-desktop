@@ -8,7 +8,11 @@
  *   can test before deciding), or the project checkout after a local merge. A delivery published as a
  *   pull request has released its worktree: the offer expires (test before publishing);
  * - the project checkout as it is (the person's own work in progress);
- * - a branch, without touching the checkout: a temporary detached worktree, removed when the run ends.
+ * - a branch, without touching the checkout: a temporary detached worktree, removed when the run ends;
+ * - the mission's own Intent session worktree (a mission agent asked to run the app, MCP target `mission`).
+ *
+ * A run started from a mission (its delivery card, or its agent) shows in that mission's Processes, with
+ * the run's log and Tapflow's, and its device in the mission's Resources.
  */
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
@@ -31,6 +35,8 @@ import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { choosePlatforms, detectMobileApps, type MobilePlatform } from '../mobile-project'
 import { projectFilesAt } from './mobile-build'
 import { withRepoLock } from '../../../repo-lock'
+import { backgroundProcessHooks } from '../../terminals/runtime/background-process-service'
+import { finishMobileRun, trackMobileRun } from './mobile-run-process'
 import type { ChoosableDevice } from './delivery'
 import { createMobileRunsStore, type MobileTestRun } from './mobile-runs-store'
 
@@ -58,6 +64,8 @@ export interface MobileOfferEnv {
   capabilities?: () => Promise<Record<string, number> | undefined>
   /** The devices Tapflow offers while it is on (null when off); for the start form. */
   devices?: () => Promise<ChoosableDevice[] | null>
+  /** Tapflow's service log while Specrails runs it: a mission's Processes entry follows it during a run. */
+  serviceLog?: () => string | null
 }
 
 const REVIEW_DECISIONS = new Set(['on_review'])
@@ -134,14 +142,33 @@ export async function refreshMobileTestOffer(c: ProjectContext, deliveryId: stri
 
 export type MobileStartResult = { ok: true; runId: string } | { ok: false; status: number; error: string; code?: string }
 
-/** What a run tests: a delivery (the card), the checkout as it is, or a branch (Loops, MCP). */
-export type MobileTestTargetRequest = { kind: 'delivery'; deliveryId: string } | { kind: 'checkout' } | { kind: 'branch'; branch: string }
+/** What a run tests: a delivery (the card), the checkout as it is, a branch (Loops, MCP), or the calling
+ * mission's Intent worktree (MCP, `conversationId` required). */
+export type MobileTestTargetRequest = { kind: 'delivery'; deliveryId: string } | { kind: 'checkout' } | { kind: 'branch'; branch: string } | { kind: 'mission' }
 
 export interface MobileStartRequest {
   target: MobileTestTargetRequest
   platforms: MobilePlatform[]
   /** The device chosen per platform (Tapflow device id); absent = Tapflow picks. */
   devices?: Partial<Record<MobilePlatform, string>>
+  /** The mission that asks (its agent through MCP): the run shows in its Processes and Resources. */
+  conversationId?: string
+}
+
+/** A mission of this project (its pin), or null. */
+function missionOf(c: Pick<ProjectContext, 'desktopDb' | 'project'>, conversationId: string | undefined): string | null {
+  if (!conversationId) return null
+  const row = c.desktopDb.prepare('SELECT pinned_project_id FROM agent_conversations WHERE id = ? AND deleted_at IS NULL').get(conversationId) as { pinned_project_id: string | null } | undefined
+  return row?.pinned_project_id === c.project.id ? conversationId : null
+}
+
+/** The mission's ACTIVE Intent session worktree (as the agent's own tools see it), or null. */
+function missionWorkspace(c: Pick<ProjectContext, 'flow'>, conversationId: string): { flowId: string; worktreePath: string; repositoryId?: string } | null {
+  try {
+    const flow = c.flow?.getByConversation(conversationId)
+    if (!flow || flow.state !== 'active' || flow.step !== null || !flow.worktreePath || !fs.existsSync(flow.worktreePath)) return null
+    return { flowId: flow.id, worktreePath: flow.worktreePath, ...(flow.repositoryId ? { repositoryId: flow.repositoryId } : {}) }
+  } catch { return null }
 }
 
 const git = (cwd: string, args: string[]) => new Promise<{ ok: boolean; out: string }>((resolve) => {
@@ -190,7 +217,11 @@ export async function startMobileTest(c: ProjectContext, request: MobileStartReq
   if (!runsHostTasks(capabilities)) return { ok: false, status: 409, error: 'This Specrails Core cannot run host tasks; update Core.', code: 'engine_unsupported' }
   const platforms = [...new Set(request.platforms)].filter((platform): platform is MobilePlatform => platform === 'ios' || platform === 'android')
   if (!platforms.length) return { ok: false, status: 400, error: 'Choose iOS, Android or both.', code: 'platforms_required' }
-  const repository = resolveProjectRepository(c.project)
+  const mission = missionOf(c, request.conversationId) ?? (delivery?.origin_conversation_id ?? null)
+  if (request.conversationId && !missionOf(c, request.conversationId)) return { ok: false, status: 404, error: 'That mission is not in this project.', code: 'mission_not_found' }
+  const workspace = request.target.kind === 'mission' && mission ? missionWorkspace(c, mission) : null
+  if (request.target.kind === 'mission' && !workspace) return { ok: false, status: 409, error: 'This mission has no active Intent session to build from. Use target checkout or branch, or start an Intent session.', code: 'no_intent_session' }
+  const repository = resolveProjectRepository(c.project, workspace?.repositoryId)
   const runId = newId()
 
   let target: { path: string; kind: MobileTestRun['targetKind'] }
@@ -201,6 +232,8 @@ export async function startMobileTest(c: ProjectContext, request: MobileStartReq
     target = found
   } else if (request.target.kind === 'checkout') {
     target = { path: repository.path, kind: 'checkout' }
+  } else if (request.target.kind === 'mission') {
+    target = { path: workspace!.worktreePath, kind: 'intent' }
   } else {
     const branch = request.target.branch.trim()
     const commit = await branchCommit(repository.path, branch)
@@ -221,7 +254,16 @@ export async function startMobileTest(c: ProjectContext, request: MobileStartReq
   const devices = Object.fromEntries(Object.entries(request.devices ?? {}).filter(([platform, id]) => platforms.includes(platform as MobilePlatform) && typeof id === 'string' && /^[A-Za-z0-9:._-]{1,128}$/.test(id))) as MobileTestRun['devices']
 
   const store = createMobileRunsStore(c.db)
-  store.create({ runId, projectId: c.project.id, platforms, targetPath: target.path, targetKind: target.kind, deliveryId: delivery?.id ?? null, conversationId: delivery?.origin_conversation_id ?? null, devices })
+  store.create({ runId, projectId: c.project.id, platforms, targetPath: target.path, targetKind: target.kind, deliveryId: delivery?.id ?? null, conversationId: mission, devices })
+  if (mission) {
+    const what = target.kind === 'branch' ? `branch ${(request.target as { branch: string }).branch.trim()}` : target.kind === 'intent' ? 'Intent session' : target.kind === 'review' ? 'delivery on review' : 'checkout'
+    trackMobileRun(runId, {
+      projectId: c.project.id, chatId: mission, cwd: target.path, hooks: backgroundProcessHooks(c.broadcast),
+      label: `Test in Mobile Device · ${platforms.map((platform) => (platform === 'ios' ? 'iOS' : 'Android')).join(' + ')} · ${what}`,
+      repositoryId: repository.id, repositoryName: repository.name, ...(workspace ? { flowId: workspace.flowId } : {}),
+      serviceLog: env.serviceLog?.() ?? null,
+    })
+  }
   setDesktopSetting(c.desktopDb, rememberKey(c.project.id), platforms.length > 1 ? 'both' : platforms[0]!)
   const provider = c.project.provider ?? 'claude'
   const adapter = getAdapter(provider)
@@ -239,6 +281,12 @@ export async function startMobileTest(c: ProjectContext, request: MobileStartReq
     .then((result) => c.onLoopRunFinished(result.runId, result.outcome, result.stallReason ? { stallReason: result.stallReason } : undefined))
     .catch((error) => { console.error('[tapflow] mobile test run failed:', error); c.onLoopRunFinished(runId, 'failed') })
     .finally(() => {
+      // The mission's Processes entry ends with the run's outcome (the store has it once a handler settled).
+      const settled = store.get(runId)
+      const summary = typeof settled?.result?.summary === 'string' ? settled.result.summary : null
+      const detail = typeof settled?.result?.detail === 'string' ? settled.result.detail : null
+      if (settled?.state === 'launched') finishMobileRun(runId, 'exited', summary ? `Running: ${summary}` : undefined)
+      else finishMobileRun(runId, 'failed', detail ?? 'The mobile test stopped before the app was running; the run log has the details.')
       // The app is installed on the device: the branch's worktree is no longer needed.
       if (scratch) void removeScratchWorktree(repository.path, scratch)
       if (delivery) void refreshMobileTestOffer(c, delivery.id, env)

@@ -1,7 +1,8 @@
+import { TAPFLOW_PINNED_FILES } from '../adapters/pinned'
 import { describe, expect, it } from 'vitest'
 import {
   deriveStatus, EMPTY_TAPFLOW_STATE, installerScript, isTapflowServiceCommand, nodeMajor, platformIssue,
-  serviceEnvironment, tapflowConfig, tapflowResourceRoots, TAPFLOW_PACKAGES, TAPFLOW_VERSION, type TapflowObservation,
+  serviceEnvironment, tapflowConfig, tapflowResourceRoots, TAPFLOW_VERSION, type TapflowObservation,
 } from '../domain'
 
 const mac = { platform: 'darwin' as const, arch: 'arm64' }
@@ -78,13 +79,30 @@ describe('service configuration', () => {
     expect(androidBuildEnvironment({}, { sdk: null, jdk: null })).toEqual({})
   })
 
-  it('installs the pinned packages with the given Node and npm, then runs tapflow setup, quoting every path', () => {
+  it('installs the pinned tree with the given Node and npm (npm ci), then runs tapflow setup, quoting every path', () => {
     const script = installerScript({ nodePath: "/Apps/Spec rails/node", npmCli: '/n/npm-cli.js', toolsDir: "/h/o'k/tools", tapflowCli: '/h/tools/tapflow.js', home: '/h/tools/home' })
-    expect(TAPFLOW_PACKAGES).toEqual([`tapflow@${TAPFLOW_VERSION}`, `@tapflowio/mcp-server@${TAPFLOW_VERSION}`])
     expect(script.split('\n')[0]).toBe('set -e')
-    expect(script).toContain(`'/Apps/Spec rails/node' '/n/npm-cli.js' install --prefix '/h/o'\\''k/tools' --no-audit --no-fund --save-exact tapflow@${TAPFLOW_VERSION} @tapflowio/mcp-server@${TAPFLOW_VERSION}`)
+    expect(script).toContain(`'/Apps/Spec rails/node' '/n/npm-cli.js' ci --prefix '/h/o'\\''k/tools' --no-audit --no-fund`)
+    // Never a resolving install: that would pick newer dependencies than the reviewed lockfile.
+    expect(script).not.toMatch(/ install /)
     expect(script).toContain("TAPFLOW_HOME='/h/tools/home' '/Apps/Spec rails/node' '/h/tools/tapflow.js' setup")
-    expect(script.indexOf('install --prefix')).toBeLessThan(script.indexOf(' setup'))
+    expect(script.indexOf(' ci --prefix')).toBeLessThan(script.indexOf(' setup'))
+  })
+
+  it('[spec:tapflow-plugin/pinned-version] pins the whole tree: the lockfile matches TAPFLOW_VERSION and every package has an integrity hash', () => {
+    const manifest = TAPFLOW_PINNED_FILES['package.json'] as { dependencies: Record<string, string> }
+    const lock = TAPFLOW_PINNED_FILES['package-lock.json'] as { lockfileVersion: number; packages: Record<string, { version?: string; integrity?: string; resolved?: string; dependencies?: Record<string, string> }> }
+    expect(manifest.dependencies).toEqual({ '@tapflowio/mcp-server': TAPFLOW_VERSION, tapflow: TAPFLOW_VERSION })
+    expect(lock.lockfileVersion).toBe(3)
+    expect(lock.packages[''].dependencies).toEqual(manifest.dependencies)
+    expect(lock.packages['node_modules/tapflow']?.version).toBe(TAPFLOW_VERSION)
+    expect(lock.packages['node_modules/@tapflowio/mcp-server']?.version).toBe(TAPFLOW_VERSION)
+    const entries = Object.entries(lock.packages).filter(([key]) => key)
+    expect(entries.length).toBeGreaterThan(100)
+    for (const [key, entry] of entries) {
+      expect(entry.integrity, key).toMatch(/^sha512-/)
+      expect(entry.resolved, key).toMatch(/^https:\/\/registry\.npmjs\.org\//)
+    }
   })
 
   it('reads the Node major', () => {
@@ -104,16 +122,18 @@ describe('tapflowResourceRoots', () => {
     { pid: 400, ppid: 1, command: '/usr/bin/some-other-tool' },
   ]
 
-  it('claims the service, each booted simulator and each emulator while Tapflow runs', () => {
+  it('claims the service, each booted simulator and each emulator while Tapflow runs, with their Tapflow ids', () => {
     expect(tapflowResourceRoots(table, 100)).toEqual([
-      { label: 'iOS Simulator A1B1366D', pid: 200 },
-      { label: 'Android Emulator tapflow-phone', pid: 300 },
-      { label: 'Tapflow service', pid: 100 },
+      { label: 'iOS Simulator A1B1366D', pid: 200, kind: 'device', deviceId: UDID },
+      { label: 'tapflow-phone (Android Emulator)', pid: 300, kind: 'device', deviceId: 'avd:tapflow-phone' },
+      { label: 'Tapflow service', pid: 100, kind: 'service' },
     ])
+    // With the simulator's name (simctl), the person reads which device it is.
+    expect(tapflowResourceRoots(table, 100, new Map([[UDID, 'iPhone 17 Pro']]))[0]).toMatchObject({ label: 'iPhone 17 Pro (iOS Simulator)' })
   })
 
   it('finds a Tapflow the person started by its command line', () => {
-    expect(tapflowResourceRoots(table, null).at(-1)).toEqual({ label: 'Tapflow service', pid: 100 })
+    expect(tapflowResourceRoots(table, null).at(-1)).toEqual({ label: 'Tapflow service', pid: 100, kind: 'service' })
     expect(isTapflowServiceCommand('node /usr/local/bin/tapflow start')).toBe(true)
     expect(isTapflowServiceCommand('tapflow doctor --json')).toBe(false)
   })
@@ -127,7 +147,7 @@ describe('tapflowResourceRoots', () => {
     ]
     const roots = tapflowResourceRoots(child, 100).map((root) => ({ category: 'tapflow' as const, ...root }))
     const items = measureAppResources(child, roots, 1).categories.find((c) => c.id === 'tapflow')!.items
-    expect(items.map((item) => [item.label, item.processCount, item.memoryBytes])).toEqual([['Android Emulator tapflow-phone', 2, 4016], ['Tapflow service', 1, 100]])
+    expect(items.map((item) => [item.label, item.processCount, item.memoryBytes])).toEqual([['tapflow-phone (Android Emulator)', 2, 4016], ['Tapflow service', 1, 100]])
   })
 
   it('claims nothing when no Tapflow runs, even with a simulator booted', () => {
@@ -154,8 +174,8 @@ describe('device memory as physical footprint', () => {
       { pid: 100, ppid: 1, command: 'tapflow start' }, { pid: 101, ppid: 100, command: 'helper' },
       { pid: 200, ppid: 1, command: 'launchd_sim' }, { pid: 201, ppid: 200, command: 'SpringBoard' }, { pid: 202, ppid: 201, command: 'app' },
     ]
-    expect(deviceTreePids(table, [{ label: 'Tapflow service', pid: 100 }, { label: 'iOS Simulator X', pid: 200 }]).sort()).toEqual([200, 201, 202])
-    expect(deviceTreePids(table, [{ label: 'Tapflow service', pid: 100 }])).toEqual([])
+    expect(deviceTreePids(table, [{ label: 'Tapflow service', pid: 100, kind: 'service' }, { label: 'iOS Simulator X', pid: 200, kind: 'device', deviceId: 'X' }]).sort()).toEqual([200, 201, 202])
+    expect(deviceTreePids(table, [{ label: 'Tapflow service', pid: 100, kind: 'service' }])).toEqual([])
   })
 })
 

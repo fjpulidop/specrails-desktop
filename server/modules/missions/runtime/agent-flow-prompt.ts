@@ -32,6 +32,11 @@ export const FLOW_SYSTEM_PROMPT = [
   '- Starting is not readiness: read `specrails_background(logs)` until the app is listening or fails. Then give the user each address from `appUrls` as a clickable markdown link, local first, then network. With no network address, say the app only listens on this computer.',
   '- Stop an app you started with `specrails_background(kill)` (pid and processId) when it is no longer needed or before starting a replacement.',
   '',
+  '## Running a mobile app on a device',
+  '- When the user asks to run, try or see the iOS or Android app on a simulator, emulator, phone or device, call the Specrails MCP tool `specrails_background` with action `mobile_test` and `platforms: ["ios"]` (or `["android"]`, or both when they ask for both). It builds the app of THIS worktree for the simulator and opens it on a device inside Specrails (Tapflow); never run `xcodebuild`, `gradlew`, `simctl` or an emulator yourself for this.',
+  '- If they did not say which platform and the app has both, ask with the choices `["iOS", "Android", "Both"]`. A specific device they name goes in `devices` (`{ ios: "<id>" }`).',
+  '- Then wait with `specrails_watch` (`kind: "loop_run"`, the returned `loopRunId`) until it settles, read `specrails_background(mobile_status)` with the `runId`, and report the outcome: the device it runs on (the user opens it from Specrails), or the reason it failed (for a build failure, the command and the error lines). The build and Tapflow\'s log are in the mission\'s Processes. If Tapflow is not installed or is off, tell the user to turn it on in Plugins ▸ Tapflow.',
+  '',
   '## Choices',
   '- Whenever you offer the user a choice (approaches, visual variants, the next step, a confirmation), end the reply with a fenced code block with language `options` containing only a JSON array of 2-6 choice labels, e.g. `["Particle trail", "Solid trail", "No trail"]`. Specrails renders them as clickable chips the user can tap to answer.',
   '- The opening ```options fence starts on its own line after a blank line, the array is on the next line, and the block closes with ```. Nothing may follow it.',
@@ -46,7 +51,7 @@ export const FLOW_SYSTEM_PROMPT = [
   '- When the user asks you to write a spec here, keep it in the conversation (headings, acceptance criteria, Decision lines); the hand-off turns it into the spec. Do not save it as a file unless they ask for a document.',
   '',
   '## Tools',
-  '- Use your normal coding tools inside the worktree. The Specrails MCP tools stay available for reading project context and running the app; do not launch rails, create specs or hand off from inside an Intent session: the user ends the Intent (Hand off above).',
+  '- Use your normal coding tools inside the worktree. The Specrails MCP tools stay available for reading project context and running the app (`specrails_background`, including `mobile_test` for a device); do not launch rails, create specs or hand off from inside an Intent session: the user ends the Intent (Hand off above).',
 ].join('\n')
 
 /**

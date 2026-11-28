@@ -162,6 +162,20 @@ describe('POST /:projectId/background-processes', () => {
 })
 
 describe('GET /:projectId/background-processes/:pid/logs', () => {
+  it('[spec:mobile-device-testing/mission-processes] reads an observed entry (PID 0) by its processId, and refuses PID 0 without one', async () => {
+    vi.mocked(getBackgroundProcessLogs).mockReturnValue({
+      process: { pid: 0, processId: 'mobile-1', command: 'Test in Mobile Device · iOS · checkout', cwd: '/repo', startedAt: 10, status: 'exited', chatId: 'chat-1', projectId: 'p1', observed: true },
+      lines: [{ sequence: 0, at: 11, source: 'stdout', line: 'Building the iOS app (xcode)…' }],
+      nextSequence: 1, truncated: false, droppedLines: 0, maxLines: 500, maxLineChars: 1000, retentionMs: 1000,
+    })
+    const app = buildApp()
+    const ok = await request(app).get('/api/projects/p1/background-processes/0/logs').query({ chatId: 'chat-1', processId: 'mobile-1' })
+    expect(ok.status).toBe(200)
+    expect(ok.body.lines).toHaveLength(1)
+    expect(getBackgroundProcessLogs).toHaveBeenLastCalledWith(0, expect.objectContaining({ processId: 'mobile-1', chatId: 'chat-1' }))
+    expect((await request(app).get('/api/projects/p1/background-processes/0/logs').query({ chatId: 'chat-1' })).status).toBe(400)
+  })
+
   it('returns bounded logs for the same project/chat owner', async () => {
     vi.mocked(getBackgroundProcessLogs).mockReturnValue({
       process: {

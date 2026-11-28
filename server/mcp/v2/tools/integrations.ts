@@ -558,7 +558,15 @@ export const integrationsTool = defineTool({
     // ── Test in Mobile Device (Tapflow) ──
     mobile_test: {
       tier: 'write',
-      doc: 'Builds the iOS/Android app for the simulator and runs it on a Tapflow device (factory:mobile-test). What to test: options.delivery (a delivery ref or id, on review or merged locally), or options.target "checkout" (the project checkout as it is) or "branch" with options.branch (built in a temporary worktree; the checkout is untouched). options.platforms: ["ios"], ["android"] or both. options.devices: { ios?, android? } Tapflow device ids to use (else Tapflow picks). Returns the run ref: wait on it with specrails_wait.',
+      // Inside its own active Intent session a mission agent already has write in that worktree: running
+      // the app it is building there is allowed at any permission level, like its dev servers.
+      tierException: (ctx, args) => {
+        if (str(optionsOf(args).target) !== 'mission' || !ctx.originConversationId || !ctx.requestProjectId) return false
+        const project = ctx.registry.getContext(ctx.requestProjectId) as { flow?: { getByConversation(id: string): { state: string; step: unknown; worktreePath?: string | null } | null } } | undefined
+        const flow = project?.flow?.getByConversation(ctx.originConversationId)
+        return Boolean(flow && flow.state === 'active' && flow.step === null && flow.worktreePath)
+      },
+      doc: 'Builds the iOS/Android app for the simulator and runs it on a Tapflow device inside Specrails (factory:mobile-test); the person watches it in a native device window. What to test: options.target "mission" (a mission agent: the code of your own active Intent session), options.delivery (a delivery ref or id, on review or merged locally), options.target "checkout" (the project checkout as it is) or "branch" with options.branch (built in a temporary worktree; the checkout is untouched). options.platforms: ["ios"], ["android"] or both. options.devices: { ios?, android? } Tapflow device ids to use (else Tapflow picks). A mission\'s run shows in its Processes (build and Tapflow log) and Resources. Returns the run ref: wait on it with specrails_wait.',
       handler: async (ctx, args) => {
         const options = optionsOf(args)
         const parsed = parseRef(options.delivery)
@@ -568,14 +576,23 @@ export const integrationsTool = defineTool({
         const target = deliveryId ? null
           : kind === 'checkout' ? { kind: 'checkout' }
           : kind === 'branch' && branch ? { kind: 'branch', branch }
+          : kind === 'mission' && ctx.originConversationId ? { kind: 'mission' }
           : undefined
-        if (target === undefined) throw new V2ToolError('invalid_input', 'mobile_test needs options.delivery (a delivery ref or id), options.target "checkout", or options.target "branch" with options.branch.')
+        if (target === undefined) {
+          throw new V2ToolError('invalid_input', kind === 'mission'
+            ? 'options.target "mission" is for a mission agent (it builds the mission\'s own Intent session). Use "checkout" or "branch" otherwise.'
+            : 'mobile_test needs options.target "mission" (your Intent session), "checkout", or "branch" with options.branch, or options.delivery.')
+        }
         const platforms = (Array.isArray(options.platforms) ? options.platforms : [options.platforms]).filter((value): value is 'ios' | 'android' => value === 'ios' || value === 'android')
         if (!platforms.length) throw new V2ToolError('invalid_input', 'mobile_test needs options.platforms: ["ios"], ["android"] or both.')
         const devicesIn = asRecord(options.devices)
         const devices = Object.fromEntries((['ios', 'android'] as const).flatMap((platform) => (str(devicesIn[platform]) ? [[platform, str(devicesIn[platform])]] : [])))
         const { row, base } = projectBase(ctx, parsed?.project && args.project === undefined ? { ...args, project: parsed.project } : args)
-        const out = asRecord(await apiCall(ctx, 'POST', `${base}/mobile-test/start`, { ...(deliveryId ? { deliveryId } : { target }), platforms, ...(Object.keys(devices).length ? { devices } : {}) }))
+        // The calling mission (from its capability, never from arguments): the run shows in its Processes and Resources.
+        const conversationId = ctx.firstPartyAgent && ctx.originConversationId ? ctx.originConversationId : undefined
+        const out = asRecord(await apiCall(ctx, 'POST', `${base}/mobile-test/start`, {
+          ...(deliveryId ? { deliveryId } : { target }), platforms, ...(Object.keys(devices).length ? { devices } : {}), ...(conversationId ? { conversationId } : {}),
+        }))
         const run = formatRef('run', String(out.runId), row.slug)
         return result({ run, platforms }, writeMeta(ctx.v2.t('integrations.summary.mobile_test_started', { platforms: platforms.map((platform) => (platform === 'ios' ? 'iOS' : 'Android')).join(' + ') }), { refs: { run, ...(deliveryId ? { delivery: formatRef('delivery', deliveryId, row.slug) } : {}) } }))
       },

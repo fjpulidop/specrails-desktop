@@ -4320,23 +4320,34 @@
         "../../loops/runtime/loop-constants",
         "../../loops/runtime/loop-mobile-test-recipe",
         "../../missions/runtime/agent-chat-registry",
+        "../../terminals/runtime/background-process-service",
         "../mobile-project",
         "./delivery",
         "./mobile-build",
+        "./mobile-run-process",
         "./mobile-runs-store",
         "node:child_process",
         "node:fs",
         "node:path"
       ],
+      "adapters/mobile-run-process.ts": [
+        "../../../transient-children",
+        "node:fs"
+      ],
       "adapters/mobile-runs-store.ts": [
         "../../../db",
         "../mobile-project"
+      ],
+      "adapters/pinned.ts": [
+        "../pinned/package-lock.json",
+        "../pinned/package.json"
       ],
       "adapters/process.ts": [
         "../../../util/specrails-home",
         "../application",
         "../domain",
         "./android-toolchain",
+        "./pinned",
         "node:child_process",
         "node:fs",
         "node:os",
@@ -4347,6 +4358,9 @@
         "node:crypto",
         "node:fs",
         "node:path"
+      ],
+      "adapters/simulator-names.ts": [
+        "node:child_process"
       ],
       "adapters/store.ts": [
         "../../../db",
@@ -4377,9 +4391,11 @@
         "./adapters/mobile-build",
         "./adapters/mobile-handlers",
         "./adapters/mobile-offer",
+        "./adapters/mobile-run-process",
         "./adapters/mobile-runs-store",
         "./adapters/process",
         "./adapters/relay",
+        "./adapters/simulator-names",
         "./adapters/store",
         "./application",
         "./domain"

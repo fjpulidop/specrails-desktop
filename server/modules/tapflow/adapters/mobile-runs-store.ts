@@ -1,4 +1,4 @@
-/** `mobile_test_runs` (project database, migrations 98-99): the target and outcome of each Test in Mobile Device run. */
+/** `mobile_test_runs` (project database, migrations 98-100): the target and outcome of each Test in Mobile Device run. */
 import type { DbInstance } from '../../../db'
 import type { MobilePlatform } from '../mobile-project'
 
@@ -7,8 +7,8 @@ export interface MobileTestRun {
   projectId: string
   platforms: MobilePlatform[]
   targetPath: string
-  /** `branch`: a temporary worktree of a branch, removed when the run ends. */
-  targetKind: 'review' | 'checkout' | 'branch'
+  /** `branch`: a temporary worktree of a branch, removed when the run ends; `intent`: a mission's Intent worktree. */
+  targetKind: 'review' | 'checkout' | 'branch' | 'intent'
   deliveryId: string | null
   conversationId: string | null
   state: 'running' | 'launched' | 'failed'
@@ -42,6 +42,14 @@ export function createMobileRunsStore(db: DbInstance) {
     get(runId: string): MobileTestRun | null {
       const row = db.prepare('SELECT * FROM mobile_test_runs WHERE run_id = ?').get(runId) as Row | undefined
       return row ? toRun(row) : null
+    },
+    /** The mission's runs, newest first (bounded): its devices and live runs for Resources. */
+    listForConversation(conversationId: string, limit = 20): MobileTestRun[] {
+      return (db.prepare('SELECT * FROM mobile_test_runs WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?').all(conversationId, limit) as Row[]).map(toRun)
+    },
+    /** Conversations with a run still building or installing (the resource recorder samples them). */
+    runningConversations(): string[] {
+      return (db.prepare("SELECT DISTINCT conversation_id FROM mobile_test_runs WHERE state = 'running' AND conversation_id IS NOT NULL").all() as Array<{ conversation_id: string }>).map((row) => row.conversation_id)
     },
     latestForDelivery(deliveryId: string): MobileTestRun | null {
       const row = db.prepare('SELECT * FROM mobile_test_runs WHERE delivery_id = ? ORDER BY created_at DESC LIMIT 1').get(deliveryId) as Row | undefined
