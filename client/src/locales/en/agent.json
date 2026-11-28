@@ -1711,5 +1711,30 @@
     "action": "{{client}} · {{call}}",
     "actionFailed": "{{client}} · {{call}} failed",
     "missionBadgeTitle": "Created by {{client}} through MCP: its actions are logged here"
+  },
+  "mobileTest": {
+    "title": "Test in Mobile Device",
+    "body": "Build the {{platform}} app for the simulator and run it on a Tapflow device.",
+    "bodyChoose": "Build the app for the simulator and run it on a Tapflow device. Choose the platform:",
+    "start": "Test on the device",
+    "both": "Both",
+    "notNow": "Not now",
+    "retry": "Try again",
+    "started": "Building and installing on the device…",
+    "startedBody": "The build runs in this delivery's working copy; the run log shows each step.",
+    "launched": "Running {{devices}}",
+    "launchedBody": "The app is installed and open on the device.",
+    "failed": "The mobile test did not finish",
+    "failedBody": "See the run log for the details.",
+    "expired": "Mobile test no longer available",
+    "expiredBody": "This delivery's code is no longer on this machine. Test before publishing it.",
+    "dismissed": "Mobile test skipped for this delivery.",
+    "openLog": "Open log",
+    "startFailed": "Could not start the mobile test.",
+    "onDevice": "{{platform}} on {{device}}",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    }
   }
 }

@@ -7,6 +7,7 @@ import { isCodeExplorerEnabled } from './feature-flags'
 import type { ProjectRegistry, ProjectContext } from './project-registry'
 import { createHooksRouter } from './hooks'
 import { createRailsRouter } from './modules/delivery/runtime/rails-router'
+import { mobileOfferEnv, registerMobileTestRoutes } from './modules/tapflow'
 import { registerIntentHttp } from './modules/intent/adapters/http'
 import { createProfilesRouter } from './modules/agents/runtime/profiles-router'
 import { createPluginsRouter } from './plugins-router'
@@ -144,6 +145,11 @@ export function createProjectRouter(registry: ProjectRegistry): Router {
   router.use('/:projectId/profiles', profilesRouter)
 
   // Mount plugins router under each project (per-project marketplace)
+  // Test in Mobile Device (tapflow): start / dismiss its offer.
+  const mobileTestRouter = Router()
+  registerMobileTestRoutes(mobileTestRouter, mobileOfferEnv)
+  router.use('/:projectId/mobile-test', mobileTestRouter)
+
   const pluginsRouter = createPluginsRouter()
   router.use('/:projectId/plugins', pluginsRouter)
 

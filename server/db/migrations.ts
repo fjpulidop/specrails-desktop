@@ -2217,6 +2217,29 @@ const MIGRATIONS: Migration[] = [
     const cols = new Set((db.prepare('PRAGMA table_info(loop_runs)').all() as Array<{ name: string }>).map((c) => c.name))
     if (!cols.has('held_ms')) db.exec('ALTER TABLE loop_runs ADD COLUMN held_ms INTEGER NOT NULL DEFAULT 0')
   },
+
+  // Migration 98: mobile_test_runs — what a "Test in Mobile Device" run builds and where it ran
+  // (server/modules/tapflow). The host tasks of the run read their target from here: Core's host-task
+  // interrupt carries only the run id.
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS mobile_test_runs (
+        run_id           TEXT PRIMARY KEY,
+        project_id       TEXT NOT NULL,
+        platforms        TEXT NOT NULL,
+        target_path      TEXT NOT NULL,
+        target_kind      TEXT NOT NULL CHECK (target_kind IN ('review', 'checkout')),
+        delivery_id      TEXT,
+        conversation_id  TEXT,
+        state            TEXT NOT NULL DEFAULT 'running' CHECK (state IN ('running', 'launched', 'failed')),
+        artifacts        TEXT NOT NULL DEFAULT '[]',
+        result           TEXT,
+        created_at       TEXT NOT NULL,
+        updated_at       TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_mobile_test_runs_delivery ON mobile_test_runs(delivery_id);
+    `)
+  },
 ]
 
 export function applyMigrations(db: DbInstance): void {

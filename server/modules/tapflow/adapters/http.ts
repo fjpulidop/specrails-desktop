@@ -5,6 +5,8 @@
  */
 import type { Request, Response, Router } from 'express'
 import type { TapflowPlugin } from '../application'
+import type { ProjectContext } from '../../../project-registry'
+import { dismissMobileTestOffer, startMobileTest, type MobileOfferEnv } from './mobile-offer'
 
 export function registerTapflowRoutes(router: Router, tapflow: TapflowPlugin): void {
   router.get('/tapflow', async (_req: Request, res: Response) => { res.json({ status: await tapflow.status() }) })
@@ -20,4 +22,24 @@ export function registerTapflowRoutes(router: Router, tapflow: TapflowPlugin): v
   router.post('/tapflow/activate', action('activate'))
   router.post('/tapflow/deactivate', action('deactivate'))
   router.post('/tapflow/uninstall', action('uninstall'))
+}
+
+/**
+ * Project routes of Test in Mobile Device, under `/api/projects/:projectId/mobile-test`:
+ * `POST /start` `{ deliveryId, platforms }` (202 `{ runId }`) and `POST /dismiss` `{ deliveryId }`.
+ */
+export function registerMobileTestRoutes(router: Router, env: MobileOfferEnv): void {
+  const ctx = (req: Request) => (req as Request & { projectCtx?: ProjectContext }).projectCtx!
+  router.post('/start', async (req: Request, res: Response) => {
+    const { deliveryId, platforms } = (req.body ?? {}) as { deliveryId?: unknown; platforms?: unknown }
+    if (typeof deliveryId !== 'string' || !Array.isArray(platforms)) { res.status(400).json({ error: 'deliveryId and platforms are required' }); return }
+    const result = await startMobileTest(ctx(req), { deliveryId, platforms: platforms.filter((p): p is 'ios' | 'android' => p === 'ios' || p === 'android') }, env)
+    if (!result.ok) { res.status(result.status).json({ error: result.error }); return }
+    res.status(202).json({ runId: result.runId })
+  })
+  router.post('/dismiss', (req: Request, res: Response) => {
+    const deliveryId = (req.body ?? {}).deliveryId
+    if (typeof deliveryId !== 'string') { res.status(400).json({ error: 'deliveryId is required' }); return }
+    res.json({ ok: dismissMobileTestOffer(ctx(req), deliveryId) })
+  })
 }

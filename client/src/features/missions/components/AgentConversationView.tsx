@@ -42,6 +42,7 @@ import { AgentSessionSummaryCard, parseSessionSummaryRow } from './AgentSessionS
 import { AgentFlowBoundaryLine, flowTurnMessageIds, parseFlowBoundaryRow } from './AgentFlowBoundaryLine'
 import { AgentRunFailureMarker, AgentSystemBriefing } from './AgentRunFailureMarker'
 import { AgentPrCiOfferCard, parsePrCiOfferRow } from './AgentPrCiOfferCard'
+import { AgentMobileTestOfferCard, parseMobileTestOfferRow } from './AgentMobileTestOfferCard'
 import { PR_CI_LOOP_ID } from '../../delivery/lib/pr-ci'
 import { FEATURE_MISSION_RAIL_CARDS, FEATURE_PR_CI_CARD } from '../../../lib/feature-flags'
 import { useRailLaunchProposals } from './useRailLaunchProposals'
@@ -569,6 +570,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // pr-ci-loop: the optional "Watch and fix the PR's CI" offer (never attention).
               const prCiOffer = parsePrCiOfferRow(m.content)
               if (prCiOffer) return FEATURE_PR_CI_CARD ? <AgentPrCiOfferCard key={m.id} row={prCiOffer} conversationId={m.conversation_id} /> : null
+              // tapflow: "Test in Mobile Device" after a delivery of a mobile app (optional, never attention).
+              const mobileTestOffer = parseMobileTestOfferRow(m.content)
+              if (mobileTestOffer) return <AgentMobileTestOfferCard key={m.id} row={mobileTestOffer} />
               // Back to Intent: what the reviewer asked for (server-authored, once per delivery).
               const flowReturn = parseFlowReturnBriefingRow(m.content)
               if (flowReturn) return <AgentFlowReturnCard key={m.id} row={flowReturn} conversationId={m.conversation_id} />

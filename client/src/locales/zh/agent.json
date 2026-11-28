@@ -1711,5 +1711,30 @@
     "action": "{{client}} · {{call}}",
     "actionFailed": "{{client}} · {{call}} 失败",
     "missionBadgeTitle": "由 {{client}} 通过 MCP 创建:其操作记录在此"
+  },
+  "mobileTest": {
+    "title": "在移动设备上测试",
+    "body": "为模拟器构建 {{platform}} 应用，并在 Tapflow 设备上运行。",
+    "bodyChoose": "为模拟器构建应用，并在 Tapflow 设备上运行。请选择平台：",
+    "start": "在设备上测试",
+    "both": "两者",
+    "notNow": "暂不",
+    "retry": "重试",
+    "started": "正在构建并安装到设备…",
+    "startedBody": "构建在此交付的工作副本中进行；运行日志会显示每一步。",
+    "launched": "运行中：{{devices}}",
+    "launchedBody": "应用已安装并在设备上打开。",
+    "failed": "移动测试未完成",
+    "failedBody": "详情请查看运行日志。",
+    "expired": "移动测试已不可用",
+    "expiredBody": "此交付的代码已不在本机上。请在发布前测试。",
+    "dismissed": "已跳过此交付的移动测试。",
+    "openLog": "打开日志",
+    "startFailed": "无法启动移动测试。",
+    "onDevice": "{{device}} 上的 {{platform}}",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    }
   }
 }

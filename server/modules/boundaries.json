@@ -1126,6 +1126,7 @@
       "runtime/delivery-base-refresh.ts",
       "runtime/delivery-changes.ts",
       "runtime/delivery-evidence.ts",
+      "runtime/delivery-observers.ts",
       "runtime/flow-review-legacy.ts",
       "runtime/flow-review-outcome.ts",
       "runtime/flow-worktree-handoff.ts",
@@ -1406,6 +1407,9 @@
         "./run-records",
         "fs",
         "path"
+      ],
+      "runtime/delivery-observers.ts": [
+        "../../../project-registry"
       ],
       "runtime/flow-review-legacy.ts": [
         "../../../db",
@@ -1796,6 +1800,7 @@
         "../../agent-runtime/runtime/agent-runtime-controls-router",
         "../../missions/runtime/agent-chat-registry",
         "../../missions/runtime/mission-run-notify",
+        "./delivery-observers",
         "./flow-review-outcome",
         "./pr-ci/pr-ci-projection",
         "./rail-isolated-launch-support",
@@ -2132,6 +2137,7 @@
         "../../missions/runtime/agent-chat-registry",
         "../../specs/domain/triage",
         "../../specs/runtime/ticket-store",
+        "./delivery-observers",
         "./pr-ci/pr-ci-projection",
         "./rail-pr-store",
         "./rails-store",
@@ -2944,6 +2950,7 @@
       "runtime/loop-factory.ts",
       "runtime/loop-graph.ts",
       "runtime/loop-limit-pauses.ts",
+      "runtime/loop-mobile-test-recipe.ts",
       "runtime/loop-pr-ci-recipe.ts",
       "runtime/loop-provider-switch-settled.ts",
       "runtime/loop-provider-switch.ts",
@@ -3112,6 +3119,7 @@
         "./loop-core-factory",
         "./loop-flow-spec-recipe",
         "./loop-graph",
+        "./loop-mobile-test-recipe",
         "./loop-pr-ci-recipe"
       ],
       "runtime/loop-flow-spec-recipe.ts": [
@@ -3151,6 +3159,10 @@
         "./loop-compat",
         "./loop-graph",
         "./loops-store"
+      ],
+      "runtime/loop-mobile-test-recipe.ts": [
+        "./loop-agents",
+        "./loop-graph"
       ],
       "runtime/loop-node-ai-step.ts": [
         "../../../core-execution",
@@ -4233,16 +4245,69 @@
   },
   "tapflow": {
     "publicEntries": [
+      "adapters/mobile-offer.ts",
+      "adapters/mobile-runs-store.ts",
       "index.ts"
     ],
     "dependencies": {
+      "adapters/delivery.ts": [
+        "../mobile-project",
+        "./process",
+        "./relay",
+        "@modelcontextprotocol/sdk/client/index.js",
+        "@modelcontextprotocol/sdk/client/stdio.js",
+        "node:child_process",
+        "node:fs",
+        "node:path"
+      ],
       "adapters/footprint.ts": [
         "../domain",
         "node:child_process"
       ],
       "adapters/http.ts": [
+        "../../../project-registry",
         "../application",
+        "./mobile-offer",
         "express"
+      ],
+      "adapters/mobile-build.ts": [
+        "../mobile-project",
+        "node:child_process",
+        "node:fs",
+        "node:path",
+        "tree-kill"
+      ],
+      "adapters/mobile-handlers.ts": [
+        "../../agent-runtime/runtime/host-task-dispatcher",
+        "../mobile-project",
+        "./delivery",
+        "./mobile-build",
+        "./mobile-runs-store"
+      ],
+      "adapters/mobile-offer.ts": [
+        "../../../desktop-db",
+        "../../../ids",
+        "../../../project-registry",
+        "../../../project-repositories",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../agent-runtime/runtime/agent-runtime-loader",
+        "../../agents/runtime/agent-defaults",
+        "../../delivery/runtime/rail-pr-store",
+        "../../delivery/runtime/rail-worktrees-store",
+        "../../loops/runtime/loop-constants",
+        "../../loops/runtime/loop-mobile-test-recipe",
+        "../../missions/runtime/agent-chat-registry",
+        "../mobile-project",
+        "./mobile-build",
+        "./mobile-runs-store",
+        "node:child_process",
+        "node:fs"
+      ],
+      "adapters/mobile-runs-store.ts": [
+        "../../../db",
+        "../mobile-project"
       ],
       "adapters/process.ts": [
         "../application",
@@ -4274,11 +4339,18 @@
         "./domain",
         "./runtime"
       ],
+      "mobile-project.ts": [],
       "runtime.ts": [
         "../../db",
         "../../path-resolver",
+        "../delivery/runtime/delivery-observers",
         "../terminals/runtime/terminal-manager",
+        "./adapters/delivery",
         "./adapters/footprint",
+        "./adapters/mobile-build",
+        "./adapters/mobile-handlers",
+        "./adapters/mobile-offer",
+        "./adapters/mobile-runs-store",
         "./adapters/process",
         "./adapters/relay",
         "./adapters/store",

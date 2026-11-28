@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1961 source/build files. Nearby tests are linked where names
+Includes 1970 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -724,6 +724,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [AgentMcpActionLine.tsx](../../client/src/features/missions/components/AgentMcpActionLine.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentMcpActionLine.test.tsx)
 - [AgentMessage.tsx](../../client/src/features/missions/components/AgentMessage.tsx)
 - [AgentMissionSelector.tsx](../../client/src/features/missions/components/AgentMissionSelector.tsx)
+- [AgentMobileTestOfferCard.tsx](../../client/src/features/missions/components/AgentMobileTestOfferCard.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentMobileTestOfferCard.test.tsx)
 - [AgentModeAnalyticsPane.tsx](../../client/src/features/missions/components/AgentModeAnalyticsPane.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeAnalyticsPane.test.tsx)
 - [AgentModeCodePane.tsx](../../client/src/features/missions/components/AgentModeCodePane.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeCodePane.test.tsx)
 - [AgentModeJobsPane.tsx](../../client/src/features/missions/components/AgentModeJobsPane.tsx) · [test](../../client/src/features/missions/components/__tests__/AgentModeJobsPane.test.tsx)
@@ -2080,6 +2081,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [delivery-base-refresh.ts](../../server/modules/delivery/runtime/delivery-base-refresh.ts) · [test](../../server/modules/delivery/runtime/delivery-base-refresh.test.ts)
 - [delivery-changes.ts](../../server/modules/delivery/runtime/delivery-changes.ts) · [test](../../server/modules/delivery/runtime/delivery-changes.test.ts)
 - [delivery-evidence.ts](../../server/modules/delivery/runtime/delivery-evidence.ts) · [test](../../server/modules/delivery/runtime/delivery-evidence.test.ts)
+- [delivery-observers.ts](../../server/modules/delivery/runtime/delivery-observers.ts)
 - [flow-review-legacy.ts](../../server/modules/delivery/runtime/flow-review-legacy.ts) · [test](../../server/modules/delivery/runtime/flow-review-legacy.test.ts)
 - [flow-review-outcome.ts](../../server/modules/delivery/runtime/flow-review-outcome.ts)
 - [flow-worktree-handoff.ts](../../server/modules/delivery/runtime/flow-worktree-handoff.ts)
@@ -2343,6 +2345,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-legacy-traversal.ts](../../server/modules/loops/runtime/loop-legacy-traversal.ts)
 - [loop-limit-pauses.ts](../../server/modules/loops/runtime/loop-limit-pauses.ts)
 - [loop-migration.ts](../../server/modules/loops/runtime/loop-migration.ts)
+- [loop-mobile-test-recipe.ts](../../server/modules/loops/runtime/loop-mobile-test-recipe.ts) · [test](../../server/modules/loops/runtime/loop-mobile-test-recipe.test.ts)
 - [loop-node-ai-step.ts](../../server/modules/loops/runtime/loop-node-ai-step.ts)
 - [loop-node-decider.ts](../../server/modules/loops/runtime/loop-node-decider.ts)
 - [loop-node-shell.ts](../../server/modules/loops/runtime/loop-node-shell.ts)
@@ -2545,12 +2548,18 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [application.ts](../../server/modules/tapflow/application.ts) · [test](../../server/modules/tapflow/__tests__/application.test.ts)
 - [domain.ts](../../server/modules/tapflow/domain.ts) · [test](../../server/modules/tapflow/__tests__/domain.test.ts)
 - [index.ts](../../server/modules/tapflow/index.ts)
+- [mobile-project.ts](../../server/modules/tapflow/mobile-project.ts) · [test](../../server/modules/tapflow/__tests__/mobile-project.test.ts)
 - [runtime.ts](../../server/modules/tapflow/runtime.ts)
 
 ## server/modules/tapflow/adapters
 
+- [delivery.ts](../../server/modules/tapflow/adapters/delivery.ts)
 - [footprint.ts](../../server/modules/tapflow/adapters/footprint.ts)
 - [http.ts](../../server/modules/tapflow/adapters/http.ts)
+- [mobile-build.ts](../../server/modules/tapflow/adapters/mobile-build.ts)
+- [mobile-handlers.ts](../../server/modules/tapflow/adapters/mobile-handlers.ts)
+- [mobile-offer.ts](../../server/modules/tapflow/adapters/mobile-offer.ts)
+- [mobile-runs-store.ts](../../server/modules/tapflow/adapters/mobile-runs-store.ts)
 - [process.ts](../../server/modules/tapflow/adapters/process.ts)
 - [relay.ts](../../server/modules/tapflow/adapters/relay.ts)
 - [store.ts](../../server/modules/tapflow/adapters/store.ts)

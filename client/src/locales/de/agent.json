@@ -1711,5 +1711,30 @@
     "action": "{{client}} · {{call}}",
     "actionFailed": "{{client}} · {{call}} fehlgeschlagen",
     "missionBadgeTitle": "Von {{client}} über MCP erstellt: seine Aktionen werden hier protokolliert"
+  },
+  "mobileTest": {
+    "title": "Auf Mobilgerät testen",
+    "body": "Die {{platform}}-App für den Simulator bauen und auf einem Tapflow-Gerät starten.",
+    "bodyChoose": "Die App für den Simulator bauen und auf einem Tapflow-Gerät starten. Plattform wählen:",
+    "start": "Auf dem Gerät testen",
+    "both": "Beide",
+    "notNow": "Nicht jetzt",
+    "retry": "Erneut versuchen",
+    "started": "Wird gebaut und auf dem Gerät installiert…",
+    "startedBody": "Der Build läuft in der Arbeitskopie dieser Lieferung; das Run-Log zeigt jeden Schritt.",
+    "launched": "Läuft: {{devices}}",
+    "launchedBody": "Die App ist auf dem Gerät installiert und geöffnet.",
+    "failed": "Der Mobiltest wurde nicht abgeschlossen",
+    "failedBody": "Details stehen im Run-Log.",
+    "expired": "Mobiltest nicht mehr verfügbar",
+    "expiredBody": "Der Code dieser Lieferung ist nicht mehr auf diesem Rechner. Vor dem Veröffentlichen testen.",
+    "dismissed": "Mobiltest für diese Lieferung übersprungen.",
+    "openLog": "Log öffnen",
+    "startFailed": "Der Mobiltest konnte nicht gestartet werden.",
+    "onDevice": "{{platform}} auf {{device}}",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    }
   }
 }

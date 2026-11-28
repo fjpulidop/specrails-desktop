@@ -1711,5 +1711,30 @@
     "action": "{{client}} · {{call}}",
     "actionFailed": "{{client}} · {{call}} non riuscita",
     "missionBadgeTitle": "Creata da {{client}} tramite MCP: qui sono registrate le sue azioni"
+  },
+  "mobileTest": {
+    "title": "Prova su dispositivo mobile",
+    "body": "Compila l'app {{platform}} per il simulatore e aprila su un dispositivo Tapflow.",
+    "bodyChoose": "Compila l'app per il simulatore e aprila su un dispositivo Tapflow. Scegli la piattaforma:",
+    "start": "Prova sul dispositivo",
+    "both": "Entrambe",
+    "notNow": "Non ora",
+    "retry": "Riprova",
+    "started": "Compilazione e installazione sul dispositivo…",
+    "startedBody": "La compilazione avviene nella copia di lavoro di questa consegna; il log del run mostra ogni passo.",
+    "launched": "In esecuzione: {{devices}}",
+    "launchedBody": "L'app è installata e aperta sul dispositivo.",
+    "failed": "La prova su mobile non è terminata",
+    "failedBody": "Vedi il log del run per i dettagli.",
+    "expired": "Prova su mobile non più disponibile",
+    "expiredBody": "Il codice di questa consegna non è più su questo computer. Provalo prima di pubblicarlo.",
+    "dismissed": "Prova su mobile saltata per questa consegna.",
+    "openLog": "Apri log",
+    "startFailed": "Impossibile avviare la prova su mobile.",
+    "onDevice": "{{platform}} su {{device}}",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    }
   }
 }

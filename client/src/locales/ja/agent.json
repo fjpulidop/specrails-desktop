@@ -1711,5 +1711,30 @@
     "action": "{{client}} · {{call}}",
     "actionFailed": "{{client}} · {{call}} 失敗",
     "missionBadgeTitle": "{{client}} が MCP で作成しました。その操作はここに記録されます"
+  },
+  "mobileTest": {
+    "title": "モバイル端末でテスト",
+    "body": "{{platform}} アプリをシミュレーター向けにビルドし、Tapflow の端末で起動します。",
+    "bodyChoose": "アプリをシミュレーター向けにビルドし、Tapflow の端末で起動します。プラットフォームを選んでください:",
+    "start": "端末でテスト",
+    "both": "両方",
+    "notNow": "今はしない",
+    "retry": "再試行",
+    "started": "ビルドして端末にインストール中…",
+    "startedBody": "ビルドはこの納品の作業コピーで行われます。各ステップは実行ログで確認できます。",
+    "launched": "実行中: {{devices}}",
+    "launchedBody": "アプリは端末にインストールされ、起動しています。",
+    "failed": "モバイルテストは完了しませんでした",
+    "failedBody": "詳細は実行ログを確認してください。",
+    "expired": "モバイルテストは利用できなくなりました",
+    "expiredBody": "この納品のコードはもうこのマシンにありません。公開前にテストしてください。",
+    "dismissed": "この納品のモバイルテストはスキップしました。",
+    "openLog": "ログを開く",
+    "startFailed": "モバイルテストを開始できませんでした。",
+    "onDevice": "{{device}} の {{platform}}",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    }
   }
 }
