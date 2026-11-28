@@ -136,6 +136,9 @@ export function flowSpecGraph(): LoopGraph {
   node('tag', 'Tag tests and demonstrate every requirement', 'role-turn', {
     roleId: 'developer',
     stance: 'fixer',
+    // The developer's own OpenSpec access is checkbox-only: on Codex, which writes the artifacts through
+    // Core's scoped tools, the evidence edits were refused (benchmark exp. 8, spec #10).
+    artifacts: 'test-evidence',
     prompt: [
       `Tag the existing tests of OpenSpec change ${change} with the requirements they demonstrate.`,
       `Read the delta specs under openspec/changes/${change}/specs/. For every ADDED or MODIFIED requirement, find the tests in this worktree that demonstrate it and add its id to their titles as \`[spec:<capability>/<requirement-slug>]\` (or a \`// spec: <capability>/<requirement-slug>\` comment, \`# spec:\` in Python and shell, on the line before the test).`,

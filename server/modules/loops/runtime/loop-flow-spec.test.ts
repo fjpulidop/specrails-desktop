@@ -52,8 +52,8 @@ describe('flow-spec definition', () => {
   it('tags the tests with the derived requirement ids, demonstrates untested requirements and records them as evidence, between derive and check', () => {
     expect(definition.nodes.derive!.ends).toMatchObject({ pass: 'tag' })
     expect(definition.nodes.tag!).toMatchObject({ kind: 'role-turn', ends: { next: 'tag-report', invalid: 'check', failed: 'failed' } })
-    const tag = definition.nodes.tag!.params as { roleId: string; stance: string; prompt: string; sessionContinuity: string }
-    expect(tag).toMatchObject({ roleId: 'developer', stance: 'fixer', sessionContinuity: 'none' })
+    const tag = definition.nodes.tag!.params as { roleId: string; stance: string; artifacts: string; prompt: string; sessionContinuity: string }
+    expect(tag).toMatchObject({ roleId: 'developer', stance: 'fixer', artifacts: 'test-evidence', sessionContinuity: 'none' })
     expect(tag.prompt).toContain('[spec:<capability>/<requirement-slug>]')
     expect(tag.prompt).toContain('add one focused test that asserts its observable behaviour')
     expect(tag.prompt).toContain('tasks.md and design.md up to date with the tests')
