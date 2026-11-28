@@ -4,7 +4,7 @@ Working document for the Intent → Spec optimization (2026-11-27 night). It kee
 the diagnosis, the plan, the benchmark protocol and the measured results, so the
 work can resume after an interruption (quota, restart) without losing context.
 
-Status: in progress (set to `complete` when the plan below is done).
+Status: complete (2026-11-28). The plan below is done; see "Status after the night" for the outcome.
 
 How to run: start the dev app (`~/.specrails-dev/.specrails/bench/devprobe/relaunch.sh`,
 after `npm run build:sidecar` and a host build when the server changed), then
@@ -341,6 +341,41 @@ evidence edits went through Core's scoped OpenSpec writer, which allows the deve
 task checkboxes (`artifacts: 'tasks-checkboxes'`), and was refused; on Claude the developer edits
 the file directly, bypassing that policy. The consistent fix is a per-node artifact access for the
 tag step in Core (pending). tetrisex-11 on Codex runs after the 12:51 quota reset.
+
+### 2026-11-28 10:42 — experiment 9: the tag step records evidence through Core's scoped tools
+
+Core gains a per-turn artifact access: a `role-turn` with `artifacts: 'test-evidence'` (a write
+role with an OpenSpec binding) writes only tasks.md and design.md of the bound change, after
+`instructions apply`, and never changes a task line, a checkbox or a design.md heading. The role
+invoker forwards it to every execution of the turn (the repair turn included); the flow-spec tag
+node uses it (fjpulidop/specrails-core#489, which this Desktop change now needs). The dev app ran
+the Core worktree build for these runs (`SPECRAILS_CORE_RUNTIME_PATH` in the devprobe relaunch).
+
+| Case | Before | Exp. 9 |
+|---|---|---|
+| tetrisex-11, Codex (low) | 14.5 min, 5.61 USD, **failed** at 89 (budget spent on stale evidence; final pass) | **17.1 min, 6.07 USD, success**, 2 rounds (67 → 85 → 94) |
+| tetrisex-3, Claude | 6.2 min, 1.60 USD, 0 rounds (exp. 8) | 5.0 min, 1.51 USD, 0 rounds (86) |
+| tetrisex-2, Claude | 1.1 min, 0.64 USD, 0 rounds (exp. 8) | 1.3 min, 0.91 USD, 0 rounds (88) |
+
+On Codex every tag turn updated the evidence (the developer's OpenSpec log: 5 accepted design.md
+and 3 tasks.md writes through the scoped tools), and no review raised stale evidence again. Both
+of its correction rounds were real defects the first review found: the Ultra clock dropping the
+unconsumed update time when a lock spawns a piece, Sprint times losing their fraction on save and
+reload, keyboard focus escaping the mode picker, the delta's level formula ignoring the starting
+level, and a lock sound lost when Ultra expires in the same frame. It is slower than last night's
+failed run because it fixed those instead of ending.
+
+## Status after the night
+
+- **Claude (sonnet, CLI default effort): 10/10 cases succeed, 9 without a correction round**, 1.1–6.2
+  min and 0.64–1.60 USD each; the one round left (arkanoidex-12) is a real defect caught by `check`.
+- **Codex (gpt-6.2-sol, effort low): spec #10 10.9 min / 2.80 USD and tetrisex-11 17.1 min / 6.07 USD,
+  both successful**; every remaining round is a real defect.
+- Baseline (spec #10 on Codex): 21.5 min, 7.27 USD, failed.
+
+Open follow-ups: Specrails passes no reasoning effort, so the result depends on each machine's CLI
+configuration (Codex reads `~/.codex/config.toml`); a per-role effort would make runs reproducible.
+A Desktop release needs a Core release with the role-turn `artifacts` param.
 
 ### Experiment 2 (reverted, see above) — the reviewer keeps its session
 
