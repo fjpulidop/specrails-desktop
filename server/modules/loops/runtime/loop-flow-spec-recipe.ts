@@ -130,7 +130,9 @@ export function flowSpecGraph(): LoopGraph {
   // The requirement ids only exist once derive wrote the delta specs, so the Intent's tests cannot carry
   // them yet: without this step every first review failed on missing tags alone and spent a whole
   // correction round (fix, re-derive, re-review) on them (benchmark experiment 3). The rounds left were
-  // all a requirement no test demonstrated, so the step also writes that test (experiment 6).
+  // all a requirement no test demonstrated, so the step also writes that test (experiment 6). The
+  // artifacts were derived before those tests existed, and most remaining rounds were the reviewer
+  // asking to cite them in tasks.md and design.md, so the step records them there too (experiment 7).
   node('tag', 'Tag tests and demonstrate every requirement', 'role-turn', {
     roleId: 'developer',
     stance: 'fixer',
@@ -139,7 +141,8 @@ export function flowSpecGraph(): LoopGraph {
       `Read the delta specs under openspec/changes/${change}/specs/. For every ADDED or MODIFIED requirement, find the tests in this worktree that demonstrate it and add its id to their titles as \`[spec:<capability>/<requirement-slug>]\` (or a \`// spec: <capability>/<requirement-slug>\` comment, \`# spec:\` in Python and shell, on the line before the test).`,
       'The slug is the requirement name after `### Requirement:`, lowercased, accents removed, every run of other characters one dash. A test already carrying the right tag stays as it is.',
       'Then, for every ADDED or MODIFIED requirement no existing test demonstrates, add one focused test that asserts its observable behaviour (its scenarios), tagged with its id, in a test file that already differs from the base (part of this change), reusing that file\'s harness and helpers. Run the tests you touched.',
-      'Never change production code, existing assertions or anything under openspec/, and never expand scope: a test only demonstrates behaviour the code already has. A requirement only documentation can show needs no test. List under incomplete each requirement you could not demonstrate, with the reason.',
+      `Then bring openspec/changes/${change}/tasks.md and design.md up to date with the tests: wherever they say a behaviour has no automated test or name the evidence for a task, cite the tests you tagged or added, and add every test file you changed to the files the change touches. Change nothing else there.`,
+      'Never change production code, existing assertions, the delta specs or the proposal, and never expand scope: a test only demonstrates behaviour the code already has. A requirement only documentation can show needs no test. List under incomplete each requirement you could not demonstrate, with the reason.',
       'Return summary and incomplete.',
     ].join(' '),
     structuredOutput: FIX_SCHEMA,

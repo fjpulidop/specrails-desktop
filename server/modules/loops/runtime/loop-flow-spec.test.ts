@@ -49,14 +49,15 @@ describe('factory:flow-spec gating', () => {
 describe('flow-spec definition', () => {
   const definition = compileLoopToDefinition(flowSpecGraph(), { id: FLOW_SPEC_LOOP_ID, title: 'Intent → Spec', constants: {}, provider: 'claude', roles: { reviewer: { access: 'read' } } })
 
-  it('tags the tests with the derived requirement ids and demonstrates untested requirements, between derive and check', () => {
+  it('tags the tests with the derived requirement ids, demonstrates untested requirements and records them as evidence, between derive and check', () => {
     expect(definition.nodes.derive!.ends).toMatchObject({ pass: 'tag' })
     expect(definition.nodes.tag!).toMatchObject({ kind: 'role-turn', ends: { next: 'check', invalid: 'check', failed: 'failed' } })
     const tag = definition.nodes.tag!.params as { roleId: string; stance: string; prompt: string; sessionContinuity: string }
     expect(tag).toMatchObject({ roleId: 'developer', stance: 'fixer', sessionContinuity: 'none' })
     expect(tag.prompt).toContain('[spec:<capability>/<requirement-slug>]')
     expect(tag.prompt).toContain('add one focused test that asserts its observable behaviour')
-    expect(tag.prompt).toContain('Never change production code, existing assertions or anything under openspec/')
+    expect(tag.prompt).toContain('tasks.md and design.md up to date with the tests')
+    expect(tag.prompt).toContain('Never change production code, existing assertions, the delta specs or the proposal')
   })
 
   it('re-derives after a correction round even when the fixer changed no code (an artifact finding)', () => {
