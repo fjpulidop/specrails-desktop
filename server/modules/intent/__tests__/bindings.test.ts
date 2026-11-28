@@ -1028,3 +1028,11 @@ describe('Intent launch engine binding', () => {
     expect(ports.agent.launchEngine!(codex.id)).toBeNull()
   })
 })
+
+describe('Intent opening turn', () => {
+  it('[spec:mission-plan/sources] asks the agent to show its plan before the first change', async () => {
+    const { FLOW_OPENING_TURN_TEXT } = await import('../adapters/bindings')
+    expect(FLOW_OPENING_TURN_TEXT).toMatch(/show your plan before the first change/)
+    expect(FLOW_OPENING_TURN_TEXT).toContain('`specrails_missions` action `plan`')
+  })
+})
