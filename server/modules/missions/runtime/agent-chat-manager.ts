@@ -943,7 +943,8 @@ export class AgentChatManager {
       ? ' | Protocol: fenced protocol blocks MUST be tagged exactly intent-draft, spec-draft or options (never json); never ask the user to type #noframe'
       : ''
     const flowNote = flowTurn
-      ? ` | Intent: worktree=${JSON.stringify(flowTurn.cwd)}${flowTurn.branch ? ` branch=${flowTurn.branch}` : ''} (write only inside it)`
+      // The plan reminder rides every Intent turn: in the persona alone, agents skipped it for short changes.
+      ? ` | Intent: worktree=${JSON.stringify(flowTurn.cwd)}${flowTurn.branch ? ` branch=${flowTurn.branch}` : ''} (write only inside it) | Plan: if this turn's work has more than one step, show your plan before the first change and update it as each step starts and ends (your todo list, or specrails_missions plan)`
       // Only await when Intent is wired: an unconditional await would put a
       // microtask before the spawn on every mission turn (no Intent port ⇒ no offer).
       : this._flowTurns?.offerable && await this._flowOfferable(conversationId) ? ' | Intent: offerable' : ''

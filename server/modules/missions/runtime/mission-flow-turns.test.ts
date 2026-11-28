@@ -200,6 +200,8 @@ describe('Intent turns in missions', () => {
     expect(String(open.systemPrompt)).not.toContain('Sub-agents in Intent')
     const firstPrompt = String((host.requests.find((request) => request.method === 'session.send')!.params.input as { text: string }).text)
     expect(firstPrompt).toContain('Intent: worktree="/wt/f1/ticket-7" branch=feat/7-idea')
+    // [spec:mission-plan/sources] every Intent turn reminds the agent to keep its plan.
+    expect(firstPrompt).toContain('| Plan: if this turn\'s work has more than one step, show your plan before the first change')
     expect(firstPrompt).toContain('earlier mission question')
     // Intent usage has its own surface; the mission's provider session is untouched.
     expect(db.prepare('SELECT surface, total_cost_usd FROM agent_invocations WHERE conversation_id = ?').all(conversation.id)).toEqual([{ surface: 'flow', total_cost_usd: 0.02 }])
