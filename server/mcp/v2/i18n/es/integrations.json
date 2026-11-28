@@ -72,5 +72,6 @@
   "confirm.mobile_enable": "Activa la pasarela móvil: un servicio que escucha en la red local para los teléfonos emparejados.",
   "confirm.mobile_revoke": "Revoca el dispositivo emparejado {{device}}; tendrá que emparejarse de nuevo.",
   "confirm.webhooks_url": "A partir de ahora envía los eventos de la app a {{url}}.",
-  "confirm.mobile_rotate": "Renueva el certificado de la pasarela y revoca los {{devices}} dispositivos emparejados; cada uno debe emparejarse de nuevo."
+  "confirm.mobile_rotate": "Renueva el certificado de la pasarela y revoca los {{devices}} dispositivos emparejados; cada uno debe emparejarse de nuevo.",
+  "summary.mobile_test_started": "Compilando e instalando en el simulador de {{platforms}}; espera la ejecución."
 }

@@ -18,6 +18,9 @@ import { refreshMobileTestOffer, type MobileOfferEnv } from './adapters/mobile-o
 import { createMobileRunsStore } from './adapters/mobile-runs-store'
 import { observeDeliveries } from '../delivery/runtime/delivery-observers'
 import { createDeviceWindows } from './adapters/device-window'
+import { createTapflowSecrets } from './adapters/relay'
+import { tapflowMcpServer } from './domain'
+import { registerManagedMcpServer } from '../../external-mcp'
 import { deviceTreePids, tapflowResourceRoots } from './domain'
 
 /** Tapflow's own default port: a Tapflow the person runs themselves answers there. */
@@ -61,6 +64,13 @@ export function createTapflowRuntime(deps: { db: DbInstance; broadcast: (message
     relay,
     externalRelayAnswering: () => relay.answering(TAPFLOW_OWN_PORT),
     onChange: (status) => deps.broadcast({ type: 'plugin.tapflow_status', status }),
+  })
+  // Mission agents get Tapflow's MCP (devices, screenshots, UI tree, taps) while Specrails runs Tapflow.
+  registerManagedMcpServer(() => {
+    const state = store.read()
+    const token = createTapflowSecrets(paths.secretsDir).token()
+    if (!current?.servicePid() || !state.nodePath || !token) return null
+    return tapflowMcpServer({ nodePath: state.nodePath, toolsDir: paths.toolsDir, port: state.port, token })
   })
   // "Test in Mobile Device" follows every delivery change (an offer card in the mission).
   observeDeliveries((ctx, deliveryId) => { void refreshMobileTestOffer(ctx, deliveryId, mobileOfferEnv) })

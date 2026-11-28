@@ -224,3 +224,19 @@ export function parseTopMemory(output: string): Map<number, number> {
   }
   return out
 }
+
+/**
+ * Tapflow's MCP server as mission agents receive it (stdio, the Node that runs Tapflow). Name `tapflow`:
+ * a person's own server of that name wins. The token is the `view,builds:write` one Specrails created.
+ */
+export function tapflowMcpServer(opts: { nodePath: string; toolsDir: string; port: number; token: string }): { id: string; name: string; config: Record<string, unknown> } {
+  return {
+    id: 'managed:tapflow',
+    name: 'tapflow',
+    config: {
+      command: opts.nodePath,
+      args: [`${opts.toolsDir}/node_modules/@tapflowio/mcp-server/dist/index.js`],
+      env: { TAPFLOW_RELAY_URL: `ws://127.0.0.1:${opts.port}`, TAPFLOW_TOKEN: opts.token },
+    },
+  }
+}

@@ -4349,6 +4349,7 @@
       "mobile-project.ts": [],
       "runtime.ts": [
         "../../db",
+        "../../external-mcp",
         "../../path-resolver",
         "../delivery/runtime/delivery-observers",
         "../terminals/runtime/terminal-manager",

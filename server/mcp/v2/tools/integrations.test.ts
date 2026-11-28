@@ -188,6 +188,27 @@ describe('plugins and Headroom', () => {
     expect(calls('POST /api/global-plugins/headroom/activate')[0].body).toEqual({ provider: 'codex' })
   })
 
+  it('lists Tapflow with its phase and routes it to the global routes, never to update', async () => {
+    route('GET /api/global-plugins', { body: { plugins: [{ id: 'tapflow', name: 'Tapflow', scope: 'global', status: { phase: 'running', version: '0.33.0', issue: null } }] } })
+    route(`GET ${P}/plugins`, { body: { plugins: [] } })
+    const listed = await tool({ action: 'plugins_list' })
+    expect(listed.envelope.data.items[0]).toMatchObject({ ref: 'plugin:Tapflow', status: 'running', version: '0.33.0', scope: 'app' })
+    route('POST /api/global-plugins/tapflow/activate', { body: { ok: true, status: { phase: 'running' } } })
+    expect((await tool({ action: 'plugins_activate', id: 'tapflow' })).envelope.ok).toBe(true)
+    expect(calls('POST /api/global-plugins/tapflow/activate')).toHaveLength(1)
+    expect((await tool({ action: 'plugins_update', id: 'tapflow' })).envelope.error.code).toBe('invalid_input')
+  })
+
+  it('starts a mobile test on a delivery and returns the run to wait on', async () => {
+    route(`POST ${P}/mobile-test/start`, { status: 202, body: { runId: 'r-42' } })
+    const started = await tool({ action: 'mobile_test', options: { delivery: 'd-7', platforms: ['ios', 'android', 'web'] } })
+    expect(started.envelope.ok).toBe(true)
+    expect(calls(`POST ${P}/mobile-test/start`)[0].body).toEqual({ deliveryId: 'd-7', platforms: ['ios', 'android'] })
+    expect(started.envelope.data.run).toMatch(/^run:.+\/r-42$/)
+    expect((await tool({ action: 'mobile_test', options: { platforms: ['ios'] } })).envelope.error.code).toBe('invalid_input')
+    expect((await tool({ action: 'mobile_test', options: { delivery: 'd-7', platforms: ['web'] } })).envelope.error.code).toBe('invalid_input')
+  })
+
   it('confirms an uninstall', async () => {
     route(`GET ${P}/plugins`, { body: { plugins: [{ name: 'serena', status: 'installed', version: '1' }] } })
     route(`DELETE ${P}/plugins/serena`, { body: { ok: true } })

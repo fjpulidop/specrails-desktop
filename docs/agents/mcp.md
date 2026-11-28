@@ -112,7 +112,7 @@ Generated from the catalog. Actions marked *not available yet* answer `not_imple
 | `specrails_insights` |  | 12 |
 | `specrails_settings` |  | 5 |
 | `specrails_providers` |  | 21 |
-| `specrails_integrations` |  | 44 |
+| `specrails_integrations` |  | 45 |
 | `specrails_system` |  | 15 |
 
 ### `specrails_overview`
@@ -415,9 +415,10 @@ jira_* sync, plugins_* (incl. Headroom), loops_* library, code_* exploration, gi
 | `jira_links` | read | — | The spec↔issue map. With ref/id (a spec): that issue's Jira fields and development panel. |
 | `plugins_list` | read | — | Project plugins (status, version, drift) plus the app-global Headroom proxy. options.provider picks the AI provider registry. |
 | `plugins_preview` | read | — | Requires `id`. Dry-run install: the config diff and requirements (Headroom: its status). |
-| `plugins_install` | write | — | Requires `id`. Runs the installer + verify (long; plugin.install_progress events). Headroom downloads the proxy. |
+| `plugins_install` | write | — | Requires `id`. Runs the installer + verify (long; plugin.install_progress events). Headroom downloads the proxy. Tapflow opens its interactive setup in a Specrails terminal (the person answers it there; macOS on Apple Silicon only). |
 | `plugins_uninstall` | destructive | irreversible | Requires `id`. Reverts contributors and removes owned MCP servers, installed files and state. |
-| `plugins_activate` | write | — | Requires `id`. Turns an installed plugin back on (Headroom: options.provider claude\|codex). |
+| `plugins_activate` | write | — | Requires `id`. Turns an installed plugin back on (Headroom: options.provider claude\|codex; Tapflow starts its device service, then mission agents get its MCP). |
+| `mobile_test` | write | — | Builds the iOS/Android app of a delivery for the simulator and runs it on a Tapflow device (factory:mobile-test). options.delivery: the delivery ref or id (on review, or merged locally); options.platforms: ["ios"], ["android"] or both. Returns the run ref: wait on it with specrails_wait. |
 | `plugins_deactivate` | write | — | Requires `id`. Turns a plugin off without uninstalling (Headroom: options.provider). |
 | `plugins_update` | write | — | Requires `id`. Applies manifest drift (Headroom: options.port changes the relay port). |
 | `plugins_health` | read | — | On-demand verify of one installed plugin (id), or Headroom diagnostics (id: headroom). |

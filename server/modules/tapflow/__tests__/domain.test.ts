@@ -130,3 +130,13 @@ describe('device memory as physical footprint', () => {
     expect(deviceTreePids(table, [{ label: 'Tapflow service', pid: 100 }])).toEqual([])
   })
 })
+
+describe('Tapflow MCP for mission agents', () => {
+  it('runs tapflow-mcp with the Node that runs Tapflow, on its loopback relay, with Specrails\' token', async () => {
+    const { tapflowMcpServer } = await import('../domain')
+    expect(tapflowMcpServer({ nodePath: '/n/node', toolsDir: '/t', port: 4310, token: 'tflw_pat_x' })).toEqual({
+      id: 'managed:tapflow', name: 'tapflow',
+      config: { command: '/n/node', args: ['/t/node_modules/@tapflowio/mcp-server/dist/index.js'], env: { TAPFLOW_RELAY_URL: 'ws://127.0.0.1:4310', TAPFLOW_TOKEN: 'tflw_pat_x' } },
+    })
+  })
+})

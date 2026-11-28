@@ -72,5 +72,6 @@
   "confirm.mobile_enable": "Ativa o gateway móvel: um serviço que escuta na rede local para os celulares pareados.",
   "confirm.mobile_revoke": "Revoga o dispositivo pareado {{device}}; ele precisará parear de novo.",
   "confirm.webhooks_url": "Envia os eventos do app para {{url}} a partir de agora.",
-  "confirm.mobile_rotate": "Renova o certificado do gateway e revoga os {{devices}} dispositivos pareados; cada um precisa parear de novo."
+  "confirm.mobile_rotate": "Renova o certificado do gateway e revoga os {{devices}} dispositivos pareados; cada um precisa parear de novo.",
+  "summary.mobile_test_started": "A compilar e instalar no simulador {{platforms}}; aguarde a execução."
 }

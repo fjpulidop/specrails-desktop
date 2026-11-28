@@ -90,6 +90,9 @@ function jiraConnectionView(state: JiraState): Row {
 
 const HEADROOM = 'headroom'
 const isHeadroom = (id: unknown) => typeof id === 'string' && id.trim().toLowerCase() === HEADROOM
+/** Tapflow (iOS Simulator / Android emulator streaming): app-global like Headroom. */
+const TAPFLOW = 'tapflow'
+const isTapflow = (id: unknown) => typeof id === 'string' && id.trim().toLowerCase() === TAPFLOW
 const pluginName = (args: Row) => idOf(args, ['plugin']) ?? ''
 const providerQuery = (args: Row) => {
   const provider = str(optionsOf(args).provider)
@@ -103,11 +106,15 @@ const headroomProvider = (ctx: V2CallContext, args: Row): string => {
 
 function pluginItem(raw: unknown): Row {
   const p = asRecord(raw)
-  return { ref: formatRef('plugin', String(p.name ?? p.id ?? '')), name: p.name ?? p.id, title: p.displayName ?? p.title ?? p.name, status: p.status ?? (p.installed ? 'installed' : 'available'), version: p.version ?? p.installedVersion ?? null, health: p.health ?? null, drift: p.drift ?? p.updateAvailable ?? null }
+  // A global plugin may report a structured status (Tapflow: { phase, version, issue }).
+  const structured = p.status && typeof p.status === 'object' ? asRecord(p.status) : null
+  const status = structured ? (structured.phase ?? (structured.installed ? 'installed' : 'available')) : p.status ?? (p.installed ? 'installed' : 'available')
+  return { ref: formatRef('plugin', String(p.name ?? p.id ?? '')), name: p.name ?? p.id, title: p.displayName ?? p.title ?? p.name, status, version: p.version ?? p.installedVersion ?? structured?.version ?? null, health: p.health ?? structured?.issue ?? null, drift: p.drift ?? p.updateAvailable ?? null }
 }
 
 async function pluginRow(ctx: V2CallContext, args: Row): Promise<Row> {
   if (isHeadroom(pluginName(args))) return asRecord(await apiCall(ctx, 'GET', '/global-plugins/headroom'))
+  if (isTapflow(pluginName(args))) return asRecord(asRecord(await apiCall(ctx, 'GET', '/global-plugins/tapflow')).status)
   const { base } = projectBase(ctx, args)
   const list = asArray(asRecord(await apiCall(ctx, 'GET', `${base}/plugins${providerQuery(args).query}`)).plugins)
   const found = list.map(asRecord).find((p) => p.name === pluginName(args))
@@ -125,6 +132,10 @@ async function pluginOp(ctx: V2CallContext, args: Row, op: 'install' | 'uninstal
       if (port === undefined) throw new V2ToolError('invalid_input', 'Headroom update takes options.port (the relay port).')
       out = await apiCall(ctx, 'POST', '/global-plugins/headroom/port', { port })
     } else out = await apiCall(ctx, 'POST', `/global-plugins/headroom/${op}`, {})
+  } else if (isTapflow(id)) {
+    if (op === 'update') throw new V2ToolError('invalid_input', 'Tapflow is pinned to the version Specrails supports; there is nothing to update.')
+    // Install opens Tapflow's interactive setup in a Specrails terminal: the person answers it there.
+    out = await apiCall(ctx, 'POST', `/global-plugins/tapflow/${op}`, {})
   } else {
     const { base } = projectBase(ctx, args)
     const { query, body } = providerQuery(args)
@@ -528,11 +539,12 @@ export const integrationsTool = defineTool({
       handler: async (ctx, args) => {
         const id = pluginName(args)
         const out = isHeadroom(id) ? await apiCall(ctx, 'GET', '/global-plugins/headroom')
+          : isTapflow(id) ? await apiCall(ctx, 'GET', '/global-plugins/tapflow')
           : await apiCall(ctx, 'GET', `${projectBase(ctx, args).base}/plugins/${enc(id)}/preview-install${providerQuery(args).query}`)
         return result(out, { summary: ctx.v2.t('integrations.summary.plugins_preview', { id }), refs: { plugin: formatRef('plugin', id) } })
       },
     },
-    plugins_install: { tier: 'write', required: ['id'], doc: 'Runs the installer + verify (long; plugin.install_progress events). Headroom downloads the proxy.', handler: (ctx, args) => pluginOp(ctx, args, 'install') },
+    plugins_install: { tier: 'write', required: ['id'], doc: 'Runs the installer + verify (long; plugin.install_progress events). Headroom downloads the proxy. Tapflow opens its interactive setup in a Specrails terminal (the person answers it there; macOS on Apple Silicon only).', handler: (ctx, args) => pluginOp(ctx, args, 'install') },
     plugins_uninstall: {
       tier: 'destructive', confirm: 'irreversible', required: ['id'],
       doc: 'Reverts contributors and removes owned MCP servers, installed files and state.',
@@ -542,7 +554,24 @@ export const integrationsTool = defineTool({
       },
       handler: (ctx, args) => pluginOp(ctx, args, 'uninstall'),
     },
-    plugins_activate: { tier: 'write', required: ['id'], doc: 'Turns an installed plugin back on (Headroom: options.provider claude|codex).', handler: (ctx, args) => pluginOp(ctx, args, 'activate') },
+    plugins_activate: { tier: 'write', required: ['id'], doc: 'Turns an installed plugin back on (Headroom: options.provider claude|codex; Tapflow starts its device service, then mission agents get its MCP).', handler: (ctx, args) => pluginOp(ctx, args, 'activate') },
+    // ── Test in Mobile Device (Tapflow) ──
+    mobile_test: {
+      tier: 'write',
+      doc: 'Builds the iOS/Android app of a delivery for the simulator and runs it on a Tapflow device (factory:mobile-test). options.delivery: the delivery ref or id (on review, or merged locally); options.platforms: ["ios"], ["android"] or both. Returns the run ref: wait on it with specrails_wait.',
+      handler: async (ctx, args) => {
+        const options = optionsOf(args)
+        const parsed = parseRef(options.delivery)
+        const deliveryId = parsed?.kind === 'delivery' ? parsed.id : str(options.delivery)
+        if (!deliveryId) throw new V2ToolError('invalid_input', 'mobile_test needs options.delivery (a delivery ref or id).')
+        const platforms = (Array.isArray(options.platforms) ? options.platforms : [options.platforms]).filter((value): value is 'ios' | 'android' => value === 'ios' || value === 'android')
+        if (!platforms.length) throw new V2ToolError('invalid_input', 'mobile_test needs options.platforms: ["ios"], ["android"] or both.')
+        const { row, base } = projectBase(ctx, parsed?.project && args.project === undefined ? { ...args, project: parsed.project } : args)
+        const out = asRecord(await apiCall(ctx, 'POST', `${base}/mobile-test/start`, { deliveryId, platforms }))
+        const run = formatRef('run', String(out.runId), row.slug)
+        return result({ run, platforms }, writeMeta(ctx.v2.t('integrations.summary.mobile_test_started', { platforms: platforms.map((platform) => (platform === 'ios' ? 'iOS' : 'Android')).join(' + ') }), { refs: { run, delivery: formatRef('delivery', deliveryId, row.slug) } }))
+      },
+    },
     plugins_deactivate: { tier: 'write', required: ['id'], doc: 'Turns a plugin off without uninstalling (Headroom: options.provider).', handler: (ctx, args) => pluginOp(ctx, args, 'deactivate') },
     plugins_update: { tier: 'write', required: ['id'], doc: 'Applies manifest drift (Headroom: options.port changes the relay port).', handler: (ctx, args) => pluginOp(ctx, args, 'update') },
     plugins_health: {
@@ -551,6 +580,7 @@ export const integrationsTool = defineTool({
       handler: async (ctx, args) => {
         const id = pluginName(args) || HEADROOM
         const out = asRecord(isHeadroom(id) ? await apiCall(ctx, 'GET', '/global-plugins/headroom/diagnostics')
+          : isTapflow(id) ? asRecord(await apiCall(ctx, 'GET', '/global-plugins/tapflow')).status
           : await apiCall(ctx, 'GET', `${projectBase(ctx, args).base}/plugins/${enc(id)}/health${providerQuery(args).query}`))
         const status = String(out.status ?? out.health ?? (out.ok === false ? 'failing' : 'ok'))
         return result(out, { summary: ctx.v2.t('integrations.summary.plugins_health', { id, status }), refs: { plugin: formatRef('plugin', id) }, untrusted: untrusted('/data/stderr', '/data/stdout', '/data/log') })

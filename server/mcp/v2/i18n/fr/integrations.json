@@ -72,5 +72,6 @@
   "confirm.mobile_enable": "Active la passerelle mobile : un écouteur sur le réseau local pour les téléphones appairés.",
   "confirm.mobile_revoke": "Révoque l'appareil appairé {{device}} ; il devra être appairé à nouveau.",
   "confirm.webhooks_url": "Envoie désormais les événements de l'application à {{url}}.",
-  "confirm.mobile_rotate": "Renouvelle le certificat de la passerelle et révoque les {{devices}} appareils appairés ; chacun doit être appairé à nouveau."
+  "confirm.mobile_rotate": "Renouvelle le certificat de la passerelle et révoque les {{devices}} appareils appairés ; chacun doit être appairé à nouveau.",
+  "summary.mobile_test_started": "Compilation et installation sur le simulateur {{platforms}} ; attendez le run."
 }

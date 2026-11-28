@@ -72,5 +72,6 @@
   "confirm.mobile_enable": "Turns on the mobile gateway: a listener on the local network for paired phones.",
   "confirm.mobile_revoke": "Revokes the paired device {{device}}; it must pair again.",
   "confirm.webhooks_url": "Sends the app's events to {{url}} from now on.",
-  "confirm.mobile_rotate": "Rotates the gateway certificate and revokes all {{devices}} paired devices; each must pair again."
+  "confirm.mobile_rotate": "Rotates the gateway certificate and revokes all {{devices}} paired devices; each must pair again.",
+  "summary.mobile_test_started": "Building and installing on the {{platforms}} simulator; wait on the run."
 }

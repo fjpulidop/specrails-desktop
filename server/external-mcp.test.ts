@@ -14,6 +14,7 @@ import {
   readCodexNativeServerNames,
   readExternalMcpSettings,
   readNativeMcpServers,
+  registerManagedMcpServer,
   resolveExternalEntries,
 } from './external-mcp'
 import { initDesktopDb, setDesktopSetting } from './desktop-db'
@@ -295,5 +296,33 @@ describe('isCodexInjectable', () => {
   it('rejects names unsafe for TOML keys and command-less configs', () => {
     expect(isCodexInjectable({ id: 'c:x', name: 'has.dot', config: { command: 'npx' } })).toBe(false)
     expect(isCodexInjectable({ id: 'c:x', name: 'http-one', config: { url: 'https://x' } })).toBe(false)
+  })
+})
+
+describe('managed (first-party) MCP servers', () => {
+  const tapflow = { id: 'managed:tapflow', name: 'tapflow', config: { command: '/n/node', args: ['/t/mcp.js'], env: { TAPFLOW_TOKEN: 't' } } }
+
+  it('rides every spawn while its plugin provides it, even with external servers switched off, and stops when it does not', () => {
+    let running = true
+    const unregister = registerManagedMcpServer(() => (running ? tapflow : null))
+    try {
+      expect(resolveExternalEntries('claude', db)).toEqual([tapflow])
+      expect(resolveExternalEntries('codex', db).map((server) => server.name)).toEqual(['tapflow'])
+      expect(isCodexInjectable(tapflow)).toBe(true)
+      process.env.SPECRAILS_EXTERNAL_MCP = 'off'
+      expect(resolveExternalEntries('claude', db)).toEqual([tapflow])
+      delete process.env.SPECRAILS_EXTERNAL_MCP
+      running = false
+      expect(resolveExternalEntries('claude', db)).toEqual([])
+    } finally { unregister() }
+  })
+
+  it('yields to a server the person named the same, and survives a failing source', () => {
+    setDesktopSetting(db, EXTERNAL_MCP_SETTING_KEY, JSON.stringify({ version: 1, servers: { 'c:tapflow': { source: 'custom', name: 'tapflow', providers: { claude: true }, transport: { command: 'own', args: [], env: {} } } } }))
+    const unregisterOwn = registerManagedMcpServer(() => tapflow)
+    const unregisterBroken = registerManagedMcpServer(() => { throw new Error('boom') })
+    try {
+      expect(resolveExternalEntries('claude', db).map((server) => [server.name, server.config.command])).toEqual([['tapflow', 'own']])
+    } finally { unregisterOwn(); unregisterBroken() }
   })
 })
