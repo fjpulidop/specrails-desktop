@@ -21,7 +21,8 @@
     "mcp": "MCP とランナー",
     "git": "Git",
     "other": "その他",
-    "server": "Specrails サーバー"
+    "server": "Specrails サーバー",
+    "tapflow": "Tapflow とシミュレーター"
   },
   "items": {
     "server": "Specrails サーバー",
@@ -158,5 +159,6 @@
     "deleteSelected_one": "{{count}} 個のフォルダを削除",
     "deleteSelected_other": "{{count}} 個のフォルダを削除",
     "result": "{{deleted}} 個を削除、{{kept}} 個は削除されませんでした。"
-  }
+  },
+  "cpuShareHint": "Mac 全体に対する割合（{{cores}} コア）：100 % はすべてのコアが使用中です。"
 }

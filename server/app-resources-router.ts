@@ -5,13 +5,14 @@ import { listBackgroundProcesses } from './transient-children'
 import { getAgentChatManager } from './modules/missions/runtime/agent-chat-registry'
 import type { AppResourceRoot } from './modules/terminals/domain/app-resources'
 import type { ProcessSample } from './modules/terminals/domain/mission-resources'
-import { createAppResourcesSampler } from './modules/terminals/runtime/app-resources'
+import { createAppResourcesSampler, logicalCores } from './modules/terminals/runtime/app-resources'
 import { cacheProcessTableReader, createProcessTableReader, type ProcessTableReader } from './modules/terminals/runtime/resource-sampler'
 import { getTerminalManager } from './modules/terminals/runtime/terminal-manager'
 import { attributeListeners, type AttributedListener, type RunPortLease } from './modules/terminals/domain/run-ports'
 import { listeningPorts, type ListenerReader } from './modules/terminals/runtime/listening-ports'
 import { runPortLeases } from './modules/terminals/runtime/run-port-leases'
 import { listRailWorktrees } from './modules/delivery/runtime/rail-worktrees-store'
+import { mobileBuildRoots, tapflowRoots, withDeviceFootprints } from './modules/tapflow'
 import fs from 'node:fs'
 
 type Registry = Pick<ProjectRegistry, 'listContexts' | 'getProjectRow' | 'desktopDb'>
@@ -32,7 +33,7 @@ function titleOf(db: DbInstance | undefined, table: 'chat_conversations' | 'agen
 }
 
 /** Every process tree with a known owner, in attribution priority: agent sessions, rails/loops/jobs, background
- * processes, terminals. */
+ * processes, terminals, Tapflow. */
 export function listAppResourceRoots(registry: Registry, table: ProcessSample[]): AppResourceRoot[] {
   const roots: AppResourceRoot[] = []
   const projectName = (id: string | null | undefined) => (id ? registry.getProjectRow(id)?.name : undefined)
@@ -63,12 +64,17 @@ export function listAppResourceRoots(registry: Registry, table: ProcessSample[])
     }
   }
   for (const p of listBackgroundProcesses()) {
-    if (!LIVE_BACKGROUND.has(p.status)) continue
+    // An observed entry (a mobile test) reports work measured under its own category (Tapflow).
+    if (!LIVE_BACKGROUND.has(p.status) || p.observed) continue
     roots.push({ category: 'background', label: p.command, pid: p.pid, chatId: p.chatId || undefined, projectId: p.projectId, projectName: projectName(p.projectId) })
   }
   for (const t of getTerminalManager().listProcessRoots()) {
     roots.push({ category: 'terminals', label: t.name, pid: t.pid, projectId: t.projectId, projectName: projectName(t.projectId) })
   }
+  // Tapflow (supervised or the person's own) and its booted devices; nothing when no Tapflow runs.
+  // The build of a mobile test in progress, then the devices and the service.
+  for (const build of mobileBuildRoots()) roots.push({ category: 'tapflow', label: 'Mobile build', pid: build.pid })
+  for (const root of tapflowRoots(table)) roots.push({ category: 'tapflow', label: root.label, pid: root.pid })
   return roots
 }
 
@@ -144,9 +150,11 @@ export function registerAppResourceRoutes(router: Router, registry: Registry, op
     }
   })
   const sampler = createAppResourcesSampler({
-    readProcessTable,
+    // Simulator memory as physical footprint (RSS overcounts their shared memory several times).
+    readProcessTable: options.readProcessTable ?? (async () => { const table = await readProcessTable(); return table && withDeviceFootprints(table) }),
     listRoots: options.listRoots ?? ((table) => listAppResourceRoots(registry, table)),
     serverPid: options.serverPid,
+    cpuCores: logicalCores(),
   })
   router.get('/resources', async (_req, res) => {
     try {

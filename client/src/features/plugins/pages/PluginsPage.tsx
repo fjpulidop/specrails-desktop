@@ -16,6 +16,7 @@ import {
   Puzzle,
   Search,
   Settings2,
+  Smartphone,
   ShieldCheck,
   SlidersHorizontal,
   TerminalSquare,
@@ -37,6 +38,7 @@ import { providerLabel } from '../../providers/lib/provider-capabilities'
 import { EmptyState } from '../../../components/ui/empty-state'
 
 import { notifyError } from '../../../lib/notify-error'
+import { TapflowPanel, tapflowIsOn, useTapflow } from '../components/TapflowPanel'
 type ScopeFilter = 'all' | 'global' | 'project'
 type Provider = 'codex' | 'claude'
 type HeadroomPhase = 'idle' | 'installing' | 'installed' | 'starting-proxy' | 'active' | 'failed'
@@ -132,7 +134,7 @@ interface PreviewResult {
 }
 
 interface CatalogPlugin {
-  id: 'headroom-ai' | 'jira' | 'serena'
+  id: 'headroom-ai' | 'tapflow' | 'jira' | 'serena'
   title: string
   scope: 'global' | 'project'
   icon: ComponentType<{ className?: string }>
@@ -144,6 +146,31 @@ interface CatalogPlugin {
   actionLabel: string
   busy?: boolean
   action: () => void
+}
+
+/** The Tapflow card: installed when its files are there (or the person runs their own); "active" while it runs. */
+function tapflowCard(status: NonNullable<ReturnType<typeof useTapflow>['status']>, t: (key: string) => string, open: () => void): CatalogPlugin {
+  const installed = status.phase !== 'not-installed' && status.phase !== 'unsupported' && status.phase !== 'installing'
+  const attention = installed && status.issue !== null
+  const running = tapflowIsOn(status.phase)
+  return {
+    id: 'tapflow',
+    title: 'Tapflow',
+    scope: 'global',
+    icon: Smartphone,
+    description: t('plugins.catalog.tapflow.description'),
+    installed,
+    status: status.phase === 'unsupported' ? 'unsupported' : attention ? 'attention' : status.phase === 'running-external' ? 'external-active' : running ? 'active' : installed ? 'installed' : 'available',
+    statusLabel: status.phase === 'unsupported'
+      ? t('plugins.status.unsupported')
+      : attention ? t('plugins.status.attention')
+        : status.phase === 'running-external' ? t('plugins.status.externalActive')
+          : running ? t('plugins.status.active')
+            : installed ? t('plugins.status.installed') : t('plugins.status.available'),
+    actionKind: attention ? 'review' : installed || status.phase === 'installing' ? 'manage' : 'install',
+    actionLabel: attention ? t('plugins.actions.review') : installed || status.phase === 'installing' ? t('plugins.actions.manage') : status.phase === 'unsupported' ? t('plugins.actions.details') : t('plugins.actions.install'),
+    action: open,
+  }
 }
 
 function emptyProviderMetric(provider: Provider): HeadroomProviderMetric {
@@ -265,6 +292,8 @@ export default function PluginsPage({ onWindowOpened, inDialog = false }: { onWi
   const [headroomOpen, setHeadroomOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
   const [projectWizard, setProjectWizard] = useState<null | 'jira' | 'serena'>(null)
+  const tapflow = useTapflow()
+  const [tapflowOpen, setTapflowOpen] = useState(false)
   const [projectSummary, setProjectSummary] = useState({ jira: 0, serena: 0, projects: 0 })
 
   const refreshHeadroom = useCallback(async () => {
@@ -371,7 +400,8 @@ export default function PluginsPage({ onWindowOpened, inDialog = false }: { onWi
         )
       },
     },
-  ], [headroom, headroomBusy, t])
+    ...(tapflow.status ? [tapflowCard(tapflow.status, t, () => setTapflowOpen(true))] : []),
+  ], [headroom, headroomBusy, t, tapflow.status])
 
   const projectCatalog = useMemo<CatalogPlugin[]>(() => [
     {
@@ -423,13 +453,15 @@ export default function PluginsPage({ onWindowOpened, inDialog = false }: { onWi
   const hasInstalledMatches = installedGlobalCatalog.length > 0 || installedProjectCatalog.length > 0
   const hasAvailableMatches = availableGlobalCatalog.length > 0 || availableProjectCatalog.length > 0
 
+  const tapflowInstalled = Boolean(tapflow.status && tapflow.status.phase !== 'not-installed' && tapflow.status.phase !== 'unsupported' && tapflow.status.phase !== 'installing')
   const installedCount = [
     headroom.installed,
+    tapflowInstalled,
     projectSummary.jira > 0,
     projectSummary.serena > 0,
   ].filter(Boolean).length
   // A plugin with an open issue is counted as needing attention, not as ready.
-  const attentionCount = headroom.installed && headroom.lastIssue ? 1 : 0
+  const attentionCount = (headroom.installed && headroom.lastIssue ? 1 : 0) + (tapflowInstalled && tapflow.status?.issue ? 1 : 0)
   const readyCount = Math.max(0, installedCount - attentionCount)
 
   return (
@@ -584,6 +616,18 @@ export default function PluginsPage({ onWindowOpened, inDialog = false }: { onWi
             )}
             onOpenDiagnostics={() => setDiagnosticsOpen(true)}
           />
+          </DialogBody>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={tapflowOpen} onOpenChange={setTapflowOpen}>
+        <DialogContent size="wide">
+          <DialogHeader>
+            <DialogTitle>{t('plugins.tapflow.title')}</DialogTitle>
+            <DialogDescription>{t('plugins.tapflow.dialogDescription')}</DialogDescription>
+          </DialogHeader>
+          <DialogBody className="overflow-x-hidden">
+            <TapflowPanel tapflow={tapflow} />
           </DialogBody>
         </DialogContent>
       </Dialog>

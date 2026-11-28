@@ -49,10 +49,27 @@ export function collectLiveBoard<A extends LiveAttentionRef>(input: CollectLiveB
 
   const missionIds = [...new Set(cards.map((card) => card.conversationId).filter((id): id is string => !!id))]
   let missions = new Map<string, LiveMissionFacts>()
+  let known = false
   try {
     if (missionIds.length > 0) missions = input.missions.describe(missionIds, input.day)
+    known = true
   } catch (err) {
     warn('missions', err)
+  }
+  // A card links only to a mission that exists (not deleted, not in the trash): its Open would
+  // lead nowhere. An Intent session lives in its mission, so with the mission gone it has no card
+  // (restoring the mission brings it back) unless an inbox item speaks for it (every inbox item is
+  // on the board once); any other card keeps its place and opens its run.
+  if (known) {
+    for (let i = cards.length - 1; i >= 0; i--) {
+      const card = cards[i]
+      if (!card.conversationId || missions.has(card.conversationId)) continue
+      if (card.kind === 'intent' && !card.attention) {
+        cards.splice(i, 1)
+        const project = projects.find((entry) => entry.projectId === card.projectId)
+        if (project) project.count -= 1
+      } else card.conversationId = null
+    }
   }
   // An Intent session is named by its mission.
   for (const card of cards) if (card.title === null && card.conversationId) card.title = missions.get(card.conversationId)?.title ?? null

@@ -9,7 +9,7 @@ import { replayTour } from '../lib/onboarding-events'
 
 vi.mock('../features/loops/components/LoopWindowSurface', () => ({ LoopWindowSurface: () => <div data-testid="loop-window-surface" /> }))
 
-vi.mock('../SurfaceWindowContent', () => ({ SurfaceWindowContent: () => <div data-testid="surface-content" />, preloadSurfaceWindowContent: () => {} }))
+vi.mock('../SurfaceWindowContent', () => ({ SurfaceWindowContent: () => <div data-testid="surface-content" />, SpareSurfaceWindowContent: () => <div data-testid="spare-surface" />, preloadSurfaceWindowContent: async () => {} }))
 
 vi.mock('../features/plugins/pages/PluginsPage', () => ({ default: () => <div data-testid="plugins-window-surface" /> }))
 
@@ -136,6 +136,19 @@ it('a native surface window renders its own toaster, so a failure shows where th
     expect(await screen.findByTestId('surface-content')).toBeInTheDocument()
     expect(screen.getByTestId('toaster')).toHaveAttribute('data-position', 'bottom-right')
     expect(screen.queryByTestId('project-layout')).not.toBeInTheDocument()
+  } finally { window.history.replaceState({}, '', '/') }
+})
+
+
+it('the spare surface window mounts the surface shell and waits, without the app shell', async () => {
+  window.history.replaceState({}, '', '/?surfaceWindow=spare')
+  try {
+    render(<App />)
+    expect(await screen.findByTestId('spare-surface')).toBeInTheDocument()
+    expect(screen.getByTestId('toaster')).toBeInTheDocument()
+    expect(screen.queryByTestId('surface-content')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('project-layout')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('setup-wizard')).not.toBeInTheDocument()
   } finally { window.history.replaceState({}, '', '/') }
 })
 

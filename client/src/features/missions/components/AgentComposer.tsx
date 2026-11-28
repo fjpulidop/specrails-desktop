@@ -66,6 +66,7 @@ import { BackgroundProcessHistoryModal } from '../../background/components/Backg
 import { useMissionResourceHistory } from '../../background/hooks/useMissionResourceHistory'
 import { BackgroundProcessesPanel } from '../../background/components/BackgroundProcessesPanel'
 import { HoverPopover } from '../../../components/ui/hover-popover'
+import { MissionPlanPill } from './MissionPlanPill'
 import { backgroundProcessKey } from '../../background/lib/background-processes-api'
 import { useAvailableProviders } from '../../providers/hooks/useAvailableProviders'
 import { isPublicProvider, reasoningEffortsForProvider, defaultReasoningEffortForProvider } from '../../providers/lib/provider-capabilities'
@@ -614,10 +615,17 @@ export function AgentComposer({
   }
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.nativeEvent.isComposing) return
-    // Shift+Tab inside the editor is reverse focus navigation (WCAG 2.1.1):
-    // it must leave the editor, never change the autonomy tier under the
-    // person's hands. The tier shortcut stays on the conversation-view wrapper
-    // for every control outside the text box, and the chip itself is a button.
+    // Shift+Tab in the message editor cycles the autonomy tier, as it does
+    // everywhere else in a mission (and in the floating panel, where it used to
+    // reach the panel's own handler while Mission mode moved focus instead). The
+    // editor is not a keyboard trap: Tab still leaves it. Stopped here so the
+    // view and panel handlers never cycle a second time.
+    if (e.shiftKey && (e.key === 'Tab' || e.code === 'Tab') && !paletteOpen) {
+      e.preventDefault()
+      e.stopPropagation()
+      cycleTier()
+      return
+    }
     if (paletteOpen) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -936,6 +944,7 @@ export function AgentComposer({
         />}
           <AgentTierChip compact level={active?.tier_level ?? draftTierLevel} onCycle={cycleTier} />
           {composerMode && (active === null || showModeBadge) && <MissionModeBadge badge={composerMode.badge} variant="composer" testId="agent-composer-mode-chip" />}
+          {activeId && <MissionPlanPill messages={messages} />}
           {activeId && backgroundProjectId && (
             <HoverPopover
               label={t('backgroundProcess.history.title')}

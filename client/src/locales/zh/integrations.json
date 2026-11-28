@@ -137,7 +137,8 @@
       "cancel": "取消",
       "installBusy": "正在安装…",
       "configureBusy": "正在配置…",
-      "reviewBusy": "正在检查…"
+      "reviewBusy": "正在检查…",
+      "details": "详情"
     },
     "status": {
       "attention": "需要注意",
@@ -149,7 +150,8 @@
       "configuredCount_one": "已配置 {{count}} 个",
       "configuredCount_other": "已配置 {{count}} 个",
       "installedCount_one": "已安装 {{count}} 个",
-      "installedCount_other": "已安装 {{count}} 个"
+      "installedCount_other": "已安装 {{count}} 个",
+      "unsupported": "不可用"
     },
     "catalog": {
       "headroom": {
@@ -160,6 +162,9 @@
       },
       "serena": {
         "description": "通过 Serena MCP 提供项目本地语义代码导航。"
+      },
+      "tapflow": {
+        "description": "在 Specrails 中运行 iOS 模拟器和 Android 模拟器，让智能体测试它们构建的应用。"
       }
     },
     "headroom": {
@@ -335,6 +340,37 @@
       "configuredDescription": "管理 Jira 项目、状态映射、丢弃状态、同步和连接状态。",
       "loadFailed": "无法加载当前的 Jira 配置：{{message}}",
       "notConfiguredDescription": "将此项目连接到 Jira。"
+    },
+    "tapflow": {
+      "title": "Tapflow",
+      "dialogDescription": "iOS 模拟器和 Android 模拟器，串流到 Specrails 中并供智能体使用。",
+      "loading": "正在检查 Tapflow…",
+      "summary": "Specrails 负责安装、运行和计量 Tapflow。仅在测试时开启：设备按需启动。",
+      "externalHint": "此 Tapflow 是在 Specrails 之外启动的。Specrails 会使用它，但不会停止它。",
+      "activate": "开启 Tapflow",
+      "deactivate": "关闭 Tapflow",
+      "install": "安装",
+      "uninstall": "卸载",
+      "requirementsLabel": "要求",
+      "requirements": {
+        "ios": "iOS 模拟器：搭载 Apple Silicon 的 macOS，以及 Xcode 26 或 27。",
+        "android": "Android 模拟器：此 Tapflow 版本同样需要 Apple Silicon（暂不支持 Windows）。"
+      },
+      "installerHint": "Tapflow 的设置在这里运行：请回答它的问题（可能会要求输入密码、安装 Android SDK 并打开系统设置）。",
+      "installerDone": "设置完成。需要测试时开启 Tapflow。",
+      "installerFailed": "设置以代码 {{code}} 结束。你可以再次点击安装。",
+      "phase": {
+        "unsupported": "此电脑不可用",
+        "not-installed": "未安装",
+        "installing": "正在安装…",
+        "installed": "已安装 · 关闭",
+        "starting": "正在启动…",
+        "running": "已开启",
+        "running-external": "已开启（在 Specrails 外启动）",
+        "failed": "失败"
+      },
+      "rerunSetup": "重新运行设置",
+      "configurePlatforms": "设置 iOS 和 Android"
     }
   }
 }

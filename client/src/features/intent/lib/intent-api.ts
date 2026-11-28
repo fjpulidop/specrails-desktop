@@ -170,6 +170,12 @@ export const flowApi = {
     const body = await call<{ repositories?: unknown }>(`${API_ORIGIN}/api/projects/${encodeURIComponent(projectId)}/repositories`)
     return Array.isArray(body.repositories) ? body.repositories.filter(isRepositoryOption) : []
   },
+  /** Where a new Intent runs when nobody names a repository: the Git primary, else the
+   * project's last Intent repository, else the first Git member (server `defaultFlowRepositoryId`). */
+  async repositoryDefault(projectId: string): Promise<string | null> {
+    const body = await call<{ repositoryId?: unknown }>(`${flowBase(projectId)}/repository-default`)
+    return typeof body.repositoryId === 'string' ? body.repositoryId : null
+  },
   async pause(projectId: string, flowId: string): Promise<IntentSession> {
     return (await call<{ flow: IntentSession }>(`${flowBase(projectId)}/${encodeURIComponent(flowId)}/pause`, post())).flow
   },

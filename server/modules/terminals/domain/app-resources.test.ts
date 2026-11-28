@@ -92,6 +92,28 @@ describe('measureAppResources', () => {
     expect(result.categories.some((c) => c.id === 'agent-cli')).toBe(false)
   })
 
+  it('reports Tapflow (a server child) and its simulator (a launchd child) as one category after terminals', () => {
+    const withTapflow: ProcessSample[] = [
+      ...table,
+      p(600, SERVER, '/bundled/node /tools/tapflow/node_modules/tapflow/bin/tapflow.js start', 110, 1),
+      p(601, 600, '/tools/tapflow/node_modules/@tapflowio/ios-agent/bin/screencapture-helper 30 U h264', 30, 9),
+      p(700, 1, 'launchd_sim /Users/me/Library/Developer/CoreSimulator/Devices/A1B1366D-EDEF-4CB9-9355-9D2CDBB942F4/data/var/run/launchd_bootstrap.plist', 20),
+      p(701, 700, 'SpringBoard', 300, 4),
+    ]
+    const result = measureAppResources(withTapflow, [
+      { category: 'terminals', label: 'zsh', pid: 400 },
+      { category: 'tapflow', label: 'Tapflow service', pid: 600 },
+      { category: 'tapflow', label: 'iOS Simulator A1B1366D', pid: 700 },
+    ], SERVER)
+    const ids = result.categories.map((c) => c.id)
+    expect(ids.indexOf('tapflow')).toBe(ids.indexOf('terminals') + 1)
+    const tapflow = result.categories.find((c) => c.id === 'tapflow')!
+    expect(tapflow.items.map((i) => [i.label, i.processCount])).toEqual([['iOS Simulator A1B1366D', 2], ['Tapflow service', 2]])
+    expect(tapflow.memoryBytes).toBe((110 + 30 + 20 + 300) * MB)
+    // Not double-counted as an unowned server child.
+    expect(result.categories.find((c) => c.id === 'other')?.items.some((i) => i.label === 'tapflow')).toBeFalsy()
+  })
+
   it('puts rails right after missions and before background processes in the claimed-set priority', () => {
     const result = measureAppResources(table, [
       { category: 'missions', label: 'Fix login', pid: 200, chatId: 'c1' },

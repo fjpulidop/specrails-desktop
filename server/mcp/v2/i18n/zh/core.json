@@ -112,6 +112,7 @@
   "confirm.class.costly": "此操作会启动需要花钱的 AI 工作。",
   "confirm.cost": "预计费用 {{low}}–{{high}} USD。",
   "confirm.cost_unknown": "无法估算费用。",
+  "confirm.cost_similar": "预计费用 {{low}}–{{high}} USD（基于本项目的类似运行）。",
   "confirm.runs": "将启动 {{count}} 个运行。",
   "error.not_implemented": "此版本尚不提供 {{label}}。",
   "error.not_implemented_legacy": "此版本尚不提供 {{label}}；在此期间请使用 {{legacy}}。",

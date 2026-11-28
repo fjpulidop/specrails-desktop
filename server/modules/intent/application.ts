@@ -21,7 +21,7 @@ import {
   isOpenFlow,
   nextFlowCoreSessionId,
   placeholderTitle,
-  resolveFlowRepository,
+  resolveFlowRepository, defaultFlowRepositoryId,
   transition,
   withDerivedChange,
   type IntentCommand,
@@ -54,9 +54,9 @@ export interface StartFlowInput {
    * "In Intent" and seeds the first turn. */
   ticketId?: number
   title?: string | null
-  /** The project repository the Intent runs in (the mission agent's triage or
-   * the person's pick). Omitted ⇒ the primary when it is Git, else the only
-   * Git member; several candidates are refused (`flow_repository_required`). */
+  /** The project repository the Intent runs in (the spec's, the mission agent's
+   * triage or the person's pick). Omitted ⇒ `defaultFlowRepositoryId`: the Git
+   * primary, else the project's last Intent repository, else the first Git member. */
   repositoryId?: string | null
   /** The intent the session starts from (the mission's intent card): stored on
    * the placeholder spec and seeded into the first turn. Validated by the
@@ -206,7 +206,7 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
       // behind. A spec that targets exactly one repository runs there.
       const specRepositories = inspected?.spec?.repositoryIds ?? []
       const requestedRepository = input.repositoryId ?? (specRepositories.length === 1 ? specRepositories[0] : null)
-      const repositoryId = resolveFlowRepository(ports.repositories?.list() ?? [], requestedRepository)
+      const repositoryId = resolveFlowRepository(ports.repositories?.list() ?? [], requestedRepository, ports.repository.lastRepositoryId?.() ?? null)
       await assertAvailable()
       await ports.agent.assertReady({ conversationId })
 
@@ -889,6 +889,10 @@ export function createFlowService(ports: IntentPorts, log: Pick<Console, 'warn'>
     diffSummary,
     costSoFar,
     availability: () => ports.availability(),
+    /** Where a new Intent runs when nobody names a repository (the entry card shows it, changeable). */
+    defaultRepository: (): { repositoryId: string | null } => ({
+      repositoryId: defaultFlowRepositoryId(ports.repositories?.list() ?? [], ports.repository.lastRepositoryId?.() ?? null),
+    }),
   }
 }
 

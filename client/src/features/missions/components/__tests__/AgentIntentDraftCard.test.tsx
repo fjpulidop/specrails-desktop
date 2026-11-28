@@ -143,6 +143,20 @@ describe('AgentIntentDraftCard', () => {
     expect(typeof seen.at(-1)?.onExploreState).toBe('function')
   })
 
+  it('[spec:intent-repository-default/the-agent-places-the-work] passes the repository the agent placed the work in to Explore, and drops a malformed one', () => {
+    expect(draft({ ready: true, repositoryId: 'repo-api' }).repositoryId).toBe('repo-api')
+    expect(draft({ ready: true, repositoryId: '../etc; rm' }).repositoryId).toBeUndefined()
+    expect(draft({ ready: true }).repositoryId).toBeUndefined()
+    const seen: ExploreStubProps[] = []
+    const Explore = (props: ExploreStubProps) => { seen.push(props); return <button data-testid="intent-explore-stub">Explore</button> }
+    render(
+      <MissionExtensionsProvider value={{ IntentExplore: Explore }}>
+        <AgentIntentDraftCard draft={draft({ ready: true, repositoryId: 'repo-api' })} isLatest conversationId="c1" projectId="p1" onSelect={vi.fn()} />
+      </MissionExtensionsProvider>,
+    )
+    expect(seen.at(-1)).toMatchObject({ repositoryId: 'repo-api' })
+  })
+
   it('hides Delegate while the Explore entry card is open', () => {
     const Explore = ({ onExploreState }: ExploreStubProps) => (
       <button data-testid="intent-explore-stub" onClick={() => onExploreState?.('entry')}>Explore</button>

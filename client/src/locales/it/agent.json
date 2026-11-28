@@ -1116,7 +1116,10 @@
         "loading": "Caricamento dei repository…",
         "loadFailed": "Impossibile caricare i repository del progetto. Riprova.",
         "suggested": "Suggerito dall’agente",
-        "noGit": "Questo progetto non ha un repository Git. Intent ne ha bisogno per il suo branch."
+        "noGit": "Questo progetto non ha un repository Git. Intent ne ha bisogno per il suo branch.",
+        "target": "Viene eseguito in {{name}}",
+        "change": "Cambia",
+        "changeLabel": "Cambia il repository in cui viene eseguito questo Intent"
       },
       "blocked": {
         "noProject": "Fissa questa missione a un progetto per usare Intent.",
@@ -1632,13 +1635,17 @@
     "kind": {
       "agent-session": "Agente",
       "background-process": "Processo in background",
-      "mission-activity": "Attività della missione"
+      "mission-activity": "Attività della missione",
+      "mobile-device": "Dispositivo mobile",
+      "mobile-build": "Compilazione mobile",
+      "tapflow-service": "Tapflow"
     },
     "finishedAt": "Terminata alle {{time}}",
     "lastActive": "Ultima attività durante l'esecuzione",
     "history": "Cronologia",
     "peakValue": "Picco {{value}}",
-    "historyHint": "Un punto ogni 3 s mentre la missione lavorava. Passa il mouse su una linea per vedere ora e valore."
+    "historyHint": "Un punto ogni 3 s mentre la missione lavorava. Passa il mouse su una linea per vedere ora e valore.",
+    "cpuShareHint": "Di tutto il Mac ({{cores}} core): 100 % significa tutti i core occupati."
   },
   "contextUsage": {
     "open": "Contesto usato: {{percent}}%",
@@ -1702,5 +1709,53 @@
     "answer": "Risposta",
     "defaultQuestion": "Spiega cosa significa in questo contesto.",
     "providerDefault": "modello predefinito di {{provider}}"
+  },
+  "mcp": {
+    "viaMcp": "via MCP",
+    "action": "{{client}} · {{call}}",
+    "actionFailed": "{{client}} · {{call}} non riuscita",
+    "missionBadgeTitle": "Creata da {{client}} tramite MCP: qui sono registrate le sue azioni"
+  },
+  "mobileTest": {
+    "title": "Prova su dispositivo mobile",
+    "body": "Compila l'app {{platform}} per il simulatore e aprila su un dispositivo Tapflow.",
+    "bodyChoose": "Compila l'app per il simulatore e aprila su un dispositivo Tapflow. Scegli la piattaforma:",
+    "start": "Prova sul dispositivo",
+    "both": "Entrambe",
+    "notNow": "Non ora",
+    "retry": "Riprova",
+    "started": "Compilazione e installazione sul dispositivo…",
+    "startedBody": "La compilazione avviene nella copia di lavoro di questa consegna; il log del run mostra ogni passo.",
+    "launched": "In esecuzione: {{devices}}",
+    "launchedBody": "L'app è installata e aperta sul dispositivo.",
+    "failed": "La prova su mobile non è terminata",
+    "failedBody": "Vedi il log del run per i dettagli.",
+    "expired": "Prova su mobile non più disponibile",
+    "expiredBody": "Il codice di questa consegna non è più su questo computer. Provalo prima di pubblicarlo.",
+    "dismissed": "Prova su mobile saltata per questa consegna.",
+    "openLog": "Apri log",
+    "startFailed": "Impossibile avviare la prova su mobile.",
+    "onDevice": "{{platform}} su {{device}}",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "openDevice": "Apri {{device}}",
+    "startedBodyMission": "Compilazione del codice di questa sessione e installazione; avanzamento e log sono in Processi.",
+    "failedBodyMission": "Chiedi all'agente di eseguirla di nuovo quando è risolto."
+  },
+  "missionPlan": {
+    "button": "Piano",
+    "title": "Piano di lavoro",
+    "description": "Cosa si è proposto l'agente e a che punto è.",
+    "open": "Piano di lavoro: {{done}} di {{total}} passi fatti",
+    "progress": "{{done}} di {{total}}",
+    "now": "Ora: {{step}}",
+    "allDone": "Tutti i passi fatti.",
+    "status": {
+      "pending": "da fare",
+      "in_progress": "in corso",
+      "completed": "fatto"
+    }
   }
 }

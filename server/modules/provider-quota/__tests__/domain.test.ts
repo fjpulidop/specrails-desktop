@@ -50,6 +50,17 @@ describe('applyReport / expireQuota / presentQuota', () => {
     expect(presentQuota(refused, T0 + 3_600_001).level).not.toBe('rejected')
   })
 
+  it('ends a refusal with no stated reset when the full window behind it resets', () => {
+    // Codex run 45b765d0: the prose reset was unreadable, the usage window said 100 % until T0+1h.
+    let state = applyRefusal(emptyQuota('codex'), null, iso(T0))
+    state = applyUsageWindows(state, [{ id: 'codex:primary', usedPercent: 100, resetsAt: iso(T0 + 3_600_000), durationMinutes: 300 }, { id: 'codex:secondary', usedPercent: 16, resetsAt: iso(T0 + 86_400_000), durationMinutes: 10_080 }], iso(T0 + 1))
+    expect(presentQuota(state, T0 + 2)).toMatchObject({ level: 'rejected', rejectedUntil: iso(T0 + 3_600_000), rejectedIndefinitely: false })
+    expect(nextExpiry(expireQuota(state, T0 + 2), T0 + 2)).toBe(T0 + 3_600_000)
+    expect(presentQuota(state, T0 + 3_600_001)).toMatchObject({ level: 'ok', rejectedIndefinitely: false })
+    // Without a full window there is nothing to end it: it stays indefinite.
+    expect(presentQuota(applyRefusal(emptyQuota('codex'), null, iso(T0)), T0 + 1).rejectedIndefinitely).toBe(true)
+  })
+
   it('needs every refusing window to reset: requests resume at the LAST reset', () => {
     let state = applyReport(emptyQuota('claude'), report({ status: 'rejected' }), iso(T0), 'session')
     state = applyReport(state, report({ status: 'rejected', rateLimitType: 'seven_day', resetsAt: iso(T0 + 86_400_000) }), iso(T0 + 1), 'session')
@@ -94,6 +105,12 @@ describe('resolveResetText', () => {
     expect(resolveResetText('in 2 hours', T0)).toBe(iso(T0 + 7_200_000))
     expect(resolveResetText('in 45 minutes', T0)).toBe(iso(T0 + 45 * 60_000))
     expect(resolveResetText('2026-11-18T14:00:00Z', T0)).toBe('2026-11-18T14:00:00.000Z')
+    // Codex names a date: "try again at Nov 28th, 2026 2:43 AM" (a zone when given, else local time).
+    expect(resolveResetText('Nov 19th, 2026 2:43 AM (Europe/Madrid)', T0)).toBe('2026-11-19T01:43:00.000Z')
+    expect(resolveResetText('Nov 19, 2026 14:05 (UTC)', T0)).toBe('2026-11-19T14:05:00.000Z')
+    expect(resolveResetText('Nov 19th, 2026 2:43 AM', T0)).toBe(new Date(2026, 10, 19, 2, 43).toISOString())
+    expect(resolveResetText('Nov 10th, 2026 2:43 AM (UTC)', T0)).toBeNull()
+    expect(resolveResetText('Foo 19th, 2026 2:43 AM', T0)).toBeNull()
   })
 
   it('reads a reset that passed moments ago as that reset, late, never as tomorrow', () => {

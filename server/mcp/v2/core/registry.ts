@@ -1,3 +1,4 @@
+import { journalCreated, journals, openJournalMission, recordJournalAction, type JournalHandle, type JournalPatch, type JournalSessionState, type JournalTarget } from './mission-journal'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult, ServerNotification } from '@modelcontextprotocol/sdk/types.js'
 import { z, type ZodRawShape } from 'zod'
@@ -41,7 +42,7 @@ export interface PreviewInput {
   /** The entity's `DecisionState.version` (or a hash of what the action depends on). */
   version: string
   /** `costly` actions: forecast upper bound and how many runs start. */
-  cost?: { forecastUsd: [number, number] | null; runs: number }
+  cost?: { forecastUsd: [number, number] | null; runs: number; /** `similar`: measured on the closest kind of run (launchForecast fallback). */ basis?: 'similar' }
 }
 
 export interface V2ActionDef {
@@ -54,6 +55,11 @@ export interface V2ActionDef {
   oneOf?: readonly string[]
   /** One line for `specrails_system(help, describe)`. */
   doc?: string
+  /**
+   * Admits a call the tier ladder would refuse, for a narrow case the action owns (e.g. a mission agent
+   * acting inside its own active Intent session, which already granted it write in that worktree).
+   */
+  tierException?: (ctx: V2CallContext, args: Record<string, unknown>) => boolean
   /** Response cap override (o200k tokens), e.g. logs pages. */
   maxTokens?: number
   preview?: (ctx: V2CallContext, args: Record<string, unknown>) => Promise<PreviewInput> | PreviewInput
@@ -200,7 +206,7 @@ export function wireInput(def: V2ToolDef, hiddenActions: readonly string[] = [],
 
 // ── Call context ────────────────────────────────────────────────────────────
 
-export interface V2SessionState {
+export interface V2SessionState extends JournalSessionState {
   activeProjectId: string | null
   /** Per MCP session; confirmTokens bind to it. */
   sessionKey?: string
@@ -213,6 +219,8 @@ export interface V2SessionState {
 export interface V2CallContext extends McpToolContext {
   sessionState: V2SessionState
   v2: {
+    /** Set on an external client's journaled change: amends its MCP log row when its work settles later. */
+    journalLater?: (patch: JournalPatch) => void
     tool: string
     action: string
     lang: Lang
@@ -427,7 +435,8 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
     }
 
     const tier = resolveTier(spec.tier, args)
-    if (!toolTierAllowed(callCtx, tier)) {
+    const excepted = (() => { try { return spec.tierException?.(callCtx, args) === true } catch { return false } })()
+    if (!toolTierAllowed(callCtx, tier) && !excepted) {
       // An external client is told the exact setting, and the call that turns it on (the person confirms it in the client's dialog).
       const raise = !callCtx.firstPartyAgent && tier !== 'read' ? { next: [{ tool: 'specrails_settings', args: { action: 'set', section: 'mcp', values: { [TIER_VALUE_KEY[tier]]: true } }, why: 'Turn the tier on (the person confirms it in this client\'s dialog).' }] } : {}
       return fail(new V2ToolError('unauthorized', tierRefusalMessage(tier), raise))
@@ -452,7 +461,7 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
           const sentences = [input.effect ?? t('core.confirm.effect.default', { label })]
           if (confirmClass) sentences.push(t(`core.confirm.class.${confirmClass}`))
           if (input.cost) {
-            sentences.push(input.cost.forecastUsd ? t('core.confirm.cost', { low: input.cost.forecastUsd[0].toFixed(2), high: input.cost.forecastUsd[1].toFixed(2) }) : t('core.confirm.cost_unknown'))
+            sentences.push(input.cost.forecastUsd ? t(input.cost.basis === 'similar' ? 'core.confirm.cost_similar' : 'core.confirm.cost', { low: input.cost.forecastUsd[0].toFixed(2), high: input.cost.forecastUsd[1].toFixed(2) }) : t('core.confirm.cost_unknown'))
             if (input.cost.runs > 1) sentences.push(t('core.confirm.runs', { count: input.cost.runs }))
           }
           return {
@@ -518,7 +527,29 @@ export function v2ToolCallback(ctx: McpToolContext, def: V2ToolDef, options: Reg
         }
         if (capability) recordMissionMcpAction(callCtx, def.name, args)
         if (confirmedInClient) callCtx.v2.confirmedInClient = true
-        const value = await spec.handler(callCtx, args)
+        // An external client's change lands in a mission Desktop shows (mission-journal.ts).
+        const journaled = journals(callCtx, tier, Boolean(capability))
+        let journal: JournalTarget | null = null
+        let handle: JournalHandle | null = null
+        let late: JournalPatch | null = null
+        if (journaled) {
+          try { journal = openJournalMission(callCtx, def.name, action, args) } catch (err) { console.warn('[mcp] mission journal unavailable:', err instanceof Error ? err.message : err) }
+          if (journal) callCtx.originConversationId = journal.conversationId
+          // Work that settles after the call answered (an AI result) amends the call's row.
+          callCtx.v2.journalLater = (patch) => { if (handle) handle.amend(patch); else late = patch }
+        }
+        let value: unknown
+        try {
+          value = await spec.handler(callCtx, args)
+        } catch (err) {
+          if (journal) recordJournalAction(callCtx, journal, { tool: def.name, action, tier, args, error: { code: err instanceof V2ToolError ? err.code : 'internal', message: err instanceof Error ? err.message : String(err) } })
+          throw err
+        }
+        if (journaled) {
+          journal ??= journalCreated(callCtx, value)
+          if (journal) handle = recordJournalAction(callCtx, journal, { tool: def.name, action, tier, args, value })
+          if (handle && late) handle.amend(late)
+        }
         if (tier !== 'read') emitActivity(callCtx, def.name, action, tier, def.title)
         const envelope = success(value, t('core.summary.done', { label }))
         if (confirmedInClient) envelope.confirmed = 'in_client'

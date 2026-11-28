@@ -43,7 +43,10 @@ already persist, one project at a time, plus the [inbox](../inbox/README.md) ite
 
 ## Missions (layout B)
 
-A card's `conversationId` is the mission that launched it: `rail_pr_deliveries.origin_conversation_id`
+A card links only to a mission that exists (not deleted, not in the trash): an Intent session whose
+mission is gone has no card (restoring the mission brings it back) unless an inbox item speaks for it,
+and any other card loses the link and opens its run. When the mission directory cannot be read, links
+are left as they are. A card's `conversationId` is the mission that launched it: `rail_pr_deliveries.origin_conversation_id`
 for isolated rail runs, `flow_sessions.conversation_id` for Intent, `pr_ci_admissions.origin_conversation_id`
 for a CI-fix run, and the live `ProjectContext.railLoopRuns` entry for a shared-checkout run (that link is
 in memory only, so a settled shared-checkout run falls into "Not from a mission"). Queue jobs carry no

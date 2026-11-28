@@ -112,6 +112,7 @@
   "confirm.class.costly": "Cela lance un travail d'IA payant.",
   "confirm.cost": "Coût estimé {{low}}–{{high}} USD.",
   "confirm.cost_unknown": "Le coût ne peut pas être estimé.",
+  "confirm.cost_similar": "Coût estimé {{low}}–{{high}} USD, d'après des exécutions similaires de ce projet.",
   "confirm.runs": "Cela lance {{count}} exécutions.",
   "error.not_implemented": "{{label}} n'est pas encore disponible dans cette version.",
   "error.not_implemented_legacy": "{{label}} n'est pas encore disponible dans cette version ; en attendant, utilisez {{legacy}}.",

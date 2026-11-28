@@ -34,6 +34,8 @@ vi.mock('./pr-publisher', async importActual => ({
   ...(await importActual<typeof import('./pr-publisher')>()),
   defaultExec: { run: async (cmd: string, args: string[], cwd: string) => {
     if (cmd === 'git') return { code: 0, stdout: remotes[cwd] ?? '', stderr: '' }
+    // Push access (repository permission): granted in these flows.
+    if (args[0] === 'api') return { code: 0, stdout: 'true\n', stderr: '' }
     ghCalls.push({ cwd, url: args[2] })
     return gh.byUrl.get(args[2]) ?? { code: 1, stdout: '', stderr: 'Could not resolve to a PullRequest' }
   } },

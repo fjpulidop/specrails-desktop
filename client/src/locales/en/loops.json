@@ -61,7 +61,9 @@
     "exportLegacy": "Export original graph",
     "originalCopyName": "Original: {{name}}",
     "convert": "Convert to Core",
-    "more": "More actions"
+    "more": "More actions",
+    "runOnPr": "Run on a PR…",
+    "runOnDevice": "Run on a device…"
   },
   "card": {
     "nodes_one": "{{count}} node",
@@ -87,7 +89,9 @@
       "note": "Built-in loop. You are editing the built-in itself: once published, your changes apply to every rail, agent-chat launch and companion that uses it. Rails keep running the last published version while you edit. Use Restore original to go back to the default.",
       "restored": "Built-in loop restored to its original version",
       "confirmTitle": "Restore the original built-in?",
-      "confirmBody": "This discards your changes to this built-in and publishes its original version for every rail that uses it. Duplicate it first if you want to keep your version."
+      "confirmBody": "This discards your changes to this built-in and publishes its original version for every rail that uses it. Duplicate it first if you want to keep your version.",
+      "prCiNote": "Built-in loop that watches a pull request’s CI and fixes it. It starts from “Fix CI” on a delivery, from a mission’s offer, or here with Run on a PR. Prompts, limits and steps are yours to improve; it must keep waiting on the checks and push only verified fixes. Published changes apply to the next CI run; use Restore original to go back.",
+      "confirmBodyPrCi": "This discards your changes and publishes the original Fix PR CI for every next CI run."
     },
     "addNode": "Add node",
     "deleteNode": "Delete node",
@@ -319,6 +323,14 @@
     "freestyle": {
       "name": "Freestyle",
       "description": "Hands the spec straight to the model with full freedom — no pipeline, it works like a regular coding agent, then verify + refine until green."
+    },
+    "factory_pr-ci": {
+      "name": "Fix PR CI",
+      "description": "Keeps an eye on a pull request's CI: waits for the checks, fixes failures and merge conflicts with the base branch, verifies locally and pushes, until the checks are green."
+    },
+    "factory_mobile-test": {
+      "name": "Test in Mobile Device",
+      "description": "Builds the iOS or Android app for the simulator and runs it on a Tapflow device. Offered after a delivery, or run here on the code you pick. Deterministic, no AI turn."
     }
   },
   "import": {
@@ -391,5 +403,77 @@
     "openFailed": "Couldn’t open the loop window"
   },
   "confirmDeleteTitle": "Delete “{{name}}”?",
-  "confirmDeleteAction": "Delete loop"
+  "confirmDeleteAction": "Delete loop",
+  "runOnPr": {
+    "title": "Fix a pull request’s CI",
+    "description": "Specrails watches the PR’s checks, fixes failures and pushes verified fixes to its branch. Progress and the result show in a mission of the project that owns the repository.",
+    "urlLabel": "Pull request URL",
+    "chooseProject": "This repository belongs to more than one project. Choose where to run:",
+    "openMission": "Open the mission",
+    "hint": "Your GitHub account must be able to push to the repository; the PR must be open and its branch in the same repository (not a fork).",
+    "cancel": "Cancel",
+    "submit": "Start",
+    "checking": "Checking the PR…",
+    "started": "Fixing the PR’s CI: follow it in the mission",
+    "alreadyRunning": "A repair is already running on this PR: opening its mission",
+    "errors": {
+      "pr_url_invalid": "That is not a pull request URL. Paste the full link, e.g. https://github.com/owner/repo/pull/12.",
+      "pr_no_push_access": "Your GitHub account can’t push to this repository, so a fix could never reach the PR. Nothing was started.",
+      "pr_repository_not_in_any_project": "No project here has this repository. Add it to a project, then try again.",
+      "pr_project_ambiguous": "This repository belongs to more than one project. Choose one.",
+      "pr_not_open": "The pull request is not open.",
+      "pr_fork_unsupported": "The PR’s branch lives on a fork, which Specrails can’t push to. Nothing was started.",
+      "target_pr_not_found": "GitHub didn’t find that pull request.",
+      "pr_github_unavailable": "GitHub couldn’t be reached or refused access (check that gh is signed in). Nothing was started.",
+      "engine_unsupported": "Fixing PR CI needs Loops, PR delivery and an up-to-date Core.",
+      "pr_ci_disabled": "The PR CI loop is turned off on this machine.",
+      "generic": "The repair could not be started."
+    }
+  },
+  "runOnDevice": {
+    "title": "Test in Mobile Device",
+    "description": "Builds the app for the simulator and opens it on a Tapflow device. Pick the code to test; nothing is published or merged.",
+    "project": "Project",
+    "loading": "Loading…",
+    "what": "What to test",
+    "target": {
+      "checkout": "Current code",
+      "delivery": "A delivery on review",
+      "branch": "A branch"
+    },
+    "checkoutHint": "Builds your checkout as it is now ({{branch}}), uncommitted changes included. Build output goes to folders Git usually ignores.",
+    "checkoutNoApp": "The checkout has no iOS or Android app Specrails can build. Pick a delivery or a branch.",
+    "detached": "detached HEAD",
+    "branchHint": "Built in a temporary copy, removed when the run ends: your checkout is not touched.",
+    "deliveryHint": "Builds the delivery's own working copy, before you decide on it.",
+    "platformLabel": "Platform",
+    "both": "Both",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "deviceLabel": "Device (optional)",
+    "deviceFor": "Device for {{platform}}",
+    "deviceAuto": "Any {{platform}} device (Tapflow picks)",
+    "deviceBooted": "{{device}} (running)",
+    "tapflowOff": "Tapflow is off. Turn it on in Plugins ▸ Tapflow to run on a device.",
+    "cancel": "Cancel",
+    "submit": "Run on device",
+    "starting": "Starting…",
+    "close": "Close",
+    "running": "Building and installing on the device…",
+    "launched": "Running: {{summary}}",
+    "failed": "The mobile test did not finish.",
+    "openDevice": "Open {{device}}",
+    "runHint": "The run also appears with the project's runs, with its full log.",
+    "errors": {
+      "branch_not_found": "That branch does not exist in this project.",
+      "no_app": "This code has no app for the chosen platform.",
+      "delivery_code_gone": "The code of this delivery is no longer on this machine (it was published or discarded).",
+      "tapflow_not_installed": "Tapflow is not installed. Install it in Plugins ▸ Tapflow.",
+      "engine_unsupported": "Test in Mobile Device needs a Specrails Core that runs host tasks. Update Core.",
+      "generic": "Could not start the mobile test."
+    },
+    "onDevice": "{{platform}} on {{device}}"
+  }
 }

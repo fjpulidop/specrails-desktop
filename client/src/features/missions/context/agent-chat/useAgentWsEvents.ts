@@ -270,6 +270,7 @@ export function useAgentWsEvents(core: AgentChatCore, opts: {
               attachment_ids: msg.attachmentIds ?? [],
               ...(msg.messageId ? { delivery_status: 'delivered' as const } : {}),
               ...(receipt ? { delivery_receipt: receipt } : {}),
+              ...((msg as { surface?: unknown }).surface === 'mcp' ? { surface: 'mcp' as const } : {}),
               created_at: msg.timestamp ?? new Date().toISOString(),
             }),
           ])

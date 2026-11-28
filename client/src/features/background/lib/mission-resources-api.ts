@@ -1,7 +1,7 @@
 import { API_ORIGIN } from '../../../lib/origin'
 import { requestJson } from '../../../lib/api-response'
 
-export type MissionResourceKind = 'agent-session' | 'background-process' | 'mission-activity'
+export type MissionResourceKind = 'agent-session' | 'background-process' | 'mission-activity' | 'mobile-device' | 'mobile-build' | 'tapflow-service'
 
 export interface MissionResourceEntry {
   id: string
@@ -31,6 +31,8 @@ export interface MissionResourcesSnapshot {
   /** Oldest first. Absent from servers that predate history recording. */
   history?: ResourceSample[]
   worktree: { path: string; disk: WorktreeDiskState } | null
+  /** Logical cores: every `cpuPercent` is a share of the whole machine (absent from older servers). */
+  cpuCores?: number
 }
 
 const base = (projectId: string, chatId: string) =>

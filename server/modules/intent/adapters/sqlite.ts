@@ -107,6 +107,10 @@ export function createSqliteFlowRepository(db: DbInstance): IntentRepository {
       return rows.map(toSession)
     },
     findByDelivery: (deliveryId) => select('delivery_id = ? ORDER BY created_at DESC LIMIT 1', deliveryId),
+    lastRepositoryId() {
+      const row = db.prepare(`SELECT repository_id FROM flow_sessions WHERE repository_id IS NOT NULL ORDER BY created_at DESC, rowid DESC LIMIT 1`).get() as { repository_id: string } | undefined
+      return row?.repository_id ?? null
+    },
   }
 }
 

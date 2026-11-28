@@ -62,6 +62,11 @@ export function registerIntentHttp(router: Router, serviceForRequest: (request: 
     res.json(await service.availability())
   }))
 
+  // Where a new Intent runs when nobody names a repository (the entry card shows it, changeable).
+  router.get(routes('/repository-default'), withService((service, _req, res) => {
+    res.json(service.defaultRepository())
+  }))
+
   router.post(routes(''), withService(async (service, req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>
     // `ticketId`: start from that existing spec (the idea is then optional).

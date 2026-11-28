@@ -137,7 +137,8 @@
       "cancel": "Cancel",
       "installBusy": "Installing…",
       "configureBusy": "Configuring…",
-      "reviewBusy": "Checking…"
+      "reviewBusy": "Checking…",
+      "details": "Details"
     },
     "status": {
       "attention": "attention",
@@ -149,7 +150,8 @@
       "configuredCount_one": "{{count}} configured",
       "configuredCount_other": "{{count}} configured",
       "installedCount_one": "{{count}} installed",
-      "installedCount_other": "{{count}} installed"
+      "installedCount_other": "{{count}} installed",
+      "unsupported": "not available"
     },
     "catalog": {
       "headroom": {
@@ -160,6 +162,9 @@
       },
       "serena": {
         "description": "Project-local semantic code navigation through Serena MCP."
+      },
+      "tapflow": {
+        "description": "Run the iOS Simulator and Android emulators from Specrails and let agents test the apps they build."
       }
     },
     "headroom": {
@@ -335,6 +340,37 @@
       "configuredDescription": "Manage the Jira project, status mapping, discard status, sync, and connection state.",
       "loadFailed": "Could not load the current Jira configuration: {{message}}",
       "notConfiguredDescription": "Connect this project to Jira."
+    },
+    "tapflow": {
+      "title": "Tapflow",
+      "dialogDescription": "iOS Simulator and Android emulators, streamed into Specrails and available to agents.",
+      "loading": "Checking Tapflow…",
+      "summary": "Specrails installs, runs and measures Tapflow. Turn it on only while you test: devices start when needed.",
+      "externalHint": "This Tapflow was started outside Specrails. Specrails uses it and never stops it.",
+      "activate": "Turn Tapflow on",
+      "deactivate": "Turn Tapflow off",
+      "install": "Install",
+      "uninstall": "Uninstall",
+      "requirementsLabel": "Requirements",
+      "requirements": {
+        "ios": "iOS Simulator: macOS on Apple Silicon with Xcode 26 or 27.",
+        "android": "Android emulators: Apple Silicon too in this Tapflow version (Windows is not supported yet)."
+      },
+      "installerHint": "Tapflow's setup runs here: answer its questions (it may ask for your password, install the Android SDK and open System Settings).",
+      "installerDone": "Setup finished. Turn Tapflow on when you want to test.",
+      "installerFailed": "Setup ended with code {{code}}. You can run Install again.",
+      "phase": {
+        "unsupported": "Not available on this computer",
+        "not-installed": "Not installed",
+        "installing": "Installing…",
+        "installed": "Installed · off",
+        "starting": "Starting…",
+        "running": "On",
+        "running-external": "On (started outside Specrails)",
+        "failed": "Failed"
+      },
+      "rerunSetup": "Run setup again",
+      "configurePlatforms": "Set up iOS and Android"
     }
   }
 }

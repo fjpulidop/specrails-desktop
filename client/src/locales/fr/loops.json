@@ -61,7 +61,9 @@
     "exportLegacy": "Exporter le graphe d’origine",
     "originalCopyName": "Original : {{name}}",
     "convert": "Convertir vers Core",
-    "more": "Plus d’actions"
+    "more": "Plus d’actions",
+    "runOnPr": "Exécuter sur une PR…",
+    "runOnDevice": "Lancer sur un appareil…"
   },
   "card": {
     "nodes_one": "{{count}} nœud",
@@ -87,7 +89,9 @@
       "note": "Loop intégré. Vous modifiez le loop intégré lui-même : une fois publié, vos changements s'appliquent à chaque rail, lancement depuis le chat de l'agent et Companion qui l'utilise. Les rails continuent d'exécuter la dernière version publiée pendant que vous modifiez. Utilisez Restaurer l'original pour revenir à la version par défaut.",
       "restored": "Loop intégré restauré à sa version d'origine",
       "confirmTitle": "Restaurer le loop intégré d'origine ?",
-      "confirmBody": "Cela annule vos modifications de ce loop intégré et publie sa version d'origine pour tous les rails qui l'utilisent. Dupliquez-le d'abord si vous voulez conserver votre version."
+      "confirmBody": "Cela annule vos modifications de ce loop intégré et publie sa version d'origine pour tous les rails qui l'utilisent. Dupliquez-le d'abord si vous voulez conserver votre version.",
+      "prCiNote": "Boucle intégrée qui surveille la CI d’une pull request et la corrige. Elle démarre depuis « Corriger la CI » sur une livraison, depuis l’offre d’une mission ou ici avec Exécuter sur une PR. Ses prompts, limites et étapes sont à vous d’améliorer ; elle doit continuer d’attendre les checks et ne pousser que des correctifs vérifiés. Les modifications publiées s’appliquent à la prochaine exécution de CI ; utilisez Restaurer l’original pour revenir.",
+      "confirmBodyPrCi": "Cela annule vos modifications et publie la boucle d’origine pour les prochaines exécutions de CI."
     },
     "addNode": "Ajouter un nœud",
     "deleteNode": "Supprimer le nœud",
@@ -319,6 +323,14 @@
     "freestyle": {
       "name": "Freestyle",
       "description": "Confie la spec directement au modèle en toute liberté — sans pipeline, il travaille comme un agent de code classique, puis vérifie + affine jusqu'au vert."
+    },
+    "factory_pr-ci": {
+      "name": "Réparer la CI de la PR",
+      "description": "Surveille la CI d’une pull request : attend les checks, corrige les échecs et les conflits avec la branche de base, vérifie en local et pousse, jusqu’à ce que les checks passent."
+    },
+    "factory_mobile-test": {
+      "name": "Tester sur appareil mobile",
+      "description": "Compile l'app iOS ou Android pour le simulateur et la lance sur un appareil Tapflow. Proposé après une livraison, ou lancé ici sur le code de votre choix. Déterministe, sans tour d'IA."
     }
   },
   "import": {
@@ -391,5 +403,77 @@
     "openFailed": "Impossible d’ouvrir la fenêtre de la boucle"
   },
   "confirmDeleteTitle": "Supprimer « {{name}} » ?",
-  "confirmDeleteAction": "Supprimer la boucle"
+  "confirmDeleteAction": "Supprimer la boucle",
+  "runOnPr": {
+    "title": "Corriger la CI d’une pull request",
+    "description": "Specrails surveille les checks de la PR, corrige les échecs et pousse sur sa branche uniquement des correctifs vérifiés. La progression et le résultat s’affichent dans une mission du projet qui possède le dépôt.",
+    "urlLabel": "URL de la pull request",
+    "chooseProject": "Ce dépôt appartient à plusieurs projets. Choisissez où l’exécuter :",
+    "openMission": "Ouvrir la mission",
+    "hint": "Votre compte GitHub doit pouvoir pousser sur le dépôt ; la PR doit être ouverte et sa branche dans le même dépôt (pas un fork).",
+    "cancel": "Annuler",
+    "submit": "Démarrer",
+    "checking": "Vérification de la PR…",
+    "started": "Correction de la CI de la PR : suivez-la dans la mission",
+    "alreadyRunning": "Une correction est déjà en cours sur cette PR : ouverture de sa mission",
+    "errors": {
+      "pr_url_invalid": "Ce n’est pas une URL de pull request. Collez le lien complet, p. ex. https://github.com/owner/repo/pull/12.",
+      "pr_no_push_access": "Votre compte GitHub ne peut pas pousser sur ce dépôt : aucun correctif n’atteindrait la PR. Rien n’a été démarré.",
+      "pr_repository_not_in_any_project": "Aucun projet ne contient ce dépôt. Ajoutez-le à un projet puis réessayez.",
+      "pr_project_ambiguous": "Ce dépôt appartient à plusieurs projets. Choisissez-en un.",
+      "pr_not_open": "La pull request n’est pas ouverte.",
+      "pr_fork_unsupported": "La branche de la PR est sur un fork, où Specrails ne peut pas pousser. Rien n’a été démarré.",
+      "target_pr_not_found": "GitHub ne trouve pas cette pull request.",
+      "pr_github_unavailable": "GitHub est injoignable ou a refusé l’accès (vérifiez que gh est connecté). Rien n’a été démarré.",
+      "engine_unsupported": "Corriger la CI des PR nécessite les boucles, la livraison par PR et une Core à jour.",
+      "pr_ci_disabled": "La boucle de CI des PR est désactivée sur cette machine.",
+      "generic": "La correction n’a pas pu démarrer."
+    }
+  },
+  "runOnDevice": {
+    "title": "Tester sur appareil mobile",
+    "description": "Compile l'app pour le simulateur et l'ouvre sur un appareil Tapflow. Choisissez le code à tester ; rien n'est publié ni fusionné.",
+    "project": "Projet",
+    "loading": "Chargement…",
+    "what": "Quoi tester",
+    "target": {
+      "checkout": "Code actuel",
+      "delivery": "Une livraison en revue",
+      "branch": "Une branche"
+    },
+    "checkoutHint": "Compile votre copie de travail telle quelle ({{branch}}), modifications non validées comprises. Les sorties de compilation vont dans des dossiers que Git ignore en général.",
+    "checkoutNoApp": "La copie de travail n'a pas d'app iOS ou Android que Specrails sait compiler. Choisissez une livraison ou une branche.",
+    "detached": "HEAD détaché",
+    "branchHint": "Compilé dans une copie temporaire supprimée à la fin de l'exécution : votre copie de travail n'est pas modifiée.",
+    "deliveryHint": "Compile la copie de travail de la livraison, avant votre décision.",
+    "platformLabel": "Plateforme",
+    "both": "Les deux",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "deviceLabel": "Appareil (facultatif)",
+    "deviceFor": "Appareil pour {{platform}}",
+    "deviceAuto": "N'importe quel appareil {{platform}} (Tapflow choisit)",
+    "deviceBooted": "{{device}} (allumé)",
+    "tapflowOff": "Tapflow est éteint. Activez-le dans Plugins ▸ Tapflow pour lancer sur un appareil.",
+    "cancel": "Annuler",
+    "submit": "Lancer sur l'appareil",
+    "starting": "Démarrage…",
+    "close": "Fermer",
+    "running": "Compilation et installation sur l'appareil…",
+    "launched": "En cours : {{summary}}",
+    "failed": "Le test mobile ne s'est pas terminé.",
+    "openDevice": "Ouvrir {{device}}",
+    "runHint": "L'exécution apparaît aussi dans les exécutions du projet, avec son journal complet.",
+    "errors": {
+      "branch_not_found": "Cette branche n'existe pas dans ce projet.",
+      "no_app": "Ce code n'a pas d'app pour la plateforme choisie.",
+      "delivery_code_gone": "Le code de cette livraison n'est plus sur cette machine (publié ou abandonné).",
+      "tapflow_not_installed": "Tapflow n'est pas installé. Installez-le dans Plugins ▸ Tapflow.",
+      "engine_unsupported": "Tester sur appareil mobile nécessite une Specrails Core qui exécute les tâches hôte. Mettez Core à jour.",
+      "generic": "Impossible de démarrer le test mobile."
+    },
+    "onDevice": "{{platform}} sur {{device}}"
+  }
 }

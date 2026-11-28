@@ -168,7 +168,14 @@ export function applyUsageWindows(state: ProviderQuotaState, windows: Array<{ id
 export function expireQuota(state: ProviderQuotaState, now: number): ProviderQuotaState {
   let changed = false
   const rejected: Record<string, string | null> = {}
-  for (const [id, resetsAt] of Object.entries(state.rejected)) {
+  // A refusal whose prose gave no reset ends when the full window behind it resets: without this
+  // it would read "rejected indefinitely" long after the provider accepts requests again.
+  const fullReset = Object.values(state.windows)
+    .filter((window) => (window.usedPercent ?? 0) >= 100 && window.resetsAt)
+    .map((window) => window.resetsAt!).sort().at(-1) ?? null
+  for (const [id, stated] of Object.entries(state.rejected)) {
+    const resetsAt = stated ?? fullReset
+    if (resetsAt !== stated) changed = true
     if (resetsAt && Date.parse(resetsAt) <= now) { changed = true; continue }
     rejected[id] = resetsAt
   }
@@ -251,6 +258,8 @@ export function resolveResetText(text: string | null | undefined, now: number): 
     const unit = relative[2]!.toLowerCase().startsWith('h') ? 3_600_000 : 60_000
     return new Date(now + amount * unit).toISOString()
   }
+  const dated = resolveDatedReset(value, now)
+  if (dated !== undefined) return dated
   const clock = /^(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:\(([^)]+)\))?$/i.exec(value)
   if (!clock) return null
   let hour = Number(clock[1])
@@ -261,6 +270,44 @@ export function resolveResetText(text: string | null | undefined, now: number): 
   if (hour > 23 || minute > 59) return null
   const zone = clock[4]?.trim() || null
   return nextWallClock(hour, minute, zone, now)
+}
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+
+/**
+ * A dated reset ("Nov 28th, 2026 2:43 AM", optionally "(Europe/Madrid)"): that wall-clock
+ * instant (local time when no zone is named). Undefined when the text is not dated; null
+ * when it is dated but unusable (impossible date, unknown zone, already long past).
+ */
+function resolveDatedReset(value: string, now: number): string | null | undefined {
+  const m = /^(?:at\s+|on\s+)?([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4}),?\s+(\d{1,2})(?::(\d{2}))?\s*([ap])?\.?m?\.?\s*(?:\(([^)]+)\))?$/i.exec(value)
+  if (!m) return undefined
+  const month = MONTHS.indexOf(m[1]!.slice(0, 3).toLowerCase())
+  const day = Number(m[2])
+  const year = Number(m[3])
+  let hour = Number(m[4])
+  const minute = m[5] ? Number(m[5]) : 0
+  const meridiem = m[6]?.toLowerCase()
+  if (month < 0 || day < 1 || day > 31 || minute > 59) return null
+  if (meridiem) { if (hour < 1 || hour > 12) return null; hour = hour % 12 + (meridiem === 'p' ? 12 : 0) }
+  if (hour > 23) return null
+  const zone = m[7]?.trim() || null
+  const wall = Date.UTC(year, month, day, hour, minute)
+  const offsetAt = (instant: number): number | null => {
+    if (!zone) return -new Date(instant).getTimezoneOffset() * 60_000
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(instant))
+      const get = (type: string) => Number(parts.find((part) => part.type === type)?.value)
+      return Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second')) - Math.floor(instant / 1000) * 1000
+    } catch { return null }
+  }
+  // Two passes settle a DST change around the target.
+  const first = offsetAt(wall)
+  if (first === null) return null
+  const second = offsetAt(wall - first)
+  if (second === null) return null
+  const instant = wall - second
+  return instant > now - JUST_PASSED_RESET_MS ? new Date(instant).toISOString() : null
 }
 
 /**

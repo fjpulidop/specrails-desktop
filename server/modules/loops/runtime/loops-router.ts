@@ -1,3 +1,5 @@
+import { PR_CI_LOOP_ID, prCiGraphContractErrors } from './loop-pr-ci-recipe'
+import { MOBILE_TEST_LOOP_ID, mobileTestGraphContractErrors } from './loop-mobile-test-recipe'
 import { logRejection } from '../../../util/log-rejection'
 import { defaultLoopAgents } from './loop-agents'
 import { validateLoopRuntimeSettings, loadRuntimeRolePrompts } from '../../agent-runtime/runtime/agent-runtime-settings'
@@ -39,6 +41,12 @@ import { LOOP_COMMANDS } from './loop-command-catalog'
 import { listConstants, createConstant, updateConstant, deleteConstant, loadConstantMap, LoopConstantError } from './loop-constants'
 import { previewLoop } from './loop-preview'
 import { coreDefaultMaxTurns, loopTurnLimits } from './loop-turn-limits'
+
+
+/** Fix PR CI runs only as itself: its host tasks and the CI offer find a run by its id, so a copy
+ *  could never run. It is improved in place (edit, publish, Restore original). */
+const PR_CI_NOT_COPYABLE = { error: 'pr_ci_not_copyable', message: 'Fix PR CI runs on pull requests as itself. Edit and publish it, or use Restore original.' }
+const MOBILE_TEST_NOT_COPYABLE = { error: 'mobile_test_not_copyable', message: 'Test in Mobile Device runs as itself (its device host tasks key on it). Edit and publish it, or use Restore original.' }
 
 export interface LoopsRoutesDeps {
   db: DbInstance
@@ -181,6 +189,8 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       res.status(404).json({ error: 'Factory loop not found' })
       return
     }
+    if (resolved.id === PR_CI_LOOP_ID) { res.status(409).json(PR_CI_NOT_COPYABLE); return }
+    if (resolved.id === MOBILE_TEST_LOOP_ID) { res.status(409).json(MOBILE_TEST_NOT_COPYABLE); return }
     const body = req.body ?? {}
     const name = isNonEmptyString(body.name) ? body.name.trim() : `${resolved.name} (fork)`
     const source = resolved.row ?? { description: resolved.description, graph: resolved.graph }
@@ -411,6 +421,15 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
     }
     try {
       const current = getLoop(db, id)!
+      // Fix PR CI pushes to people's pull requests: an edit keeps its safety contract.
+      if (id === PR_CI_LOOP_ID) {
+        const contract = prCiGraphContractErrors(current.graph)
+        if (contract.length > 0) { res.status(422).json({ error: 'pr_ci_contract', errors: contract }); return }
+      }
+      if (id === MOBILE_TEST_LOOP_ID) {
+        const contract = mobileTestGraphContractErrors(current.graph)
+        if (contract.length > 0) { res.status(422).json({ error: 'mobile_test_contract', errors: contract }); return }
+      }
       if (isDefinitionGraph(current.graph)) {
         const runtime = await loadCoreAgentRuntime()
         if (runtime.api?.capabilities?.engineV2 !== 1 || runtime.api?.capabilities?.workflowDefinitions !== 1) {
@@ -491,6 +510,8 @@ export function registerLoopsRoutes(router: Router, deps: LoopsRoutesDeps): void
       res.status(404).json({ error: 'Loop not found' })
       return
     }
+    if (src.id === PR_CI_LOOP_ID) { res.status(409).json(PR_CI_NOT_COPYABLE); return }
+    if (src.id === MOBILE_TEST_LOOP_ID) { res.status(409).json(MOBILE_TEST_NOT_COPYABLE); return }
     const name = isNonEmptyString(body.name) ? body.name.trim() : `${src.name} (copy)`
     const loop = duplicateLoop(db, id, newId(), name)
     res.status(201).json({ loop })

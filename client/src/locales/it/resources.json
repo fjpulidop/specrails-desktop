@@ -21,7 +21,8 @@
     "mcp": "MCP e runner",
     "git": "Git",
     "other": "Altro",
-    "server": "Server Specrails"
+    "server": "Server Specrails",
+    "tapflow": "Tapflow e simulatori"
   },
   "items": {
     "server": "Server Specrails",
@@ -158,5 +159,6 @@
     "deleteSelected_one": "Elimina {{count}} cartella",
     "deleteSelected_other": "Elimina {{count}} cartelle",
     "result": "{{deleted}} eliminate, {{kept}} non eliminate."
-  }
+  },
+  "cpuShareHint": "Di tutto il Mac ({{cores}} core): 100 % significa tutti i core occupati."
 }

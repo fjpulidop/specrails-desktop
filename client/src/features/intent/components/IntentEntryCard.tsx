@@ -10,7 +10,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import { useReducedMotion } from '../../../hooks/useReducedMotion'
-import { FileText, GitBranch, Loader2, Play, ShieldCheck, Waves } from 'lucide-react'
+import { FileText, FolderGit2, GitBranch, Loader2, Play, ShieldCheck, Waves } from 'lucide-react'
 import { Skeleton } from '../../../components/ui/skeleton'
 import { RunStateGlyph } from '../../../components/ui/run-state/run-state-glyph'
 import { cn } from '../../../lib/utils'
@@ -59,7 +59,7 @@ interface Props {
   onCancel: () => void
 }
 
-type RepositoryLoad = { projectId: string; repositories: IntentRepositoryOption[] | null; failed: boolean }
+type RepositoryLoad = { projectId: string; repositories: IntentRepositoryOption[] | null; defaultId: string | null; failed: boolean }
 
 /** Bring an open Intent's strip into view and focus its first control (it lives above the composer). */
 export function focusFlowBar(flowId: string): boolean {
@@ -101,6 +101,9 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
   // The project's repositories (null ⇒ unknown: the server triages and explains).
   const [repositoryLoad, setRepositoryLoad] = useState<RepositoryLoad | null>(null)
   const [pickedRepositoryId, setPickedRepositoryId] = useState<string | null>(null)
+  // The repository is chosen for the person (spec, agent, else the project default), shown
+  // on one line; the picker opens only on "Change" (or when nothing could be chosen).
+  const [changingRepository, setChangingRepository] = useState(false)
   const [repositoryAttempt, setRepositoryAttempt] = useState(0)
   const heading = useRef<HTMLSpanElement>(null)
 
@@ -115,19 +118,23 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
     if (!projectId) return
     let cancelled = false
     setRepositoryLoad((current) => (current?.projectId === projectId && current.failed ? null : current))
-    flowApi.repositories(projectId)
-      .then((repositories) => { if (!cancelled) setRepositoryLoad({ projectId, repositories, failed: false }) })
-      .catch(() => { if (!cancelled) setRepositoryLoad({ projectId, repositories: null, failed: true }) })
+    Promise.all([flowApi.repositories(projectId), flowApi.repositoryDefault(projectId).catch(() => null)])
+      .then(([repositories, defaultId]) => { if (!cancelled) setRepositoryLoad({ projectId, repositories, defaultId, failed: false }) })
+      .catch(() => { if (!cancelled) setRepositoryLoad({ projectId, repositories: null, defaultId: null, failed: true }) })
     return () => { cancelled = true }
   }, [projectId, repositoryAttempt])
 
   const repositories = repositoryLoad?.projectId === projectId ? repositoryLoad.repositories : undefined
   const repositoriesFailed = repositoryLoad?.projectId === projectId && repositoryLoad.failed
   const choice = repositories ? flowRepositoryChoice(repositories) : null
-  const suggested = choice?.candidates.some((candidate) => candidate.id === suggestedRepositoryId) ? suggestedRepositoryId : null
+  const isCandidate = (id: string | null | undefined): id is string => !!id && !!choice?.candidates.some((candidate) => candidate.id === id)
+  const suggested = isCandidate(suggestedRepositoryId) ? suggestedRepositoryId : null
+  const projectDefault = isCandidate(repositoryLoad?.defaultId) ? repositoryLoad!.defaultId : null
   const selectedRepositoryId = choice?.show
-    ? (choice.candidates.some((candidate) => candidate.id === pickedRepositoryId) ? pickedRepositoryId : suggested ?? choice.fallback)
+    // The same rule as the server when its answer is missing: never ask, as Implement never asks.
+    ? (isCandidate(pickedRepositoryId) ? pickedRepositoryId : suggested ?? projectDefault ?? choice.fallback ?? choice.candidates[0]?.id ?? null)
     : null
+  const selectedRepository = choice?.candidates.find((candidate) => candidate.id === selectedRepositoryId) ?? null
   // Unknown members (the list could not load): the agent's triage still goes to the server.
   const targetRepositoryId = choice ? selectedRepositoryId : repositories === null ? suggestedRepositoryId : null
   const noGitRepository = !!choice?.show && choice.candidates.length === 0
@@ -233,7 +240,19 @@ export function IntentEntryCard({ idea, title, repositoryId: suggestedRepository
             </button>
           </p>
         )}
-        {choice?.show && choice.candidates.length > 0 && (
+        {choice?.show && selectedRepository && !changingRepository && (
+          <p data-testid="flow-entry-repository-target" className="flex items-center gap-1.5 text-caption text-muted-foreground">
+            <FolderGit2 className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="min-w-0 truncate">{t('flow.entry.repository.target', { name: selectedRepository.name })}</span>
+            <button type="button" data-agent-interactive data-testid="flow-entry-repository-change" disabled={busy}
+              aria-label={t('flow.entry.repository.changeLabel')}
+              onClick={() => setChangingRepository(true)}
+              className="rounded px-1 text-label text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:opacity-50">
+              {t('flow.entry.repository.change')}
+            </button>
+          </p>
+        )}
+        {choice?.show && choice.candidates.length > 0 && (changingRepository || !selectedRepository) && (
           <IntentRepositoryPicker
             idPrefix="flow-entry-repository"
             candidates={choice.candidates}

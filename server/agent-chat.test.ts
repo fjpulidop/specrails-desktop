@@ -23,6 +23,8 @@ import {
   softDeleteAgentConversation,
   restoreAgentConversation,
   createAgentConversation,
+  missionDefaultTierLevel,
+  setMissionDefaultTierLevel,
   getAgentConversation,
   listAgentConversations,
   updateAgentConversation,
@@ -137,11 +139,14 @@ describe('agent-store', () => {
     expect(restoreAgentConversation(db, c.id)?.archivedAt).toBe('2026-01-01T00:00:00.000Z')
   })
 
-  it('defaults a bare conversation to observe/claude', () => {
+  it('defaults a bare conversation to claude at the person\'s default level (autonomous until they choose)', () => {
     const c = createAgentConversation(db)
     expect(c.provider).toBe('claude')
-    expect(c.tier_level).toBe(0)
+    expect(c.tier_level).toBe(3)
     expect(c.pinned_project_id).toBeNull()
+    setMissionDefaultTierLevel(db, 0)
+    expect(missionDefaultTierLevel(db)).toBe(0)
+    expect(createAgentConversation(db).tier_level).toBe(0)
   })
 
   it('adds + lists messages in order and cascade-deletes', () => {
@@ -386,6 +391,7 @@ function makeApp(db: DbInstance, manager: Partial<AgentChatManager>) {
   app.use(express.json())
   app.use('/api/agent', createAgentChatRouter({ manager: {
     notifyConversationCreated: vi.fn(),
+    notifyTitle: vi.fn(),
     pendingMessages: () => [],
     conversationLive: () => ({ isStreaming: false, streamingText: '', startedAt: undefined }),
     sessionState: () => null,
@@ -891,7 +897,7 @@ describe('AgentChatManager', () => {
       return { code: 0, timedOut: false, spawnFailed: false, events: [], lastResultEvent: null, sessionId: null, stderrTail: '', child: null } as InvocationResult
     })
 
-    const c = createAgentConversation(db, { provider: 'claude', pinnedProjectId: project.id })
+    const c = createAgentConversation(db, { provider: 'claude', pinnedProjectId: project.id, tierLevel: 0 })
     await manager.sendMessage(c.id, 'analizalo y dime', {
       contextRefs: [{
         kind: 'trace',
@@ -928,6 +934,9 @@ describe('AgentChatManager', () => {
     expect(prompts[0]).toContain('Surface: MCP client')
     expect(prompts[0]).toContain('never an app button')
     expect(prompts[1]).not.toContain('Surface: MCP client')
+    // Desktop shows which message came through MCP (stored and announced live).
+    const users = listAgentMessages(db, c.id).filter((m) => m.role === 'user')
+    expect(users.map((m) => m.surface ?? null)).toEqual(['mcp', null])
   })
 
   it('emits agent_error when the spawn fails', async () => {

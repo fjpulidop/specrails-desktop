@@ -8,6 +8,7 @@ import type { Request, Response } from 'express'
 import type { ProjectContext } from '../../../project-registry'
 import { getRail, MAX_RAILS, type RailState } from './rails-store'
 import { refreshPrCiOffer } from './pr-ci/pr-ci-projection'
+import { notifyDeliveryObservers } from './delivery-observers'
 import { resolveProjectTicketsPath } from '../../../workspace-resolution'
 import type { LoopGraph } from '../../loops/runtime/loop-graph'
 import { getPrDelivery, toPrDecisionCardEnvelope, toPrDeliverySnapshot, toRailPrStateMessage } from './rail-pr-store'
@@ -58,6 +59,7 @@ export function emitPrDeliveryUpdate(c: ProjectContext, prDeliveryId: string): v
   }
   // pr-ci-loop: offer (or refresh) "Watch and fix the PR's CI" in the mission.
   refreshPrCiOffer(c, prDeliveryId)
+  notifyDeliveryObservers(c, prDeliveryId)
 }
 
 /** Ticket ids currently `on_review` (best-effort: an unreadable store ⇒ none). */

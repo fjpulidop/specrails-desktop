@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto'
 import { z } from 'zod'
 import { defineTool, type PreviewInput, type V2ActionDef, type V2CallContext } from '../core/registry'
 import { F, WRITE_FIELDS, optionsOf, resolveFields } from '../core/views'
-import { V2ToolError, oneLine, result } from '../core/envelope'
+import { V2ToolError, isV2Result, oneLine, result } from '../core/envelope'
 import { decodeCursor, encodeCursor, pageOf } from '../core/cursor'
 import { formatRef, parseRef, type Ref } from '../core/refs'
 import { neutralize, untrusted } from '../core/untrusted'
@@ -49,13 +49,19 @@ const excerpt = (value: unknown, max = 200) => neutralize(oneLine(typeof value =
 const minute = (iso: unknown) => typeof iso === 'string' ? iso.replace(/:\d\d(\.\d+)?Z$/, 'Z') : iso
 const enc = encodeURIComponent
 
-const MISSION_SECTIONS = ['messages', 'queue', 'cards', 'subagents', 'attachments', 'intent', 'links', 'resources', 'processes'] as const
+const MISSION_SECTIONS = ['messages', 'queue', 'cards', 'subagents', 'attachments', 'intent', 'links', 'resources', 'processes', 'plan'] as const
 const MESSAGE_CHARS = 2_000
-const REPLY_CHARS = 4_000
+/** `message` reads one message whole, up to this. */
+const FULL_MESSAGE_CHARS = 40_000
+/** The mission's reply is the conversation itself: it arrives whole, not as an excerpt. */
+const REPLY_CHARS = 16_000
+/** Room for a whole reply in the conversational actions (send, create with a goal, Intent's opening, a card reply). */
+const CONVERSE_TOKENS = 6_000
 const DEFAULT_MESSAGES = 10
 const MESSAGES_BUDGET_SUMMARY = 800
 const MESSAGES_BUDGET_DETAIL = 5_000
-const WAIT_DEFAULT_MS = 20_000
+// A turn often takes 20–45 s: waiting the full window settles most of them in one call.
+const WAIT_DEFAULT_MS = 45_000
 const WAIT_MAX_MS = 45_000
 const ATTACH_PATH_MAX = 25 * 1024 * 1024
 const ATTACH_INLINE_MAX = 5 * 1024 * 1024
@@ -73,6 +79,15 @@ function missionId(ctx: V2CallContext, args: Row): { id: string; ref: Ref } {
 }
 
 const missionRef = (id: string) => formatRef('mission', id)
+
+/** A mission an external MCP client creates is marked as such (Desktop shows where it came from). */
+function mcpOrigin(ctx: V2CallContext): Row {
+  const session = ctx.sessionState
+  if (ctx.firstPartyAgent || session.external !== true) return {}
+  let client: string | null = null
+  try { client = session.clientName?.() ?? null } catch { /* unknown client */ }
+  return { origin: 'mcp', ...(client ? { originClient: client } : {}) }
+}
 
 /** A mission must not message, stop or question itself (it would loop on its own turn). */
 function refuseSelf(ctx: V2CallContext, id: string): void {
@@ -146,7 +161,9 @@ function messageView(message: MessageLike & { attachments?: number }): Row {
     try { kind = String(record(JSON.parse(message.content)).kind ?? 'system') } catch { /* plain system row */ }
     return { id: message.id, role: 'system', card: kind, at: minute(message.created_at) }
   }
-  return { id: message.id, role: message.role, at: minute(message.created_at), text: neutralize(clip(message.content, MESSAGE_CHARS)), ...(message.attachments ? { attachments: message.attachments } : {}) }
+  // A long message is cut here; `message` (options.message=<id>) reads it whole.
+  const truncated = message.content.length > MESSAGE_CHARS
+  return { id: message.id, role: message.role, at: minute(message.created_at), text: neutralize(clip(message.content, MESSAGE_CHARS)), ...(truncated ? { truncated: true, chars: message.content.length } : {}), ...(message.attachments ? { attachments: message.attachments } : {}) }
 }
 
 /** Runs, specs and deliveries the mission's cards name. */
@@ -223,7 +240,7 @@ function waitMsOf(args: Row): number {
  * settles on the first reply after it starts (`agent_input_started` with its
  * queueId); the current turn's reply does not count.
  */
-async function sendAndWait(ctx: V2CallContext, conversationId: string, start: () => Promise<Row>, options: { waitMs: number; queueId: string | null; done: string[]; failed: string[]; started?: string[] }): Promise<{ response: Row; settled: Settled }> {
+async function sendAndWait(ctx: V2CallContext, conversationId: string, start: () => Promise<Row>, options: { waitMs: number; queueId: string | null; done: string[]; failed: string[]; started?: string[]; waitsFor?: () => boolean }): Promise<{ response: Row; settled: Settled }> {
   let response: Row | null = null
   let started = false
   let resolve: ((settled: Settled) => void) | null = null
@@ -243,7 +260,7 @@ async function sendAndWait(ctx: V2CallContext, conversationId: string, start: ()
     response = await start()
     started = response.queued !== true
     for (const msg of early.splice(0)) handle(msg)
-    if (!unsubscribe) return { response, settled: { status: 'pending' } }
+    if (!unsubscribe || options.waitsFor?.() === false) return { response, settled: { status: 'pending' } }
     let timer: NodeJS.Timeout | undefined
     const settled = await Promise.race([settledPromise, new Promise<Settled>((done) => { timer = setTimeout(() => done({ status: 'pending' }), options.waitMs) })])
     clearTimeout(timer)
@@ -265,6 +282,13 @@ export function missionForecast(ctx: V2CallContext, conversationId: string): [nu
   return turnCostFromLedger(ctx.desktopDb,
     "SELECT total_cost_usd AS cost FROM agent_invocations WHERE conversation_id = ? AND surface = 'agent-chat' AND status = 'success' AND total_cost_usd_estimated = 0 AND total_cost_usd > 0 ORDER BY started_at DESC LIMIT 10",
     [conversationId], { minSamples: 3, low: 'median' })
+}
+
+/** A new mission's first turn: the machine's recent mission turns (no history of its own yet). */
+export function newMissionForecast(ctx: V2CallContext): [number, number] | null {
+  return turnCostFromLedger(ctx.desktopDb,
+    "SELECT total_cost_usd AS cost FROM agent_invocations WHERE surface = 'agent-chat' AND status = 'success' AND total_cost_usd_estimated = 0 AND total_cost_usd > 0 ORDER BY started_at DESC LIMIT 10",
+    [], { minSamples: 3, low: 'median' })
 }
 
 async function spendPreview(ctx: V2CallContext, args: Row, effectKey: string): Promise<PreviewInput> {
@@ -418,17 +442,33 @@ async function intentResult(ctx: V2CallContext, target: IntentTarget, flowValue:
  * agent session (its own billed turns), `launch` starts a rail run (the
  * project's launch forecast for the loop, implement by default).
  */
+/** What the person calls an Intent: its spec's title, else its mission's, else the ref. */
+async function intentName(ctx: V2CallContext, target: IntentTarget): Promise<string> {
+  const quoted = (value: unknown) => typeof value === 'string' && value.trim() ? `«${clip(neutralize(value.trim()), 80)}»` : null
+  try {
+    if (target.flow.ticketId) {
+      const ticket = record(record(await apiCall(ctx, 'GET', `/projects/${enc(target.row.id)}/tickets/${target.flow.ticketId}`)).ticket)
+      const title = quoted(ticket.title)
+      if (title) return title
+    }
+    if (target.flow.conversationId) {
+      const title = quoted(record(record(await apiCall(ctx, 'GET', `${AGENT}/${enc(target.flow.conversationId)}`)).conversation).title)
+      if (title) return title
+    }
+  } catch { /* the ref still names it */ }
+  return target.ref
+}
+
 async function intentPreview(ctx: V2CallContext, args: Row, effectKey: string, spend: 'turn' | 'launch' | null): Promise<PreviewInput> {
   const target = await intentTarget(ctx, args)
   const options = optionsOf(args)
-  const forecastUsd = spend === 'turn' ? missionForecast(ctx, target.flow.conversationId)
-    : spend === 'launch' ? scaledCost(await launchForecast(ctx, target.row, { loopId: str(options.loopId) ?? FLOW_SPEC_LOOP_ID, provider: str(args.provider) ?? str(options.provider) }), 1)
-      : null
+  const launch = spend === 'launch' ? await launchForecast(ctx, target.row, { loopId: str(options.loopId) ?? FLOW_SPEC_LOOP_ID, provider: str(args.provider) ?? str(options.provider) }) : null
+  const forecastUsd = spend === 'turn' ? missionForecast(ctx, target.flow.conversationId) : spend === 'launch' ? scaledCost(launch, 1) : null
   return {
-    effect: ctx.v2.t(effectKey, { ref: target.ref, branch: target.flow.branch ?? '—' }),
+    effect: ctx.v2.t(effectKey, { ref: await intentName(ctx, target), branch: target.flow.branch ?? '—' }),
     refs: [target.ref],
     version: intentState(ctx, target).version,
-    ...(spend ? { cost: { forecastUsd, runs: 1 } } : {}),
+    ...(spend ? { cost: { forecastUsd, runs: 1, ...(launch?.basis === 'similar' ? { basis: 'similar' as const } : {}) } } : {}),
   }
 }
 
@@ -626,10 +666,20 @@ async function sendMessage(ctx: V2CallContext, rawArgs: Row, flags: { skipSelf?:
     // The person writes from their own client: the turn tells the agent, so it names MCP actions, never app buttons.
     ...(ctx.firstPartyAgent ? {} : { surface: 'mcp' }),
   })), { waitMs: waitMsOf(args), queueId, done: ['agent_done', 'agent_turn_done'], failed: ['agent_error'], started: ['agent_input_started', 'agent_dequeued'] })
+  return turnResult(ctx, id, ref, response, settled, { queueId })
+}
+
+/**
+ * What a mission turn the caller started came to (send, a created mission's first turn, Intent's
+ * opening turn): the reply as untrusted text, and the mission's own pending choices (its option
+ * chips and cards) as the state's offers, so the person picks from what the mission proposed.
+ */
+async function turnResult(ctx: V2CallContext, id: string, ref: Ref, response: Row, settled: Settled, extra: { queueId?: string; keys?: { replied?: string; working?: string }; vars?: Row } = {}): Promise<unknown> {
+  const queueId = extra.queueId
   const sent = record(response.message)
   const after = str(sent.id)
   const data: Row = {
-    ref, queueId, accepted: response.accepted === true, queued: response.queued === true,
+    ref, ...(queueId ? { queueId } : {}), accepted: response.accepted === true, queued: response.queued === true,
     ...(response.duplicate ? { duplicate: true } : {}),
     status: settled.status === 'replied' ? 'replied' : settled.status === 'failed' ? 'failed' : response.queued ? 'queued' : 'running',
     ...(settled.text !== undefined ? { reply: { ...(settled.messageId ? { messageId: settled.messageId } : {}), text: neutralize(clip(settled.text, REPLY_CHARS)) } } : {}),
@@ -655,10 +705,23 @@ async function sendMessage(ctx: V2CallContext, rawArgs: Row, flags: { skipSelf?:
     }
   }
   const summary = settled.status === 'replied'
-    ? ctx.v2.t('missions.summary.replied', { mission: ref, reply: excerpt(settled.text, 200) })
+    ? ctx.v2.t(extra.keys?.replied ?? 'missions.summary.replied', { mission: ref, reply: excerpt(settled.text, 200), ...extra.vars })
     : settled.status === 'failed' ? ctx.v2.t('missions.summary.turn_failed', { mission: ref, error: excerpt(settled.error, 160) })
-      : ctx.v2.t(response.queued ? 'missions.summary.queued' : 'missions.summary.working', { mission: ref })
+      : ctx.v2.t(response.queued ? 'missions.summary.queued' : extra.keys?.working ?? 'missions.summary.working', { mission: ref, ...extra.vars })
   return result(data, { summary, refs: { mission: ref }, ...(state ? { state } : {}), untrusted: untrusted('/data/reply/text', '/data/error') })
+}
+
+/**
+ * What a mission's settled turn said, for a wake-up that should not need a `get`: its last reply
+ * (whole, untrusted) and the choices still open on it. Null when there is no reply to show.
+ */
+export async function missionTurnDigest(ctx: V2CallContext, conversationId: string): Promise<Row | null> {
+  const read = await readMission(ctx, conversationId).catch(() => null)
+  if (!read || read.live.isStreaming === true) return null
+  const last = [...read.messages].reverse().find((message) => message.role === 'assistant')
+  if (!last) return null
+  const pending = projectCards(read.messages, { busy: false }).filter((card) => card.pending)
+  return { reply: { messageId: last.id, at: minute(last.created_at), text: neutralize(clip(last.content, REPLY_CHARS)) }, ...(pending.length ? { pendingCards: pending.map(brief) } : {}) }
 }
 
 /** The mission's open (or latest) Intent, or null (never throws: Intent may be unavailable here). */
@@ -724,6 +787,13 @@ async function getMission(ctx: V2CallContext, args: Row): Promise<unknown> {
     const processes = rows(record(await apiCall(ctx, 'GET', `/projects/${enc(row.id)}/background-processes?chatId=${enc(id)}`)).processes)
     data.processes = processes.slice(0, 20).map((p) => ({ pid: p.pid, command: neutralize(clip(String(p.command ?? ''), 200)), status: p.status, ...(p.flowId ? { intent: intentRef(row, String(p.flowId)) } : {}), ...(Array.isArray(p.appUrls) && p.appUrls.length ? { appUrls: p.appUrls } : p.appUrl ? { appUrls: [p.appUrl] } : {}), ...(p.startedAt ? { started: minute(p.startedAt) } : {}) }))
     marks.push('/data/processes/*/command')
+  }
+  if (sections.includes('plan')) {
+    // The agent's plan of work and each step's status (the mission's Plan pill).
+    const plan = record(record(await apiCall(ctx, 'GET', `${AGENT}/${enc(id)}/plan`)).plan)
+    const steps = rows(plan.steps)
+    data.plan = steps.length ? { ...(plan.title ? { title: plan.title } : {}), done: steps.filter((step) => step.status === 'completed').length, total: steps.length, steps: steps.map((step) => ({ step: step.content, status: step.status })), at: plan.at } : null
+    marks.push('/data/plan/title', '/data/plan/steps/*/step')
   }
   const summary = ctx.v2.t(busy ? 'missions.summary.get_running' : 'missions.summary.get', {
     title: excerpt(conversation.title, 80) || ref, status: state.label, count: read.messages.length, cards: pendingCards.length,
@@ -834,6 +904,13 @@ async function chatSend(ctx: V2CallContext, args: Row): Promise<unknown> {
 const read: V2ActionDef = { tier: 'read', required: ['ref'] }
 const write: V2ActionDef = { tier: 'write', required: ['ref'] }
 const spend: V2ActionDef = { tier: 'ai-spawn', confirm: 'costly', required: ['ref'] }
+/**
+ * Talking to a mission (a message, a side question, answering its option): a turn, like typing in the
+ * app, which never asks. Costly work of its own (launches, Intent, hand-off, renew) keeps `spend`.
+ */
+const converse: V2ActionDef = { tier: 'ai-spawn', confirm: null, required: ['ref'], maxTokens: CONVERSE_TOKENS }
+/** Card decisions that start work of their own (a rail, Intent, CI repair): confirmed like a launch. */
+const LAUNCH_DECISIONS = new Set(['launch', 'implement', 'intent', 'start', 'explore', 'delegate'])
 
 const simpleIntent = (path: string, key: string): V2ActionDef['handler'] => async (ctx, args) => {
   const target = await intentTarget(ctx, args)
@@ -876,30 +953,65 @@ export const missionsTool = defineTool({
         return result({ items }, { summary: ctx.v2.t('missions.summary.search', { count: items.length, query: excerpt(args.query, 60) }), untrusted: untrusted('/data/items/*/title', '/data/items/*/snippet') })
       },
     },
+    message: {
+      ...read, maxTokens: 12_000,
+      doc: 'One message of the mission whole (options.message=<id> from get messages, where long ones are truncated; default the last reply), up to 40 000 characters.',
+      handler: async (ctx, args) => {
+        const { id, ref } = missionId(ctx, args)
+        const read = await readMission(ctx, id)
+        const wanted = str(optionsOf(args).message)
+        const message = wanted ? read.messages.find((item) => item.id === wanted) : [...read.messages].reverse().find((item) => item.role === 'assistant')
+        if (!message) throw new V2ToolError('not_found', ctx.v2.t('missions.error.no_messages', { mission: ref }))
+        const text = clip(message.content, FULL_MESSAGE_CHARS)
+        return result({ mission: ref, id: message.id, role: message.role, at: minute(message.created_at), text: neutralize(text), chars: message.content.length, ...(message.content.length > FULL_MESSAGE_CHARS ? { truncated: true } : {}) }, {
+          summary: ctx.v2.t('missions.summary.message', { mission: ref, chars: message.content.length }), refs: { mission: ref }, untrusted: untrusted('/data/text'),
+        })
+      },
+    },
     get: { ...read, doc: 'One mission: state, last reply, pending cards. fields: messages (newest first; cursor pages older; options.after=<messageId> reads what followed), queue, cards, subagents, attachments, intent, links (runs/specs/deliveries), resources, processes (dev servers and preview app URLs).', handler: getMission },
     create: {
-      tier: 'write', doc: 'New mission. project pins it (omit for Home); provider, model, effort; title. Then send.',
+      // With the person's message it starts working in the same call (a turn: the send's tier and confirmation).
+      tier: (args) => str(args.message) ? 'ai-spawn' : 'write',
+      // Like typing the goal in the app: no confirmation, the reply arrives whole.
+      confirm: null,
+      maxTokens: CONVERSE_TOKENS,
+      doc: 'New mission. message = what the person wants: it starts working on it now (the mission names itself; title optional). Without message, ask the person its goal in one open question, then send. project pins it (omit for Home); provider, model, effort.',
+      preview: (ctx, args) => {
+        const pin = args.project !== undefined && args.project !== null && args.project !== 'home' ? ctx.v2.project(args) : null
+        return { effect: ctx.v2.t('missions.preview.create_send', { project: pin?.slug ?? 'Home' }), refs: [], version: `c${shortHash({ p: pin?.id ?? null, m: str(args.message) ?? '' })}`, cost: { forecastUsd: newMissionForecast(ctx), runs: 1 } }
+      },
       handler: async (ctx, args) => {
         const pin = args.project !== undefined && args.project !== null && args.project !== 'home' ? ctx.v2.project(args) : null
         const created = record(record(await apiCall(ctx, 'POST', AGENT, {
           pinnedProjectId: pin?.id ?? null, ...(args.provider ? { provider: args.provider } : {}), ...(args.model ? { model: args.model } : {}), ...(args.effort ? { reasoningEffort: args.effort } : {}),
+          ...(str(args.title) ? { title: str(args.title) } : {}), ...mcpOrigin(ctx),
         })).conversation)
         const id = String(created.id)
-        if (str(args.title)) await apiCall(ctx, 'PATCH', `${AGENT}/${enc(id)}`, { title: str(args.title) })
         const ref = missionRef(id)
-        return result({ ref, ...(pin ? { project: pin.slug } : {}), provider: created.provider, model: created.model ?? null, effort: created.reasoning_effort ?? null }, {
+        const engine = { ...(pin ? { project: pin.slug } : {}), provider: created.provider, model: created.model ?? null, effort: created.reasoning_effort ?? null }
+        if (str(args.message)) {
+          // Created and started at once, like typing the goal in the app: the reply comes back here.
+          const sent = await sendMessage(ctx, { ...args, ref }, { skipSelf: true })
+          if (isV2Result(sent)) {
+            return result({ ...engine, ...(sent.data as Row) }, {
+              ...sent, summary: `${ctx.v2.t('missions.summary.created_started', { mission: ref })} ${sent.summary ?? ''}`.trim(), refs: { mission: ref },
+            })
+          }
+          return sent
+        }
+        return result({ ref, ...engine, ask: ctx.v2.t('missions.ask.goal') }, {
           summary: ctx.v2.t('missions.summary.created', { mission: ref }), refs: { mission: ref },
         })
       },
     },
     send: {
-      ...spend, required: ['ref', 'message'],
-      doc: 'Sends the person\'s message and waits up to options.waitMs (default 20000, max 45000) for the reply. Busy mission: queued (options.deliveryMode queue|steer|interrupt). options.attachmentIds, options.queueId (idempotent retry). Not replied yet: specrails_wait(until, refs:[ref]) then get(options.after).',
+      ...converse, required: ['ref', 'message'],
+      doc: 'Sends the person\'s message and waits up to options.waitMs (default and max 45000) for the reply. Busy mission: queued (options.deliveryMode queue|steer|interrupt). options.attachmentIds, options.queueId (idempotent retry). Not replied yet: specrails_wait(until, refs:[ref]) wakes with the reply.',
       preview: (ctx, args) => spendPreview(ctx, args, 'missions.preview.send'),
       handler: (ctx, args) => sendMessage(ctx, args),
     },
     ask: {
-      ...spend, required: ['ref', 'message'],
+      ...converse, required: ['ref', 'message'],
       doc: 'Side question about the mission (nothing is written to it). options.selection (default: the last reply), options.throughMessageId.',
       preview: (ctx, args) => spendPreview(ctx, args, 'missions.preview.ask'),
       handler: async (ctx, rawArgs) => {
@@ -1089,7 +1201,8 @@ export const missionsTool = defineTool({
     },
     card_decide: {
       tier: (args) => isSpendDecision(args) ? 'ai-spawn' : 'write',
-      confirm: (args) => isSpendDecision(args) ? 'costly' : null,
+      confirm: (args) => LAUNCH_DECISIONS.has(String(args.decision)) ? 'costly' : null,
+      maxTokens: CONVERSE_TOKENS,
       required: ['ref', 'cardId', 'decision'],
       choose: { fields: ['decision'], point: cardPoint },
       doc: 'Decides a pending card (ids and decisions in get: pendingCards; no decision: the person picks). options: option index or text; intent-draft: restated|alternative|explore (start Intent from it)|delegate; rail-launch: launch|dismiss; flow-offer: intent|implement|dismiss; pr-ci-offer: start|dismiss. Delivery cards: specrails_deliveries.',
@@ -1138,7 +1251,7 @@ export const missionsTool = defineTool({
       },
     },
     intent_start: {
-      tier: 'ai-spawn', confirm: 'costly', oneOf: ['message', 'options.spec'],
+      tier: 'ai-spawn', confirm: 'costly', oneOf: ['message', 'options.spec'], maxTokens: CONVERSE_TOKENS,
       doc: 'Starts Intent (build in an isolated worktree, then hand off): message = the idea, or options.spec (start from that spec); ref = an existing mission (default: a new mission in project, with provider/model/effort); options.repository for multi-repository projects.',
       preview: async (ctx, args) => {
         const row = args.ref ? null : ctx.v2.project(args)
@@ -1154,7 +1267,7 @@ export const missionsTool = defineTool({
           row = projectOfPin(ctx, conversation.pinned_project_id) ?? ctx.v2.project(args)
         } else {
           row = ctx.v2.project(args)
-          const created = record(record(await apiCall(ctx, 'POST', AGENT, { pinnedProjectId: row.id, ...(args.provider ? { provider: args.provider } : {}), ...(args.model ? { model: args.model } : {}), ...(args.effort ? { reasoningEffort: args.effort } : {}) })).conversation)
+          const created = record(record(await apiCall(ctx, 'POST', AGENT, { pinnedProjectId: row.id, ...(args.provider ? { provider: args.provider } : {}), ...(args.model ? { model: args.model } : {}), ...(args.effort ? { reasoningEffort: args.effort } : {}), ...mcpOrigin(ctx) })).conversation)
           conversationId = String(created.id)
         }
         let ticketId: number | undefined
@@ -1162,10 +1275,27 @@ export const missionsTool = defineTool({
           const spec = ctx.v2.target({ project: row.slug, ref: typeof options.spec === 'number' ? String(options.spec) : options.spec }, 'spec')
           ticketId = Number(spec.id)
         }
-        const flow = record(record(await apiCall(ctx, 'POST', flowBase(row), {
-          conversationId, idea: str(args.message) ?? '', ...(ticketId ? { ticketId } : {}), ...(str(args.title) ? { title: str(args.title) } : {}), ...(str(options.repository) ? { repositoryId: str(options.repository) } : {}),
-        })).flow) as unknown as IntentSession
-        return intentResult(ctx, { row, flowId: flow.id, ref: intentRef(row, flow.id), flow }, flow, 'missions.summary.intent_started')
+        let flow = null as unknown as IntentSession
+        // A seeded Intent (a spec or a stored intent) begins with its own opening turn: wait for it like a
+        // send, so the person hears what the mission found and picks from the choices it proposed.
+        const { response, settled } = await sendAndWait(ctx, conversationId, async () => {
+          flow = record(record(await apiCall(ctx, 'POST', flowBase(row), {
+            conversationId, idea: str(args.message) ?? '', ...(ticketId ? { ticketId } : {}), ...(str(args.title) ? { title: str(args.title) } : {}), ...(str(options.repository) ? { repositoryId: str(options.repository) } : {}),
+          })).flow) as unknown as IntentSession
+          return {}
+        }, { waitMs: waitMsOf(args), queueId: null, done: ['agent_done', 'agent_turn_done'], failed: ['agent_error'], waitsFor: () => Boolean(flow?.returnBriefing) })
+        const target: IntentTarget = { row, flowId: flow.id, ref: intentRef(row, flow.id), flow }
+        if (!flow.returnBriefing) return intentResult(ctx, target, flow, 'missions.summary.intent_started')
+        const turn = await turnResult(ctx, conversationId, missionRef(conversationId), response, settled, {
+          keys: { replied: 'missions.summary.intent_replied', working: 'missions.summary.intent_working' }, vars: { ref: target.ref },
+        })
+        if (!isV2Result(turn)) return turn
+        const { ref: _missionRef, accepted: _accepted, queued: _queued, ...turnData } = turn.data as Row
+        return result({ ...intentView(target), turn: turnData }, {
+          summary: turn.summary, refs: { intent: target.ref, mission: missionRef(conversationId) },
+          state: turn.state ?? intentState(ctx, target, settled.status === 'pending'),
+          untrusted: untrusted('/data/returnBriefing', '/data/turn/reply/text', '/data/turn/error'),
+        })
       },
     },
     intent_get: {

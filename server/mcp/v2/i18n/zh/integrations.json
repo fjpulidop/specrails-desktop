@@ -72,5 +72,11 @@
   "confirm.mobile_enable": "开启移动网关：在本地网络上为已配对的手机提供监听。",
   "confirm.mobile_revoke": "撤销已配对的设备 {{device}}；它必须重新配对。",
   "confirm.webhooks_url": "从现在起将应用的事件发送到 {{url}}。",
-  "confirm.mobile_rotate": "轮换网关证书并撤销全部 {{devices}} 台已配对设备；每台都需要重新配对。"
+  "confirm.mobile_rotate": "轮换网关证书并撤销全部 {{devices}} 台已配对设备；每台都需要重新配对。",
+  "summary.mobile_test_started": "正在构建并安装到 {{platforms}} 模拟器；请等待运行。",
+  "summary.mobile_options": "移动测试：工作副本可构建 {{platforms}}；有 {{devices}} 台 Tapflow 设备可用。",
+  "summary.mobile_status": "移动测试 {{state}}：{{detail}}",
+  "summary.mobile_open_device": "正在 Specrails 窗口中打开 {{device}}。",
+  "summary.mobile_device_released": "{{device}} 将在宽限期后关闭，除非再次打开。",
+  "summary.mobile_device_stopped": "{{device}} 正在立即关闭。"
 }

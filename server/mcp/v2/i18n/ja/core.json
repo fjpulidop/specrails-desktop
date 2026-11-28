@@ -112,6 +112,7 @@
   "confirm.class.costly": "費用のかかる AI 作業を開始します。",
   "confirm.cost": "見積もり費用 {{low}}–{{high}} USD。",
   "confirm.cost_unknown": "費用を見積もれません。",
+  "confirm.cost_similar": "見積もり費用 {{low}}–{{high}} USD(このプロジェクトの類似の実行に基づく)。",
   "confirm.runs": "{{count}} 件の実行を開始します。",
   "error.not_implemented": "{{label}} はこのバージョンではまだ使えません。",
   "error.not_implemented_legacy": "{{label}} はこのバージョンではまだ使えません。当面は {{legacy}} を使ってください。",

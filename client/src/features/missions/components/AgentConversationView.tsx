@@ -1,3 +1,4 @@
+import { AgentMcpActionLine, parseMcpActionRow } from './AgentMcpActionLine'
 import { MissionSelectionMenu } from './MissionSelectionMenu'
 import { PolicyDeniedNotice } from '../../../components/agent-policy/PolicyDeniedNotice'
 import { parsePolicyDeniedRow } from '../../../components/agent-policy/policy-denial'
@@ -41,6 +42,7 @@ import { AgentSessionSummaryCard, parseSessionSummaryRow } from './AgentSessionS
 import { AgentFlowBoundaryLine, flowTurnMessageIds, parseFlowBoundaryRow } from './AgentFlowBoundaryLine'
 import { AgentRunFailureMarker, AgentSystemBriefing } from './AgentRunFailureMarker'
 import { AgentPrCiOfferCard, parsePrCiOfferRow } from './AgentPrCiOfferCard'
+import { AgentMobileTestOfferCard, parseMobileTestOfferRow } from './AgentMobileTestOfferCard'
 import { PR_CI_LOOP_ID } from '../../delivery/lib/pr-ci'
 import { FEATURE_MISSION_RAIL_CARDS, FEATURE_PR_CI_CARD } from '../../../lib/feature-flags'
 import { useRailLaunchProposals } from './useRailLaunchProposals'
@@ -80,7 +82,8 @@ const warnedSystemRows = new Set<string>()
 // System rows that are records rather than cards: recognised, rendered as
 // nothing, and deliberately NOT warned about. Kept in sync with
 // server/modules/missions/runtime/agent-spec-framing.ts SPEC_FRAMING_MARKER_KIND.
-const SILENT_SYSTEM_ROW_KINDS = new Set(['spec-framing.committed'])
+// `mission-plan`: the agent's plan of work, shown in the composer's Plan pill (MissionPlanPill), not inline.
+const SILENT_SYSTEM_ROW_KINDS = new Set(['spec-framing.committed', 'mission-plan'])
 
 function isSilentSystemRow(content: string): boolean {
   if (!content.startsWith('{')) return false
@@ -455,8 +458,9 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
     return extractAgentOptions(content).options ?? null
   }, [lastMessage, active?.provider])
 
-  // Shift+Tab on the view's controls cycles the tier ladder. Inside the text
-  // editor it stays reverse focus navigation (a11y): the editor is excluded.
+  // Shift+Tab on the view's controls cycles the tier ladder. The message editor
+  // handles it itself (AgentComposer); other text fields (an answer, a search)
+  // keep reverse focus navigation.
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.shiftKey && (e.key === 'Tab' || e.code === 'Tab')) {
       const target = e.target as HTMLElement | null
@@ -567,12 +571,18 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
               // pr-ci-loop: the optional "Watch and fix the PR's CI" offer (never attention).
               const prCiOffer = parsePrCiOfferRow(m.content)
               if (prCiOffer) return FEATURE_PR_CI_CARD ? <AgentPrCiOfferCard key={m.id} row={prCiOffer} conversationId={m.conversation_id} /> : null
+              // tapflow: "Test in Mobile Device" after a delivery of a mobile app (optional, never attention).
+              const mobileTestOffer = parseMobileTestOfferRow(m.content)
+              if (mobileTestOffer) return <AgentMobileTestOfferCard key={m.id} row={mobileTestOffer} />
               // Back to Intent: what the reviewer asked for (server-authored, once per delivery).
               const flowReturn = parseFlowReturnBriefingRow(m.content)
               if (flowReturn) return <AgentFlowReturnCard key={m.id} row={flowReturn} conversationId={m.conversation_id} />
               // Intent delivered: the closing summary (server-authored, once per Intent).
               const flowDelivered = parseFlowDeliveredRow(m.content)
               if (flowDelivered) return <AgentFlowDeliveredCard key={m.id} row={flowDelivered} projectId={refsProjectId} conversationId={m.conversation_id} />
+              // An external MCP client's change (mission-journal): one event line.
+              const mcpAction = parseMcpActionRow(m.content)
+              if (mcpAction) return <AgentMcpActionLine key={m.id} row={mcpAction} />
               // Entered / left Intent: one event line at the boundary.
               const flowBoundary = parseFlowBoundaryRow(m.content)
               if (flowBoundary) return <AgentFlowBoundaryLine key={m.id} row={flowBoundary} />
@@ -645,6 +655,7 @@ function AgentConversationContent({ variant }: { variant: 'floating' | 'inline' 
                 contextRefs={m.context_refs}
                 deliveryStatus={m.delivery_status}
                 deliveryReceipt={m.delivery_receipt}
+                viaMcp={m.surface === 'mcp'}
                 conversationId={m.conversation_id}
                 attachments={(m.attachment_ids ?? []).map((id) => attachmentById.get(id)).filter((att): att is AgentAttachment => !!att)}
               />

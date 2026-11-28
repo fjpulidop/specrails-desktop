@@ -1,6 +1,6 @@
 import { useState, type ComponentType, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Activity, Bot, Box, ChevronRight, Cog, Cpu, GitBranch, HardDrive, Plug, Sparkles, Terminal, TrainTrack } from 'lucide-react'
+import { Activity, Bot, Box, ChevronRight, Cog, Cpu, GitBranch, HardDrive, Plug, Smartphone, Sparkles, Terminal, TrainTrack } from 'lucide-react'
 import { HoverPopover } from '../../../components/ui/hover-popover'
 import { cn } from '../../../lib/utils'
 import { openAppSettings } from '../../../lib/app-settings-events'
@@ -18,6 +18,7 @@ const CATEGORY_STYLE: Record<AppResourceCategoryId, { icon: ComponentType<{ clas
   rails: { icon: TrainTrack, bar: 'bg-accent-secondary' },
   background: { icon: Cog, bar: 'bg-accent-info' },
   terminals: { icon: Terminal, bar: 'bg-accent-success' },
+  tapflow: { icon: Smartphone, bar: 'bg-accent-warning' },
   'agent-cli': { icon: Sparkles, bar: 'bg-accent-intent' },
   mcp: { icon: Plug, bar: 'bg-accent-review' },
   git: { icon: GitBranch, bar: 'bg-foreground' },
@@ -42,8 +43,8 @@ function Sparkline({ samples }: { samples: ResourceSample[] }) {
   </svg>
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0 rounded-card bg-muted px-2 py-1.5">
+function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return <div className="min-w-0 rounded-card bg-muted px-2 py-1.5" title={hint}>
     <div className="text-caption text-muted-foreground">{label}</div>
     <div className="num truncate text-title text-foreground">{value}</div>
   </div>
@@ -101,7 +102,7 @@ export function AppResourcesPanel({ snapshot, error, open = false, ports = null 
     {snapshot && !snapshot.supported && <p className="text-caption text-muted-foreground">{t('unsupported')}</p>}
     {snapshot?.supported && <>
       <div className="grid grid-cols-3 gap-2">
-        <Metric label={t('cpu')} value={formatCpu(snapshot.totals.cpuPercent)} />
+        <Metric label={t('cpu')} value={formatCpu(snapshot.totals.cpuPercent)} hint={snapshot.cpuCores ? t('cpuShareHint', { cores: snapshot.cpuCores }) : undefined} />
         <Metric label={t('memory')} value={formatBytes(snapshot.totals.memoryBytes)} />
         <Metric label={t('processes')} value={String(snapshot.totals.processCount)} />
       </div>

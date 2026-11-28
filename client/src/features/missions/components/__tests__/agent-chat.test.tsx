@@ -580,6 +580,18 @@ describe('AgentChatProvider', () => {
     await user.click(within(popup).getByRole('button', { name, exact: true }))
   }
 
+  // Mission mode has no floating panel around the composer: Shift+Tab in the editor used to fall
+  // through to reverse focus navigation there, while the panel cycled the tier.
+  it('Shift+Tab in the editor cycles the autonomy tier without a panel around it (Mission mode)', async () => {
+    render(<AgentChatProvider><AgentComposer /></AgentChatProvider>)
+    const editor = screen.getByRole('textbox', { name: /message to the agent/i })
+    const before = screen.getByTestId('agent-tier-status').textContent
+    let notCancelled = true
+    await act(async () => { notCancelled = fireEvent.keyDown(editor, { key: 'Tab', shiftKey: true }) })
+    expect(notCancelled).toBe(false)
+    await waitFor(() => expect(screen.getByTestId('agent-tier-status').textContent).not.toBe(before))
+  })
+
   it('shows a single model/effort trigger below the editor and changes provider within its menu', async () => {
     const user = userEvent.setup()
     render(<AgentChatProvider><AgentComposer /></AgentChatProvider>)

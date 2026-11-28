@@ -38,8 +38,11 @@ import {
   type LoopDefinition,
 } from './loops-store'
 
-/** Built-ins that exist as editable rows. Batch is an alias, never seeded. */
-export const EDITABLE_BUILTIN_LOOP_IDS: readonly string[] = ['factory:implement']
+/** Built-ins that exist as editable rows. Batch is an alias, never seeded. Fix PR CI and Test
+ *  in Mobile Device are seeded only when Core can run them (host tasks); they keep their ids,
+ *  which their offers, settlement and host-task targets key on, so they are edited in place,
+ *  never copied. */
+export const EDITABLE_BUILTIN_LOOP_IDS: readonly string[] = ['factory:implement', 'factory:pr-ci', 'factory:mobile-test']
 
 export interface BuiltinLoopEnvironment {
   /** Selected Core capabilities; throws when Core cannot be loaded. */

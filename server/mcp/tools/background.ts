@@ -7,6 +7,7 @@ import { resolveBackgroundCwd, backgroundProcessHooks, backgroundStartBusyReason
 import { withAppUrls } from '../../modules/terminals/runtime/app-urls'
 import { getProjectRepositories } from '../../project-repositories'
 import { actionEnum, type ActionFields } from './actions'
+import { mobileOfferEnv, mobileTestRunView, startMobileTest } from '../../modules/tapflow'
 
 /**
  * `specrails_background`: long-running application processes (dev servers,
@@ -18,14 +19,18 @@ const APP_URLS_HINT = 'appUrls are the addresses this process announced. Give th
 
 const FLOW_APP_HINT = 'Started in the Intent worktree. Read specrails_background(logs) now for the listening URL or a startup failure, then give the user the appUrls as clickable links. The Intent bar shows Preview and Stop while it runs; Specrails stops it when the Intent is paused, discarded or handed off.'
 
-export const BACKGROUND_ACTIONS = ['start', 'list', 'logs', 'kill'] as const
+export const BACKGROUND_ACTIONS = ['start', 'list', 'logs', 'kill', 'mobile_test', 'mobile_status'] as const
 
 export const BACKGROUND_ACTION_FIELDS: Record<string, ActionFields> = {
   start: { required: ['command', 'confirmed'], optional: ['repositoryId', 'cwd', 'allowWhileBusy'] },
   list: { optional: ['chatId', 'includeFinished', 'limit', 'offset'] },
   logs: { required: ['pid'], optional: ['processId', 'chatId', 'limit'] },
   kill: { required: ['pid'], optional: ['processId'] },
+  mobile_test: { required: ['platforms'], optional: ['target', 'branch', 'devices'] },
+  mobile_status: { required: ['runId'] },
 }
+
+const MOBILE_HINT = 'Building and installing on the device (Test in Mobile Device). Wait with specrails_watch({ kind: "loop_run", loopRunId }) until it settles, then read specrails_background(mobile_status, runId) and tell the user the device it runs on (they open it from Specrails) or the reason it failed. The build and Tapflow\'s log are in the mission\'s Processes.'
 
 /**
  * The ACTIVE Intent of the authenticated conversation in this project, through
@@ -52,6 +57,11 @@ export function activeFlowWorkspace(projectCtx: Pick<ProjectContext, 'flow'>, co
  */
 function flowBackgroundException(ctx: McpToolContext, args: Record<string, unknown>): boolean {
   const action = args.action
+  // Running the app of its own active Intent on a device is the same grant as its dev server.
+  if (action === 'mobile_test' || action === 'mobile_status') {
+    if (action === 'mobile_test' && (args.target ?? 'mission') !== 'mission') return false
+    try { return activeFlowWorkspace(requireProject(ctx, args.projectId as string | undefined), ctx.originConversationId) !== null } catch { return false }
+  }
   if (action !== 'start' && action !== 'kill') return false
   if (action === 'start' && args.confirmed !== true) return false
   let projectCtx: ProjectContext
@@ -80,9 +90,11 @@ export function backgroundTool(): McpToolSpec {
       'Long-running application processes (dev servers, watchers) of an in-app agent conversation. ' +
       'Actions: start (destructive, in-app agent only; confirmed:true after the person approved this exact command; inside an active Intent it runs in the Intent worktree and is allowed below the Autonomous level), ' +
       'list (read; running first, then recent history), logs (read; bounded stdout/stderr and lifecycle), ' +
-      'kill (destructive, in-app agent only; stopping is not yet stopped). Arguments per action: specrails_describe.',
+      'kill (destructive, in-app agent only; stopping is not yet stopped), ' +
+      'mobile_test (write, in-app agent only: build the iOS/Android app and open it on a simulator/emulator inside Specrails through Tapflow; target "mission" = your active Intent worktree (default), "checkout", or "branch" with branch; platforms ["ios"]/["android"]/both; devices {ios?, android?}; allowed below the Autonomous level inside your active Intent; returns runId/loopRunId), ' +
+      'mobile_status (read: a mobile test run\'s state, device and failure reason). Arguments per action: specrails_describe.',
     hintTier: 'read',
-    tier: (a) => (a.action === 'start' || a.action === 'kill' ? 'destructive' : 'read'),
+    tier: (a) => (a.action === 'start' || a.action === 'kill' ? 'destructive' : a.action === 'mobile_test' ? 'write' : 'read'),
     tierException: flowBackgroundException,
     actionFields: BACKGROUND_ACTION_FIELDS,
     inputSchema: {
@@ -99,6 +111,11 @@ export function backgroundTool(): McpToolSpec {
       includeFinished: z.boolean().optional().describe('list: include finished/disconnected executions (default true)'),
       limit: z.number().int().positive().max(200).optional().describe('list: page size (default 50); logs: last N lines (default 100)'),
       offset: z.number().int().nonnegative().optional().describe('list: page offset'),
+      platforms: z.array(z.enum(['ios', 'android'])).optional().describe('mobile_test: ["ios"], ["android"] or both'),
+      target: z.enum(['mission', 'checkout', 'branch']).optional().describe('mobile_test: mission (your Intent worktree, default), checkout, branch'),
+      branch: z.string().max(250).optional().describe('mobile_test: the branch, with target branch'),
+      devices: z.object({ ios: z.string().max(128).optional(), android: z.string().max(128).optional() }).optional().describe('mobile_test: Tapflow device id per platform (else Tapflow picks)'),
+      runId: z.string().max(100).optional().describe('mobile_status: the runId mobile_test returned'),
     },
     async handler(ctx, args) {
       const action = args.action as string
@@ -132,6 +149,26 @@ export function backgroundTool(): McpToolSpec {
             backgroundProcessHooks(ctx.broadcast), { repositoryId: repository.id, repositoryName: repository.name })
           return { ok: true, repositoryId: repository.id, process,
             hint: 'Application command accepted, not proof of readiness. Preserve pid and processId; inspect specrails_background(logs) now for the listening URL or startup failure as part of this launch, without asking for another permission to read. The user can inspect persisted logs from its chip or mission process history.' }
+        }
+
+        case 'mobile_test': {
+          const chatId = requireFirstPartyConversation(ctx, 'background mobile_test')
+          const projectCtx = requireProject(ctx, args.projectId as string | undefined)
+          const kind = (args.target as string | undefined) ?? 'mission'
+          const branch = typeof args.branch === 'string' ? args.branch.trim() : ''
+          if (kind === 'branch' && !branch) throw new Error('mobile_test with target "branch" needs "branch".')
+          const target = kind === 'checkout' ? { kind: 'checkout' as const } : kind === 'branch' ? { kind: 'branch' as const, branch } : { kind: 'mission' as const }
+          const devices = (args.devices ?? {}) as { ios?: string; android?: string }
+          const started = await startMobileTest(projectCtx, { target, platforms: (args.platforms as Array<'ios' | 'android'> | undefined) ?? [], devices, conversationId: chatId }, mobileOfferEnv)
+          if (!started.ok) throw new Error(started.error)
+          return { ok: true, runId: started.runId, loopRunId: started.runId, hint: MOBILE_HINT }
+        }
+
+        case 'mobile_status': {
+          const projectCtx = requireProject(ctx, args.projectId as string | undefined)
+          const view = mobileTestRunView(projectCtx, String(args.runId ?? ''))
+          if (!view) throw new Error('No mobile test run with that runId in this project.')
+          return view
         }
 
         case 'list': {

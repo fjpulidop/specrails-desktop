@@ -21,7 +21,8 @@
     "mcp": "MCP & Runner",
     "git": "Git",
     "other": "Sonstiges",
-    "server": "Specrails-Server"
+    "server": "Specrails-Server",
+    "tapflow": "Tapflow & Simulatoren"
   },
   "items": {
     "server": "Specrails-Server",
@@ -158,5 +159,6 @@
     "deleteSelected_one": "{{count}} Ordner löschen",
     "deleteSelected_other": "{{count}} Ordner löschen",
     "result": "{{deleted}} gelöscht, {{kept}} nicht gelöscht."
-  }
+  },
+  "cpuShareHint": "Vom ganzen Mac ({{cores}} Kerne): 100 % heißt alle Kerne ausgelastet."
 }

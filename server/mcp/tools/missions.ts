@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { McpToolContext, McpToolSpec } from './types'
 import { apiCall } from './types'
 import { McpToolError, toolResponse, type NextCall } from './envelope'
+import { normalizePlan, publishMissionPlan } from '../../modules/missions/runtime/mission-plan'
 
 /**
  * `specrails_missions`: the Agent/Mission mode conversations, for MCP clients.
@@ -83,12 +84,15 @@ export function missionsTools(): McpToolSpec[] {
     description:
       'The app\'s Agent/Mission conversations. Actions: list (read; title, project, provider/model, running, context usage %), active (read; missions running now), ' +
       'get (read; recent messages, live state and context usage of conversationId), send (ai-spawn; post a message — it starts or queues a paid turn on the mission\'s own provider), ' +
-      'ask (ai-spawn; a one-turn side question about the mission that never writes to it), abort (destructive; stop the running turn). ' +
+      'ask (ai-spawn; a one-turn side question about the mission that never writes to it), abort (destructive; stop the running turn), ' +
+      'plan (in-app agent: show your plan of work in your mission and keep each step\'s status current). ' +
       'Cannot change a mission\'s permission level, provider or project pin.',
     hintTier: 'read',
     tier: (args) => args.action === 'abort' ? 'destructive' : args.action === 'send' || args.action === 'ask' ? 'ai-spawn' : 'read',
     inputSchema: {
-      action: z.enum(['list', 'active', 'get', 'send', 'ask', 'abort']).describe('Operation to perform'),
+      action: z.enum(['list', 'active', 'get', 'send', 'ask', 'abort', 'plan']).describe('Operation to perform'),
+      steps: z.array(z.object({ content: z.string().min(1).max(400), status: z.enum(['pending', 'in_progress', 'completed']) })).max(40).optional().describe('plan: every step, in order, with its status'),
+      title: z.string().max(200).optional().describe('plan: a short name for the plan'),
       conversationId: z.string().min(1).max(200).optional().describe('get/send/ask/abort: the mission id from list'),
       projectId: z.string().optional().describe('list: only missions pinned to this project'),
       includeArchived: z.boolean().optional().describe('list: include archived missions (default false)'),
@@ -102,6 +106,17 @@ export function missionsTools(): McpToolSpec[] {
     async handler(ctx, args) {
       const action = args.action as string
       switch (action) {
+        case 'plan': {
+          // Only the calling mission's own plan: the conversation comes from the agent's capability.
+          if (!ctx.firstPartyAgent || !ctx.originConversationId) throw new Error('plan is for an in-app agent: it shows the plan in its own mission.')
+          const plan = normalizePlan({ title: args.title, steps: args.steps })
+          if (!plan) throw new Error('plan needs steps: [{ content, status: pending | in_progress | completed }].')
+          if (!publishMissionPlan(ctx.originConversationId, plan, 'specrails')) throw new Error('The plan could not be shown in the mission.')
+          const doneCount = plan.steps.filter((step) => step.status === 'completed').length
+          return toolResponse({ ok: true, steps: plan.steps.length, completed: doneCount }, {
+            summary: `Plan shown in the mission: ${doneCount}/${plan.steps.length} done. Call plan again with the full list whenever a step starts or finishes.`,
+          })
+        }
         case 'list':
         case 'active': {
           const scope = args.includeArchived === true ? 'all' : 'active'

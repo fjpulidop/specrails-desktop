@@ -188,6 +188,73 @@ describe('plugins and Headroom', () => {
     expect(calls('POST /api/global-plugins/headroom/activate')[0].body).toEqual({ provider: 'codex' })
   })
 
+  it('lists Tapflow with its phase and routes it to the global routes, never to update', async () => {
+    route('GET /api/global-plugins', { body: { plugins: [{ id: 'tapflow', name: 'Tapflow', scope: 'global', status: { phase: 'running', version: '0.33.0', issue: null } }] } })
+    route(`GET ${P}/plugins`, { body: { plugins: [] } })
+    const listed = await tool({ action: 'plugins_list' })
+    expect(listed.envelope.data.items[0]).toMatchObject({ ref: 'plugin:Tapflow', status: 'running', version: '0.33.0', scope: 'app' })
+    route('POST /api/global-plugins/tapflow/activate', { body: { ok: true, status: { phase: 'running' } } })
+    expect((await tool({ action: 'plugins_activate', id: 'tapflow' })).envelope.ok).toBe(true)
+    expect(calls('POST /api/global-plugins/tapflow/activate')).toHaveLength(1)
+    expect((await tool({ action: 'plugins_update', id: 'tapflow' })).envelope.error.code).toBe('invalid_input')
+  })
+
+  it('starts a mobile test on a delivery and returns the run to wait on', async () => {
+    route(`POST ${P}/mobile-test/start`, { status: 202, body: { runId: 'r-42' } })
+    const started = await tool({ action: 'mobile_test', options: { delivery: 'd-7', platforms: ['ios', 'android', 'web'] } })
+    expect(started.envelope.ok).toBe(true)
+    expect(calls(`POST ${P}/mobile-test/start`)[0].body).toEqual({ deliveryId: 'd-7', platforms: ['ios', 'android'] })
+    expect(started.envelope.data.run).toMatch(/^run:.+\/r-42$/)
+    expect((await tool({ action: 'mobile_test', options: { platforms: ['ios'] } })).envelope.error.code).toBe('invalid_input')
+    expect((await tool({ action: 'mobile_test', options: { delivery: 'd-7', platforms: ['web'] } })).envelope.error.code).toBe('invalid_input')
+  })
+
+  it('[spec:mobile-device-testing/agent-runs-the-app] lets a mission agent run its own Intent session on a device, at any permission level', async () => {
+    route(`POST ${P}/mobile-test/start`, { status: 202, body: { runId: 'r-44' } })
+    const flow = { state: 'active', step: null, worktreePath: '/intent/w' }
+    const context = { project: { id: 'p1' }, flow: { getByConversation: (id: string) => (id === 'conv-intent' ? flow : null) } }
+    Object.assign(h.ctx, { firstPartyAgent: true, originConversationId: 'conv-intent', agentTierLevel: 0, requestProjectId: 'p1' })
+    const getContext = h.ctx.registry.getContext
+    h.ctx.registry.getContext = ((id: string) => (id === 'p1' ? context : getContext(id))) as never
+    const started = await tool({ action: 'mobile_test', options: { target: 'mission', platforms: ['android'] } })
+    expect(started.envelope.ok).toBe(true)
+    // The mission comes from the agent's capability, never from its arguments.
+    expect(calls(`POST ${P}/mobile-test/start`)[0].body).toEqual({ target: { kind: 'mission' }, platforms: ['android'], conversationId: 'conv-intent' })
+    // Observe level outside an Intent: the write tier still applies.
+    flow.state = 'paused'
+    expect((await tool({ action: 'mobile_test', options: { target: 'mission', platforms: ['ios'] } })).envelope.error.code).toBe('unauthorized')
+  })
+
+  it('[spec:mobile-device-testing/mcp-control] controls a mobile test end to end: options, status, open and release its device', async () => {
+    route(`GET ${P}/mobile-test/options`, { body: { ready: true, hostTasks: true, checkout: { branch: 'main', platforms: ['ios', 'android'], recommended: 'ios' }, deliveries: [], branches: ['main'], devices: [{ id: 'avd:tapflow-phone', name: 'tapflow-phone', platform: 'android', booted: false }] } })
+    route(`GET ${P}/mobile-test/runs/r-7`, { body: { runId: 'r-7', state: 'launched', summary: 'Android on tapflow-phone', devices: [{ platform: 'android', name: 'tapflow-phone', id: 'avd:tapflow-phone', sessionId: 's', buildId: 8 }] } })
+    route(`POST ${P}/mobile-test/runs/r-7/open-device`, { body: { ok: true, device: { name: 'tapflow-phone' } } })
+    route(`POST ${P}/mobile-test/runs/r-7/release-device`, { body: { ok: true, device: { name: 'tapflow-phone' }, now: true } })
+    const options = await tool({ action: 'mobile_options' })
+    expect(options.envelope.ok).toBe(true)
+    expect(options.envelope.data.devices).toHaveLength(1)
+    const status = await tool({ action: 'mobile_status', ref: 'run:p1/r-7' })
+    expect(status.envelope.data).toMatchObject({ state: 'launched', summary: 'Android on tapflow-phone' })
+    expect((await tool({ action: 'mobile_open_device', ref: 'run:p1/r-7', options: { platform: 'android' } })).envelope.ok).toBe(true)
+    expect(calls(`POST ${P}/mobile-test/runs/r-7/open-device`)[0].body).toEqual({ platform: 'android' })
+    expect((await tool({ action: 'mobile_release_device', ref: 'r-7', options: { now: true } })).envelope.ok).toBe(true)
+    expect(calls(`POST ${P}/mobile-test/runs/r-7/release-device`)[0].body).toEqual({ now: true })
+    expect((await tool({ action: 'mobile_status' })).envelope.error.code).toBe('invalid_input')
+  })
+
+  it('refuses the mission target to a client that is not a mission agent', async () => {
+    expect((await tool({ action: 'mobile_test', options: { target: 'mission', platforms: ['ios'] } })).envelope.error.code).toBe('invalid_input')
+  })
+
+  it('[spec:mobile-device-testing/run-from-loops] starts a mobile test on the checkout or a branch, with chosen devices', async () => {
+    route(`POST ${P}/mobile-test/start`, { status: 202, body: { runId: 'r-43' } })
+    expect((await tool({ action: 'mobile_test', options: { target: 'checkout', platforms: ['ios'], devices: { ios: 'SIM-1', web: 'x' } } })).envelope.ok).toBe(true)
+    expect(calls(`POST ${P}/mobile-test/start`)[0].body).toEqual({ target: { kind: 'checkout' }, platforms: ['ios'], devices: { ios: 'SIM-1' } })
+    expect((await tool({ action: 'mobile_test', options: { target: 'branch', branch: 'feat/x', platforms: ['android'] } })).envelope.ok).toBe(true)
+    expect(calls(`POST ${P}/mobile-test/start`)[1].body).toEqual({ target: { kind: 'branch', branch: 'feat/x' }, platforms: ['android'] })
+    expect((await tool({ action: 'mobile_test', options: { target: 'branch', platforms: ['android'] } })).envelope.error.code).toBe('invalid_input')
+  })
+
   it('confirms an uninstall', async () => {
     route(`GET ${P}/plugins`, { body: { plugins: [{ name: 'serena', status: 'installed', version: '1' }] } })
     route(`DELETE ${P}/plugins/serena`, { body: { ok: true } })

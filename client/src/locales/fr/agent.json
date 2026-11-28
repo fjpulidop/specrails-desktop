@@ -1116,7 +1116,10 @@
         "loading": "Chargement des dépôts…",
         "loadFailed": "Impossible de charger les dépôts du projet. Réessayez.",
         "suggested": "Suggéré par l’agent",
-        "noGit": "Ce projet n’a pas de dépôt Git. Intent en a besoin pour sa branche."
+        "noGit": "Ce projet n’a pas de dépôt Git. Intent en a besoin pour sa branche.",
+        "target": "S’exécute dans {{name}}",
+        "change": "Changer",
+        "changeLabel": "Changer le dépôt où s’exécute cet Intent"
       },
       "blocked": {
         "noProject": "Épinglez cette mission à un projet pour utiliser Intent.",
@@ -1632,13 +1635,17 @@
     "kind": {
       "agent-session": "Agent",
       "background-process": "Processus en arrière-plan",
-      "mission-activity": "Activité de la mission"
+      "mission-activity": "Activité de la mission",
+      "mobile-device": "Appareil mobile",
+      "mobile-build": "Compilation mobile",
+      "tapflow-service": "Tapflow"
     },
     "finishedAt": "Terminée à {{time}}",
     "lastActive": "Dernière activité pendant l'exécution",
     "history": "Historique",
     "peakValue": "Pic {{value}}",
-    "historyHint": "Un point toutes les 3 s pendant que la mission travaillait. Survolez une ligne pour voir l'heure et la valeur."
+    "historyHint": "Un point toutes les 3 s pendant que la mission travaillait. Survolez une ligne pour voir l'heure et la valeur.",
+    "cpuShareHint": "Du Mac entier ({{cores}} cœurs) : 100 % = tous les cœurs occupés."
   },
   "contextUsage": {
     "open": "Contexte utilisé : {{percent}} %",
@@ -1702,5 +1709,53 @@
     "answer": "Réponse",
     "defaultQuestion": "Explique ce que cela signifie dans ce contexte.",
     "providerDefault": "modèle par défaut de {{provider}}"
+  },
+  "mcp": {
+    "viaMcp": "via MCP",
+    "action": "{{client}} · {{call}}",
+    "actionFailed": "{{client}} · {{call}} a échoué",
+    "missionBadgeTitle": "Créée par {{client}} via MCP : ses actions sont consignées ici"
+  },
+  "mobileTest": {
+    "title": "Tester sur appareil mobile",
+    "body": "Compiler l'app {{platform}} pour le simulateur et la lancer sur un appareil Tapflow.",
+    "bodyChoose": "Compiler l'app pour le simulateur et la lancer sur un appareil Tapflow. Choisissez la plateforme :",
+    "start": "Tester sur l'appareil",
+    "both": "Les deux",
+    "notNow": "Pas maintenant",
+    "retry": "Réessayer",
+    "started": "Compilation et installation sur l'appareil…",
+    "startedBody": "La compilation se fait dans la copie de travail de cette livraison ; le journal du run montre chaque étape.",
+    "launched": "En cours : {{devices}}",
+    "launchedBody": "L'app est installée et ouverte sur l'appareil.",
+    "failed": "Le test mobile n'a pas abouti",
+    "failedBody": "Consultez le journal du run pour les détails.",
+    "expired": "Test mobile plus disponible",
+    "expiredBody": "Le code de cette livraison n'est plus sur cette machine. Testez avant de publier.",
+    "dismissed": "Test mobile ignoré pour cette livraison.",
+    "openLog": "Ouvrir le journal",
+    "startFailed": "Impossible de lancer le test mobile.",
+    "onDevice": "{{platform}} sur {{device}}",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "openDevice": "Ouvrir {{device}}",
+    "startedBodyMission": "Compilation du code de cette session et installation ; la progression et le journal sont dans Processus.",
+    "failedBodyMission": "Demandez à l'agent de relancer une fois le problème réglé."
+  },
+  "missionPlan": {
+    "button": "Plan",
+    "title": "Plan de travail",
+    "description": "Ce que l'agent s'est fixé et où il en est.",
+    "open": "Plan de travail : {{done}} étape(s) sur {{total}} faite(s)",
+    "progress": "{{done}} sur {{total}}",
+    "now": "En cours : {{step}}",
+    "allDone": "Toutes les étapes sont faites.",
+    "status": {
+      "pending": "à faire",
+      "in_progress": "en cours",
+      "completed": "fait"
+    }
   }
 }

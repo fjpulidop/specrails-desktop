@@ -21,6 +21,7 @@
 import { coreFactoryGraph } from './loop-core-factory'
 import { flowSpecGraph } from './loop-flow-spec-recipe'
 import { PR_CI_LOOP_ID, prCiGraph, supportsPrCi } from './loop-pr-ci-recipe'
+import { MOBILE_TEST_LOOP_ID, mobileTestGraph } from './loop-mobile-test-recipe'
 import type { LoopGraph } from './loop-graph'
 
 export interface FactoryLoop {
@@ -104,6 +105,16 @@ const PR_CI_FACTORY: FactoryLoop = {
   graph: prCiGraph(),
 }
 
+const MOBILE_TEST_FACTORY: FactoryLoop = {
+  id: MOBILE_TEST_LOOP_ID,
+  name: 'Test in Mobile Device',
+  description: 'Builds the iOS or Android app the change belongs to for the simulator and runs it on a Tapflow device. Offered after a delivery when Tapflow is installed; deterministic, no AI turn.',
+  mode: 'loop',
+  requiredCoreCapability: 'hostTasks',
+  launchable: false,
+  graph: mobileTestGraph(),
+}
+
 /** Core advertises the workflow engine and the derive-change piece. */
 export function supportsFlowSpec(capabilities?: Record<string, number>): boolean {
   return capabilities?.engineV2 === 1 && capabilities.workflowDefinitions === 1 && capabilities.deriveChange === 1
@@ -161,6 +172,7 @@ const FACTORY_BY_ID = new Map<string, FactoryLoop>([
   ...FACTORY_LOOPS.map((f) => [f.id, f] as const),
   [FLOW_SPEC_FACTORY.id, FLOW_SPEC_FACTORY],
   [PR_CI_FACTORY.id, PR_CI_FACTORY],
+  [MOBILE_TEST_FACTORY.id, MOBILE_TEST_FACTORY],
   ...FACTORY_ALIASES,
 ])
 
@@ -172,7 +184,7 @@ export function factoryLoopsForCapabilities(capabilities?: Record<string, number
   return [
     ...loops,
     ...(supportsFlowSpec(capabilities) ? [{ ...FLOW_SPEC_FACTORY, graph: flowSpecGraph() }] : []),
-    ...(supportsPrCi(capabilities) ? [{ ...PR_CI_FACTORY, graph: prCiGraph(capabilities) }] : []),
+    ...(supportsPrCi(capabilities) ? [{ ...PR_CI_FACTORY, graph: prCiGraph(capabilities) }, MOBILE_TEST_FACTORY] : []),
   ]
 }
 

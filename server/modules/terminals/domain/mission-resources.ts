@@ -13,7 +13,8 @@ export interface ProcessSample {
   command: string
 }
 
-export type MissionResourceKind = 'agent-session' | 'background-process' | 'mission-activity'
+/** `mobile-*` / `tapflow-service`: a mobile test the mission ran (server/modules/tapflow). */
+export type MissionResourceKind = 'agent-session' | 'background-process' | 'mission-activity' | 'mobile-device' | 'mobile-build' | 'tapflow-service'
 
 /** A root the mission owns; its OS descendants are measured with it. */
 export interface MissionResourceRoot {
@@ -218,4 +219,20 @@ export interface MissionResourceSample {
  */
 export function shouldRecordSample(last: Pick<MissionResourceSample, 'processCount'> | null, totals: Pick<MissionResourceTotals, 'processCount'>): boolean {
   return totals.processCount > 0 || (last !== null && last.processCount > 0)
+}
+
+/**
+ * CPU as a share of the whole machine (0-100 %). The process table gives each process a percent of ONE core
+ * (`ps`, and the Windows delta reader), so a sum over processes runs to 100 % × cores (1000 % on a 10-core
+ * Mac): every API response divides by the logical cores instead, so CPU reads like memory, out of the whole
+ * computer. Stored history keeps the raw value and is converted on read.
+ */
+export function cpuShareOfMachine(percentOfOneCore: number, cores: number): number {
+  const share = percentOfOneCore / Math.max(1, Math.floor(cores) || 1)
+  return Math.round(Math.min(100, Math.max(0, share)) * 10) / 10
+}
+
+/** A row's `cpuPercent` as a share of the machine (other fields unchanged). */
+export function withMachineCpu<T extends { cpuPercent: number }>(row: T, cores: number): T {
+  return { ...row, cpuPercent: cpuShareOfMachine(row.cpuPercent, cores) }
 }

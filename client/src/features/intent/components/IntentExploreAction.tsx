@@ -32,7 +32,7 @@ export interface IntentExploreActionProps extends MissionIntentExploreProps {
   onExploreState?: (state: IntentExploreState) => void
 }
 
-export function IntentExploreAction({ projectId, conversationId, intent, title, disabled, onExploreState }: IntentExploreActionProps) {
+export function IntentExploreAction({ projectId, conversationId, intent, title, repositoryId, disabled, onExploreState }: IntentExploreActionProps) {
   const { t } = useTranslation('agent')
   const { active } = useAgentChat()
   const { flow } = useConversationFlow(conversationId, projectId)
@@ -69,6 +69,7 @@ export function IntentExploreAction({ projectId, conversationId, intent, title, 
           idea={intent.problem}
           title={title ?? null}
           intent={intent}
+          repositoryId={repositoryId ?? null}
           embedded
           projectId={projectId}
           conversationId={conversationId}

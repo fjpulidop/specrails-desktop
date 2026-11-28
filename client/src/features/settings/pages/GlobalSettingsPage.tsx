@@ -370,7 +370,8 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
 
         {/* Split pane: the nav and the section content scroll independently. */}
         <DialogBody className="flex gap-5 overflow-hidden py-3 pr-2">
-          {/* Left section nav, grouped Personal · Agents · System */}
+          {/* Left section nav, grouped Personal · Agents · System. It scrolls, which clips anything drawn
+              outside its items: their focus ring is inset (an outer ring lost its left edge). */}
           <nav aria-label={t('desktop.navLabel')} className="w-40 shrink-0 overflow-y-auto border-r border-border pr-2">
             {SETTINGS_GROUPS.map((group, groupIndex) => (
               <div key={group.id} role="group" aria-labelledby={`settings-nav-group-${group.id}`} className="space-y-0.5">
@@ -393,7 +394,7 @@ export default function SettingsDialog({ open, onClose, onOpenOnboarding, initia
                       onClick={() => setActiveSection(s.id)}
                       aria-current={active ? 'page' : undefined}
                       className={cn(
-                        'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                         active
                           ? 'bg-accent-primary/15 font-medium text-foreground'
                           : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',

@@ -1116,7 +1116,10 @@
         "loading": "リポジトリを読み込み中…",
         "loadFailed": "プロジェクトのリポジトリを読み込めませんでした。もう一度お試しください。",
         "suggested": "エージェントの提案",
-        "noGit": "このプロジェクトには Git リポジトリがありません。Intent のブランチに必要です。"
+        "noGit": "このプロジェクトには Git リポジトリがありません。Intent のブランチに必要です。",
+        "target": "{{name}} で実行",
+        "change": "変更",
+        "changeLabel": "この Intent を実行するリポジトリを変更"
       },
       "blocked": {
         "noProject": "Intent を使うには、このミッションをプロジェクトに固定してください。",
@@ -1632,13 +1635,17 @@
     "kind": {
       "agent-session": "エージェント",
       "background-process": "バックグラウンドプロセス",
-      "mission-activity": "ミッションのアクティビティ"
+      "mission-activity": "ミッションのアクティビティ",
+      "mobile-device": "モバイルデバイス",
+      "mobile-build": "モバイルビルド",
+      "tapflow-service": "Tapflow"
     },
     "finishedAt": "{{time}} に終了",
     "lastActive": "実行中の最後のアクティビティ",
     "history": "履歴",
     "peakValue": "ピーク {{value}}",
-    "historyHint": "ミッションの作業中は 3 秒ごとに 1 点。線にカーソルを合わせると時刻と値が表示されます。"
+    "historyHint": "ミッションの作業中は 3 秒ごとに 1 点。線にカーソルを合わせると時刻と値が表示されます。",
+    "cpuShareHint": "Mac 全体に対する割合（{{cores}} コア）：100 % はすべてのコアが使用中です。"
   },
   "contextUsage": {
     "open": "使用中のコンテキスト: {{percent}}%",
@@ -1702,5 +1709,53 @@
     "answer": "回答",
     "defaultQuestion": "この文脈でこれが何を意味するか説明してください。",
     "providerDefault": "{{provider}} の既定モデル"
+  },
+  "mcp": {
+    "viaMcp": "MCP 経由",
+    "action": "{{client}} · {{call}}",
+    "actionFailed": "{{client}} · {{call}} 失敗",
+    "missionBadgeTitle": "{{client}} が MCP で作成しました。その操作はここに記録されます"
+  },
+  "mobileTest": {
+    "title": "モバイル端末でテスト",
+    "body": "{{platform}} アプリをシミュレーター向けにビルドし、Tapflow の端末で起動します。",
+    "bodyChoose": "アプリをシミュレーター向けにビルドし、Tapflow の端末で起動します。プラットフォームを選んでください:",
+    "start": "端末でテスト",
+    "both": "両方",
+    "notNow": "今はしない",
+    "retry": "再試行",
+    "started": "ビルドして端末にインストール中…",
+    "startedBody": "ビルドはこの納品の作業コピーで行われます。各ステップは実行ログで確認できます。",
+    "launched": "実行中: {{devices}}",
+    "launchedBody": "アプリは端末にインストールされ、起動しています。",
+    "failed": "モバイルテストは完了しませんでした",
+    "failedBody": "詳細は実行ログを確認してください。",
+    "expired": "モバイルテストは利用できなくなりました",
+    "expiredBody": "この納品のコードはもうこのマシンにありません。公開前にテストしてください。",
+    "dismissed": "この納品のモバイルテストはスキップしました。",
+    "openLog": "ログを開く",
+    "startFailed": "モバイルテストを開始できませんでした。",
+    "onDevice": "{{device}} の {{platform}}",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "openDevice": "{{device}} を開く",
+    "startedBodyMission": "このセッションのコードをビルドしてインストールしています。進行状況とログは「プロセス」にあります。",
+    "failedBodyMission": "解決したら、もう一度実行するようエージェントに頼んでください。"
+  },
+  "missionPlan": {
+    "button": "プラン",
+    "title": "作業プラン",
+    "description": "エージェントが行うと決めたことと、現在の進み具合です。",
+    "open": "作業プラン: {{total}} ステップ中 {{done}} 完了",
+    "progress": "{{done}} / {{total}}",
+    "now": "進行中: {{step}}",
+    "allDone": "すべてのステップが完了しました。",
+    "status": {
+      "pending": "未着手",
+      "in_progress": "進行中",
+      "completed": "完了"
+    }
   }
 }

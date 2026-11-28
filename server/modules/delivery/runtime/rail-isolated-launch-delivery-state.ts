@@ -13,6 +13,7 @@ import {
 import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { notifyMissionRunFailure } from '../../missions/runtime/mission-run-notify'
 import { refreshPrCiOffer } from './pr-ci/pr-ci-projection'
+import { notifyDeliveryObservers } from './delivery-observers'
 import { runtimeRunSummary } from '../../agent-runtime/runtime/agent-runtime-controls-router'
 import type { ProjectContext } from '../../../project-registry'
 import { errorDetail, getRailName } from './rail-isolated-launch-support'
@@ -50,6 +51,8 @@ export function createLaunchDeliveryPublisher(
     const envelope = toPrDecisionCardEnvelope(ctx.project.id, toPrDeliverySnapshot(row))
     if (verb === 'post') mgr.postPrDecisionCard(row.origin_conversation_id, envelope)
     else mgr.updatePrDecisionCard(row.origin_conversation_id, envelope)
+    // Settle (on review) updates only the mission card: observers (the mobile test offer) follow it here too.
+    notifyDeliveryObservers(ctx, deliveryId)
   }
   const emitPrDeliveryState = (deliveryId: string, verb: 'post' | 'update'): void => {
     broadcastDeliveryState(deliveryId)

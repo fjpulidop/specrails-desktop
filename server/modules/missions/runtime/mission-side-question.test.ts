@@ -28,7 +28,7 @@ describe('side questions ("Ask about this")', () => {
   let app: express.Express
   let calls: Array<{ model?: string; systemPrompt: string; contents: string; reasoningEffort?: string }>
   let generate: ReturnType<typeof vi.fn>
-  const manager = { notifyConversationCreated: vi.fn(), sendMessage: vi.fn(), notifySpendingInvalidated: vi.fn() }
+  const manager = { notifyConversationCreated: vi.fn(), notifyTitle: vi.fn(), sendMessage: vi.fn(), notifySpendingInvalidated: vi.fn() }
 
   beforeEach(() => {
     vi.clearAllMocks()

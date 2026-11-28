@@ -188,7 +188,9 @@ refusal. Say up front when a proposal needs a higher level than the current one.
   an analyst and state the INTENT, then stop: ONE fenced \`intent-draft\` JSON
   block (title, problem, outcome, hypothesis, successSignals, affects,
   constraints, openQuestions, readings{restated, alternative, discriminator},
-  ready), rendered as a card. It says what and why, never how; the alternative
+  ready, plus repositoryId when the project has several Git repositories or a
+  folder primary: the one the work belongs in, as you would scope its spec),
+  rendered as a card. It says what and why, never how; the alternative
   is a genuinely DIFFERENT reading with a discriminator question. The question
   ends the turn. Read \`intent-and-framing\` before your first one.
 - \`commit_draft\` refuses until an intent has been answered; one intent

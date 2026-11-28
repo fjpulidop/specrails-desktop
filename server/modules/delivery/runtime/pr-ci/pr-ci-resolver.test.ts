@@ -15,12 +15,13 @@ const remotes: Record<string, string> = { '/work/app': 'git@github.com:acme/app.
 const ok = (stdout: string): ExecResult => ({ code: 0, stdout, stderr: '' })
 const view = (over: Record<string, unknown> = {}) => ok(JSON.stringify({ state: 'OPEN', isDraft: false, headRefName: 'fix/ci', baseRefName: 'main', isCrossRepository: false, headRefOid: SHA, ...over }))
 
-function exec(prView: ExecResult) {
+function exec(prView: ExecResult, push: ExecResult = ok('true\n')) {
   const calls: Array<{ cmd: string; args: string[]; cwd: string }> = []
   const value: Exec = {
     async run(cmd, args, cwd) {
       calls.push({ cmd, args, cwd })
       if (cmd === 'git') return remotes[cwd] ? ok(remotes[cwd] + '\n') : { code: 1, stdout: '', stderr: 'no remote' }
+      if (args[0] === 'api') return push
       return prView
     },
   }
@@ -46,7 +47,7 @@ describe('resolveProjectPrTarget', () => {
     const e = exec(view())
     const target = await resolveProjectPrTarget({ exec: e.value, project, prUrl: 'https://github.com/acme/api/pull/7', originConversationId: 'c1' })
     expect(target).toMatchObject({ projectId: 'p1', repositoryId: 'r-api', repositoryPath: '/work/api', prNumber: 7, headBranch: 'fix/ci', baseBranch: 'main', headSha: SHA, originConversationId: 'c1' })
-    expect(e.calls.filter(call => call.cmd === 'gh').map(call => call.cwd)).toEqual(['/work/api'])
+    expect(e.calls.filter(call => call.cmd === 'gh').map(call => call.cwd)).toEqual(['/work/api', '/work/api'])
   })
   it('[spec:mission-pr-ci-repair/pr-validation-reports-a-specific-reason-before-any-agent-starts] refuses a repository outside the project before calling GitHub', async () => {
     const e = exec(view())
@@ -87,5 +88,31 @@ describe('resolveProjectPrTarget', () => {
 describe('classifyGithubFailure', () => {
   it.each(['dial tcp: lookup api.github.com: no such host', 'HTTP 401: Bad credentials', 'timeout'])('treats "%s" as unavailable', detail => {
     expect(classifyGithubFailure(detail).code).toBe('pr_github_unavailable')
+  })
+})
+
+describe('push access', () => {
+  const prUrl = 'https://github.com/acme/app/pull/1'
+  it('asks GitHub for the repository permission from the matched repository and proceeds on push=true', async () => {
+    const e = exec(view())
+    await resolveProjectPrTarget({ exec: e.value, project, prUrl })
+    expect(e.calls).toContainEqual({ cmd: 'gh', args: ['api', 'repos/acme/app', '--jq', '.permissions.push'], cwd: '/work/app' })
+  })
+  it('refuses with pr_no_push_access (403) when the account cannot push, before anything starts', async () => {
+    for (const answer of ['false\n', 'null\n', ''] ) {
+      const error = await failure(resolveProjectPrTarget({ exec: exec(view(), ok(answer)).value, project, prUrl }))
+      expect(error).toMatchObject({ code: 'pr_no_push_access', status: 403 })
+    }
+  })
+  it('treats a failed or unreadable permission answer as GitHub unavailable, never as access', async () => {
+    expect(await failure(resolveProjectPrTarget({ exec: exec(view(), { code: 1, stdout: '', stderr: 'HTTP 401: Bad credentials' }).value, project, prUrl }))).toMatchObject({ code: 'pr_github_unavailable' })
+    expect(await failure(resolveProjectPrTarget({ exec: exec(view(), ok('maybe')).value, project, prUrl }))).toMatchObject({ code: 'pr_github_unavailable' })
+  })
+  it('names the host for GitHub Enterprise', async () => {
+    const enterprise: RepositoryProject = { ...project, repositories: [{ ...project.repositories![0], path: '/work/ghe' }] , path: '/work/ghe' }
+    remotes['/work/ghe'] = 'git@ghe.acme.io:acme/app.git'
+    const e = exec(view())
+    await resolveProjectPrTarget({ exec: e.value, project: enterprise, prUrl: 'https://ghe.acme.io/acme/app/pull/3' })
+    expect(e.calls.find(call => call.args[0] === 'api')?.args).toEqual(['api', '--hostname', 'ghe.acme.io', 'repos/acme/app', '--jq', '.permissions.push'])
   })
 })

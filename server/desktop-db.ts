@@ -855,6 +855,16 @@ function applyDesktopMigrations(db: DbInstance): void {
         );
       `)
     },
+    // 42: what an external MCP client did is visible in Desktop: a mission it created or that
+    // logs its session (`origin = 'mcp'`, `origin_client` = the client's name) and the messages
+    // it sent (`surface = 'mcp'`). NULL = made in the app.
+    () => {
+      const conversations = new Set((db.prepare('PRAGMA table_info(agent_conversations)').all() as Array<{ name: string }>).map(c => c.name))
+      const messages = new Set((db.prepare('PRAGMA table_info(agent_messages)').all() as Array<{ name: string }>).map(c => c.name))
+      if (!conversations.has('origin')) db.exec("ALTER TABLE agent_conversations ADD COLUMN origin TEXT CHECK (origin IS NULL OR origin = 'mcp');")
+      if (!conversations.has('origin_client')) db.exec('ALTER TABLE agent_conversations ADD COLUMN origin_client TEXT;')
+      if (!messages.has('surface')) db.exec("ALTER TABLE agent_messages ADD COLUMN surface TEXT CHECK (surface IS NULL OR surface = 'mcp');")
+    },
   ]
 
   applyNumberedMigrations(db, migrations)

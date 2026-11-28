@@ -72,5 +72,11 @@
   "confirm.mobile_enable": "モバイルゲートウェイをオンにします: ペアリングしたスマートフォン向けにローカルネットワークで待ち受けます。",
   "confirm.mobile_revoke": "ペアリング済みのデバイス {{device}} を取り消します。再度ペアリングが必要になります。",
   "confirm.webhooks_url": "今後、アプリのイベントを {{url}} に送ります。",
-  "confirm.mobile_rotate": "ゲートウェイの証明書を更新し、ペアリング済みの {{devices}} 台をすべて取り消します。各端末は再ペアリングが必要です。"
+  "confirm.mobile_rotate": "ゲートウェイの証明書を更新し、ペアリング済みの {{devices}} 台をすべて取り消します。各端末は再ペアリングが必要です。",
+  "summary.mobile_test_started": "{{platforms}} シミュレーター向けにビルドしてインストール中です。実行を待ってください。",
+  "summary.mobile_options": "モバイルテスト: 作業コピーは {{platforms}} をビルドします。Tapflow デバイス {{devices}} 台が利用可能です。",
+  "summary.mobile_status": "モバイルテスト {{state}}: {{detail}}",
+  "summary.mobile_open_device": "{{device}} を Specrails のウィンドウで開いています。",
+  "summary.mobile_device_released": "{{device}} は再度開かれない限り、猶予期間後にシャットダウンします。",
+  "summary.mobile_device_stopped": "{{device}} を今すぐシャットダウンしています。"
 }

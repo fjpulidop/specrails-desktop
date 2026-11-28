@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { render, screen, cleanup, act, waitFor, fireEvent } from '@testing-library/react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, SurfaceWindowFrame } from '../dialog'
 import { ConfirmDialog } from '../confirm-dialog'
@@ -192,6 +192,41 @@ describe('SurfaceWindowFrame: dialog as window content', () => {
   })
 })
 
+describe('SurfaceWindowFrame: no outside', () => {
+  // WebKit sends a stray pointerdown aimed at <html> when a click in a native window hands focus to
+  // another window; Radix took it for a click outside, so the live board closed whenever a card
+  // opened something in the main window.
+  it('[spec:native-surface-windows/stray-outside-event] a native window is never dismissed by an outside pointerdown or focus; a modal only by a press on its scrim', async () => {
+    const framedClose = vi.fn()
+    const { unmount } = render(
+      <SurfaceWindowFrame>
+        <Dialog open onOpenChange={(open) => { if (!open) framedClose() }}>
+          <DialogContent size="fullscreen"><DialogHeader><DialogTitle>Board</DialogTitle><DialogDescription>d</DialogDescription></DialogHeader><button type="button">Open</button></DialogContent>
+        </Dialog>
+      </SurfaceWindowFrame>,
+    )
+    await new Promise(resolve => setTimeout(resolve, 0))
+    fireEvent.pointerDown(document.documentElement)
+    fireEvent.focusIn(document.body)
+    expect(framedClose).not.toHaveBeenCalled()
+    unmount()
+
+    const modalClose = vi.fn()
+    render(
+      <Dialog open onOpenChange={(open) => { if (!open) modalClose() }}>
+        <DialogContent size="workspace"><DialogHeader><DialogTitle>Modal</DialogTitle><DialogDescription>d</DialogDescription></DialogHeader></DialogContent>
+      </Dialog>,
+    )
+    await new Promise(resolve => setTimeout(resolve, 0))
+    // A press aimed at the document itself is stray for a modal too (it closed a run that had just
+    // opened over the live board); a press on the scrim is a real press outside.
+    fireEvent.pointerDown(document.documentElement)
+    expect(modalClose).not.toHaveBeenCalled()
+    fireEvent.pointerDown(document.querySelector('[data-dialog-scrim]')!)
+    expect(modalClose).toHaveBeenCalled()
+  })
+})
+
 describe('SurfaceWindowFrame: remounted content', () => {
   // The window content can unmount and mount again while its project data refreshes. It used to
   // lose the frame (the first dialog's id stayed the owner), so the window fell back to the
@@ -219,6 +254,80 @@ describe('SurfaceWindowFrame: remounted content', () => {
     expect(frame.hasAttribute('data-surface-window')).toBe(true)
     expect(frame.className).toContain('inset-0')
     expect(frame.querySelector('[data-dialog-header]')?.hasAttribute('data-tauri-drag-region')).toBe(true)
+  })
+
+  // Job detail and Project settings mount their dialog after the frame, once the project is
+  // selected. When that first render is thrown away (something under it suspends, or a concurrent
+  // render restarts), React mounts the dialog again with a new id. The thrown-away render used to
+  // keep the frame, so the window showed the in-page modal (scrim, card) for good.
+  it('[spec:native-surface-windows/discarded-first-render] stays the window content when its first render is thrown away', async () => {
+    let resolve!: () => void
+    const ready = new Promise<void>(done => { resolve = done })
+    let loaded = false
+    function LazySection() {
+      if (!loaded) throw ready.then(() => { loaded = true })
+      return <p>Section</p>
+    }
+    const tree = (show: boolean) => (
+      <SurfaceWindowFrame>
+        <Suspense fallback={null}>
+          {show && (
+            <>
+              <Dialog open>
+                <DialogContent size="workspace">
+                  <DialogHeader><DialogTitle>Run</DialogTitle><DialogDescription>d</DialogDescription></DialogHeader>
+                </DialogContent>
+              </Dialog>
+              <LazySection />
+            </>
+          )}
+        </Suspense>
+      </SurfaceWindowFrame>
+    )
+    const { rerender } = render(tree(false))
+    rerender(tree(true))
+    await act(async () => { resolve(); await ready })
+    expect(screen.getByText('Section')).toBeTruthy()
+    const frame = document.querySelector<HTMLElement>('[role="dialog"]')!
+    expect(frame.hasAttribute('data-surface-window')).toBe(true)
+    expect(frame.className).toContain('inset-0')
+    expect(frame.querySelector('[data-dialog-header]')?.hasAttribute('data-tauri-drag-region')).toBe(true)
+  })
+
+  it('stays the window content when the dialog is replaced in a single update', () => {
+    function Probe({ version }: { version: number }) {
+      return (
+        <SurfaceWindowFrame>
+          <Dialog open key={version}>
+            <DialogContent size="workspace">
+              <DialogHeader><DialogTitle>Settings {version}</DialogTitle><DialogDescription>d</DialogDescription></DialogHeader>
+            </DialogContent>
+          </Dialog>
+        </SurfaceWindowFrame>
+      )
+    }
+    const { rerender } = render(<Probe version={1} />)
+    expect(screen.getByRole('dialog').hasAttribute('data-surface-window')).toBe(true)
+    rerender(<Probe version={2} />)
+    const frame = screen.getByRole('dialog')
+    expect(frame.textContent).toContain('Settings 2')
+    expect(frame.hasAttribute('data-surface-window')).toBe(true)
+  })
+
+  it('frames only the first of two top-level dialogs', () => {
+    render(
+      <SurfaceWindowFrame>
+        <Dialog open>
+          <DialogContent size="workspace"><DialogHeader><DialogTitle>First</DialogTitle><DialogDescription>d</DialogDescription></DialogHeader></DialogContent>
+        </Dialog>
+        <Dialog open>
+          <DialogContent size="confirm"><DialogHeader><DialogTitle>Second</DialogTitle><DialogDescription>d</DialogDescription></DialogHeader></DialogContent>
+        </Dialog>
+      </SurfaceWindowFrame>,
+    )
+    const framed = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"]')).filter(node => node.hasAttribute('data-surface-window'))
+    expect(framed).toHaveLength(1)
+    expect(framed[0].textContent).toContain('First')
   })
 })
 

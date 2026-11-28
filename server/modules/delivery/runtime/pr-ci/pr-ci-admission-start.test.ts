@@ -27,7 +27,7 @@ beforeEach(() => { db = initDb(':memory:'); gh = view(); events = []; announced 
 afterEach(() => db.close())
 
 function deps(over: Partial<PrCiStartDeps> = {}): PrCiStartDeps {
-  const exec: Exec = { run: async (cmd, _args, cwd) => cmd === 'git' ? { code: 0, stdout: remotes[cwd] ?? '', stderr: '' } : gh }
+  const exec: Exec = { run: async (cmd, args, cwd) => cmd === 'git' ? { code: 0, stdout: remotes[cwd] ?? '', stderr: '' } : args[0] === 'api' ? { code: 0, stdout: 'true\n', stderr: '' } : gh }
   let runs = 0
   return {
     db, project, exec,

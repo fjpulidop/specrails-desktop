@@ -512,6 +512,9 @@ export function launchBody(ctx: V2CallContext, args: Row): Row {
   if (ctx.originConversationId) {
     body.originConversationId = ctx.originConversationId
     body.originSurface = 'agent-chat'
+  }
+  // The in-app mission's provider/model/effort carry over; an external client's log mission imposes none.
+  if (ctx.originConversationId && ctx.firstPartyAgent) {
     const defaults = originConversationDefaults(ctx)
     if (body.aiEngine === undefined && defaults.provider) body.aiEngine = defaults.provider
     if (body.model === undefined && defaults.model && body.aiEngine === defaults.provider) body.model = defaults.model
@@ -584,7 +587,7 @@ export async function launchPreview(ctx: V2CallContext, project: ProjectRow, inp
   if (warning.length) sentences.push(ctx.v2.t('runs.preview.warn', { chips: warning.join(', ') }))
   if (capacity?.enabled === true && arr(capacity.queued).length) sentences.push(ctx.v2.t('runs.preview.queue', { running: arr(capacity.running).length }))
   const range = scaledCost(forecast, input.runs)
-  return { effect: sentences.join(' '), refs: [], version: `l${shortHash({ f: input.versionFacts, b: preflight?.blocking === true, n: input.runs })}`, cost: { forecastUsd: range, runs: input.runs } }
+  return { effect: sentences.join(' '), refs: [], version: `l${shortHash({ f: input.versionFacts, b: preflight?.blocking === true, n: input.runs })}`, cost: { forecastUsd: range, runs: input.runs, ...(forecast?.basis === 'similar' ? { basis: 'similar' as const } : {}) } }
 }
 
 function launchedRefs(project: ProjectRow, response: Row): Ref[] {

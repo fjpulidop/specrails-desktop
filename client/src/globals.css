@@ -532,6 +532,14 @@ select {
     font-family: var(--font-display);
   }
 
+  /* An app window never rubber-bands: pulling past the end of a scroll used to drag the whole page
+   * (header and frame included) and show an empty strip above it, a web page's tell. Scroll areas
+   * inside keep their own elastic edge, as native scroll views do, without moving the window. */
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);

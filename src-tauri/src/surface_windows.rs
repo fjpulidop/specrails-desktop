@@ -41,7 +41,11 @@ const SURFACES: &[SurfaceSpec] = &[
 ];
 
 #[derive(Clone)]
-struct Entry { key: String, surface: &'static str, owner: String, request_id: String }
+struct Entry {
+    key: String, surface: &'static str, owner: String, request_id: String,
+    /// Reserved while its window is built: a second open of the same key focuses it instead.
+    opening: bool,
+}
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -70,8 +74,8 @@ fn safe_token(value: &str, max: usize) -> bool { !value.is_empty() && value.len(
 /// Surface windows may report a result, plus the few host commands their content
 /// needs. They can never open other windows, browsers or missions.
 pub fn permits_command(label: &str, command: &str) -> bool {
-    let Some(entry) = entry(label) else { return false };
-    matches!(command, "surface_window_result" | "surface_window_toast" | "desktop_reveal_path" | "desktop_save_text" | "desktop_save_bytes")
+    let Some(entry) = entry(label) else { return command == "surface_window_spare_ready" && is_spare(label) };
+    matches!(command, "surface_window_result" | "surface_window_toast" | "desktop_reveal_path" | "desktop_save_text" | "desktop_save_bytes" | "surface_window_spare_ready")
         || spec(entry.surface).is_some_and(|spec| spec.commands.contains(&command))
 }
 
@@ -91,14 +95,21 @@ fn allowed_navigation(origin: &tauri::Url, target: &tauri::Url, surface: &str) -
         && target.query_pairs().any(|(key, value)| key == "surfaceWindow" && value == surface)
 }
 
-fn add_capability(app: &tauri::AppHandle, label: &str, spec: &SurfaceSpec) -> Result<(), String> {
-    let mut capability = tauri::ipc::CapabilityBuilder::new(format!("{label}-interface")).webview(label);
-    for permission in ["core:event:default", "core:window:default", "core:window:allow-close", "core:window:allow-minimize",
-        "core:window:allow-toggle-maximize", "core:window:allow-start-dragging", "core:window:allow-set-title",
-        "core:window:allow-show", "core:window:allow-set-focus",
-        "dialog:allow-message", "dialog:allow-confirm", "dialog:allow-ask", "clipboard-manager:allow-read-text", "clipboard-manager:allow-write-text"]
-        .iter().chain(spec.permissions) { capability = capability.permission(*permission); }
-    capability = capability.permission_scoped("shell:allow-open", vec![serde_json::json!({"url":"https://**"}), serde_json::json!({"url":"http://**"}), serde_json::json!({"url":"vscode://file/**"}), serde_json::json!({"url":"cursor://file/**"}), serde_json::json!({"url":"idea://open**"})], Vec::<Value>::new());
+/// Every surface window gets these; a surface adds its own (`SurfaceSpec::permissions`).
+const BASE_PERMISSIONS: &[&str] = &["core:event:default", "core:window:default", "core:window:allow-close", "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize", "core:window:allow-start-dragging", "core:window:allow-set-title",
+    "core:window:allow-show", "core:window:allow-set-focus",
+    "dialog:allow-message", "dialog:allow-confirm", "dialog:allow-ask", "clipboard-manager:allow-read-text", "clipboard-manager:allow-write-text"];
+
+/// A capability bound to this exact window label: the base set (with `shell:allow-open` for web
+/// and editor links) when `base`, plus `extra`.
+fn add_capability(app: &tauri::AppHandle, identifier: String, label: &str, base: bool, extra: &[&str]) -> Result<(), String> {
+    let mut capability = tauri::ipc::CapabilityBuilder::new(identifier).webview(label);
+    let base_permissions: &[&str] = if base { BASE_PERMISSIONS } else { &[] };
+    for permission in base_permissions.iter().chain(extra) { capability = capability.permission(*permission); }
+    if base {
+        capability = capability.permission_scoped("shell:allow-open", vec![serde_json::json!({"url":"https://**"}), serde_json::json!({"url":"http://**"}), serde_json::json!({"url":"vscode://file/**"}), serde_json::json!({"url":"cursor://file/**"}), serde_json::json!({"url":"idea://open**"})], Vec::<Value>::new());
+    }
     app.add_capability(capability).map_err(|_| "The window permissions could not be initialized.".into())
 }
 
@@ -144,7 +155,7 @@ fn centered_frame(anchor: Frame, size: (f64, f64), min: (f64, f64), work: Frame)
 /// it on that monitor's work area instead, a fullscreen one on the monitor. On
 /// any failure (e.g. Wayland, which forbids positioning) the builder's
 /// `center()` stands.
-fn center_on_opener(parent: &tauri::WebviewWindow, window: &tauri::WebviewWindow, inner: (f64, f64), min_inner: (f64, f64)) -> Option<()> {
+pub(crate) fn center_on_opener(parent: &tauri::WebviewWindow, window: &tauri::WebviewWindow, inner: (f64, f64), min_inner: (f64, f64)) -> Option<()> {
     let monitor = parent.current_monitor().ok().flatten().or_else(|| parent.primary_monitor().ok().flatten())?;
     let scale = monitor.scale_factor();
     let area = monitor.work_area();
@@ -171,6 +182,178 @@ fn center_on_opener(parent: &tauri::WebviewWindow, window: &tauri::WebviewWindow
     placed.ok()
 }
 
+/// The page URL of a surface window: its surface (or `spare`) and, once it has one, the request.
+fn surface_page(origin: &tauri::Url, surface: &str, request_id: Option<&str>, params: &[(&String, &String)]) -> Result<String, String> {
+    let mut target = origin.join("index.html").map_err(|err| err.to_string())?;
+    {
+        let mut query = target.query_pairs_mut();
+        query.clear().append_pair("surfaceWindow", surface);
+        if let Some(request_id) = request_id { query.append_pair("requestId", request_id); }
+        for (key, value) in params { query.append_pair(key, value); }
+    }
+    Ok(format!("index.html?{}", target.query().unwrap_or_default()))
+}
+
+/// Builds a hidden surface window (shown by its page once its content has painted) on the
+/// opener's panel color, so no empty or half-drawn window is ever seen. `route` is the surface it
+/// loads; a spare also accepts the surface it is later assigned.
+fn build_window(app: &tauri::AppHandle, parent: &tauri::WebviewWindow, label: &str, route: &'static str, path: String, title: &str, size: (f64, f64), min: (f64, f64), background: Option<[u8; 3]>, focused: bool) -> Result<tauri::WebviewWindow, String> {
+    let origin = parent.url().map_err(|err| err.to_string())?;
+    let nav_label = label.to_string();
+    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(path.into()))
+        .title(format!("Specrails — {title}"))
+        .inner_size(size.0, size.1).min_inner_size(min.0, min.1)
+        .focused(focused)
+        .visible(false)
+        .on_navigation(move |url| allowed_navigation(&origin, url, route) || entry(&nav_label).is_some_and(|entry| allowed_navigation(&origin, url, entry.surface)))
+        .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
+        // WebKit throttles a hidden page, suspends it and unloads it after ~5 minutes. A surface
+        // window boots hidden, and the spare waits hidden: both must keep running (macOS 14+).
+        .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled);
+    // Windows/Linux: an owned window stays above its opener and minimizes with it, while
+    // minimizing the owned window alone leaves the opener up. Never blocks the opener.
+    // macOS: no parent. `parent()` makes a child NSWindow, and macOS minimizes a parent and
+    // its children as one group, so minimizing a surface window would minimize the whole app.
+    // It stays above its opener through `keep_above_opener` instead.
+    if surface_has_parent(cfg!(target_os = "macos")) { builder = builder.parent(parent).map_err(|err| err.to_string())?; }
+    // Screen-centered until `center_on_opener` moves it (before it is ever shown).
+    builder = builder.center();
+    // Native window controls only (the page renders no close button of its own).
+    // macOS: traffic lights at their standard place over our header; the header
+    // puts its title row on their line (`surfaceHeaderInset` in dialog.tsx).
+    // Elsewhere: the OS title bar.
+    #[cfg(target_os = "macos")]
+    let builder = builder.decorations(true).title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.decorations(true);
+    let builder = match background { Some([r, g, b]) => builder.background_color(tauri::window::Color(r, g, b, 255)), None => builder };
+    builder.build().map_err(|err| err.to_string())
+}
+
+/// The page shows its window once its content has painted; this shows it anyway if it never does.
+fn show_fallback(app: &tauri::AppHandle, label: &str) {
+    let (app, label) = (app.clone(), label.to_string());
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(SHOW_FALLBACK).await;
+        if let Some(window) = app.get_webview_window(&label) {
+            if !window.is_visible().unwrap_or(true) { let _ = focus(&window); }
+        }
+    });
+}
+
+// ─── Spare window: instant open ─────────────────────────────────────────────
+//
+// A new webview needs ~0.8 s before its content shows (create the window, load and run the
+// bundle, mount the app). One hidden window is kept loaded with the surface shell (providers,
+// surface chunks) but no surface. Opening a surface takes it: the host sizes and centers it and
+// tells the page which surface to render, and the page shows it once painted. A spare is used once:
+// it becomes that surface's window and closes with it, so no state carries over between opens. A
+// new spare is prepared shortly after.
+
+pub const ASSIGN_EVENT: &str = "surface-window:assign";
+const SPARE_ROUTE: &str = "spare";
+/// How long a spare has to confirm it took the surface; a spare that does not (its page died)
+/// is discarded and the window opens the cold way.
+const SPARE_ACK_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
+/// Leaves the just-opened window's first frames alone before loading the next spare.
+const SPARE_RESPAWN_DELAY: std::time::Duration = std::time::Duration::from_millis(1500);
+
+#[derive(Clone, Debug, PartialEq)]
+struct Spare { label: String, owner: String, ready: bool, background: Option<[u8; 3]> }
+
+/// Assigned spares waiting for their page's acknowledgement.
+fn spare_acks() -> &'static Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>> {
+    static ACKS: OnceLock<Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>> = OnceLock::new();
+    ACKS.get_or_init(Default::default)
+}
+
+fn spare_slot() -> &'static Mutex<Option<Spare>> {
+    static SPARE: OnceLock<Mutex<Option<Spare>>> = OnceLock::new();
+    SPARE.get_or_init(Default::default)
+}
+fn is_spare(label: &str) -> bool { spare_slot().lock().ok().is_some_and(|spare| spare.as_ref().is_some_and(|spare| spare.label == label)) }
+
+/// A ready spare this opener may use. On Windows/Linux a spare is owned by the window that asked
+/// for it (the parent is fixed at creation), so only that window may take it; on macOS surface
+/// windows have no parent and any opener may.
+fn take_spare(slot: &mut Option<Spare>, owner: &str, any_owner: bool) -> Option<Spare> {
+    if slot.as_ref().is_some_and(|spare| spare.ready && (any_owner || spare.owner == owner)) { slot.take() } else { None }
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Assign<'a> { surface: &'a str, request_id: &'a str, params: HashMap<String, String> }
+
+/// Loads a spare for `owner` unless one exists. Its page reports `surface_window_spare_ready`
+/// once it can render any surface at once.
+fn prepare_spare(app: &tauri::AppHandle, owner: &str, background: Option<[u8; 3]>) -> Result<(), String> {
+    let parent = app.get_webview_window(owner).ok_or("The opening window is unavailable.")?;
+    let label = format!("surface-spare-{:032x}", rand::random::<u128>());
+    {
+        let mut slot = spare_slot().lock().map_err(|_| "Surface window state is unavailable.")?;
+        if slot.as_ref().is_some_and(|spare| app.get_webview_window(&spare.label).is_some()) { return Ok(()); }
+        *slot = Some(Spare { label: label.clone(), owner: owner.to_string(), ready: false, background });
+    }
+    let built = add_capability(app, format!("{label}-interface"), &label, true, &[])
+        .and_then(|_| surface_page(&parent.url().map_err(|err| err.to_string())?, SPARE_ROUTE, None, &[]))
+        .and_then(|path| build_window(app, &parent, &label, SPARE_ROUTE, path, "Specrails", (1100.0, 760.0), (480.0, 320.0), background, false));
+    if let Err(error) = built {
+        if let Ok(mut slot) = spare_slot().lock() { if slot.as_ref().is_some_and(|spare| spare.label == label) { *slot = None; } }
+        return Err(error);
+    }
+    Ok(())
+}
+
+fn prepare_spare_later(app: &tauri::AppHandle, owner: String, background: Option<[u8; 3]>) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(SPARE_RESPAWN_DELAY).await;
+        let _ = prepare_spare(&app, &owner, background);
+    });
+}
+
+/// The main window (or a mission window) asks for a spare once it is idle after startup.
+#[tauri::command]
+pub async fn surface_window_prewarm(app: tauri::AppHandle, webview: Webview, background: Option<[u8; 3]>) -> Result<(), String> {
+    let owner = webview.label().to_string();
+    if owner != webview.window().label() || !crate::mission_windows::is_trusted_interface(&owner) {
+        return Err("Only a Specrails interface can prepare a surface window.".into());
+    }
+    prepare_spare(&app, &owner, background)
+}
+
+/// The spare page is loaded and listening for its surface; called again, once assigned, it
+/// confirms it took the surface.
+#[tauri::command]
+pub fn surface_window_spare_ready(webview: Webview) -> Result<(), String> {
+    if let Some(ack) = spare_acks().lock().ok().and_then(|mut acks| acks.remove(webview.label())) {
+        let _ = ack.send(());
+        return Ok(());
+    }
+    let mut slot = spare_slot().lock().map_err(|_| "Surface window state is unavailable.")?;
+    match slot.as_mut() {
+        Some(spare) if spare.label == webview.label() => { spare.ready = true; Ok(()) }
+        _ => Err("This window is not the spare surface window.".into()),
+    }
+}
+
+/// Turns the spare into the surface's window: permissions, title, size and place, then the page
+/// renders the surface and shows the window.
+async fn assign_spare(app: &tauri::AppHandle, window: &tauri::WebviewWindow, parent: &tauri::WebviewWindow, spec: &SurfaceSpec, request_id: &str, params: &HashMap<String, String>, size: (f64, f64)) -> Result<(), String> {
+    let label = window.label().to_string();
+    if !spec.permissions.is_empty() { add_capability(app, format!("{label}-{}-interface", spec.id), &label, false, spec.permissions)?; }
+    window.set_title(&format!("Specrails — {}", spec.title)).map_err(|err| err.to_string())?;
+    window.set_min_size(Some(tauri::LogicalSize::new(spec.min_width, spec.min_height))).map_err(|err| err.to_string())?;
+    window.set_size(tauri::LogicalSize::new(size.0, size.1)).map_err(|err| err.to_string())?;
+    let _ = center_on_opener(parent, window, size, (spec.min_width, spec.min_height));
+    let (ack, acked) = tokio::sync::oneshot::channel();
+    spare_acks().lock().map_err(|_| "Surface window state is unavailable.")?.insert(label.clone(), ack);
+    let sent = app.emit_to(label.as_str(), ASSIGN_EVENT, &Assign { surface: spec.id, request_id, params: params.clone() });
+    let confirmed = sent.is_ok() && matches!(tokio::time::timeout(SPARE_ACK_TIMEOUT, acked).await, Ok(Ok(())));
+    if let Ok(mut acks) = spare_acks().lock() { acks.remove(&label); }
+    if confirmed { Ok(()) } else { Err("The spare window did not take the surface.".into()) }
+}
+
 // `async`: a synchronous command runs on the main thread, and building a
 // webview window there deadlocks on Windows (WebView2 needs that thread's
 // event loop), so the window never appears. Async commands run off it.
@@ -189,69 +372,68 @@ pub async fn surface_window_open(app: tauri::AppHandle, webview: Webview, surfac
     // One Settings window app-wide; one window per job for entity surfaces.
     let key = if spec.singleton { spec.id.to_string() } else { serde_json::to_string(&(spec.id, &sorted)).map_err(|err| err.to_string())? };
 
-    let mut entries = registry().lock().map_err(|_| "Surface window state is unavailable.")?;
-    entries.retain(|label, _| app.get_webview_window(label).is_some());
-    if let Some((label, existing)) = entries.iter().find(|(_, entry)| entry.key == key) {
-        if let Some(window) = app.get_webview_window(label) {
-            focus(&window)?;
-            return Ok(Opened { window_label: label.clone(), request_id: existing.request_id.clone(), reused: true });
+    // The registry lock is never held across a window call: those run on the main thread, whose
+    // window events (focus, close, navigation) take this lock too.
+    let reuse = {
+        let mut entries = registry().lock().map_err(|_| "Surface window state is unavailable.")?;
+        entries.retain(|label, entry| entry.opening || app.get_webview_window(label).is_some());
+        if let Some((label, existing)) = entries.iter().find(|(_, entry)| entry.key == key) {
+            Some((label.clone(), existing.request_id.clone(), existing.opening))
+        } else {
+            if entries.len() >= MAX_WINDOWS { return Err("Close a window before opening another.".into()); }
+            None
         }
+    };
+    if let Some((label, existing_request, opening)) = reuse {
+        // Still opening (a double click): the first request's window answers both, and shows
+        // itself once painted.
+        if !opening { if let Some(window) = app.get_webview_window(&label) { focus(&window)?; } }
+        return Ok(Opened { window_label: label, request_id: existing_request, reused: true });
     }
-    if entries.len() >= MAX_WINDOWS { return Err("Close a window before opening another.".into()); }
 
-    let label = format!("surface-{}-{:032x}", spec.id, rand::random::<u128>());
-    add_capability(&app, &label, spec)?;
     let parent = app.get_webview_window(&owner).ok_or("The opening window is unavailable.")?;
-    let origin = parent.url().map_err(|err| err.to_string())?;
-    let mut target = origin.join("index.html").map_err(|err| err.to_string())?;
-    {
-        let mut query = target.query_pairs_mut();
-        query.clear().append_pair("surfaceWindow", spec.id).append_pair("requestId", &request_id);
-        for (key, value) in &sorted { query.append_pair(key, value); }
-    }
-    let path = format!("index.html?{}", target.query().unwrap_or_default());
     let geometry = geometry.unwrap_or_default();
     let clamp = |value: Option<f64>, min: f64, fallback: f64| value.filter(|v| v.is_finite()).map(|v| v.clamp(min, 8000.0)).unwrap_or(fallback);
-    let (width, height) = (clamp(geometry.width, spec.min_width, spec.width), clamp(geometry.height, spec.min_height, spec.height));
-    let nav_origin = origin.clone();
-    let surface_id = spec.id;
-    let mut builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(path.into()))
-        .title(format!("Specrails — {}", spec.title))
-        .inner_size(width, height).min_inner_size(spec.min_width, spec.min_height)
-        .focused(true)
-        // Hidden until the page paints its content (it calls `show()`), on the
-        // opener's panel color, so no empty or half-drawn window is ever seen.
-        .visible(false)
-        .on_navigation(move |url| allowed_navigation(&nav_origin, url, surface_id))
-        .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny);
-    // Windows/Linux: an owned window stays above its opener and minimizes with it, while
-    // minimizing the owned window alone leaves the opener up. Never blocks the opener.
-    // macOS: no parent. `parent()` makes a child NSWindow, and macOS minimizes a parent and
-    // its children as one group, so minimizing a surface window would minimize the whole app.
-    if surface_has_parent(cfg!(target_os = "macos")) { builder = builder.parent(&parent).map_err(|err| err.to_string())?; }
-    // Screen-centered until `center_on_opener` moves it (before it is ever shown).
-    builder = builder.center();
-    // Native window controls only (the page renders no close button of its own).
-    // macOS: traffic lights at their standard place over our header; the header
-    // puts its title row on their line (`surfaceHeaderInset` in dialog.tsx).
-    // Elsewhere: the OS title bar.
-    #[cfg(target_os = "macos")]
-    let builder = builder.decorations(true).title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true);
-    #[cfg(not(target_os = "macos"))]
-    let builder = builder.decorations(true);
-    let builder = match background { Some([r, g, b]) => builder.background_color(tauri::window::Color(r, g, b, 255)), None => builder };
-    let window = builder.build().map_err(|err| err.to_string())?;
+    let size = (clamp(geometry.width, spec.min_width, spec.width), clamp(geometry.height, spec.min_height, spec.height));
+    let register = |label: &str, opening: bool| -> Result<(), String> {
+        let mut entries = registry().lock().map_err(|_| "Surface window state is unavailable.")?;
+        entries.insert(label.to_string(), Entry { key: key.clone(), surface: spec.id, owner: owner.clone(), request_id: request_id.clone(), opening });
+        Ok(())
+    };
+    let unregister = |label: &str| { if let Ok(mut entries) = registry().lock() { entries.remove(label); } };
+
+    // Instant path: the loaded spare becomes this surface's window.
+    let spare = spare_slot().lock().ok().and_then(|mut slot| take_spare(&mut slot, &owner, cfg!(target_os = "macos")));
+    if let Some(spare) = spare {
+        if let Some(window) = app.get_webview_window(&spare.label) {
+            register(&spare.label, true)?;
+            match assign_spare(&app, &window, &parent, spec, &request_id, &params, size).await {
+                Ok(()) => {
+                    register(&spare.label, false)?;
+                    show_fallback(&app, &spare.label);
+                    prepare_spare_later(&app, spare.owner.clone(), background.or(spare.background));
+                    return Ok(Opened { window_label: spare.label, request_id, reused: false });
+                }
+                // A spare that cannot take the surface is discarded; the window opens the cold way.
+                Err(_) => { unregister(&spare.label); let _ = window.destroy(); }
+            }
+        }
+    }
+
+    let label = format!("surface-{}-{:032x}", spec.id, rand::random::<u128>());
+    // Reserved while it is built, so a second click focuses this window instead of opening another.
+    register(&label, true)?;
+    let built = add_capability(&app, format!("{label}-interface"), &label, true, spec.permissions)
+        .and_then(|_| surface_page(&parent.url().map_err(|err| err.to_string())?, spec.id, Some(&request_id), &sorted))
+        .and_then(|path| build_window(&app, &parent, &label, spec.id, path, spec.title, size, (spec.min_width, spec.min_height), background, true));
+    let window = match built { Ok(window) => window, Err(error) => { unregister(&label); return Err(error); } };
     // Every new surface window opens centered on the window that opened it
     // (its remembered size kept), never at a remembered or screen position.
-    let _ = center_on_opener(&parent, &window, (width, height), (spec.min_width, spec.min_height));
-    entries.insert(label.clone(), Entry { key, surface: spec.id, owner, request_id: request_id.clone() });
-    let (fallback_app, fallback_label) = (app.clone(), label.clone());
-    tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(SHOW_FALLBACK).await;
-        if let Some(window) = fallback_app.get_webview_window(&fallback_label) {
-            if !window.is_visible().unwrap_or(true) { let _ = focus(&window); }
-        }
-    });
+    let _ = center_on_opener(&parent, &window, size, (spec.min_width, spec.min_height));
+    register(&label, false)?;
+    show_fallback(&app, &label);
+    // The next open is instant: load a spare if none is waiting.
+    if spare_slot().lock().map(|slot| slot.is_none()).unwrap_or(false) { prepare_spare_later(&app, owner.clone(), background); }
     Ok(Opened { window_label: label, request_id, reused: false })
 }
 
@@ -286,10 +468,42 @@ pub fn surface_window_toast(app: tauri::AppHandle, webview: Webview, toast: Valu
     app.emit_to(entry.owner.as_str(), TOAST_EVENT, &SurfaceToast { window_label: label, toast }).map_err(|err| err.to_string())
 }
 
+/// The surface windows a window opened that stay above it: its modals. A surface whose results
+/// bring the opener forward (the live board, a second-screen window) does not, or it would cover
+/// the very place the opener just showed.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn kept_above(owner: &str) -> Vec<String> {
+    registry().lock().map(|entries| entries.iter()
+        .filter(|(_, entry)| entry.owner == owner && spec(entry.surface).is_some_and(|spec| !spec.focus_opener_on_result))
+        .map(|(label, _)| label.clone()).collect()).unwrap_or_default()
+}
+
+/// macOS: a surface window has no parent (see `surface_window_open`), so clicking its opener used
+/// to bury it behind the opener. When the opener comes forward, its open surface windows are put
+/// right above it again, as an owned window behaves on Windows: above its opener only (other apps'
+/// windows keep their place), not key, not moved, minimized on its own.
+#[cfg(target_os = "macos")]
+fn keep_above_opener(opener: &tauri::Window) {
+    use objc2_app_kit::{NSWindow, NSWindowOrderingMode};
+    let Ok(opener_ns) = opener.ns_window() else { return };
+    // SAFETY: Tauri runs window events on the main thread and these pointers are live NSWindows.
+    let opener_number = unsafe { (*(opener_ns as *const NSWindow)).windowNumber() };
+    let app = opener.app_handle();
+    for label in kept_above(opener.label()) {
+        let Some(window) = app.get_webview_window(&label) else { continue };
+        if !window.is_visible().unwrap_or(false) || window.is_minimized().unwrap_or(true) { continue; }
+        let Ok(ns) = window.ns_window() else { continue };
+        unsafe { (*(ns as *const NSWindow)).orderWindow_relativeTo(NSWindowOrderingMode::Above, opener_number) };
+    }
+}
+
 /// Closure always reaches the opener (Escape, close button, Cmd-W, crash), and
 /// focus goes back to it so the opener can restore focus to its trigger.
 pub fn handle_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
+    #[cfg(target_os = "macos")]
+    if matches!(event, tauri::WindowEvent::Focused(true)) { keep_above_opener(window); return; }
     if !matches!(event, tauri::WindowEvent::Destroyed) { return; }
+    if let Ok(mut slot) = spare_slot().lock() { if slot.as_ref().is_some_and(|spare| spare.label == window.label()) { *slot = None; } }
     let removed = registry().lock().ok().and_then(|mut entries| entries.remove(window.label()));
     if let Some(entry) = removed {
         let app = window.app_handle();
@@ -351,7 +565,8 @@ mod tests {
     }
     #[test]
     fn window_opening_commands_are_async_so_windows_does_not_deadlock() {
-        assert!(include_str!("surface_windows.rs").contains("pub async fn surface_window_open("));
+        let surfaces = include_str!("surface_windows.rs");
+        assert!(surfaces.contains("pub async fn surface_window_open(") && surfaces.contains("pub async fn surface_window_prewarm("));
         let loops = include_str!("loop_windows.rs");
         assert!(loops.contains("pub async fn loop_window_open(") && loops.contains("pub async fn plugin_window_open("));
     }
@@ -391,8 +606,62 @@ mod tests {
         assert!(safe_token("req-1_a", 64) && !safe_token("", 64) && !safe_token("a b", 64));
     }
     #[test]
+    fn modals_stay_above_their_opener_but_the_live_board_does_not() {
+        let insert = |label: &str, surface: &'static str, owner: &str| registry().lock().unwrap().insert(label.into(), Entry { key: label.into(), surface, owner: owner.into(), request_id: "r".into(), opening: false });
+        insert("surface-above-settings", "app-settings", "main-above");
+        insert("surface-above-job", "job-detail", "main-above");
+        insert("surface-above-board", "live-board", "main-above");
+        insert("surface-above-other", "job-detail", "mission-above");
+        let mut above = kept_above("main-above");
+        above.sort();
+        assert_eq!(above, vec!["surface-above-job".to_string(), "surface-above-settings".to_string()]);
+        for label in ["surface-above-settings", "surface-above-job", "surface-above-board", "surface-above-other"] { registry().lock().unwrap().remove(label); }
+    }
+    #[test]
+    fn a_spare_is_taken_once_when_ready_and_only_by_its_owner_off_macos() {
+        let spare = |ready: bool| Some(Spare { label: "surface-spare-1".into(), owner: "main".into(), ready, background: None });
+        // Still loading: the window opens the cold way.
+        let mut loading = spare(false);
+        assert_eq!(take_spare(&mut loading, "main", false), None);
+        assert!(loading.is_some());
+        // Windows/Linux: a spare's parent is its owner, so another opener cannot use it.
+        let mut owned = spare(true);
+        assert_eq!(take_spare(&mut owned, "mission-1", false), None);
+        // macOS: no parent, any opener may take it. Taken once: the slot is empty after.
+        let mut any = spare(true);
+        assert_eq!(take_spare(&mut any, "mission-1", true).map(|spare| spare.label), Some("surface-spare-1".into()));
+        assert!(any.is_none());
+        let mut mine = spare(true);
+        assert!(take_spare(&mut mine, "main", false).is_some());
+    }
+    #[test]
+    fn a_spare_may_only_report_ready_until_it_is_a_surface() {
+        *spare_slot().lock().unwrap() = Some(Spare { label: "surface-spare-test".into(), owner: "main".into(), ready: false, background: None });
+        assert!(permits_command("surface-spare-test", "surface_window_spare_ready"));
+        for command in ["surface_window_result", "surface_window_toast", "surface_window_open", "surface_window_prewarm", "check_app_update", "desktop_save_text"] {
+            assert!(!permits_command("surface-spare-test", command), "{command}");
+        }
+        assert!(!permits_command("surface-other", "surface_window_spare_ready"));
+        // Assigned: it answers as the surface it became.
+        registry().lock().unwrap().insert("surface-spare-test".into(), Entry { key: "app-settings".into(), surface: "app-settings", owner: "main".into(), request_id: "r".into(), opening: false });
+        assert!(permits_command("surface-spare-test", "surface_window_result"));
+        assert!(permits_command("surface-spare-test", "check_app_update"));
+        registry().lock().unwrap().remove("surface-spare-test");
+        *spare_slot().lock().unwrap() = None;
+    }
+    #[test]
+    fn a_spare_loads_its_own_page_and_a_surface_page_keeps_its_request() {
+        let origin = tauri::Url::parse("tauri://localhost/").unwrap();
+        let spare = surface_page(&origin, SPARE_ROUTE, None, &[]).unwrap();
+        assert_eq!(spare, "index.html?surfaceWindow=spare");
+        assert!(allowed_navigation(&origin, &origin.join(&spare).unwrap(), SPARE_ROUTE));
+        assert!(!allowed_navigation(&origin, &origin.join(&spare).unwrap(), "app-settings"));
+        let (key, value) = ("jobId".to_string(), "j1".to_string());
+        assert_eq!(surface_page(&origin, "job-detail", Some("req-1"), &[(&key, &value)]).unwrap(), "index.html?surfaceWindow=job-detail&requestId=req-1&jobId=j1");
+    }
+    #[test]
     fn surface_windows_get_only_their_declared_commands() {
-        let insert = |label: &str, surface: &'static str| registry().lock().unwrap().insert(label.into(), Entry { key: label.into(), surface, owner: "main".into(), request_id: "r".into() });
+        let insert = |label: &str, surface: &'static str| registry().lock().unwrap().insert(label.into(), Entry { key: label.into(), surface, owner: "main".into(), request_id: "r".into(), opening: false });
         insert("surface-app-settings-test", "app-settings");
         insert("surface-job-detail-test", "job-detail");
         insert("surface-live-board-test", "live-board");

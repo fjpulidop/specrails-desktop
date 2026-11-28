@@ -115,9 +115,12 @@ removed or handed to a rail. Best effort, like closing the session.
   estimates.
 - An Intent session runs in ONE Git repository. `resolveFlowRepository` (domain) picks it
   before any effect from the `repositories` port: never triaged for a
-  single-repository project; otherwise the explicit Git member, else the Git
-  primary, else the only Git member (`flow_repository_required` /
-  `flow_repository_not_git` / `flow_repository_unknown`). A non-primary choice
+  single-repository project; otherwise the explicit Git member (the spec's, the
+  mission agent's or the person's), else `defaultFlowRepositoryId`: the Git
+  primary, else the repository of the project's last Intent, else the first
+  Git member. Nothing is asked, as Implement never asks
+  (`flow_repository_not_git` / `flow_repository_unknown` remain the refusals;
+  `GET …/flow/repository-default` tells the entry card the default). A non-primary choice
   is `repositoryId` on the session (migration 80) and is passed to every
   worktree, launch and settlement port call; the primary is NULL, so those
   calls stay byte-identical to the single-repository behaviour. The hand-off

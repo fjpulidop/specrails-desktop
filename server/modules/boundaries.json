@@ -1126,6 +1126,7 @@
       "runtime/delivery-base-refresh.ts",
       "runtime/delivery-changes.ts",
       "runtime/delivery-evidence.ts",
+      "runtime/delivery-observers.ts",
       "runtime/flow-review-legacy.ts",
       "runtime/flow-review-outcome.ts",
       "runtime/flow-worktree-handoff.ts",
@@ -1138,7 +1139,9 @@
       "runtime/multi-repo-execution-store.ts",
       "runtime/multi-repo-execution.ts",
       "runtime/pr-ci/pr-ci-admission-runtime.ts",
+      "runtime/pr-ci/pr-ci-admission.ts",
       "runtime/pr-ci/pr-ci-handlers.ts",
+      "runtime/pr-ci/pr-ci-on-demand.ts",
       "runtime/pr-ci/pr-ci-projection.ts",
       "runtime/pr-ci/pr-ci-target.ts",
       "runtime/pr-merge-watch.ts",
@@ -1405,6 +1408,9 @@
         "fs",
         "path"
       ],
+      "runtime/delivery-observers.ts": [
+        "../../../project-registry"
+      ],
       "runtime/flow-review-legacy.ts": [
         "../../../db",
         "../../loops/runtime/loop-definition-recovery",
@@ -1621,8 +1627,10 @@
         "../../../../worktree-manager",
         "../../../agent-runtime/runtime/agent-runtime-loader",
         "../../../agents/runtime/agent-defaults",
+        "../../../loops/runtime/builtin-loops",
         "../../../loops/runtime/loop-constants",
         "../../../loops/runtime/loop-definition-recovery",
+        "../../../loops/runtime/loop-graph",
         "../../../loops/runtime/loop-pr-ci-recipe",
         "../../../missions/runtime/agent-chat-registry",
         "../isolated-worktree",
@@ -1662,6 +1670,13 @@
         "./pr-ci-target",
         "node:path"
       ],
+      "runtime/pr-ci/pr-ci-on-demand.ts": [
+        "../../../../project-repositories",
+        "../pr-publisher",
+        "./pr-ci-admission",
+        "./pr-ci-admission-runtime",
+        "./pr-ci-resolver"
+      ],
       "runtime/pr-ci/pr-ci-projection.ts": [
         "../../../../db",
         "../../../../feature-flags",
@@ -1696,6 +1711,7 @@
       ],
       "runtime/pr-ci/pr-ci-target.ts": [
         "../../../../db",
+        "../../../loops/runtime/loop-pr-ci-recipe",
         "../isolated-settlement-store",
         "../rail-pr-store",
         "./pr-ci-admission",
@@ -1784,6 +1800,7 @@
         "../../agent-runtime/runtime/agent-runtime-controls-router",
         "../../missions/runtime/agent-chat-registry",
         "../../missions/runtime/mission-run-notify",
+        "./delivery-observers",
         "./flow-review-outcome",
         "./pr-ci/pr-ci-projection",
         "./rail-isolated-launch-support",
@@ -1996,6 +2013,7 @@
         "../../../project-registry",
         "../../agent-runtime/runtime/agent-runtime-settings",
         "../../loops/runtime/loop-factory",
+        "../../loops/runtime/loop-mobile-test-recipe",
         "../../loops/runtime/loop-pr-ci-recipe",
         "./flow-worktree-handoff",
         "./pr-follow-up",
@@ -2120,6 +2138,7 @@
         "../../missions/runtime/agent-chat-registry",
         "../../specs/domain/triage",
         "../../specs/runtime/ticket-store",
+        "./delivery-observers",
         "./pr-ci/pr-ci-projection",
         "./rail-pr-store",
         "./rails-store",
@@ -2932,6 +2951,7 @@
       "runtime/loop-factory.ts",
       "runtime/loop-graph.ts",
       "runtime/loop-limit-pauses.ts",
+      "runtime/loop-mobile-test-recipe.ts",
       "runtime/loop-pr-ci-recipe.ts",
       "runtime/loop-provider-switch-settled.ts",
       "runtime/loop-provider-switch.ts",
@@ -3100,6 +3120,7 @@
         "./loop-core-factory",
         "./loop-flow-spec-recipe",
         "./loop-graph",
+        "./loop-mobile-test-recipe",
         "./loop-pr-ci-recipe"
       ],
       "runtime/loop-flow-spec-recipe.ts": [
@@ -3139,6 +3160,10 @@
         "./loop-compat",
         "./loop-graph",
         "./loops-store"
+      ],
+      "runtime/loop-mobile-test-recipe.ts": [
+        "./loop-agents",
+        "./loop-graph"
       ],
       "runtime/loop-node-ai-step.ts": [
         "../../../core-execution",
@@ -3420,6 +3445,8 @@
         "./loop-factory",
         "./loop-graph",
         "./loop-migration",
+        "./loop-mobile-test-recipe",
+        "./loop-pr-ci-recipe",
         "./loop-preview",
         "./loop-templates",
         "./loop-turn-limits",
@@ -3481,6 +3508,7 @@
       "runtime/mission-connectors-discovery.ts",
       "runtime/mission-connectors.ts",
       "runtime/mission-core-sessions.ts",
+      "runtime/mission-plan.ts",
       "runtime/mission-run-notify.ts"
     ],
     "dependencies": {
@@ -3531,6 +3559,7 @@
         "./mission-connectors-discovery",
         "./mission-context-usage",
         "./mission-core-sessions",
+        "./mission-plan",
         "./mission-session-summary",
         "./mission-tool-policy",
         "child_process",
@@ -3555,6 +3584,7 @@
         "./agent-input-store",
         "./agent-session-store",
         "./agent-tier",
+        "./mission-plan",
         "./mission-session-summary",
         "./mission-side-question",
         "express",
@@ -3667,6 +3697,11 @@
         "./mission-session-projector",
         "./mission-tool-policy"
       ],
+      "runtime/mission-plan.ts": [
+        "../../../db",
+        "../../agents/runtime/agent-store",
+        "./agent-chat-registry"
+      ],
       "runtime/mission-run-notify.ts": [
         "../../../feature-flags",
         "../../../types",
@@ -3684,7 +3719,8 @@
         "../../agent-sessions",
         "../../agents/runtime/agent-store",
         "../../audit",
-        "./agent-session-store"
+        "./agent-session-store",
+        "./mission-plan"
       ],
       "runtime/mission-session-summary.ts": [
         "../../../db",
@@ -4218,6 +4254,163 @@
       ]
     }
   },
+  "tapflow": {
+    "publicEntries": [
+      "adapters/mobile-offer.ts",
+      "adapters/mobile-runs-store.ts",
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/android-toolchain.ts": [
+        "../domain",
+        "node:child_process",
+        "node:fs",
+        "node:os",
+        "node:path"
+      ],
+      "adapters/delivery.ts": [
+        "../mobile-project",
+        "./process",
+        "./relay",
+        "@modelcontextprotocol/sdk/client/index.js",
+        "@modelcontextprotocol/sdk/client/stdio.js",
+        "node:child_process",
+        "node:fs",
+        "node:path"
+      ],
+      "adapters/device-window.ts": [
+        "./android-toolchain",
+        "./relay",
+        "express",
+        "node:child_process",
+        "node:crypto"
+      ],
+      "adapters/footprint.ts": [
+        "../domain",
+        "node:child_process"
+      ],
+      "adapters/http.ts": [
+        "../../../project-registry",
+        "../application",
+        "./device-window",
+        "./mobile-offer",
+        "express"
+      ],
+      "adapters/mobile-build.ts": [
+        "../domain",
+        "../mobile-project",
+        "./android-toolchain",
+        "node:child_process",
+        "node:fs",
+        "node:path",
+        "tree-kill"
+      ],
+      "adapters/mobile-handlers.ts": [
+        "../../agent-runtime/runtime/host-task-dispatcher",
+        "../mobile-project",
+        "./delivery",
+        "./mobile-build",
+        "./mobile-runs-store"
+      ],
+      "adapters/mobile-offer.ts": [
+        "../../../desktop-db",
+        "../../../ids",
+        "../../../project-registry",
+        "../../../project-repositories",
+        "../../../providers",
+        "../../../providers/runtime",
+        "../../../providers/types",
+        "../../../repo-lock",
+        "../../agent-runtime/runtime/agent-runtime-loader",
+        "../../agents/runtime/agent-defaults",
+        "../../delivery/runtime/rail-pr-store",
+        "../../delivery/runtime/rail-worktrees-store",
+        "../../loops/runtime/builtin-loops",
+        "../../loops/runtime/loop-constants",
+        "../../loops/runtime/loop-mobile-test-recipe",
+        "../../missions/runtime/agent-chat-registry",
+        "../../terminals/runtime/background-process-service",
+        "../mobile-project",
+        "./delivery",
+        "./mobile-build",
+        "./mobile-run-process",
+        "./mobile-runs-store",
+        "node:child_process",
+        "node:fs",
+        "node:path"
+      ],
+      "adapters/mobile-run-process.ts": [
+        "../../../transient-children",
+        "node:fs"
+      ],
+      "adapters/mobile-runs-store.ts": [
+        "../../../db",
+        "../mobile-project"
+      ],
+      "adapters/pinned.ts": [
+        "../pinned/package-lock.json",
+        "../pinned/package.json"
+      ],
+      "adapters/process.ts": [
+        "../../../util/specrails-home",
+        "../application",
+        "../domain",
+        "./android-toolchain",
+        "./pinned",
+        "node:child_process",
+        "node:fs",
+        "node:os",
+        "node:path"
+      ],
+      "adapters/relay.ts": [
+        "../application",
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ],
+      "adapters/simulator-names.ts": [
+        "node:child_process"
+      ],
+      "adapters/store.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../application",
+        "../domain"
+      ],
+      "application.ts": [
+        "./domain"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./adapters/http",
+        "./application",
+        "./domain",
+        "./runtime"
+      ],
+      "mobile-project.ts": [],
+      "runtime.ts": [
+        "../../db",
+        "../../external-mcp",
+        "../../path-resolver",
+        "../delivery/runtime/delivery-observers",
+        "../terminals/runtime/terminal-manager",
+        "./adapters/delivery",
+        "./adapters/device-window",
+        "./adapters/footprint",
+        "./adapters/mobile-build",
+        "./adapters/mobile-handlers",
+        "./adapters/mobile-offer",
+        "./adapters/mobile-run-process",
+        "./adapters/mobile-runs-store",
+        "./adapters/process",
+        "./adapters/relay",
+        "./adapters/simulator-names",
+        "./adapters/store",
+        "./application",
+        "./domain"
+      ]
+    }
+  },
   "terminals": {
     "publicEntries": [
       "domain/app-resources.ts",
@@ -4254,7 +4447,8 @@
       "runtime/app-resources.ts": [
         "../domain/app-resources",
         "../domain/mission-resources",
-        "./resource-sampler"
+        "./resource-sampler",
+        "node:os"
       ],
       "runtime/app-urls.ts": [
         "../../../transient-children",

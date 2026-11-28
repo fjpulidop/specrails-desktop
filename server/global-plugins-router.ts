@@ -1,13 +1,15 @@
 import { Router } from 'express'
 import type { HeadroomProvider } from './headroom-routing'
 import { HeadroomManager } from './headroom-manager'
+import { registerTapflowRoutes, tapflowDeviceWindows, type TapflowPlugin } from './modules/tapflow'
 
 function isProvider(value: unknown): value is HeadroomProvider {
   return value === 'codex' || value === 'claude'
 }
 
-export function createGlobalPluginsRouter(headroom: HeadroomManager): Router {
+export function createGlobalPluginsRouter(headroom: HeadroomManager, tapflow?: TapflowPlugin): Router {
   const router = Router()
+  if (tapflow) registerTapflowRoutes(router, tapflow, tapflowDeviceWindows)
 
   router.get('/', async (_req, res) => {
     res.json({
@@ -18,6 +20,7 @@ export function createGlobalPluginsRouter(headroom: HeadroomManager): Router {
           scope: 'global',
           status: await headroom.getFreshState(),
         },
+        ...(tapflow ? [{ id: 'tapflow', name: 'Tapflow', scope: 'global', status: await tapflow.status() }] : []),
         { id: 'jira', name: 'Jira', scope: 'project' },
         { id: 'serena', name: 'Serena', scope: 'project' },
       ],

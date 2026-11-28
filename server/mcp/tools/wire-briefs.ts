@@ -70,9 +70,11 @@ export const TOOL_BRIEFS: Record<string, ToolBrief> = {
     fields: { runId: 'question/answer/resume: the item\'s subjectId', sourceId: 'retry: delivery id or run:<id> from the item' },
   },
   specrails_missions: {
-    description: 'Agent missions. Actions: list, active, get (messages, context usage), send / ask (ai-spawn; ask never writes to the mission), abort (destructive — stop the running turn). Never changes permissions, provider or pin.',
+    description: 'Agent missions. Actions: list, active, get (messages, context usage), send / ask (ai-spawn; ask never writes to the mission), abort (destructive — stop the running turn), plan (in-app agent: your plan of work and each step\'s status, shown in your mission). Never changes permissions, provider or pin.',
     fields: {
       limit: 'list: missions (default 20); get: recent messages (default 10)',
+      steps: 'plan: every step in order, each with its status',
+      title: 'plan: a short name for the plan',
       deliveryMode: 'send while a turn runs: queue (default) or steer',
       selection: 'ask: passage asked about (default latest reply)',
       throughMessageId: 'ask: read history up to this message',
@@ -201,7 +203,7 @@ export const TOOL_BRIEFS: Record<string, ToolBrief> = {
     },
   },
   specrails_background: {
-    description: `Long-running processes (dev servers, watchers) of an in-app agent conversation. Actions: start (destructive, in-app agent only; confirmed:true after the person approved this exact command), list, logs, kill (destructive, in-app agent only). ${DETAIL}`,
+    description: `Long-running processes (dev servers, watchers) of an in-app agent conversation, and running a mobile app on a device. Actions: start (destructive, in-app agent only; confirmed:true after the person approved this exact command), list, logs, kill (destructive, in-app agent only), mobile_test (build the iOS/Android app and open it on a simulator in Specrails; target mission = your Intent), mobile_status. ${DETAIL}`,
     fields: {
       confirmed: 'start: true after the person approved this exact command',
       allowWhileBusy: 'start: override the active-run guard after confirmation',
@@ -210,6 +212,10 @@ export const TOOL_BRIEFS: Record<string, ToolBrief> = {
       processId: 'logs/kill: execution UUID; pass with pid',
       chatId: 'External clients only: the owning conversation id',
       limit: 'list: page size (default 50); logs: last N lines (default 100)',
+      target: 'mobile_test: mission (your Intent worktree, default), checkout, branch',
+      platforms: 'mobile_test: ["ios"], ["android"] or both',
+      devices: 'mobile_test: Tapflow device id per platform (else Tapflow picks)',
+      runId: 'mobile_status: the runId mobile_test returned',
     },
   },
   specrails_recovery: {

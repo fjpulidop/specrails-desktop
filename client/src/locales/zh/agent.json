@@ -1116,7 +1116,10 @@
         "loading": "正在加载仓库…",
         "loadFailed": "无法加载项目的仓库。请重试。",
         "suggested": "由智能体建议",
-        "noGit": "此项目没有 Git 仓库。Intent 需要它来创建分支。"
+        "noGit": "此项目没有 Git 仓库。Intent 需要它来创建分支。",
+        "target": "在 {{name}} 中运行",
+        "change": "更改",
+        "changeLabel": "更改此 Intent 运行的仓库"
       },
       "blocked": {
         "noProject": "将此任务固定到某个项目后才能使用 Intent。",
@@ -1632,13 +1635,17 @@
     "kind": {
       "agent-session": "智能体",
       "background-process": "后台进程",
-      "mission-activity": "任务活动"
+      "mission-activity": "任务活动",
+      "mobile-device": "移动设备",
+      "mobile-build": "移动构建",
+      "tapflow-service": "Tapflow"
     },
     "finishedAt": "于 {{time}} 结束",
     "lastActive": "运行期间的最后活动",
     "history": "历史",
     "peakValue": "峰值 {{value}}",
-    "historyHint": "任务工作期间每 3 秒一个点。将鼠标悬停在线条上可查看时间和数值。"
+    "historyHint": "任务工作期间每 3 秒一个点。将鼠标悬停在线条上可查看时间和数值。",
+    "cpuShareHint": "占整台 Mac 的比例（{{cores}} 核）：100 % 表示所有核心都在忙。"
   },
   "contextUsage": {
     "open": "已用上下文：{{percent}}%",
@@ -1702,5 +1709,53 @@
     "answer": "回答",
     "defaultQuestion": "解释这在此上下文中的含义。",
     "providerDefault": "{{provider}} 默认模型"
+  },
+  "mcp": {
+    "viaMcp": "通过 MCP",
+    "action": "{{client}} · {{call}}",
+    "actionFailed": "{{client}} · {{call}} 失败",
+    "missionBadgeTitle": "由 {{client}} 通过 MCP 创建:其操作记录在此"
+  },
+  "mobileTest": {
+    "title": "在移动设备上测试",
+    "body": "为模拟器构建 {{platform}} 应用，并在 Tapflow 设备上运行。",
+    "bodyChoose": "为模拟器构建应用，并在 Tapflow 设备上运行。请选择平台：",
+    "start": "在设备上测试",
+    "both": "两者",
+    "notNow": "暂不",
+    "retry": "重试",
+    "started": "正在构建并安装到设备…",
+    "startedBody": "构建在此交付的工作副本中进行；运行日志会显示每一步。",
+    "launched": "运行中：{{devices}}",
+    "launchedBody": "应用已安装并在设备上打开。",
+    "failed": "移动测试未完成",
+    "failedBody": "详情请查看运行日志。",
+    "expired": "移动测试已不可用",
+    "expiredBody": "此交付的代码已不在本机上。请在发布前测试。",
+    "dismissed": "已跳过此交付的移动测试。",
+    "openLog": "打开日志",
+    "startFailed": "无法启动移动测试。",
+    "onDevice": "{{device}} 上的 {{platform}}",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "openDevice": "打开 {{device}}",
+    "startedBodyMission": "正在构建并安装此会话的代码；进度和日志在“进程”中。",
+    "failedBodyMission": "解决后请让智能体再次运行。"
+  },
+  "missionPlan": {
+    "button": "计划",
+    "title": "工作计划",
+    "description": "智能体打算做什么，以及进行到哪里了。",
+    "open": "工作计划：已完成 {{done}}/{{total}} 步",
+    "progress": "{{done}} / {{total}}",
+    "now": "当前：{{step}}",
+    "allDone": "所有步骤已完成。",
+    "status": {
+      "pending": "待办",
+      "in_progress": "进行中",
+      "completed": "已完成"
+    }
   }
 }

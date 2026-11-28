@@ -223,7 +223,20 @@ describe('live board projection', () => {
     list[0].railLoopRuns.set('r2', { originConversationId: 'gone' })
     const board = snapshot(list)
     expect(board.lanes.find((l) => l.conversationId === 'm1')).toMatchObject({ title: 'Seasons', todayCostUsd: 1.75 })
-    expect(board.lanes.find((l) => l.conversationId === 'gone')).toMatchObject({ title: null })
+    // The run whose mission is gone keeps its card, unlinked: it opens itself, not a missing mission.
+    expect(board.lanes.find((l) => l.conversationId === 'gone')).toBeUndefined()
+    expect(board.cards.find((c) => c.id.includes('r2'))).toMatchObject({ conversationId: null })
+  })
+
+  it('[spec:live-board/cards-open-what-exists] drops an Intent session whose mission is in the trash, and keeps one whose mission exists', () => {
+    mission('m-live', 'Seasons')
+    mission('m-trash', 'Old idea')
+    desktop.prepare(`UPDATE agent_conversations SET deleted_at = ? WHERE id = 'm-trash'`).run(at(-HOUR))
+    alpha.prepare(`INSERT INTO flow_sessions (id, conversation_id, state, created_at, updated_at) VALUES ('fs-live','m-live','paused',?,?),('fs-trash','m-trash','paused',?,?)`).run(at(-HOUR), at(-HOUR), at(-HOUR), at(-HOUR))
+    const board = snapshot()
+    const intents = board.cards.filter((c) => c.kind === 'intent')
+    expect(intents.map((c) => c.conversationId)).toEqual(['m-live'])
+    expect(board.projects.find((p) => p.projectId === 'p1')?.count).toBe(1)
   })
 })
 

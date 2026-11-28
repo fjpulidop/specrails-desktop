@@ -432,6 +432,13 @@ function classify(type: string, msg: Record<string, unknown>, base: Base): Journ
     }
 
     // ── Missions (app-global) ──
+    // A turn starts (a direct message, or a queued one leaving the queue): the mission is working, so
+    // a wait for "settled" never mistakes the previous turn's end for this one's.
+    case 'agent_input_started':
+    case 'agent_dequeued': {
+      const id = str(msg.conversationId)
+      return id ? [draft({ ...base, projectId: null }, { refKind: 'mission', refId: id, kind: 'mission.turn', status: 'running', settled: false })] : []
+    }
     case 'agent_done': {
       const id = str(msg.conversationId)
       return id ? [draft({ ...base, projectId: null }, { refKind: 'mission', refId: id, kind: 'mission.turn', status: 'completed', settled: true })] : []

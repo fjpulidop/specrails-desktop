@@ -1116,7 +1116,10 @@
         "loading": "Loading repositories…",
         "loadFailed": "The project repositories could not be loaded. Try again.",
         "suggested": "Suggested by the agent",
-        "noGit": "This project has no Git repository. Intent needs one for its branch."
+        "noGit": "This project has no Git repository. Intent needs one for its branch.",
+        "target": "Runs in {{name}}",
+        "change": "Change",
+        "changeLabel": "Change the repository this Intent runs in"
       },
       "blocked": {
         "noProject": "Pin this mission to a project to use Intent.",
@@ -1632,13 +1635,17 @@
     "kind": {
       "agent-session": "Agent",
       "background-process": "Background process",
-      "mission-activity": "Mission activity"
+      "mission-activity": "Mission activity",
+      "mobile-device": "Mobile device",
+      "mobile-build": "Mobile build",
+      "tapflow-service": "Tapflow"
     },
     "finishedAt": "Finished at {{time}}",
     "lastActive": "Last activity while it was running",
     "history": "History",
     "peakValue": "Peak {{value}}",
-    "historyHint": "One point every 3 s while the mission worked. Hover a line to see the time and value."
+    "historyHint": "One point every 3 s while the mission worked. Hover a line to see the time and value.",
+    "cpuShareHint": "Of the whole Mac ({{cores}} cores): 100 % is every core busy."
   },
   "contextUsage": {
     "open": "Context used: {{percent}}%",
@@ -1702,5 +1709,53 @@
     "answer": "Answer",
     "defaultQuestion": "Explain what this means in this context.",
     "providerDefault": "{{provider}} default model"
+  },
+  "mcp": {
+    "viaMcp": "via MCP",
+    "action": "{{client}} · {{call}}",
+    "actionFailed": "{{client}} · {{call}} failed",
+    "missionBadgeTitle": "Created by {{client}} through MCP: its actions are logged here"
+  },
+  "mobileTest": {
+    "title": "Test in Mobile Device",
+    "body": "Build the {{platform}} app for the simulator and run it on a Tapflow device.",
+    "bodyChoose": "Build the app for the simulator and run it on a Tapflow device. Choose the platform:",
+    "start": "Test on the device",
+    "both": "Both",
+    "notNow": "Not now",
+    "retry": "Try again",
+    "started": "Building and installing on the device…",
+    "startedBody": "The build runs in this delivery's working copy; the run log shows each step.",
+    "launched": "Running {{devices}}",
+    "launchedBody": "The app is installed and open on the device.",
+    "failed": "The mobile test did not finish",
+    "failedBody": "See the run log for the details.",
+    "expired": "Mobile test no longer available",
+    "expiredBody": "This delivery's code is no longer on this machine. Test before publishing it.",
+    "dismissed": "Mobile test skipped for this delivery.",
+    "openLog": "Open log",
+    "startFailed": "Could not start the mobile test.",
+    "onDevice": "{{platform}} on {{device}}",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "openDevice": "Open {{device}}",
+    "startedBodyMission": "Building the code of this session and installing it; the progress and the log are in Processes.",
+    "failedBodyMission": "Ask the agent to run it again once that is fixed."
+  },
+  "missionPlan": {
+    "button": "Plan",
+    "title": "Work plan",
+    "description": "What the agent set out to do and where it is now.",
+    "open": "Work plan: {{done}} of {{total}} steps done",
+    "progress": "{{done}} of {{total}}",
+    "now": "Now: {{step}}",
+    "allDone": "All steps done.",
+    "status": {
+      "pending": "pending",
+      "in_progress": "in progress",
+      "completed": "done"
+    }
   }
 }

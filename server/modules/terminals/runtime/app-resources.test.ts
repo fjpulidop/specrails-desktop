@@ -13,7 +13,7 @@ describe('createAppResourcesSampler', () => {
     let now = 1_000
     const read = vi.fn(async () => table)
     const listRoots = vi.fn(() => [])
-    const sampler = createAppResourcesSampler({ readProcessTable: read, listRoots, serverPid: 100, now: () => now, historySize: 3 })
+    const sampler = createAppResourcesSampler({ readProcessTable: read, listRoots, serverPid: 100, now: () => now, historySize: 3, cpuCores: 1 })
 
     const first = await sampler.snapshot()
     expect(read).toHaveBeenCalledTimes(1)
@@ -31,6 +31,20 @@ describe('createAppResourcesSampler', () => {
 
     now += 60_000 // nobody polled for a while: start over
     expect((await sampler.snapshot()).history).toHaveLength(1)
+  })
+
+  it('[spec:mission-resources/cpu-share-of-machine] reports CPU out of the whole machine, never above 100 %', async () => {
+    const busy = table.map((row) => ({ ...row, cpuPercent: row.cpuPercent * 300 }))
+    const sampler = createAppResourcesSampler({ readProcessTable: async () => busy, listRoots: () => [], serverPid: 100, cpuCores: 10 })
+    const snapshot = await sampler.snapshot()
+    // 5 % of one core × 300 = 1500 % of one core: 100 % of a 10-core machine at most.
+    expect(snapshot.cpuCores).toBe(10)
+    expect(snapshot.totals.cpuPercent).toBe(100)
+    for (const category of snapshot.categories) {
+      expect(category.cpuPercent).toBeLessThanOrEqual(100)
+      for (const item of category.items) expect(item.cpuPercent).toBeLessThanOrEqual(100)
+    }
+    expect(snapshot.history[0]!.cpuPercent).toBe(100)
   })
 
   it('reports an unsupported platform without history points', async () => {

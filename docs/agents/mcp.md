@@ -108,11 +108,11 @@ Generated from the catalog. Actions marked *not available yet* answer `not_imple
 | `specrails_rails` |  | 9 |
 | `specrails_runs` | yes | 25 |
 | `specrails_deliveries` | yes | 3 |
-| `specrails_missions` |  | 45 |
+| `specrails_missions` |  | 46 |
 | `specrails_insights` |  | 12 |
 | `specrails_settings` |  | 5 |
 | `specrails_providers` |  | 21 |
-| `specrails_integrations` |  | 44 |
+| `specrails_integrations` |  | 49 |
 | `specrails_system` |  | 15 |
 
 ### `specrails_overview`
@@ -180,9 +180,9 @@ Specs: list, get views, search, create (request=AI, draft, verbatim, idea), edit
 | Action | Tier | Confirmation | Notes |
 |---|---|---|---|
 | `list` | read | — | Paged backlog (default 25, max 100). filter: status (draft\|todo\|in_progress\|on_review\|done\|cancelled\|active\|all; array or CSV), label (any of), priority, milestone (2 or M2), rail (index or name), since (ISO), epic (ref); query = text; options.sort updated\|priority\|id\|created. view detail adds summary, triage, jira, order. |
-| `get` | read | — | Requires `ref`. One spec with its decision state. view detail (or fields) adds body and sections: criteria, addenda, timeline (runs, deliveries, edits; cursor/limit page it, options.kinds), handoff (options.format pr\|md\|html), attachments, files (options.repository), spend. options.request reads an async AI result (create request, ai_edit, smash). |
+| `get` | read | — | One spec with its decision state. view detail (or fields) adds body and sections: criteria, addenda, timeline (runs, deliveries, edits; cursor/limit page it, options.kinds), handoff (options.format pr\|md\|html), attachments, files (options.repository), spend. options.request reads an async AI result (create request, ai_edit, smash). |
 | `search` | read | — | Requires `query`. Ranked text search over title, summary, body, labels, addenda, comments (≤ 30). With filter it narrows list instead. |
-| `create` | per call | per call | Requires `mode`. mode request: the spec agent writes the spec from the person's request or problem (AI; waits up to options.waitMs, default 20 s); draft: a complete spec you wrote (title, body, options.criteria/labels/priority/intent/summary); verbatim: the body as written (no AI); idea: a draft-status spec to shape later. options.repositoryIds, labels, priority, model, aiEngine, contractRefine. |
+| `create` | per call | per call | Requires `mode`. mode request: the spec agent writes the spec from the person's request or problem (AI; waits up to options.waitMs, default 45 s); draft: a complete spec you wrote (title, body, options.criteria/labels/priority/intent/summary); verbatim: the body as written (no AI); idea: a draft-status spec to shape later. options.repositoryIds, labels, priority, model, aiEngine, contractRefine. |
 | `update` | write | — | Requires `ref`, `patch`. patch: title, body, status (done marks it done), priority, labels, addLabels, removeLabels, milestone (n or null), assignee, prerequisites, criteria, summary, intent, nonGoals, repositoryIds, metadata, regressionOf (delivery ref), rail (index/name; null removes). Returns an undo call. |
 | `bulk_update` | write | per call | Requires `refs`, `patch`. One operation on up to 200 specs. patch: status, priority, labels, addLabels, removeLabels, assignee, milestone, rail; or {trash: true} (restorable; over 20 specs confirmed), {restore: true}, {mergeInto: ref} (folds bodies into the target, trashes the rest; confirmed), {reorder: true} (execution order = refs order). Returns skipped specs with reasons and an undo call. |
 | `delete` | write | — | Requires `ref`. Moves to trash (restore undoes it). |
@@ -292,10 +292,11 @@ Missions (agent conversations): create, send, ask, queue, attachments, subagents
 |---|---|---|---|
 | `list` | read | — | Missions, running first. filter.project (or "home"), filter.archived (true \| "all"), filter.active, filter.pinned. |
 | `search` | read | — | Requires `query`. Full-text search over titles and messages. |
+| `message` | read | — | Requires `ref`. One message of the mission whole (options.message=<id> from get messages, where long ones are truncated; default the last reply), up to 40 000 characters. |
 | `get` | read | — | Requires `ref`. One mission: state, last reply, pending cards. fields: messages (newest first; cursor pages older; options.after=<messageId> reads what followed), queue, cards, subagents, attachments, intent, links (runs/specs/deliveries), resources, processes (dev servers and preview app URLs). |
-| `create` | write | — | New mission. project pins it (omit for Home); provider, model, effort; title. Then send. |
-| `send` | ai-spawn | costly | Requires `ref`, `message`. Sends the person's message and waits up to options.waitMs (default 20000, max 45000) for the reply. Busy mission: queued (options.deliveryMode queue\|steer\|interrupt). options.attachmentIds, options.queueId (idempotent retry). Not replied yet: specrails_wait(until, refs:[ref]) then get(options.after). |
-| `ask` | ai-spawn | costly | Requires `ref`, `message`. Side question about the mission (nothing is written to it). options.selection (default: the last reply), options.throughMessageId. |
+| `create` | per call | — | New mission. message = what the person wants: it starts working on it now (the mission names itself; title optional). Without message, ask the person its goal in one open question, then send. project pins it (omit for Home); provider, model, effort. |
+| `send` | ai-spawn | — | Requires `ref`, `message`. Sends the person's message and waits up to options.waitMs (default and max 45000) for the reply. Busy mission: queued (options.deliveryMode queue\|steer\|interrupt). options.attachmentIds, options.queueId (idempotent retry). Not replied yet: specrails_wait(until, refs:[ref]) wakes with the reply. |
+| `ask` | ai-spawn | — | Requires `ref`, `message`. Side question about the mission (nothing is written to it). options.selection (default: the last reply), options.throughMessageId. |
 | `abort` | write | — | Requires `ref`. Stops the running turn (queued messages stay). |
 | `update` | write | — | Requires `ref`. Rename (title), provider, model, effort, options.pin (project, or null for Home). The permission level stays the person's. |
 | `archive` | write | — | Requires `ref`. Archives (refused while the mission is live). |
@@ -414,9 +415,14 @@ jira_* sync, plugins_* (incl. Headroom), loops_* library, code_* exploration, gi
 | `jira_links` | read | — | The spec↔issue map. With ref/id (a spec): that issue's Jira fields and development panel. |
 | `plugins_list` | read | — | Project plugins (status, version, drift) plus the app-global Headroom proxy. options.provider picks the AI provider registry. |
 | `plugins_preview` | read | — | Requires `id`. Dry-run install: the config diff and requirements (Headroom: its status). |
-| `plugins_install` | write | — | Requires `id`. Runs the installer + verify (long; plugin.install_progress events). Headroom downloads the proxy. |
+| `plugins_install` | write | — | Requires `id`. Runs the installer + verify (long; plugin.install_progress events). Headroom downloads the proxy. Tapflow opens its interactive setup in a Specrails terminal (the person answers it there; macOS on Apple Silicon only). |
 | `plugins_uninstall` | destructive | irreversible | Requires `id`. Reverts contributors and removes owned MCP servers, installed files and state. |
-| `plugins_activate` | write | — | Requires `id`. Turns an installed plugin back on (Headroom: options.provider claude\|codex). |
+| `plugins_activate` | write | — | Requires `id`. Turns an installed plugin back on (Headroom: options.provider claude\|codex; Tapflow starts its device service, then mission agents get its MCP). |
+| `mobile_test` | write | — | Builds the iOS/Android app for the simulator and runs it on a Tapflow device inside Specrails (factory:mobile-test); the person watches it in a native device window. What to test: options.target "mission" (a mission agent: the code of your own active Intent session), options.delivery (a delivery ref or id, on review or merged locally), options.target "checkout" (the project checkout as it is) or "branch" with options.branch (built in a temporary worktree; the checkout is untouched). options.platforms: ["ios"], ["android"] or both. options.devices: { ios?, android? } Tapflow device ids to use (else Tapflow picks). A mission's run shows in its Processes (build and Tapflow log) and Resources. Returns the run ref: wait on it with specrails_wait. |
+| `mobile_options` | read | — | What Test in Mobile Device can run in a project now: whether Tapflow is installed and Core runs host tasks, the checkout's apps (platforms, current branch, recommended platform), deliveries on review with an app, local branches, and Tapflow's devices (id, name, platform, booted; null while Tapflow is off). Use the ids in mobile_test options.devices. |
+| `mobile_status` | read | — | Requires `ref`. A Test in Mobile Device run (ref: the run ref mobile_test returned): state running \| launched \| failed, the devices it runs on, or why it stopped (with the build command). specrails_wait on the run ref first. |
+| `mobile_open_device` | write | — | Requires `ref`. Opens the device of a launched run in its native Specrails window (the person sees and uses it; the window releases the device when closed). ref: the run ref; options.platform picks one of a both-platform run. |
+| `mobile_release_device` | write | — | Requires `ref`. Releases the device of a run so it stops costing CPU and memory: shut down after the grace period (as closing its window does), or at once with options.now true. ref: the run ref; options.platform for a both-platform run. |
 | `plugins_deactivate` | write | — | Requires `id`. Turns a plugin off without uninstalling (Headroom: options.provider). |
 | `plugins_update` | write | — | Requires `id`. Applies manifest drift (Headroom: options.port changes the relay port). |
 | `plugins_health` | read | — | On-demand verify of one installed plugin (id), or Headroom diagnostics (id: headroom). |

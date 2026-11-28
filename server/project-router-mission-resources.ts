@@ -2,11 +2,13 @@ import type { ProjectRoutesDeps } from './project-router-helpers'
 import type { ProjectContext } from './project-registry'
 import { listBackgroundProcesses } from './transient-children'
 import { getAgentChatManager } from './modules/missions/runtime/agent-chat-registry'
+import { missionTapflowRoots, missionsWithRunningMobileTests, withDeviceFootprints } from './modules/tapflow'
 import {
-  findWorktreeRoots, measureRoots, totalEntries,
+  findWorktreeRoots, measureRoots, totalEntries, withMachineCpu,
   type MissionResourceEntry, type MissionResourceRoot, type MissionResourceTotals, type ProcessSample,
 } from './modules/terminals/domain/mission-resources'
 import { createDiskScanner, createProcessTableReader, readDiskUsage } from './modules/terminals/runtime/resource-sampler'
+import { logicalCores } from './modules/terminals/runtime/app-resources'
 import {
   createMissionResourceHistoryStore, createMissionResourceRecorder,
   type MissionResourceHistoryStore,
@@ -44,10 +46,13 @@ function worktreeOf(c: ProjectContext, chatId: string): string | null {
  * launched in its worktree (sub-agents, jobs, tools). */
 function measureMission(c: ProjectContext, chatId: string, table: ProcessSample[]): { entries: MissionResourceEntry[]; totals: MissionResourceTotals; worktreePath: string | null } {
   if (!ownsMission(c, chatId)) return { entries: [], totals: totalEntries([]), worktreePath: null }
-  const roots: MissionResourceRoot[] = []
+  // Its mobile tests first (the device it launched, the build in progress, the Tapflow service): the first
+  // root that reaches a process claims it, and a build in an Intent worktree would read as mission activity.
+  const roots: MissionResourceRoot[] = [...missionTapflowRoots(c.db, chatId, table)]
   const agentPids = new Set([...c.chatManager.getProcessPids(chatId), ...(getAgentChatManager()?.getProcessPids(chatId, table) ?? [])])
   for (const pid of agentPids) roots.push({ id: `agent-session:${pid}`, kind: 'agent-session', label: 'Agent session', pid })
   for (const p of listBackgroundProcesses({ projectId: c.project.id, chatId })) {
+    if (p.observed) continue // a mobile test: measured above as such
     roots.push({ id: `background-process:${p.processId}`, kind: 'background-process', label: p.command, pid: p.pid })
   }
   const worktreePath = worktreeOf(c, chatId)
@@ -73,9 +78,10 @@ export function startMissionResourceRecording(c: ProjectContext): { stop(): void
     store,
     conversationExists,
     // The agent chat manager is shared by every project: keep only this project's conversations.
-    listActiveConversations: () => [...new Set([...c.chatManager.activeConversationIds(), ...(getAgentChatManager()?.activeConversationIds(c.project.id) ?? [])])],
+    listActiveConversations: () => [...new Set([...c.chatManager.activeConversationIds(), ...(getAgentChatManager()?.activeConversationIds(c.project.id) ?? []), ...missionsWithRunningMobileTests(c.db)])],
     measure: async (conversationId) => {
-      const table = await readProcessTable()
+      const raw = await readProcessTable()
+      const table = raw ? withDeviceFootprints(raw) : null
       return table && ownsMission(c, conversationId) ? measureMission(c, conversationId, table).totals : null
     },
   })
@@ -95,16 +101,21 @@ export function registerMissionResourceRoutes({ router, ctx }: ProjectRoutesDeps
     const c = ctx(req)
     const chatId = chatIdOf(req.params.chatId)
     if (!chatId) { res.status(400).json({ error: 'chatId is required' }); return }
-    const table = await readProcessTable()
+    // Simulators by physical footprint, as the app-wide view (RSS counts their shared memory per process).
+    const raw = await readProcessTable()
+    const table = raw ? withDeviceFootprints(raw) : null
     const measured = table ? measureMission(c, chatId, table) : null
     const worktreePath = measured?.worktreePath ?? worktreeOf(c, chatId)
     const entries = measured?.entries ?? []
+    // Every CPU value out of the whole machine (0-100 %): the table measures each process against one core.
+    const cores = logicalCores()
     res.json({
       sampledAt: Date.now(),
       supported: table !== null,
-      entries,
-      totals: measured?.totals ?? totalEntries(entries),
-      history: historyStore(c.db).list(chatId, HISTORY_POINTS),
+      entries: entries.map((entry) => withMachineCpu(entry, cores)),
+      totals: withMachineCpu(measured?.totals ?? totalEntries(entries), cores),
+      history: historyStore(c.db).list(chatId, HISTORY_POINTS).map((point) => withMachineCpu(point, cores)),
+      cpuCores: cores,
       worktree: worktreePath ? { path: worktreePath, disk: disk.get(`${c.project.id}:${chatId}`) } : null,
     })
   })

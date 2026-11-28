@@ -60,6 +60,7 @@ import {
   updateAgentConversation,
   addAgentMessage,
   listAgentMessages,
+  setMissionDefaultTierLevel,
 } from '../../agents/runtime/agent-store'
 import type { DbInstance } from '../../../db'
 import { _resetAgentCapabilitiesForTest, verifyAgentCapability } from '../../../mcp/agent-capability'
@@ -122,6 +123,8 @@ describe('AgentChatManager cost accounting (HIGH-3)', () => {
     vi.clearAllMocks()
     _resetAgentCapabilitiesForTest()
     db = initDesktopDb(':memory:')
+    // These tests were written for missions that start in Observe (the old default).
+    setMissionDefaultTierLevel(db, 0)
     broadcast = vi.fn()
     mgr = new AgentChatManager(broadcast, db, 4200)
   })
@@ -426,6 +429,8 @@ describe('AgentChatManager Gemini MCP isolation', () => {
     vi.clearAllMocks()
     _resetAgentCapabilitiesForTest()
     db = initDesktopDb(':memory:')
+    // These tests were written for missions that start in Observe (the old default).
+    setMissionDefaultTierLevel(db, 0)
     mgr = new AgentChatManager(vi.fn(), db, 4200)
   })
 
@@ -503,6 +508,8 @@ describe('AgentChatManager read-only mission policy (mission-read-only-policy)',
     vi.clearAllMocks()
     _resetAgentCapabilitiesForTest()
     db = initDesktopDb(':memory:')
+    // These tests were written for missions that start in Observe (the old default).
+    setMissionDefaultTierLevel(db, 0)
     mgr = new AgentChatManager(vi.fn(), db, 4200)
   })
 
@@ -611,6 +618,8 @@ describe('AgentChatManager AI title', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     db = initDesktopDb(':memory:')
+    // These tests were written for missions that start in Observe (the old default).
+    setMissionDefaultTierLevel(db, 0)
     broadcast = vi.fn()
     mgr = new AgentChatManager(broadcast, db, 4200)
   })
@@ -755,6 +764,8 @@ describe('AgentChatManager lifecycle shutdown', () => {
     vi.clearAllMocks()
     _resetAgentCapabilitiesForTest()
     db = initDesktopDb(':memory:')
+    // These tests were written for missions that start in Observe (the old default).
+    setMissionDefaultTierLevel(db, 0)
     broadcast = vi.fn()
     mgr = new AgentChatManager(broadcast, db, 4200)
   })
@@ -829,6 +840,8 @@ describe('sanitizeAgentTitle', () => {
 describe('AgentChatManager startup reconciliation', () => {
   it('[spec:mission-archive/stale-session-state-after-a-restart] settles Core session state a previous run left live, so the mission can be archived', () => {
     const db = initDesktopDb(':memory:')
+    // These tests were written for missions that start in Observe (the old default).
+    setMissionDefaultTierLevel(db, 0)
     const conv = createAgentConversation(db)
     ensureSessionCursor(db, conv.id, `flow:${conv.id}`, 'global')
     setResidentState(db, conv.id, 'turn', true, 2, `flow:${conv.id}`)

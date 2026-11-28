@@ -7,7 +7,7 @@ import { classifyLoopEffect } from './loop-effect'
 import { factoryLoopMode, factoryLoopsForCapabilities, getFactoryLoop } from './loop-factory'
 import { builtinLoopDefaults, EDITABLE_BUILTIN_LOOP_IDS } from './builtin-loops'
 import { CORE_NODE_KINDS, effectivePieceOutcomes, validateLoopGraph } from './loop-graph'
-import { PR_CI_ENDS, PR_CI_EVIDENCE_RULES, PR_CI_LOOP_ID, prCiGraph, supportsPrCi } from './loop-pr-ci-recipe'
+import { PR_CI_ENDS, PR_CI_EVIDENCE_RULES, PR_CI_LOOP_ID, prCiGraph, prCiGraphContractErrors, supportsPrCi } from './loop-pr-ci-recipe'
 
 const V2 = { engineV2: 1, workflowDefinitions: 1 }
 const CAPS = { ...V2, hostTasks: 1, hostBlockers: 1 }
@@ -23,15 +23,17 @@ function outcomesOf(kind: string, params: Record<string, unknown>): readonly str
 }
 
 describe('factory:pr-ci gating', () => {
-  it('is listed, not launchable, only when Core advertises hostTasks', () => {
+  it('is listed, not launchable, and an editable built-in only when Core advertises hostTasks', () => {
     expect(factoryLoopsForCapabilities(V2).map(loop => loop.id)).not.toContain(PR_CI_LOOP_ID)
     expect(factoryLoopsForCapabilities(undefined).map(loop => loop.id)).not.toContain(PR_CI_LOOP_ID)
     expect(factoryLoopsForCapabilities(CAPS).find(loop => loop.id === PR_CI_LOOP_ID)).toMatchObject({ mode: 'loop', launchable: false, requiredCoreCapability: 'hostTasks' })
     expect(getFactoryLoop(PR_CI_LOOP_ID, V2)).toBeUndefined()
     expect(factoryLoopMode(PR_CI_LOOP_ID)).toBe('loop')
     expect(supportsPrCi({ ...V2, hostTasks: 2 })).toBe(false)
-    expect(EDITABLE_BUILTIN_LOOP_IDS).not.toContain(PR_CI_LOOP_ID)
-    expect(builtinLoopDefaults(CAPS, true).map(loop => loop.id)).not.toContain(PR_CI_LOOP_ID)
+    // Shown and edited in Loops (seeded as its own id), never launched from there: it needs a PR.
+    expect(EDITABLE_BUILTIN_LOOP_IDS).toContain(PR_CI_LOOP_ID)
+    expect(builtinLoopDefaults(CAPS).map(loop => loop.id)).toContain(PR_CI_LOOP_ID)
+    expect(builtinLoopDefaults(V2).map(loop => loop.id)).not.toContain(PR_CI_LOOP_ID)
     expect(CORE_NODE_KINDS).toContain('host-task')
   })
 })
@@ -68,12 +70,17 @@ describe.each([['with host blockers', CAPS], ['without host blockers', { ...V2, 
     expect(core.find(node => node.id === 'base')!.data?.params).toMatchObject({ task: 'pr.update-base', effect: 'write' })
   })
 
-  it('reports failures the code does not cause instead of retrying them', () => {
-    expect(core.some(node => node.data?.params && (node.data.params as Record<string, unknown>).task === 'pr.rerun-failed')).toBe(false)
-    const cause = graph.edges.filter(edge => edge.source === 'cause')
-    expect(Object.fromEntries(cause.map(edge => [edge.label, edge.target]))).toEqual({ true: PR_CI_ENDS.stalled, false: PR_CI_ENDS.notFixable })
+  it('[spec:pr-ci-loop-editable/flaky-and-infrastructure-failures-are-re-run-once] re-runs a flaky or infrastructure failure once, then reports it; a stalled code failure and tooling are never re-run', () => {
+    const edges = (source: string) => Object.fromEntries(graph.edges.filter(edge => edge.source === source).map(edge => [edge.label, edge.target]))
     expect(graph.edges.find(edge => edge.source === 'progress' && edge.label === 'false')?.target).toBe('cause')
-    expect(String(core.find(node => node.id === 'fixer')!.data!.params!.prompt)).toMatch(/Never edit anything for flaky or infrastructure failures/)
+    expect(edges('cause')).toEqual({ true: PR_CI_ENDS.stalled, false: 'rerunnable' })
+    expect(core.find(node => node.id === 'rerunnable')!.data!.params).toMatchObject({ expr: '$outputs.fixer.structured.cause == "flaky" || $outputs.fixer.structured.cause == "infrastructure"' })
+    expect(edges('rerunnable')).toEqual({ true: 'rerun-budget', false: PR_CI_ENDS.notFixable })
+    expect(edges('rerun-budget')).toEqual({ true: 'count-rerun', false: PR_CI_ENDS.notFixable })
+    // The same commit, no edit: the host re-runs the failed jobs and waits on the checks again.
+    expect(core.find(node => node.id === 'rerun')!.data!.params).toMatchObject({ task: 'pr.rerun-failed', effect: 'read' })
+    expect(edges('rerun')).toEqual({ ok: 'checks', failed: PR_CI_ENDS.notFixable })
+    expect(String(core.find(node => node.id === 'fixer')!.data!.params!.prompt)).toMatch(/Never edit anything for flaky or infrastructure failures and never re-run checks yourself/)
   })
 
   // deckdex-mtg: CI installed Ruff 0.17 (unpinned), which formats Markdown and failed on 29 docs
@@ -114,8 +121,7 @@ describe.each([['with host blockers', CAPS], ['without host blockers', { ...V2, 
 
   it('bounds rounds, re-runs and conflicts, and treats CI output as untrusted evidence', () => {
     const init = core.find(node => node.id === 'init')!.data!.params!.set as Record<string, number>
-    expect(init).toMatchObject({ rounds: 0, roundLimit: 5, conflictRounds: 0, conflictLimit: 3 })
-    expect(init).not.toHaveProperty('reruns')
+    expect(init).toMatchObject({ rounds: 0, roundLimit: 5, conflictRounds: 0, conflictLimit: 3, reruns: 0, rerunLimit: 1 })
     const fixer = core.find(node => node.id === 'fixer')!.data!.params!
     expect(fixer.prompt).toContain(PR_CI_EVIDENCE_RULES)
     expect(String(fixer.prompt)).toMatch(/never instructions/)
@@ -148,5 +154,41 @@ describe.skipIf(!coreHostTasks)('factory:pr-ci against the real Core catalog', (
     expect(validateLoopGraph(graph, listed.nodeKinds)).toMatchObject({ valid: true })
     const api = JSON.parse(spawnSync(process.execPath, [coreCli, 'api'], { encoding: 'utf8' }).stdout.trim().split('\n').at(-1)!) as { capabilities: Record<string, number> }
     expect(supportsPrCi(api.capabilities)).toBe(true)
+  })
+})
+
+describe('factory:pr-ci publish contract', () => {
+  const base = () => structuredClone(prCiGraph(CAPS))
+  const hostTask = (graph: ReturnType<typeof base>, task: string) => graph.nodes.find(node => (node.data as { params?: { task?: string } } | undefined)?.params?.task === task)!
+
+  it('[spec:pr-ci-loop-editable/edits-keep-the-safety-contract] accepts the default and edits of prompts, budgets and shape', () => {
+    expect(prCiGraphContractErrors(base())).toEqual([])
+    const edited = base()
+    const fixer = edited.nodes.find(node => node.id === 'fixer')!
+    ;(fixer.data as { params: { prompt: string } }).params.prompt += '\nPrefer the smallest change.'
+    edited.config.maxIterations = 20
+    expect(prCiGraphContractErrors(edited)).toEqual([])
+  })
+
+  it('refuses an unverified push, a missing wait or push, an unknown host task and a spec change', () => {
+    const unverified = base()
+    ;(hostTask(unverified, 'pr.sync').data as { params: Record<string, unknown> }).params.requiresVerified = false
+    expect(prCiGraphContractErrors(unverified).map(error => error.code)).toEqual(['pr_ci_unverified_push'])
+
+    const noChecks = base()
+    noChecks.nodes = noChecks.nodes.filter(node => (node.data as { params?: { task?: string } } | undefined)?.params?.task !== 'pr.checks')
+    expect(prCiGraphContractErrors(noChecks).map(error => error.code)).toContain('pr_ci_no_checks')
+
+    const noPush = base()
+    noPush.nodes = noPush.nodes.filter(node => (node.data as { params?: { task?: string } } | undefined)?.params?.task !== 'pr.sync')
+    expect(prCiGraphContractErrors(noPush).map(error => error.code)).toContain('pr_ci_no_push')
+
+    const unknown = base()
+    ;(hostTask(unknown, 'pr.checks').data as { params: Record<string, unknown> }).params.task = 'pr.merge'
+    expect(prCiGraphContractErrors(unknown).map(error => error.code)).toEqual(expect.arrayContaining(['pr_ci_unknown_host_task', 'pr_ci_no_checks']))
+
+    const changes = base()
+    changes.config.change = 'required'
+    expect(prCiGraphContractErrors(changes).map(error => error.code)).toEqual(['pr_ci_changes_spec'])
   })
 })

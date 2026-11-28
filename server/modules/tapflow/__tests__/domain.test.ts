@@ -1,0 +1,190 @@
+import { TAPFLOW_PINNED_FILES } from '../adapters/pinned'
+import { describe, expect, it } from 'vitest'
+import {
+  deriveStatus, EMPTY_TAPFLOW_STATE, installerScript, isTapflowServiceCommand, nodeMajor, platformIssue,
+  serviceEnvironment, tapflowConfig, tapflowResourceRoots, TAPFLOW_VERSION, type TapflowObservation,
+} from '../domain'
+
+const mac = { platform: 'darwin' as const, arch: 'arm64' }
+const observe = (over: Partial<TapflowObservation> = {}): TapflowObservation => ({
+  host: mac, stored: { ...EMPTY_TAPFLOW_STATE }, managedInstallPresent: false, externalInstall: false, installing: null,
+  supervised: 'none', relayAnswering: false, externalProcessRunning: false, lastIssue: null, ...over,
+})
+
+describe('platform eligibility', () => {
+  it('accepts only macOS on Apple Silicon, saying why otherwise', () => {
+    expect(platformIssue(mac)).toBeNull()
+    expect(platformIssue({ platform: 'darwin', arch: 'x64' })?.detail).toContain('Intel')
+    expect(platformIssue({ platform: 'win32', arch: 'x64' })?.code).toBe('unsupported-platform')
+    expect(platformIssue({ platform: 'linux', arch: 'arm64' })?.code).toBe('unsupported-platform')
+  })
+})
+
+describe('deriveStatus', () => {
+  it('is not installed and inactive by default, with the per-platform requirements', () => {
+    const status = deriveStatus(observe())
+    expect(status).toMatchObject({ phase: 'not-installed', managed: false, version: null, issue: null })
+    expect(status.requirements.ios).toContain('Xcode 26 or 27')
+    expect(status.requirements.android).toContain('Apple Silicon')
+  })
+
+  it('reports unsupported first, whatever else is observed', () => {
+    expect(deriveStatus(observe({ host: { platform: 'win32', arch: 'x64' }, managedInstallPresent: true, relayAnswering: true })).phase).toBe('unsupported')
+  })
+
+  it('walks installing → installed (inactive) → starting → running for a managed install', () => {
+    const stored = { ...EMPTY_TAPFLOW_STATE, installedVersion: TAPFLOW_VERSION }
+    expect(deriveStatus(observe({ installing: { sessionId: 's1' } }))).toMatchObject({ phase: 'installing', installerSessionId: 's1' })
+    expect(deriveStatus(observe({ stored, managedInstallPresent: true }))).toMatchObject({ phase: 'installed', managed: true, version: TAPFLOW_VERSION })
+    expect(deriveStatus(observe({ stored, managedInstallPresent: true, supervised: 'alive' })).phase).toBe('starting')
+    expect(deriveStatus(observe({ stored, managedInstallPresent: true, supervised: 'alive', relayAnswering: true })).phase).toBe('running')
+  })
+
+  it('shows a Tapflow Specrails did not start as running-external', () => {
+    expect(deriveStatus(observe({ relayAnswering: true })).phase).toBe('running-external')
+    expect(deriveStatus(observe({ externalInstall: true, externalProcessRunning: true })).phase).toBe('running-external')
+  })
+
+  it('shows an install the person made as installed but not managed, and keeps the last issue', () => {
+    const issue = { code: 'service-exited' as const, detail: 'Tapflow exited with code 1.' }
+    expect(deriveStatus(observe({ externalInstall: true, lastIssue: issue }))).toMatchObject({ phase: 'installed', managed: false, issue })
+  })
+})
+
+describe('service configuration', () => {
+  it('writes the config Specrails needs instead of running tapflow init', () => {
+    expect(tapflowConfig(4310)).toEqual({ local: { port: 4310 }, agent: { lean: true } })
+  })
+
+  it('runs the lightest profile, loopback-only through the preload, with its Node first on PATH', () => {
+    const env = serviceEnvironment({ home: '/t/home', port: 4310, preloadPath: '/t/a b/loopback.cjs', nodeBinDir: '/n/bin', basePath: '/usr/bin:/bin' })
+    expect(env).toMatchObject({ TAPFLOW_HOME: '/t/home', TAPFLOW_PORT: '4310', TAPFLOW_LEAN: 'on', TAPFLOW_AUDIO: 'off', TAPFLOW_ALLOW_DISPLAY_SLEEP: '1', TAPFLOW_MAX_AUTOMATED_DEVICES: '2' })
+    expect(env.NODE_OPTIONS).toBe('--require "/t/a b/loopback.cjs"')
+    expect(env.PATH).toBe('/n/bin:/usr/bin:/bin')
+  })
+
+  it('puts the Android SDK tools on the PATH and sets ANDROID_HOME, so Tapflow registers its Android agent', async () => {
+    const { androidSdkCandidates } = await import('../domain')
+    const env = serviceEnvironment({ home: '/t/home', port: 4310, preloadPath: '/t/l.cjs', nodeBinDir: '/n/bin', basePath: '/usr/bin', androidSdk: '/u/Library/Android/sdk' })
+    expect(env.PATH).toBe('/n/bin:/u/Library/Android/sdk/platform-tools:/u/Library/Android/sdk/emulator:/usr/bin')
+    expect(env.ANDROID_HOME).toBe('/u/Library/Android/sdk')
+    expect(serviceEnvironment({ home: '/t', port: 1, preloadPath: '/p', nodeBinDir: '/n', basePath: '/usr/bin' }).ANDROID_HOME).toBeUndefined()
+    expect(androidSdkCandidates({ ANDROID_HOME: '/a', ANDROID_SDK_ROOT: ' ' }, '/u')).toEqual(['/a', '/u/Library/Android/sdk'])
+  })
+
+  it('gives a worktree Gradle build the SDK and JDK, never over the person\'s own variables', async () => {
+    const { androidBuildEnvironment } = await import('../domain')
+    expect(androidBuildEnvironment({}, { sdk: '/sdk', jdk: '/jdk' })).toEqual({ ANDROID_HOME: '/sdk', JAVA_HOME: '/jdk' })
+    expect(androidBuildEnvironment({ ANDROID_SDK_ROOT: '/mine', JAVA_HOME: '/myjdk' }, { sdk: '/sdk', jdk: '/jdk' })).toEqual({})
+    expect(androidBuildEnvironment({}, { sdk: null, jdk: null })).toEqual({})
+  })
+
+  it('installs the pinned tree with the given Node and npm (npm ci), then runs tapflow setup, quoting every path', () => {
+    const script = installerScript({ nodePath: "/Apps/Spec rails/node", npmCli: '/n/npm-cli.js', toolsDir: "/h/o'k/tools", tapflowCli: '/h/tools/tapflow.js', home: '/h/tools/home' })
+    expect(script.split('\n')[0]).toBe('set -e')
+    expect(script).toContain(`'/Apps/Spec rails/node' '/n/npm-cli.js' ci --prefix '/h/o'\\''k/tools' --no-audit --no-fund`)
+    // Never a resolving install: that would pick newer dependencies than the reviewed lockfile.
+    expect(script).not.toMatch(/ install /)
+    expect(script).toContain("TAPFLOW_HOME='/h/tools/home' '/Apps/Spec rails/node' '/h/tools/tapflow.js' setup")
+    expect(script.indexOf(' ci --prefix')).toBeLessThan(script.indexOf(' setup'))
+  })
+
+  it('[spec:tapflow-plugin/pinned-version] pins the whole tree: the lockfile matches TAPFLOW_VERSION and every package has an integrity hash', () => {
+    const manifest = TAPFLOW_PINNED_FILES['package.json'] as { dependencies: Record<string, string> }
+    const lock = TAPFLOW_PINNED_FILES['package-lock.json'] as { lockfileVersion: number; packages: Record<string, { version?: string; integrity?: string; resolved?: string; dependencies?: Record<string, string> }> }
+    expect(manifest.dependencies).toEqual({ '@tapflowio/mcp-server': TAPFLOW_VERSION, tapflow: TAPFLOW_VERSION })
+    expect(lock.lockfileVersion).toBe(3)
+    expect(lock.packages[''].dependencies).toEqual(manifest.dependencies)
+    expect(lock.packages['node_modules/tapflow']?.version).toBe(TAPFLOW_VERSION)
+    expect(lock.packages['node_modules/@tapflowio/mcp-server']?.version).toBe(TAPFLOW_VERSION)
+    const entries = Object.entries(lock.packages).filter(([key]) => key)
+    expect(entries.length).toBeGreaterThan(100)
+    for (const [key, entry] of entries) {
+      expect(entry.integrity, key).toMatch(/^sha512-/)
+      expect(entry.resolved, key).toMatch(/^https:\/\/registry\.npmjs\.org\//)
+    }
+  })
+
+  it('reads the Node major', () => {
+    expect(nodeMajor('v22.22.3\n')).toBe(22)
+    expect(nodeMajor('25.9.0')).toBe(25)
+    expect(nodeMajor('garbage')).toBeNull()
+  })
+})
+
+describe('tapflowResourceRoots', () => {
+  const UDID = 'A1B1366D-EDEF-4CB9-9355-9D2CDBB942F4'
+  const table = [
+    { pid: 100, ppid: 1, command: '/Apps/node /t/node_modules/tapflow/bin/tapflow.js start' },
+    { pid: 101, ppid: 100, command: '/t/node_modules/@tapflowio/ios-agent/bin/screencapture-helper 30 x h264' },
+    { pid: 200, ppid: 1, command: `launchd_sim /Users/me/Library/Developer/CoreSimulator/Devices/${UDID}/data/var/run/launchd_bootstrap.plist` },
+    { pid: 300, ppid: 1, command: '/sdk/emulator/qemu/darwin-aarch64/qemu-system-aarch64 -netdelay none -avd tapflow-phone -no-window' },
+    { pid: 400, ppid: 1, command: '/usr/bin/some-other-tool' },
+  ]
+
+  it('claims the service, each booted simulator and each emulator while Tapflow runs, with their Tapflow ids', () => {
+    expect(tapflowResourceRoots(table, 100)).toEqual([
+      { label: 'iOS Simulator A1B1366D', pid: 200, kind: 'device', deviceId: UDID },
+      { label: 'tapflow-phone (Android Emulator)', pid: 300, kind: 'device', deviceId: 'avd:tapflow-phone' },
+      { label: 'Tapflow service', pid: 100, kind: 'service' },
+    ])
+    // With the simulator's name (simctl), the person reads which device it is.
+    expect(tapflowResourceRoots(table, 100, new Map([[UDID, 'iPhone 17 Pro']]))[0]).toMatchObject({ label: 'iPhone 17 Pro (iOS Simulator)' })
+  })
+
+  it('finds a Tapflow the person started by its command line', () => {
+    expect(tapflowResourceRoots(table, null).at(-1)).toEqual({ label: 'Tapflow service', pid: 100, kind: 'service' })
+    expect(isTapflowServiceCommand('node /usr/local/bin/tapflow start')).toBe(true)
+    expect(isTapflowServiceCommand('tapflow doctor --json')).toBe(false)
+  })
+
+  it('lists an emulator Tapflow started (its child) as the emulator, not as the service', async () => {
+    const { measureAppResources } = await import('../../terminals/domain/app-resources')
+    const child = [
+      { pid: 100, ppid: 1, command: 'node tapflow.js start', rssBytes: 100, cpuPercent: 0 },
+      { pid: 300, ppid: 100, command: '/sdk/emulator/qemu/darwin-aarch64/qemu-system-aarch64-headless -avd tapflow-phone -no-window', rssBytes: 4000, cpuPercent: 300 },
+      { pid: 301, ppid: 300, command: '/sdk/emulator/netsimd', rssBytes: 16, cpuPercent: 2 },
+    ]
+    const roots = tapflowResourceRoots(child, 100).map((root) => ({ category: 'tapflow' as const, ...root }))
+    const items = measureAppResources(child, roots, 1).categories.find((c) => c.id === 'tapflow')!.items
+    expect(items.map((item) => [item.label, item.processCount, item.memoryBytes])).toEqual([['tapflow-phone (Android Emulator)', 2, 4016], ['Tapflow service', 1, 100]])
+  })
+
+  it('claims nothing when no Tapflow runs, even with a simulator booted', () => {
+    expect(tapflowResourceRoots(table.filter((row) => row.pid !== 100 && row.pid !== 101), null)).toEqual([])
+    expect(tapflowResourceRoots(table.slice(2), 100)).toEqual([])
+  })
+})
+
+describe('device memory as physical footprint', () => {
+  it('parses top MEM values in every unit, ignoring the header and malformed rows', async () => {
+    const { parseTopMemory } = await import('../domain')
+    const out = parseTopMemory(['Processes: 900 total', 'PID    MEM', '15131  30M', '81165  8110M+', '1667   1.5G-', '42     512K', '7      100B', 'nonsense line', ''].join('\n'))
+    expect(out.get(15131)).toBe(30 * 1024 ** 2)
+    expect(out.get(81165)).toBe(8110 * 1024 ** 2)
+    expect(out.get(1667)).toBe(Math.round(1.5 * 1024 ** 3))
+    expect(out.get(42)).toBe(512 * 1024)
+    expect(out.get(7)).toBe(100)
+    expect(out.size).toBe(5)
+  })
+
+  it('collects the whole tree of each device root and never the service', async () => {
+    const { deviceTreePids } = await import('../domain')
+    const table = [
+      { pid: 100, ppid: 1, command: 'tapflow start' }, { pid: 101, ppid: 100, command: 'helper' },
+      { pid: 200, ppid: 1, command: 'launchd_sim' }, { pid: 201, ppid: 200, command: 'SpringBoard' }, { pid: 202, ppid: 201, command: 'app' },
+    ]
+    expect(deviceTreePids(table, [{ label: 'Tapflow service', pid: 100, kind: 'service' }, { label: 'iOS Simulator X', pid: 200, kind: 'device', deviceId: 'X' }]).sort()).toEqual([200, 201, 202])
+    expect(deviceTreePids(table, [{ label: 'Tapflow service', pid: 100, kind: 'service' }])).toEqual([])
+  })
+})
+
+describe('Tapflow MCP for mission agents', () => {
+  it('runs tapflow-mcp with the Node that runs Tapflow, on its loopback relay, with Specrails\' token', async () => {
+    const { tapflowMcpServer } = await import('../domain')
+    expect(tapflowMcpServer({ nodePath: '/n/node', toolsDir: '/t', port: 4310, token: 'tflw_pat_x' })).toEqual({
+      id: 'managed:tapflow', name: 'tapflow',
+      config: { command: '/n/node', args: ['/t/node_modules/@tapflowio/mcp-server/dist/index.js'], env: { TAPFLOW_RELAY_URL: 'ws://127.0.0.1:4310', TAPFLOW_TOKEN: 'tflw_pat_x' } },
+    })
+  })
+})

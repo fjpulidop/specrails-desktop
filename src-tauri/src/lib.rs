@@ -6,6 +6,7 @@ mod invoke_guard;
 mod backend_health;
 mod host_profile;
 mod mission_windows;
+mod device_windows;
 mod loop_windows;
 mod surface_windows;
 mod sidecar_supervisor;
@@ -980,7 +981,12 @@ pub fn run() {
             desktop_status::desktop_set_awake,
             loop_windows::loop_window_open,
             loop_windows::plugin_window_open,
+            device_windows::device_window_open,
+            loop_windows::loop_window_open_mission,
+            loop_windows::loop_window_open_device,
             surface_windows::surface_window_open,
+            surface_windows::surface_window_prewarm,
+            surface_windows::surface_window_spare_ready,
             surface_windows::surface_window_result,
             surface_windows::surface_window_toast,
             mission_windows::mission_windows_supported,

@@ -331,6 +331,7 @@
       "hooks/useOpenMission.ts",
       "lib/agent-api.ts",
       "lib/agent-refs.ts",
+      "lib/device-windows.ts",
       "lib/mission-run-state.ts",
       "lib/mission-search.ts",
       "lib/mission-windows.ts"

@@ -262,6 +262,87 @@ describe('LoopsPage', () => {
     await waitFor(() => expect(api.duplicate).toHaveBeenCalledWith('factory:implement'))
   })
 
+  it('[spec:pr-ci-loop-editable/fix-pr-ci-shows-in-loops] lists Fix PR CI with the built-ins, editable and never copied', async () => {
+    api.list.mockResolvedValue([
+      loop({ id: 'factory:pr-ci', name: 'Fix PR CI', status: 'published', builtinId: 'factory:pr-ci', builtinModified: false }),
+    ])
+    renderPage()
+    const card = await screen.findByTestId('builtin-loop-card')
+    expect(within(card).getByText('Fix PR CI')).toBeInTheDocument()
+    expect(within(card).getByRole('button', { name: 'Edit' })).toBeInTheDocument()
+    fireEvent.click(within(card).getByRole('button', { name: 'More actions' }))
+    // Its CI offer and host tasks find a run by its id: a copy could never run.
+    expect(screen.queryByRole('menuitem', { name: 'Duplicate' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+
+  it('[spec:mobile-device-testing/run-from-loops] lists Test in Mobile Device with a Run on a device button, never copied', async () => {
+    api.list.mockResolvedValue([
+      loop({ id: 'factory:mobile-test', name: 'Test in Mobile Device', status: 'published', builtinId: 'factory:mobile-test', builtinModified: false }),
+    ])
+    renderPage()
+    const card = await screen.findByTestId('builtin-loop-card')
+    expect(within(card).getByRole('button', { name: 'Run on a device…' })).toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: 'Run on a PR…' })).not.toBeInTheDocument()
+    fireEvent.click(within(card).getByRole('button', { name: 'More actions' }))
+    expect(screen.queryByRole('menuitem', { name: 'Duplicate' })).not.toBeInTheDocument()
+    fireEvent.click(within(card).getByRole('button', { name: 'Run on a device…' }))
+    expect(await screen.findByTestId('run-on-device-dialog')).toBeInTheDocument()
+  })
+
+  it('runs Fix PR CI on a pasted PR and opens its mission; a refusal is explained and starts nothing', async () => {
+    api.list.mockResolvedValue([
+      loop({ id: 'factory:pr-ci', name: 'Fix PR CI', status: 'published', builtinId: 'factory:pr-ci', builtinModified: false }),
+    ])
+    const opened: string[] = []
+    const onOpen = (event: Event) => opened.push((event as CustomEvent<{ conversationId: string }>).detail.conversationId)
+    window.addEventListener('specrails:open-mission', onOpen)
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'pr_no_push_access', detail: 'no push' }), { status: 403 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ projectId: 'p1', conversationId: 'conv-1', admissionId: 'a1', runId: 'r1', alreadyRunning: false }), { status: 202 }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      renderPage()
+      const card = await screen.findByTestId('builtin-loop-card')
+      fireEvent.click(within(card).getByRole('button', { name: 'Run on a PR…' }))
+      const dialog = await screen.findByTestId('run-on-pr-dialog')
+      fireEvent.change(within(dialog).getByTestId('run-on-pr-url'), { target: { value: 'https://github.com/acme/api/pull/9' } })
+      fireEvent.click(within(dialog).getByTestId('run-on-pr-submit'))
+      expect(await within(dialog).findByTestId('run-on-pr-error')).toHaveTextContent(/can’t push to this repository/)
+      expect(opened).toEqual([])
+      fireEvent.click(within(dialog).getByTestId('run-on-pr-submit'))
+      await waitFor(() => expect(opened).toEqual(['conv-1']))
+      expect(fetchMock).toHaveBeenLastCalledWith('/api/pr-ci/runs', expect.objectContaining({ method: 'POST', body: JSON.stringify({ prUrl: 'https://github.com/acme/api/pull/9' }) }))
+      await waitFor(() => expect(screen.queryByTestId('run-on-pr-dialog')).not.toBeInTheDocument())
+    } finally {
+      window.removeEventListener('specrails:open-mission', onOpen)
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('asks which project when the PR repository belongs to several', async () => {
+    api.list.mockResolvedValue([
+      loop({ id: 'factory:pr-ci', name: 'Fix PR CI', status: 'published', builtinId: 'factory:pr-ci', builtinModified: false }),
+    ])
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'pr_project_ambiguous', detail: '', projects: [{ id: 'web', name: 'Web' }, { id: 'api', name: 'Api' }] }), { status: 409 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ projectId: 'api', conversationId: 'c', admissionId: 'a', runId: 'r', alreadyRunning: false }), { status: 202 }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      renderPage()
+      fireEvent.click(within(await screen.findByTestId('builtin-loop-card')).getByRole('button', { name: 'Run on a PR…' }))
+      const dialog = await screen.findByTestId('run-on-pr-dialog')
+      fireEvent.change(within(dialog).getByTestId('run-on-pr-url'), { target: { value: 'https://github.com/acme/api/pull/9' } })
+      fireEvent.click(within(dialog).getByTestId('run-on-pr-submit'))
+      const choices = await within(dialog).findByTestId('run-on-pr-projects')
+      expect(within(dialog).getByTestId('run-on-pr-submit')).toBeDisabled()
+      fireEvent.click(within(choices).getByLabelText('Api'))
+      fireEvent.click(within(dialog).getByTestId('run-on-pr-submit'))
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+      expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ prUrl: 'https://github.com/acme/api/pull/9', projectId: 'api' })
+    } finally { vi.unstubAllGlobals() }
+  })
+
   it('restores an edited built-in after confirmation', async () => {
     api.list.mockResolvedValue([
       loop({ id: 'factory:implement', name: 'Team Implement', status: 'draft', builtinId: 'factory:implement', builtinModified: true }),

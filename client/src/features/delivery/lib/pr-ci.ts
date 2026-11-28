@@ -137,7 +137,7 @@ export function usePrCiStatus(projectId: string | null | undefined, deliveryId: 
 }
 
 /** The built-in loop the offer starts. */
-export const PR_CI_LOOP_ID = 'factory:pr-ci'
+export { PR_CI_LOOP_ID } from '../../../lib/builtin-loop-ids'
 
 /** Mirror of the server's `ciFixAllowed` for the cards: every repository still under review has its PR. */
 export function prCiFixable(input: {

@@ -233,6 +233,8 @@ export interface MissionIntentExploreProps {
   intent: SpecIntent
   /** The spec title the agent proposed, when any. */
   title?: string
+  /** The repository the agent placed the work in (several Git repositories), when any. */
+  repositoryId?: string
   /** A turn is in flight or the card is not the newest one. */
   disabled: boolean
 }

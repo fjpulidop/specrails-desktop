@@ -237,7 +237,7 @@ export default function SettingsPage({ target }: { target?: SettingsTarget } = {
                     onClick={() => goToSection(section.id)}
                     aria-current={active ? 'true' : undefined}
                     className={cn(
-                      'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                       active ? 'bg-accent-primary/15 font-medium text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                     )}
                   >

@@ -37,6 +37,8 @@ describe('classifyProviderLimit', () => {
     expect(extractLimitReset('limit reached, resets at 14:00.')).toBe('14:00')
     // The relative form keeps its "in", which resolveResetText needs to schedule the resume.
     expect(extractLimitReset('resets in 2 hours')).toBe('in 2 hours')
+    // A dated reset keeps the date, year and time past its commas.
+    expect(extractLimitReset('visit https://chatgpt.com/settings/usage to purchase more credits or try again at Nov 28th, 2026 2:43 AM.')).toBe('Nov 28th, 2026 2:43 AM')
     // codex: "… or try again at 3:32 AM." / "Try again in 2 hours."
     expect(extractLimitReset('codex execution failed (exit 1). You’ve hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro), visit https://chatgpt.com/settings/usage to purchase more credits or try again at 3:32 AM.')).toBe('3:32 AM')
     expect(extractLimitReset("You've reached your usage limit. Try again in 2 hours.")).toBe('in 2 hours')

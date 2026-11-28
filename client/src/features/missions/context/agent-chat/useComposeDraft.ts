@@ -6,8 +6,8 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { preferredProvider } from '../../../providers/lib/provider-capabilities'
-import type { AgentConversation, AgentTierLevel } from '../../lib/agent-api'
-import { readLastTierLevel } from '../../lib/agent-chat-storage'
+import { fetchMissionDefaultTier, type AgentConversation, type AgentTierLevel } from '../../lib/agent-api'
+import { readLastTierLevel, saveLastTierLevel } from '../../lib/agent-chat-storage'
 
 export function useComposeDraft(active: AgentConversation | null, usableProviders: string[]) {
   // True once the user picks a provider for the CURRENT draft; cleared when a
@@ -26,6 +26,17 @@ export function useComposeDraft(active: AgentConversation | null, usableProvider
   // The tier ladder is sticky ACROSS missions: the last explicitly selected
   // level is persisted and seeds every new mission (draft + created rows).
   const [draftTierLevel, setDraftTierLevel] = useState<AgentTierLevel>(() => readLastTierLevel())
+  // The server holds the person's default for missions made anywhere (MCP, Run on a PR): adopt it,
+  // so a new mission starts at the same level here and from an MCP client.
+  useEffect(() => {
+    let cancelled = false
+    fetchMissionDefaultTier().then((level) => {
+      if (cancelled || level === readLastTierLevel()) return
+      saveLastTierLevel(level)
+      setDraftTierLevel(level)
+    }).catch(() => { /* offline: the local value stands */ })
+    return () => { cancelled = true }
+  }, [])
   // null = no provider-specific effort override.
   const [draftEffort, setDraftEffort] = useState<string | null>(null)
   const draftConvRef = useRef({ provider: 'claude', model: null as string | null, tierLevel: 0 as AgentTierLevel, effort: null as string | null })

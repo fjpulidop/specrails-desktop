@@ -93,11 +93,14 @@ export function flowChangeId(title: string | null | undefined, holder: (id: stri
 const REVIEW_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['approved', 'summary', 'issues', 'score', 'unrequested'],
+  required: ['approved', 'summary', 'issues', 'score', 'unrequested', 'followUps'],
   properties: {
     approved: { type: 'boolean' },
     summary: { type: 'string' },
+    // Blocking only: what must hold before the change can be delivered (see the review prompt).
     issues: { type: 'array', maxItems: 100, items: { type: 'string' } },
+    // Non-blocking: hardening, extra edge cases, nicer tests. Reported to the person; never a correction round.
+    followUps: { type: 'array', maxItems: 100, items: { type: 'string' } },
     score: { type: 'number', minimum: 0, maximum: 100 },
     // Changes no request or decision of the Intent supports: the person decides, so they end the run without a correction round.
     unrequested: { type: 'array', maxItems: 100, items: { type: 'string' } },
@@ -122,11 +125,39 @@ export function flowSpecGraph(): LoopGraph {
     nodes.push({ id, type: 'core', position: { x, y: nodes.length * 140 }, data: { kind, label, params } })
     for (const [outcome, target] of Object.entries(outcomes)) edges.push({ id: `e-${id}-${outcome}`, source: id, target, label: outcome })
   }
-  node('init', 'Initialize repair budgets', 'assign', { set: { derivationRepairs: 0, correctionRounds: 0, correctionLimit: FLOW_CORRECTION_ROUNDS, latestFindings: '' } }, { next: 'derive', failed: 'failed' })
-  node('derive', 'Derive OpenSpec change', 'derive-change', { change, summaryPath: FLOW_SUMMARY_FILE, feedback: '{{run.latestFindings}}' }, { pass: 'check', fail: 'repair-guard' })
+  node('init', 'Initialize repair budgets', 'assign', { set: { derivationRepairs: 0, correctionRounds: 0, correctionLimit: FLOW_CORRECTION_ROUNDS, latestFindings: '', tagReport: '' } }, { next: 'derive', failed: 'failed' })
+  node('derive', 'Derive OpenSpec change', 'derive-change', { change, summaryPath: FLOW_SUMMARY_FILE, feedback: '{{run.latestFindings}}' }, { pass: 'tag', fail: 'repair-guard' })
+  // The requirement ids only exist once derive wrote the delta specs, so the Intent's tests cannot carry
+  // them yet: without this step every first review failed on missing tags alone and spent a whole
+  // correction round (fix, re-derive, re-review) on them (benchmark experiment 3). The rounds left were
+  // all a requirement no test demonstrated, so the step also writes that test (experiment 6). The
+  // artifacts were derived before those tests existed, and most remaining rounds were the reviewer
+  // asking to cite them in tasks.md and design.md, so the step records them there too (experiment 7).
+  node('tag', 'Tag tests and demonstrate every requirement', 'role-turn', {
+    roleId: 'developer',
+    stance: 'fixer',
+    // The developer's own OpenSpec access is checkbox-only: on Codex, which writes the artifacts through
+    // Core's scoped tools, the evidence edits were refused (benchmark exp. 8, spec #10).
+    artifacts: 'test-evidence',
+    prompt: [
+      `Tag the existing tests of OpenSpec change ${change} with the requirements they demonstrate.`,
+      `Read the delta specs under openspec/changes/${change}/specs/. For every ADDED or MODIFIED requirement, find the tests in this worktree that demonstrate it and add its id to their titles as \`[spec:<capability>/<requirement-slug>]\` (or a \`// spec: <capability>/<requirement-slug>\` comment, \`# spec:\` in Python and shell, on the line before the test).`,
+      'The slug is the requirement name after `### Requirement:`, lowercased, accents removed, every run of other characters one dash. A test already carrying the right tag stays as it is.',
+      'Then, for every ADDED or MODIFIED requirement no existing test demonstrates, add one focused test that asserts its observable behaviour (its scenarios), tagged with its id, in a test file that already differs from the base (part of this change), reusing that file\'s harness and helpers. Run every test file you touched, in full.',
+      `Then bring openspec/changes/${change}/tasks.md and design.md up to date with the tests: wherever they say a behaviour has no automated test or name the evidence for a task, cite the tests you tagged or added, and add every test file you changed to the files the change touches. Change nothing else there.`,
+      'Never change production code, existing assertions, the delta specs or the proposal, and never expand scope: a test only demonstrates behaviour the code already has. A requirement only documentation can show needs no test. List under incomplete each requirement you could not demonstrate, with the reason, and every test that fails, with the command you ran and its error: you never fix production code, the review does.',
+      'Return summary and incomplete.',
+    ].join(' '),
+    structuredOutput: FIX_SCHEMA,
+    sessionContinuity: 'none',
+  }, { next: 'tag-report', invalid: 'check', failed: 'failed' }, 360)
+  // Kept as a run variable: a tag turn that ends invalid has no structured report to interpolate.
+  node('tag-report', 'Record the tag step report', 'assign', { set: { tagReport: '{{outputs.tag.structured}}' } }, { next: 'check', failed: 'failed' }, 360)
   node('repair-guard', 'Repair the derivation once', 'condition', { expr: `$vars.derivationRepairs < ${FLOW_DERIVATION_REPAIRS}` }, { true: 'repair-count', false: 'failed' }, 360)
   node('repair-count', 'Count derivation repair', 'assign', { increment: { derivationRepairs: 1 } }, { next: 'derive', failed: 'failed' }, 360)
-  node('check', 'Verify derived candidate', 'verify', { commands: 'configured', additionalCommandsFrom: 'derive' }, { pass: 'review', fail: 'check-findings', failed: 'failed' })
+  // The configured setup runs first (a Python project's venv, for example): the Intent worktree is a
+  // fresh checkout without the git-ignored environment its checks need (benchmark case deckdex-3).
+  node('check', 'Verify derived candidate', 'verify', { commands: 'configured', additionalCommandsFrom: 'derive', setup: 'configured' }, { pass: 'review', fail: 'check-findings', failed: 'failed' })
   node('check-findings', 'Capture failing verification', 'assign', { set: { latestFindings: 'Host verification failed for the current candidate: {{outputs.check}}' } }, { next: 'correction-budget', failed: 'failed' }, 720)
   node('review', 'Reviewer', 'role-turn', {
     roleId: 'reviewer',
@@ -135,13 +166,26 @@ export function flowSpecGraph(): LoopGraph {
       'Judge whether the derived proposal, design, delta specs and checked tasks describe the real code faithfully: no invented requirements, nothing material left out.',
       'Derivation coverage measured by Core (every changed file must appear in design.md "## Blast radius"): {{outputs.derive.derivation}}.',
       'Treat EVERY file in unexplainedFiles as an issue. Inspect the real code and the host verification evidence: {{outputs.check}}.',
+      // The host check runs only the configured and proposed commands; the tag step ran every test file it
+      // touched, end-to-end suites included. Without this a defect it saw shipped (benchmark arkanoidex-12).
+      'The tag step ran the change\'s tests and reported: {{run.tagReport}}. A failing test it lists is a failing check: a blocking issue for the fixer, unless the real code shows it passes.',
       'Every issue must be actionable by a fixer (code or tests) or by the deriver (artifacts): name the file and what must change.',
       'Scope: what the person asked for or decided during the Intent session (the accepted scope that comes with the spec, the conversation summary, the `Decision:` lines) IS requested, even where it departs from the intent\'s original constraints: a later request supersedes an earlier constraint it contradicts.',
       'Never ask to revert, remove or restore that behaviour; judge its correctness, tests, accessibility and how faithfully the artifacts describe it. When the artifacts call it out of scope or keep a superseded constraint as a Non-Goal, the issue is for the deriver: describe it as a requirement.',
       `A change that no request or decision supports is not yours to revert: list it in unrequested AND as an issue starting with "${FLOW_UNREQUESTED_PREFIX}", naming the file and the behaviour. The person decides whether to keep it as a requirement or revert it.`,
-      'Return approved, summary, issues (empty when none), score (0-100) and unrequested (empty when none).',
+      'unrequested is for product behaviour only: tests, test fixtures, mocks and test setup, and the tooling needed to build or verify the change are never unrequested (judge their correctness as issues or followUps instead).',
+      // Convergence: one complete pass, then verification. A reviewer that hunts for new edge cases every round never approves.
+      'issues are BLOCKING only: an acceptance criterion or requirement the code does not meet, requested behaviour that is broken, a failing check, artifacts that misdescribe the code, an unexplained file, or an ADDED/MODIFIED requirement with no tagged test. Hardening beyond the requirements, extra edge cases, stress experiments and nicer or broader tests are followUps: they never block approval.',
+      'Correction round: {{run.correctionRounds}}. In round 0 review completely, once: list every blocking issue you can find now, because later rounds only verify.',
+      'From round 1 on this is a RE-REVIEW. Your previous verdict (or the failing check) was: {{run.latestFindings}}. Read what the correction changed (the commits since that verdict) before judging.',
+      'In a re-review, verify that each previous blocking issue is resolved and that the fix introduced no regression; approve when they are. Raise a new blocking issue only for a defect the fix introduced or one the previous pass could not have seen; anything else is a followUp.',
+      'Return approved, summary, issues (empty when none), score (0-100), unrequested (empty when none) and followUps (empty when none).',
     ].join(' '),
     structuredOutput: REVIEW_SCHEMA,
+    // A fresh reviewer each round: convergence comes from the prompt (the previous verdict and the
+    // re-review rules), not from the session. Experiment 2 kept the reviewer's session: 15-30 s faster
+    // re-reviews on Claude, nothing on Codex, where 2 of 5 resumed re-reviews answered outside the
+    // structured schema and failed the run (invalid_role_output even after Core's repair turn).
     sessionContinuity: 'none',
   }, { next: 'review-policy', invalid: 'failed', failed: 'failed' })
   node('review-policy', 'Review acceptance policy', 'condition', { expr: '$outputs.review.structured.approved == true && !exists($outputs.review.structured.unrequested.0)' }, { true: 'archive', false: 'review-findings' })
@@ -149,13 +193,14 @@ export function flowSpecGraph(): LoopGraph {
   // A change nobody asked for is the person's call: no fixer round may revert (or bless) it.
   node('scope-gate', 'Ask the person about unrequested changes', 'condition', { expr: 'exists($outputs.review.structured.unrequested.0)' }, { true: FLOW_SCOPE_DECISION_END, false: 'correction-budget' }, 720)
   node('correction-budget', 'Check the correction budget', 'condition', { expr: '$vars.correctionRounds < $vars.correctionLimit' }, { true: 'begin-correction', false: FLOW_CHANGES_REQUESTED_END }, 720)
-  node('begin-correction', 'Count correction round', 'assign', { increment: { correctionRounds: 1 }, set: { derivationRepairs: 0 } }, { next: 'fix', failed: 'failed' }, 720)
+  node('begin-correction', 'Count correction round', 'assign', { increment: { correctionRounds: 1 }, set: { derivationRepairs: 0, tagReport: '' } }, { next: 'fix', failed: 'failed' }, 720)
   node('fix', 'Fixer', 'role-turn', {
     roleId: 'developer',
     stance: 'fixer',
     prompt: [
       `Correct the code an Intent session built for OpenSpec change ${change} so the review can approve it.`,
       'Findings to resolve (the reviewer\'s structured verdict, or the failing host verification): {{run.latestFindings}}.',
+      'Resolve every item in issues (they block delivery). followUps are optional and non-blocking: leave them unless one is a one-line fix in code you already touch.',
       'Fix the defects the findings name. Add or extend the tests the findings ask for; creating a test file is allowed for that.',
       'Tag every test that demonstrates an ADDED or MODIFIED requirement of the change\'s delta specs with `[spec:<capability>/<requirement-slug>]` in its title.',
       'Never expand scope: no new features, effects, options or behaviour.',
@@ -166,9 +211,12 @@ export function flowSpecGraph(): LoopGraph {
     structuredOutput: FIX_SCHEMA,
     sessionContinuity: 'none',
   }, { next: 'fix-progress', invalid: 'failed', failed: 'failed' }, 720)
-  node('fix-progress', 'Check the correction changed the candidate', 'condition', { expr: 'exists($outputs.fix.candidateHash) && $outputs.fix.candidateHash != null && $outputs.fix.candidateHash != $outputs.check.candidateHash' }, { true: 'derive', false: FLOW_CHANGES_REQUESTED_END }, 720)
+  // A fixer that changed no code is not a dead end: a finding about the artifacts is the deriver's (the
+  // fixer may not edit openspec/), so it re-derives either way; the correction budget still bounds the
+  // rounds (benchmark case arkanoidex-12 ended at changes-requested over a stale baseline requirement).
+  node('fix-progress', 'Check the correction changed the candidate', 'condition', { expr: 'exists($outputs.fix.candidateHash) && $outputs.fix.candidateHash != null && $outputs.fix.candidateHash != $outputs.check.candidateHash' }, { true: 'derive', false: 'derive' }, 720)
   node('archive', 'Archive OpenSpec', 'openspec-archive', { change, requiresVerified: true }, { next: 'verify', failed: 'failed' })
-  node('verify', 'Verify archived candidate', 'verify', { commands: 'configured', additionalCommandsFrom: 'derive' }, { pass: 'done', fail: 'failed', failed: 'failed' })
+  node('verify', 'Verify archived candidate', 'verify', { commands: 'configured', additionalCommandsFrom: 'derive', setup: 'configured' }, { pass: 'done', fail: 'failed', failed: 'failed' })
   nodes.push(
     { id: 'done', type: 'end', position: { x: 0, y: nodes.length * 140 }, data: { outcome: 'success', requiresVerified: true } },
     { id: 'failed', type: 'end', position: { x: 360, y: nodes.length * 140 }, data: { outcome: 'failure' } },

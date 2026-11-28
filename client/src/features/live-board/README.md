@@ -81,9 +81,14 @@ the ⌘K action *Open live board* and the place `?live=1` open it over whatever 
 - **Its own window** (desktop app, always; like Settings and job detail): sidebar, palette, ⌘⇧B and a `?live=1`
   entry all open or focus the `live-board` native surface (⌘⇧B shows or hides it; the in-page dialog is the
   browser's and the fallback when the window cannot open; `surface_windows.rs`, singleton, no
-  params). The window reads the board itself and forwards each card action to the main window as a surface
-  result (`{ action: 'primary' | 'open', card }`); the host brings the main window forward
-  (`focus_opener_on_result`). There is no "open in window" button: the window is the board in the desktop app.
+  params). The window reads the board itself. A run and a review open over the board, in the window
+  (`boardWindowRoute`: Job detail and the review packet as in-window modals, the window's own project
+  following the card): following work and deciding on one card never takes the person away from the
+  board. A mission, and the inbox actions that are not "open this run / review" (resume, retry, raise a
+  cap, resume a chain), are forwarded to the main window as a surface result
+  (`{ action: 'primary' | 'open', card }`); the host brings the main window forward
+  (`focus_opener_on_result`) and the board stays open behind it (it is not kept above its opener).
+  There is no "open in window" button: the window is the board in the desktop app.
 
 Run the adjacent tests with `npm run test --prefix client -- src/features/live-board`.
 Validate navigation with `node scripts/audit-client-features.mjs --check`.

@@ -51,7 +51,7 @@ export function BackgroundProcessHistoryModal({ processes, loading, error, onRef
           <Terminal className={`h-4 w-4 shrink-0 ${isBackgroundProcessFinished(process) ? 'text-muted-foreground' : 'text-accent-info'}`} aria-hidden />
           <span className="min-w-0 flex-1">
             <span className="block truncate font-mono text-xs text-foreground">{sanitizeBackgroundLog(process.command)}</span>
-            <span className="mt-1 block truncate text-xs text-muted-foreground">{sanitizeBackgroundLog(process.repositoryName ?? process.cwd)} · {new Date(process.startedAt).toLocaleString(i18n.language, { dateStyle: 'short', timeStyle: 'short' })} · PID {process.pid}</span>
+            <span className="mt-1 block truncate text-xs text-muted-foreground">{sanitizeBackgroundLog(process.repositoryName ?? process.cwd)} · {new Date(process.startedAt).toLocaleString(i18n.language, { dateStyle: 'short', timeStyle: 'short' })}{process.pid ? ` · PID ${process.pid}` : ''}</span>
           </span>
           <span data-chip="" className={`inline-flex h-5 max-w-[35%] shrink-0 items-center rounded-full px-2 text-caption ${process.status === 'failed' ? 'bg-destructive/10 text-destructive' : isBackgroundProcessFinished(process) ? 'bg-muted text-muted-foreground' : 'bg-accent-info/10 text-accent-info'}`}>{t(`backgroundProcess.status.${process.status}`)}</span>
           <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />

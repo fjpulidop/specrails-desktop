@@ -49,6 +49,40 @@ describe('factory:flow-spec gating', () => {
 describe('flow-spec definition', () => {
   const definition = compileLoopToDefinition(flowSpecGraph(), { id: FLOW_SPEC_LOOP_ID, title: 'Intent → Spec', constants: {}, provider: 'claude', roles: { reviewer: { access: 'read' } } })
 
+  it('tags the tests with the derived requirement ids, demonstrates untested requirements and records them as evidence, between derive and check', () => {
+    expect(definition.nodes.derive!.ends).toMatchObject({ pass: 'tag' })
+    expect(definition.nodes.tag!).toMatchObject({ kind: 'role-turn', ends: { next: 'tag-report', invalid: 'check', failed: 'failed' } })
+    const tag = definition.nodes.tag!.params as { roleId: string; stance: string; artifacts: string; prompt: string; sessionContinuity: string }
+    expect(tag).toMatchObject({ roleId: 'developer', stance: 'fixer', artifacts: 'test-evidence', sessionContinuity: 'none' })
+    expect(tag.prompt).toContain('[spec:<capability>/<requirement-slug>]')
+    expect(tag.prompt).toContain('add one focused test that asserts its observable behaviour')
+    expect(tag.prompt).toContain('tasks.md and design.md up to date with the tests')
+    expect(tag.prompt).toContain('Never change production code, existing assertions, the delta specs or the proposal')
+  })
+
+  it('hands the failing tests the tag step saw to the reviewer as a failing check', () => {
+    expect(definition.nodes.tag!.ends).toMatchObject({ next: 'tag-report', invalid: 'check' })
+    expect(definition.nodes['tag-report']!).toMatchObject({ kind: 'assign', ends: { next: 'check' } })
+    expect((definition.nodes['tag-report']!.params as { set: Record<string, string> }).set).toEqual({ tagReport: '{{outputs.tag.structured}}' })
+    const tag = definition.nodes.tag!.params as { prompt: string }
+    expect(tag.prompt).toContain('every test that fails, with the command you ran and its error')
+    const review = definition.nodes.review!.params as { prompt: string }
+    expect(review.prompt).toContain('{{run.tagReport}}. A failing test it lists is a failing check')
+    // Reset at the start and every round: a stale report never reaches a later review.
+    expect((definition.nodes.init!.params as { set: Record<string, unknown> }).set).toMatchObject({ tagReport: '' })
+    expect((definition.nodes['begin-correction']!.params as { set: Record<string, unknown> }).set).toMatchObject({ tagReport: '' })
+  })
+
+  it('re-derives after a correction round even when the fixer changed no code (an artifact finding)', () => {
+    expect(definition.nodes['fix-progress']!.ends).toEqual({ true: 'derive', false: 'derive' })
+    expect(definition.nodes['correction-budget']!.ends).toMatchObject({ false: FLOW_CHANGES_REQUESTED_END })
+  })
+
+  it('prepares the configured setup before both verifications (a fresh worktree lacks git-ignored environments)', () => {
+    expect(definition.nodes.check!.params).toMatchObject({ commands: 'configured', setup: 'configured' })
+    expect(definition.nodes.verify!.params).toMatchObject({ commands: 'configured', setup: 'configured' })
+  })
+
   it('matches the Core reference fixture shape (entry, roles, kinds, routing)', () => {
     expect(definition).toMatchObject({ id: 'factory-flow-spec', entry: fixture.entry, journal: fixture.journal, change: fixture.change, delivery: { requiresVerified: true } })
     expect(definition.roles).toEqual([...fixture.roles].sort())
@@ -72,6 +106,24 @@ describe('flow-spec definition', () => {
     expect(String(definition.nodes.review!.params.prompt)).toContain('unexplainedFiles')
   })
 
+  it('reviews convergently: blocking issues only, followUps never block, and a re-review verifies its previous verdict', () => {
+    const review = definition.nodes.review!.params as { prompt: string; structuredOutput: { required: string[]; properties: Record<string, unknown> } }
+    expect(review.structuredOutput.required).toContain('followUps')
+    expect(review.structuredOutput.properties.followUps).toMatchObject({ type: 'array' })
+    expect(review.prompt).toContain('issues are BLOCKING only')
+    // Test scaffolding is never a scope question for the person (benchmark case deckdex-3 stopped on mocked setUp).
+    expect(review.prompt).toContain('unrequested is for product behaviour only')
+    expect(review.prompt).toContain('they never block approval')
+    expect(review.prompt).toContain('Correction round: {{run.correctionRounds}}')
+    expect(review.prompt).toContain('Your previous verdict (or the failing check) was: {{run.latestFindings}}')
+    // Approval is unchanged: approved and nothing unrequested; followUps are not part of the policy.
+    expect(String(definition.nodes['review-policy']!.params.expr)).not.toContain('followUps')
+    expect(String(definition.nodes.fix!.params.prompt)).toContain('followUps are optional and non-blocking')
+    // Reviewer and fixer start fresh each round: a resumed Codex reviewer broke the structured schema.
+    expect(definition.nodes.review!.params).toMatchObject({ sessionContinuity: 'none' })
+    expect(definition.nodes.fix!.params).toMatchObject({ sessionContinuity: 'none' })
+  })
+
   it('repairs instead of dead-ending: review rejection and failing checks route to a bounded WRITE fixer round, then re-derive', () => {
     expect(definition.nodes.fix!.params).toMatchObject({ roleId: 'developer', stance: 'fixer', sessionContinuity: 'none' })
     expect(definition.nodes.fix!.params).toMatchObject({ roleId: fixture.nodes.fix!.params.roleId, stance: fixture.nodes.fix!.params.stance })
@@ -82,7 +134,7 @@ describe('flow-spec definition', () => {
     expect(prompt).toContain('Do not edit anything under openspec/')
     expect(definition.nodes['review-policy']!.ends.false).toBe('review-findings')
     expect(definition.nodes.check!.ends.fail).toBe('check-findings')
-    expect(definition.nodes['fix-progress']!.ends).toEqual({ true: 'derive', false: FLOW_CHANGES_REQUESTED_END })
+    expect(definition.nodes['fix-progress']!.ends).toEqual({ true: 'derive', false: 'derive' })
     expect(definition.nodes['correction-budget']!.ends.false).toBe(FLOW_CHANGES_REQUESTED_END)
     expect(definition.nodes.init!.params).toMatchObject({ set: { correctionLimit: FLOW_CORRECTION_ROUNDS } })
     // The fixer writes: the run must deliver only a verified candidate.

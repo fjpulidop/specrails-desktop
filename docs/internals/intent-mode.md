@@ -170,11 +170,12 @@ already has (Intent and Implement are offered with equal weight for any spec):
   `conversation_not_found` ⇒ a new mission pinned to the project, titled after
   the spec) and the mission panel opens on it. In a project with several Git
   repositories (`flowRepositoryChoice` shows a choice and lists two or more Git
-  members) the entry card's
+  members) the entry card chooses the repository for the person (the spec's,
+  else the project default, see below) and shows it on one line, "Runs in X ·
+  Change"; Change opens
   [`IntentRepositoryPicker`](../../client/src/features/intent/components/IntentRepositoryPicker.tsx)
-  (Git members of `GET /repositories`, arrow-key radio group) preselects the
-  spec's first Git member, else the Git primary (a folder primary preselects
-  nothing), and the pick travels as `repositoryId`; Cancel starts nothing.
+  (Git members of `GET /repositories`, arrow-key radio group), and the pick
+  travels as `repositoryId`; Cancel starts nothing.
   Otherwise (one repository, a spec naming exactly one Git member, the list
   failing to load) the card shows no picker and the server triages as below.
   The rail-launch card passes its spec's `ticketTitle` / `ticketRepositoryIds`
@@ -229,13 +230,16 @@ member, chosen before any effect (`resolveFlowRepository`, pure domain):
 | --- | --- |
 | Single-repository project | Never triaged; the Intent runs at the project root exactly as before. |
 | Explicit `repositoryId` | Must be a listed, available `kind: 'git'` member, else `400 flow_repository_not_git` / `flow_repository_unknown`. Choosing the primary keeps the pre-workspace behaviour. |
-| No `repositoryId` | The primary when it is Git, else the only Git member; several candidates ⇒ `400 flow_repository_required`, none ⇒ `flow_repository_not_git`. |
+| No `repositoryId` | `defaultFlowRepositoryId`: the primary when it is Git, else the repository of the project's last Intent (`IntentRepository.lastRepositoryId`), else the first Git member; none ⇒ `flow_repository_not_git`. Nothing is asked, as Implement never asks (it runs a spec where `repositoryIds` say, else in the primary). |
 
-The mission agent triages it: the `flow-offer` block carries `repositoryId`
-(required when `project.repositories` lists more than one Git repository or the
-primary is a folder; never a folder, never invented). `IntentEntryCard` shows the
-target with a picker of the Git members (`GET /repositories`), preselected from
-the offer, only for such projects. "Explore with the agent" from the board, the spec detail
+The mission agent triages it: the `flow-offer` block and a settled
+`intent-draft` block carry `repositoryId` (when `project.repositories` lists
+more than one Git repository or the primary is a folder; never a folder, never
+invented), so Explore from an intent card and an offer start where the agent
+placed the work. `IntentEntryCard` never asks: it shows the target on one line
+("Runs in X · Change"), chosen from the spec, the agent, else the project
+default (`GET …/flow/repository-default`; the first Git member if that answer is
+missing), and Change opens the picker of the Git members. "Explore with the agent" from the board, the spec detail
 and the rail-launch card shows the same picker inside the same entry card (see
 [Start from an existing spec](#start-from-an-existing-spec)).
 
@@ -346,6 +350,27 @@ an active Intent:
   tool's `tierException` (`server/mcp/tools/types.ts`), consulted only for
   in-app agent turns; external MCP clients keep the Settings ▸ MCP tiers.
   Outside an active Intent, or without confirmation, the ladder applies as before.
+
+**The plan.** The persona's "Your plan" section has the agent keep its plan of
+work visible: Claude's own `TodoWrite` list is read from the turn's tool calls,
+other providers call `specrails_missions` action `plan` (its own mission only).
+The plan is a silent `mission-plan` system row
+(server/modules/missions/runtime/mission-plan.ts) shown in the composer's Plan
+pill (`MissionPlanPill`) and readable with `specrails_missions get` field `plan`
+(OpenSpec change `add-mission-plan`).
+
+**A mobile app on a device.** When the user asks to run the iOS or Android
+app, the persona's "Running a mobile app on a device" section sends the agent
+to `specrails_background` action `mobile_test` (in-app agents get the v1
+catalog; external clients use `specrails_integrations` `mobile_test` with
+`options.target: "mission"`): the server builds the Intent worktree with the built-in Test in Mobile Device loop
+and opens it on a Tapflow device inside Specrails (never `xcodebuild`,
+`gradlew` or an emulator from the agent's shell). The mission comes from the
+agent's capability; the action's `tierException` admits it at any level inside
+the agent's own active Intent. The agent waits with `specrails_watch`
+(`loop_run`) and reads `specrails_background(mobile_status)`. The run shows in the mission's Processes (an
+observed entry with the build and Tapflow's log) and its device in the
+mission's Resources (server/modules/tapflow/README.md).
 
 The `stopProcesses` effect runs first on pause, discard and hand-off
 (`IntentProcesses.stop` → `stopBackgroundProcessesForFlow`, which requests stop

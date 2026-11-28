@@ -10,6 +10,7 @@ import { FollowUpValidationError, freezeFollowUp, parseFollowUpInput, type PrFol
 import { validateRuntimeProviderOverride, type RuntimeProviderOverride } from '../../agent-runtime/runtime/agent-runtime-settings'
 import { isLoopsEnabled } from '../../../feature-flags'
 import { PR_CI_LOOP_ID } from '../../loops/runtime/loop-pr-ci-recipe'
+import { MOBILE_TEST_LOOP_ID } from '../../loops/runtime/loop-mobile-test-recipe'
 import { getPrDelivery, type RailPrDeliveryRow } from './rail-pr-store'
 import { isFactoryLoopId, isRetiredFactoryLoopId, factoryLoopMode, canonicalFactoryLoopId, factoryLoopForMode, FLOW_SPEC_LOOP_ID, RETIRED_FACTORY_REPLACEMENT_ID } from '../../loops/runtime/loop-factory'
 import { isRailPrDeliveryEnabled } from './rail-isolation'
@@ -195,6 +196,10 @@ export function parseRailLaunchRequest(
   // The PR CI loop runs only on an attached PR, through `POST /:railIndex/pr-ci`.
   if (rawLoopId === PR_CI_LOOP_ID && !isPrCiLaunch) {
     res.status(400).json({ error: 'pr_ci_requires_delivery', detail: 'The PR CI loop is started from a delivery with POST /rails/:railIndex/pr-ci' }); return null
+  }
+  // Test in Mobile Device builds and runs an app; it is never a rail's implementation loop.
+  if (rawLoopId === MOBILE_TEST_LOOP_ID) {
+    res.status(400).json({ error: 'mobile_test_requires_target', detail: 'Test in Mobile Device starts from its offer, Loops ▸ Run on a device, or POST /mobile-test/start' }); return null
   }
   // Origin link (safe-pr-review-flow): an agent-chat/MCP launch tags itself so
   // the PR decision can later be posted back into the launching conversation.

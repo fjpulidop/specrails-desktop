@@ -61,7 +61,9 @@
     "exportLegacy": "元のグラフをエクスポート",
     "originalCopyName": "元のグラフ: {{name}}",
     "convert": "Coreに変換",
-    "more": "その他の操作"
+    "more": "その他の操作",
+    "runOnPr": "PR で実行…",
+    "runOnDevice": "デバイスで実行…"
   },
   "card": {
     "nodes_one": "{{count}} 個のノード",
@@ -87,7 +89,9 @@
       "note": "組み込みループです。組み込みループ自体を編集しています。公開すると、変更はこのループを使うすべてのレール、エージェントチャットからの起動、Companion に適用されます。編集中もレールは最後に公開されたバージョンを実行し続けます。既定に戻すには「元に戻す」を使います。",
       "restored": "組み込みループを元のバージョンに戻しました",
       "confirmTitle": "元の組み込みループに戻しますか？",
-      "confirmBody": "この組み込みループへの変更を破棄し、使用しているすべてのレールに元のバージョンを公開します。自分のバージョンを残したい場合は先に複製してください。"
+      "confirmBody": "この組み込みループへの変更を破棄し、使用しているすべてのレールに元のバージョンを公開します。自分のバージョンを残したい場合は先に複製してください。",
+      "prCiNote": "プルリクエストの CI を監視して修正する組み込みループです。デリバリーの「CI を修正」、ミッションの提案、またはここの「PR で実行」から開始します。プロンプト・上限・ステップは自由に改善できますが、チェックを待ち続け、検証済みの修正だけをプッシュする必要があります。公開した変更は次の CI 実行から適用されます。元に戻すには「オリジナルに戻す」を使います。",
+      "confirmBodyPrCi": "変更を破棄し、次回以降の CI 実行に元のループを公開します。"
     },
     "addNode": "ノードを追加",
     "deleteNode": "ノードを削除",
@@ -319,6 +323,14 @@
     "freestyle": {
       "name": "Freestyle",
       "description": "スペックをそのままモデルに渡して完全な自由を与えます — パイプラインなしで通常のコーディングエージェントのように動作し、その後グリーンになるまで検証+改善します。"
+    },
+    "factory_pr-ci": {
+      "name": "PR の CI を修正",
+      "description": "プルリクエストの CI を見守ります。チェックを待ち、失敗とベースブランチとのマージ競合を修正し、ローカルで検証してプッシュし、チェックが通るまで続けます。"
+    },
+    "factory_mobile-test": {
+      "name": "モバイルデバイスでテスト",
+      "description": "iOS または Android アプリをシミュレーター向けにビルドし、Tapflow デバイスで起動します。デリバリー後に提案されるほか、ここで選んだコードに対して実行できます。決定的で、AI のターンはありません。"
     }
   },
   "import": {
@@ -391,5 +403,77 @@
     "openFailed": "ループウィンドウを開けませんでした"
   },
   "confirmDeleteTitle": "「{{name}}」を削除しますか？",
-  "confirmDeleteAction": "ループを削除"
+  "confirmDeleteAction": "ループを削除",
+  "runOnPr": {
+    "title": "プルリクエストの CI を修正",
+    "description": "Specrails が PR のチェックを監視し、失敗を修正して、検証済みの修正だけをブランチにプッシュします。進捗と結果は、リポジトリを持つプロジェクトのミッションに表示されます。",
+    "urlLabel": "プルリクエストの URL",
+    "chooseProject": "このリポジトリは複数のプロジェクトに属しています。実行先を選んでください:",
+    "openMission": "ミッションを開く",
+    "hint": "GitHub アカウントがリポジトリにプッシュできる必要があります。PR はオープンで、ブランチが同じリポジトリ(フォークではない)にある必要があります。",
+    "cancel": "キャンセル",
+    "submit": "開始",
+    "checking": "PR を確認中…",
+    "started": "PR の CI を修正中です。ミッションで確認できます",
+    "alreadyRunning": "この PR では修正が実行中です。そのミッションを開きます",
+    "errors": {
+      "pr_url_invalid": "プルリクエストの URL ではありません。完全なリンクを貼り付けてください(例: https://github.com/owner/repo/pull/12)。",
+      "pr_no_push_access": "GitHub アカウントがこのリポジトリにプッシュできないため、修正が PR に届きません。何も開始していません。",
+      "pr_repository_not_in_any_project": "このリポジトリを含むプロジェクトがありません。プロジェクトに追加してから再試行してください。",
+      "pr_project_ambiguous": "このリポジトリは複数のプロジェクトに属しています。1 つ選んでください。",
+      "pr_not_open": "プルリクエストがオープンではありません。",
+      "pr_fork_unsupported": "PR のブランチはフォークにあり、Specrails はプッシュできません。何も開始していません。",
+      "target_pr_not_found": "GitHub でそのプルリクエストが見つかりません。",
+      "pr_github_unavailable": "GitHub に接続できないか、アクセスが拒否されました(gh にサインインしているか確認してください)。何も開始していません。",
+      "engine_unsupported": "PR の CI 修正には Loops、PR デリバリー、最新の Core が必要です。",
+      "pr_ci_disabled": "このマシンでは PR CI ループが無効です。",
+      "generic": "修正を開始できませんでした。"
+    }
+  },
+  "runOnDevice": {
+    "title": "モバイルデバイスでテスト",
+    "description": "アプリをシミュレーター向けにビルドし、Tapflow デバイスで開きます。テストするコードを選んでください。公開やマージは行いません。",
+    "project": "プロジェクト",
+    "loading": "読み込み中…",
+    "what": "テスト対象",
+    "target": {
+      "checkout": "現在のコード",
+      "delivery": "レビュー中のデリバリー",
+      "branch": "ブランチ"
+    },
+    "checkoutHint": "作業コピーを現在の状態のまま（{{branch}}）、未コミットの変更も含めてビルドします。ビルド出力は通常 Git が無視するフォルダーに置かれます。",
+    "checkoutNoApp": "作業コピーに Specrails がビルドできる iOS / Android アプリがありません。デリバリーかブランチを選んでください。",
+    "detached": "detached HEAD",
+    "branchHint": "一時コピーでビルドし、実行終了時に削除します。作業コピーには触れません。",
+    "deliveryHint": "判断する前に、デリバリー自身の作業コピーをビルドします。",
+    "platformLabel": "プラットフォーム",
+    "both": "両方",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "deviceLabel": "デバイス（任意）",
+    "deviceFor": "{{platform}} のデバイス",
+    "deviceAuto": "任意の {{platform}} デバイス（Tapflow が選択）",
+    "deviceBooted": "{{device}}（起動中）",
+    "tapflowOff": "Tapflow がオフです。デバイスで実行するには プラグイン ▸ Tapflow でオンにしてください。",
+    "cancel": "キャンセル",
+    "submit": "デバイスで実行",
+    "starting": "開始中…",
+    "close": "閉じる",
+    "running": "ビルドしてデバイスにインストール中…",
+    "launched": "実行中: {{summary}}",
+    "failed": "モバイルテストは完了しませんでした。",
+    "openDevice": "{{device}} を開く",
+    "runHint": "この実行はプロジェクトの実行一覧にも完全なログ付きで表示されます。",
+    "errors": {
+      "branch_not_found": "このブランチはこのプロジェクトにありません。",
+      "no_app": "このコードには選んだプラットフォームのアプリがありません。",
+      "delivery_code_gone": "このデリバリーのコードはもうこのマシンにありません（公開済みまたは破棄済み）。",
+      "tapflow_not_installed": "Tapflow がインストールされていません。プラグイン ▸ Tapflow でインストールしてください。",
+      "engine_unsupported": "モバイルデバイスでのテストには、ホストタスクを実行できる Specrails Core が必要です。Core を更新してください。",
+      "generic": "モバイルテストを開始できませんでした。"
+    },
+    "onDevice": "{{device}} の {{platform}}"
+  }
 }

@@ -18,7 +18,8 @@ function activeFlow(c: { flow?: { getByConversation(id: string): { id: string; s
 
 function processQuery(req: Request, res: Response): { pid: number; chatId: string; processId?: string } | null {
   const pid = Number(req.params.pid)
-  if (!Number.isSafeInteger(pid) || pid <= 0) { res.status(400).json({ error: 'pid must be a positive integer' }); return null }
+  // PID 0 names an observed entry (a mobile test between steps), always with its processId.
+  if (!Number.isSafeInteger(pid) || pid < 0 || (pid === 0 && typeof req.query.processId !== 'string')) { res.status(400).json({ error: 'pid must be a positive integer (0 only with processId)' }); return null }
   const chatId = typeof req.query.chatId === 'string' ? req.query.chatId.trim() : ''
   if (!chatId) { res.status(400).json({ error: 'chatId is required' }); return null }
   const processId = req.query.processId

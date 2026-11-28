@@ -1,3 +1,5 @@
+import { PR_CI_LOOP_ID } from './modules/loops/runtime/loop-pr-ci-recipe'
+import { MOBILE_TEST_LOOP_ID } from './modules/loops/runtime/loop-mobile-test-recipe'
 import { ensureIsolatedSettlementSnapshot } from './modules/delivery/runtime/isolated-settlement-reconstruction'
 /**
  * Standalone loop runs (rails-as-loops). A ticket-LESS loop (one that references
@@ -402,6 +404,10 @@ export function registerLoopRunRoutes(deps: ProjectRoutesDeps): void {
     if (typeof loopId !== 'string' || !loopId) {
       res.status(400).json({ error: 'loopId is required' }); return
     }
+    // Fix PR CI needs a pull request: it starts from "Fix CI" on a delivery or a mission's offer.
+    if (loopId === PR_CI_LOOP_ID) { res.status(400).json({ error: 'pr_ci_requires_delivery', message: 'Fix PR CI starts from a pull request: use "Fix CI" on its delivery or the mission offer.' }); return }
+    // Test in Mobile Device needs a target (the code to build, the platforms): POST /mobile-test/start.
+    if (loopId === MOBILE_TEST_LOOP_ID) { res.status(400).json({ error: 'mobile_test_requires_target', message: 'Test in Mobile Device starts from its offer, Loops ▸ Run on a device, or POST /mobile-test/start.' }); return }
     const loop = getLoop(c.desktopDb, loopId)
     if (!loop) { res.status(404).json({ error: 'Loop not found' }); return }
     if (loop.status !== 'published') {

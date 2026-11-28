@@ -72,5 +72,11 @@
   "confirm.mobile_enable": "Activa la pasarela móvil: un servicio que escucha en la red local para los teléfonos emparejados.",
   "confirm.mobile_revoke": "Revoca el dispositivo emparejado {{device}}; tendrá que emparejarse de nuevo.",
   "confirm.webhooks_url": "A partir de ahora envía los eventos de la app a {{url}}.",
-  "confirm.mobile_rotate": "Renueva el certificado de la pasarela y revoca los {{devices}} dispositivos emparejados; cada uno debe emparejarse de nuevo."
+  "confirm.mobile_rotate": "Renueva el certificado de la pasarela y revoca los {{devices}} dispositivos emparejados; cada uno debe emparejarse de nuevo.",
+  "summary.mobile_test_started": "Compilando e instalando en el simulador de {{platforms}}; espera la ejecución.",
+  "summary.mobile_options": "Prueba en móvil: la copia de trabajo compila {{platforms}}; {{devices}} dispositivo(s) de Tapflow disponibles.",
+  "summary.mobile_status": "Prueba en móvil {{state}}: {{detail}}",
+  "summary.mobile_open_device": "Abriendo {{device}} en su ventana de Specrails.",
+  "summary.mobile_device_released": "{{device}} se apagará tras el periodo de gracia salvo que se vuelva a abrir.",
+  "summary.mobile_device_stopped": "{{device}} se está apagando ya."
 }

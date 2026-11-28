@@ -18,6 +18,9 @@ vi.mock('../../../context/UiModeContext', () => ({ useUiMode: () => ({ uiMode: h
 vi.mock('../../inbox/context/InboxContext', () => ({ useInbox: () => h.inbox }))
 vi.mock('../../missions/hooks/useOpenMission', () => ({ useOpenMission: () => h.openMission }))
 vi.mock('../../missions/context/AgentChatContext', () => ({ useAgentChat: () => ({ selectConversation: h.selectConversation, open: h.openAgentPanel }) }))
+vi.mock('../../jobs/components/JobDetailModal', () => ({ JobDetailModal: ({ jobId, projectId, onClose }: { jobId: string; projectId?: string; onClose: () => void }) => <div data-testid="board-run" data-job={jobId} data-project={projectId}><button type="button" onClick={onClose}>close-run</button></div> }))
+vi.mock('../../delivery/pages/ReviewPacketPage', () => ({ default: ({ prDeliveryId }: { prDeliveryId: string }) => <div data-testid="board-review-packet" data-delivery={prDeliveryId} /> }))
+vi.mock('../../delivery/context/RailPrDecisionContext', () => ({ RailPrDecisionProvider: ({ children, activeProjectId }: { children: React.ReactNode; activeProjectId: string | null }) => <div data-testid="board-review-decisions" data-project={activeProjectId ?? ''}>{children}</div> }))
 vi.mock('../../../lib/native-surfaces', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../lib/native-surfaces')>()
   return {
@@ -406,7 +409,7 @@ describe('live board in its own window', () => {
     expect(screen.queryByTestId('live-card')).not.toBeInTheDocument()
   })
 
-  it('in the window, forwards card actions as results instead of running them', async () => {
+  it('[spec:live-board/window-opens-in-place] in the window, a run opens over the board; a mission and the inbox go to the main window', async () => {
     body.cards[0] = { ...board().cards[0], question: null }
     const report = vi.fn()
     render(
@@ -417,10 +420,50 @@ describe('live board in its own window', () => {
     await screen.findByText('Records top-5')
     expect(screen.queryByTestId('live-board-open-window')).not.toBeInTheDocument()
 
+    // The inbox item says "open this run": it opens here, over the board, in the card's project.
     fireEvent.click(within(cardEl('p1:loop-run:r-ask')).getByTestId('live-card-primary'))
-    expect(report).toHaveBeenCalledWith({ action: 'primary', card: expect.objectContaining({ id: 'p1:loop-run:r-ask' }) })
+    const run = await screen.findByTestId('board-run')
+    expect(run.dataset).toMatchObject({ job: 'r-ask', project: 'p1' })
+    expect(report).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('close-run'))
+    expect(screen.queryByTestId('board-run')).not.toBeInTheDocument()
+    expect(screen.getByText('Records top-5')).toBeInTheDocument()
+
+    // A plain run of another project opens here too.
+    fireEvent.click(within(cardEl('p2:job:j1')).getByTestId('live-card-primary'))
+    expect((await screen.findByTestId('board-run')).dataset).toMatchObject({ job: 'j1', project: 'p2' })
+    fireEvent.click(screen.getByText('close-run'))
+
+    // A mission lives in the main window.
+    fireEvent.click(within(cardEl('p1:loop-run:r-live')).getByTestId('live-card-primary'))
+    expect(report).toHaveBeenCalledWith({ action: 'primary', card: expect.objectContaining({ id: 'p1:loop-run:r-live' }) })
     fireEvent.click(screen.getByTestId('live-board-open-inbox'))
     expect(report).toHaveBeenCalledWith({ action: 'inbox' })
     expect(h.inbox.runPrimary).not.toHaveBeenCalled()
+  })
+
+  it('in the window, a review opens over the board once the window selected the card\'s project', async () => {
+    body.cards = [card({ id: 'p2:delivery:d7', projectId: 'p2', projectName: 'Beta', kind: 'rail', column: 'needs', urgency: 1, title: 'Ghost piece', status: { source: 'delivery', decision: 'awaiting', statusCode: null }, jobId: 'r7', deliveryId: 'd7' })]
+    body.lanes = [{ conversationId: null, title: null, provider: null, projectIds: ['p2'], cardIds: ['p2:delivery:d7'], todayCostUsd: null, urgency: 1 }]
+    const report = vi.fn()
+    const view = render(
+      <MemoryRouter>
+        <SharedWebSocketContext.Provider value={ws()}><LiveBoardWindow report={report} onClose={vi.fn()} /></SharedWebSocketContext.Provider>
+      </MemoryRouter>,
+    )
+    await screen.findByText('Ghost piece')
+    fireEvent.click(within(cardEl('p2:delivery:d7')).getByTestId('live-card-primary'))
+    // This window's own project follows the card (the main window's never changes).
+    await waitFor(() => expect(h.desktop.setActiveProjectId).toHaveBeenCalledWith('p2'))
+    expect(screen.queryByTestId('board-review-packet')).not.toBeInTheDocument()
+    h.desktop.activeProjectId = 'p2'
+    view.rerender(
+      <MemoryRouter>
+        <SharedWebSocketContext.Provider value={ws()}><LiveBoardWindow report={report} onClose={vi.fn()} /></SharedWebSocketContext.Provider>
+      </MemoryRouter>,
+    )
+    expect((await screen.findByTestId('board-review-packet')).dataset.delivery).toBe('d7')
+    expect(screen.getByTestId('board-review-decisions').dataset.project).toBe('p2')
+    expect(report).not.toHaveBeenCalled()
   })
 })

@@ -214,6 +214,7 @@ export function AgentIntentDraftCard({ draft, isLatest, isLatestSettledIntent, i
     conversationId: conversationId ?? '',
     intent,
     ...(draft.title ? { title: draft.title } : {}),
+    ...(draft.repositoryId ? { repositoryId: draft.repositoryId } : {}),
     disabled: !!isStreaming,
     onExploreState: setExploreState,
   }

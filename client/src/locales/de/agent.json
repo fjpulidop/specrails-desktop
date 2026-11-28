@@ -1116,7 +1116,10 @@
         "loading": "Repositorys werden geladen…",
         "loadFailed": "Die Repositorys des Projekts konnten nicht geladen werden. Versuche es erneut.",
         "suggested": "Vom Agenten vorgeschlagen",
-        "noGit": "Dieses Projekt hat kein Git-Repository. Intent braucht eins für seinen Branch."
+        "noGit": "Dieses Projekt hat kein Git-Repository. Intent braucht eins für seinen Branch.",
+        "target": "Läuft in {{name}}",
+        "change": "Ändern",
+        "changeLabel": "Repository ändern, in dem dieser Intent läuft"
       },
       "blocked": {
         "noProject": "Hefte diese Mission an ein Projekt, um Intent zu nutzen.",
@@ -1632,13 +1635,17 @@
     "kind": {
       "agent-session": "Agent",
       "background-process": "Hintergrundprozess",
-      "mission-activity": "Missionsaktivität"
+      "mission-activity": "Missionsaktivität",
+      "mobile-device": "Mobilgerät",
+      "mobile-build": "Mobil-Build",
+      "tapflow-service": "Tapflow"
     },
     "finishedAt": "Beendet um {{time}}",
     "lastActive": "Letzte Aktivität während der Ausführung",
     "history": "Verlauf",
     "peakValue": "Spitze {{value}}",
-    "historyHint": "Ein Punkt alle 3 s, solange die Mission gearbeitet hat. Fahren Sie über eine Linie, um Uhrzeit und Wert zu sehen."
+    "historyHint": "Ein Punkt alle 3 s, solange die Mission gearbeitet hat. Fahren Sie über eine Linie, um Uhrzeit und Wert zu sehen.",
+    "cpuShareHint": "Vom ganzen Mac ({{cores}} Kerne): 100 % heißt alle Kerne ausgelastet."
   },
   "contextUsage": {
     "open": "Kontext belegt: {{percent}} %",
@@ -1702,5 +1709,53 @@
     "answer": "Antwort",
     "defaultQuestion": "Erkläre, was das in diesem Zusammenhang bedeutet.",
     "providerDefault": "Standardmodell von {{provider}}"
+  },
+  "mcp": {
+    "viaMcp": "über MCP",
+    "action": "{{client}} · {{call}}",
+    "actionFailed": "{{client}} · {{call}} fehlgeschlagen",
+    "missionBadgeTitle": "Von {{client}} über MCP erstellt: seine Aktionen werden hier protokolliert"
+  },
+  "mobileTest": {
+    "title": "Auf Mobilgerät testen",
+    "body": "Die {{platform}}-App für den Simulator bauen und auf einem Tapflow-Gerät starten.",
+    "bodyChoose": "Die App für den Simulator bauen und auf einem Tapflow-Gerät starten. Plattform wählen:",
+    "start": "Auf dem Gerät testen",
+    "both": "Beide",
+    "notNow": "Nicht jetzt",
+    "retry": "Erneut versuchen",
+    "started": "Wird gebaut und auf dem Gerät installiert…",
+    "startedBody": "Der Build läuft in der Arbeitskopie dieser Lieferung; das Run-Log zeigt jeden Schritt.",
+    "launched": "Läuft: {{devices}}",
+    "launchedBody": "Die App ist auf dem Gerät installiert und geöffnet.",
+    "failed": "Der Mobiltest wurde nicht abgeschlossen",
+    "failedBody": "Details stehen im Run-Log.",
+    "expired": "Mobiltest nicht mehr verfügbar",
+    "expiredBody": "Der Code dieser Lieferung ist nicht mehr auf diesem Rechner. Vor dem Veröffentlichen testen.",
+    "dismissed": "Mobiltest für diese Lieferung übersprungen.",
+    "openLog": "Log öffnen",
+    "startFailed": "Der Mobiltest konnte nicht gestartet werden.",
+    "onDevice": "{{platform}} auf {{device}}",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "openDevice": "{{device}} öffnen",
+    "startedBodyMission": "Der Code dieser Sitzung wird gebaut und installiert; Fortschritt und Log stehen unter Prozesse.",
+    "failedBodyMission": "Bitte den Agenten, es erneut auszuführen, sobald das behoben ist."
+  },
+  "missionPlan": {
+    "button": "Plan",
+    "title": "Arbeitsplan",
+    "description": "Was sich der Agent vorgenommen hat und wo er gerade ist.",
+    "open": "Arbeitsplan: {{done}} von {{total}} Schritten erledigt",
+    "progress": "{{done}} von {{total}}",
+    "now": "Jetzt: {{step}}",
+    "allDone": "Alle Schritte erledigt.",
+    "status": {
+      "pending": "offen",
+      "in_progress": "läuft",
+      "completed": "erledigt"
+    }
   }
 }

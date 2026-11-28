@@ -137,7 +137,8 @@
       "cancel": "Annulla",
       "installBusy": "Installazione…",
       "configureBusy": "Configurazione…",
-      "reviewBusy": "Verifica…"
+      "reviewBusy": "Verifica…",
+      "details": "Dettagli"
     },
     "status": {
       "attention": "attenzione",
@@ -149,7 +150,8 @@
       "configuredCount_one": "{{count}} configurato",
       "configuredCount_other": "{{count}} configurati",
       "installedCount_one": "{{count}} installato",
-      "installedCount_other": "{{count}} installati"
+      "installedCount_other": "{{count}} installati",
+      "unsupported": "non disponibile"
     },
     "catalog": {
       "headroom": {
@@ -160,6 +162,9 @@
       },
       "serena": {
         "description": "Navigazione semantica del codice locale al progetto tramite Serena MCP."
+      },
+      "tapflow": {
+        "description": "Esegui il simulatore iOS e gli emulatori Android da Specrails e lascia che gli agenti testino le app che creano."
       }
     },
     "headroom": {
@@ -335,6 +340,37 @@
       "configuredDescription": "Gestisci il progetto Jira, la mappatura degli stati, lo stato di scarto, la sincronizzazione e lo stato della connessione.",
       "loadFailed": "Impossibile caricare la configurazione Jira attuale: {{message}}",
       "notConfiguredDescription": "Collega questo progetto a Jira."
+    },
+    "tapflow": {
+      "title": "Tapflow",
+      "dialogDescription": "Simulatore iOS ed emulatori Android, trasmessi in Specrails e disponibili per gli agenti.",
+      "loading": "Verifica di Tapflow…",
+      "summary": "Specrails installa, esegue e misura Tapflow. Attivalo solo mentre testi: i dispositivi si avviano quando servono.",
+      "externalHint": "Questo Tapflow è stato avviato fuori da Specrails. Specrails lo usa e non lo arresta mai.",
+      "activate": "Attiva Tapflow",
+      "deactivate": "Disattiva Tapflow",
+      "install": "Installa",
+      "uninstall": "Disinstalla",
+      "requirementsLabel": "Requisiti",
+      "requirements": {
+        "ios": "Simulatore iOS: macOS su Apple Silicon con Xcode 26 o 27.",
+        "android": "Emulatori Android: anche loro Apple Silicon in questa versione di Tapflow (Windows non è ancora supportato)."
+      },
+      "installerHint": "Qui viene eseguita la configurazione di Tapflow: rispondi alle sue domande (può chiedere la password, installare l'SDK Android e aprire Impostazioni di Sistema).",
+      "installerDone": "Configurazione completata. Attiva Tapflow quando vuoi testare.",
+      "installerFailed": "La configurazione è terminata con il codice {{code}}. Puoi premere di nuovo Installa.",
+      "phase": {
+        "unsupported": "Non disponibile su questo computer",
+        "not-installed": "Non installato",
+        "installing": "Installazione…",
+        "installed": "Installato · disattivato",
+        "starting": "Avvio…",
+        "running": "Attivo",
+        "running-external": "Attivo (avviato fuori da Specrails)",
+        "failed": "Errore"
+      },
+      "rerunSetup": "Ripeti la configurazione",
+      "configurePlatforms": "Configura iOS e Android"
     }
   }
 }

@@ -368,7 +368,10 @@ export function applyExternalMcpPatch(db: DbInstance, body: unknown): ExternalMc
  * Kill switch off ⇒ `[]` (byte-identical legacy wiring). Never throws.
  */
 export function resolveExternalEntries(adapterId: string, db: DbInstance): ResolvedExternalServer[] {
-  if (!isExternalMcpEnabled()) return []
+  // First-party plugins (Tapflow) ride every mission spawn while they run, whatever the person's
+  // external-server settings say: they are part of Specrails, not a third-party server.
+  const managed = managedMcpServers(adapterId)
+  if (!isExternalMcpEnabled()) return managed
   let settings: ExternalMcpSettings
   try {
     settings = readExternalMcpSettings(db)
@@ -399,6 +402,30 @@ export function resolveExternalEntries(adapterId: string, db: DbInstance): Resol
       continue
     }
     out.push({ id, name: entry.name, config })
+  }
+  // A person's own server with the same name wins over a managed one (they configured it on purpose).
+  return [...out, ...managed.filter((server) => !out.some((own) => own.name === server.name))]
+}
+
+/** A first-party MCP server a running plugin contributes to mission agents, or null while it is off. */
+export type ManagedMcpServerSource = (adapterId: string) => ResolvedExternalServer | null
+const managedSources = new Set<ManagedMcpServerSource>()
+
+/** Registered by a first-party plugin at composition time (server/modules/tapflow). Returns the unregister. */
+export function registerManagedMcpServer(source: ManagedMcpServerSource): () => void {
+  managedSources.add(source)
+  return () => { managedSources.delete(source) }
+}
+
+function managedMcpServers(adapterId: string): ResolvedExternalServer[] {
+  const out: ResolvedExternalServer[] = []
+  for (const source of managedSources) {
+    try {
+      const server = source(adapterId)
+      if (server && server.name !== RESERVED_SERVER_NAME) out.push(server)
+    } catch (err) {
+      console.warn('[external-mcp] a managed server failed to resolve:', err)
+    }
   }
   return out
 }

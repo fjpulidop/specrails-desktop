@@ -20,11 +20,13 @@ import { approxTokens } from '../core/size-guard'
 import { matchesPointer } from '../core/untrusted'
 import { v2Catalog } from '../index'
 import { missionsTool } from './missions'
+import { waitTool } from './wait'
+import { eventJournalFor } from '../../../modules/events-journal'
 import { createAgentChatRouter } from '../../../modules/missions/runtime/agent-chat-router'
 import type { AgentChatManager } from '../../../modules/missions/runtime/agent-chat-manager'
 import { registerIntentHttp } from '../../../modules/intent/adapters/http'
 import { IntentTransitionError, transition, type IntentService, type IntentSession } from '../../../modules/intent'
-import { addAgentMessage, createAgentConversation, getAgentConversation } from '../../../modules/agents/runtime/agent-store'
+import { addAgentMessage, createAgentConversation, getAgentConversation, setMissionDefaultTierLevel } from '../../../modules/agents/runtime/agent-store'
 import { recordAgentInvocation } from '../../../desktop-db'
 import { coerceRailLaunch, openLimit, parseOptions, projectCards, projectIntentState } from '../projectors/mission-state'
 
@@ -44,6 +46,8 @@ let routeLog: Array<{ method: string; path: string; body: Row }>
 let flows: Map<string, IntentSession>
 let replyMode: 'reply' | 'silent' | 'error'
 let streaming: string
+/** A seeded Intent's opening turn reply (null: none). */
+let openingReply: string | null = null
 let railsState: Row[]
 let intentCalls: Array<{ op: string; input: Row }>
 
@@ -57,6 +61,7 @@ function fakeManager(): AgentChatManager {
     scheduleLimitContinue: (_id: string, at: string | null) => ({ at }),
     activeTurns: () => ({ turns: [...busy].map((conversationId) => ({ conversationId })), sessions: [] }),
     notifyConversationCreated: () => {},
+    notifyTitle: () => {},
     abort: (id: string) => busy.delete(id),
     closeCoreSession: async () => {},
     isFlowActive: (id: string) => [...flows.values()].some((f) => f.conversationId === id && f.state === 'active'),
@@ -95,7 +100,18 @@ function fakeIntent(): IntentService {
   }
   return {
     availability: async () => ({ available: true, missing: [] }),
-    startFlow: async (input: Row) => { intentCalls.push({ op: 'start', input }); const flow = flowSession({ id: 'f2', conversationId: input.conversationId, ticketId: input.ticketId ?? 9 }); flows.set(flow.id, flow); return flow },
+    startFlow: async (input: Row) => {
+      intentCalls.push({ op: 'start', input })
+      const flow = flowSession({ id: 'f2', conversationId: input.conversationId, ticketId: input.ticketId ?? 9, ...(openingReply ? { returnBriefing: 'Build spec 9' } : {}) })
+      flows.set(flow.id, flow)
+      // The seeded Intent works on its own: its opening turn replies a moment later.
+      const reply = openingReply
+      if (reply) setTimeout(() => {
+        say(String(input.conversationId), 'assistant', reply)
+        h.ctx.eventBus.publish({ type: 'agent_done', conversationId: input.conversationId, fullText: reply, timestamp: 'now' } as never)
+      }, 5)
+      return flow
+    },
     listOpen: () => [...flows.values()].filter((f) => f.state === 'active' || f.state === 'paused'),
     getByConversation: (id: string) => [...flows.values()].find((f) => f.conversationId === id) ?? null,
     getFlow: (id: string) => flows.get(id)!,
@@ -115,6 +131,9 @@ function stubProjectRoutes(): Router {
   const router = Router()
   const log = (req: express.Request) => routeLog.push({ method: req.method, path: req.path, body: req.body ?? {} })
   router.get('/:projectId/rails', (_req, res) => { res.json({ rails: railsState }) })
+  router.get('/:projectId/tickets/:id', (req, res) => { res.json({ ticket: { id: Number(req.params.id), title: 'Measure frame pacing' } }) })
+  // Only Implement runs are measured in this project: an Intent hand-off falls back to them.
+  router.get('/:projectId/launch-forecast', (req, res) => { res.json(req.query.loopId === 'factory:implement' ? { cost: { lowUsd: 0.6, highUsd: 1.2, sampleCount: 5 }, time: null } : { cost: null, time: null }) })
   router.post('/:projectId/rails', (req, res) => { log(req); res.status(201).json({ rail: { railIndex: 3 } }) })
   router.put('/:projectId/rails/:i/tickets', (req, res) => { log(req); res.json({ ok: true }) })
   router.post('/:projectId/rails/:i/launch', (req, res) => { log(req); res.status(202).json({ loopRunIds: ['run-9'], prDeliveryId: 'del-9' }) })
@@ -137,7 +156,7 @@ function stubProjectRoutes(): Router {
 
 beforeEach(async () => {
   fs.mkdirSync(testHome, { recursive: true })
-  busy = new Set(); queue = new Map(); sent = []; routeLog = []; flows = new Map(); replyMode = 'reply'; streaming = ''; intentCalls = []
+  busy = new Set(); queue = new Map(); sent = []; openingReply = null; routeLog = []; flows = new Map(); replyMode = 'reply'; streaming = ''; intentCalls = []
   railsState = [{ railIndex: 0, availability: 'busy', ticketIds: [3] }, { railIndex: 1, availability: 'free', ticketIds: [] }]
   h = createHarness()
   const app = express()
@@ -151,6 +170,7 @@ beforeEach(async () => {
   h.ctx.desktopPort = (server.address() as AddressInfo).port
   h.ctx.sessionState = { activeProjectId: 'p1', sessionKey: 'session-a' } as never
   registerV2Tool(h.server, h.ctx, missionsTool, { catalog: v2Catalog() })
+  registerV2Tool(h.server, h.ctx, waitTool, { catalog: v2Catalog() })
   client = await h.connect()
 })
 
@@ -233,11 +253,49 @@ describe('specrails_missions: lifecycle', () => {
   })
 })
 
+describe('specrails_missions: create starts like the app does', () => {
+  it('without a goal: asks it in one open question, never a menu of chores', async () => {
+    const res = await missions({ action: 'create', project: 'shop-api', provider: 'claude' })
+    expect(res.isError).toBe(false)
+    expect(res.envelope.data.ask).toBe('What should this mission achieve?')
+    expect(res.envelope.summary).toContain('one open question (no menu)')
+    expect(sent).toEqual([])
+  })
+
+  it('starts at the person\'s default permission level (Autonomous until they pick one in the app)', async () => {
+    const first = await missions({ action: 'create', project: 'shop-api', provider: 'claude' })
+    expect(getAgentConversation(h.db, String(first.envelope.data.ref).slice('mission:'.length))?.tier_level).toBe(3)
+    setMissionDefaultTierLevel(h.db, 1)
+    const second = await missions({ action: 'create', project: 'shop-api', provider: 'claude' })
+    expect(getAgentConversation(h.db, String(second.envelope.data.ref).slice('mission:'.length))?.tier_level).toBe(1)
+  })
+
+  it('with the person\'s message: creates it, starts it and returns the reply in one call', async () => {
+    const res = await missions({ action: 'create', project: 'shop-api', provider: 'claude', message: 'Add a ghost piece' })
+    expect(res.isError).toBe(false)
+    const ref = res.envelope.refs.mission as string
+    const id = ref.slice('mission:'.length)
+    expect(res.envelope.data).toMatchObject({ ref, project: 'shop-api', status: 'replied', reply: { text: 'Echo: Add a ghost piece' } })
+    expect(res.envelope.summary).toMatch(/^Created mission:.* and started it with the person's message\. .*replied: Echo: Add a ghost piece/)
+    expect(sent[0]).toMatchObject({ id, text: 'Add a ghost piece' })
+    // The mission names itself from the goal (no placeholder title).
+    expect(getAgentConversation(h.db, id)?.title ?? null).toBeNull()
+  })
+
+  it('starts without asking when recent mission turns forecast below the threshold', async () => {
+    const other = mission()
+    for (let i = 0; i < 3; i++) recordAgentInvocation(h.db, { id: `c${i}`, project_id: 'p1', provider: 'claude', conversation_id: other, status: 'success', started_at: `2026-11-2${i}T10:00:00Z`, total_cost_usd: 0.05 })
+    const res = await missions({ action: 'create', project: 'shop-api', provider: 'claude', message: 'Fix the login' })
+    expect(res.envelope.error?.code).toBeUndefined()
+    expect(res.envelope.data.status).toBe('replied')
+  })
+})
+
 describe('specrails_missions: send and wait', () => {
-  it('confirms an unknown-cost send, waits for the reply and returns it as untrusted text', async () => {
+  it('sends without asking (like typing in the app), waits for the reply and returns it whole as untrusted text', async () => {
     const id = mission()
     const ref = `mission:${id}`
-    const res = await confirmed({ action: 'send', ref, message: 'Summarize the repo' })
+    const res = await missions({ action: 'send', ref, message: 'Summarize the repo' })
     expect(res.isError).toBe(false)
     expect(res.envelope.data).toMatchObject({ ref, status: 'replied', reply: { text: 'Echo: Summarize the repo' } })
     expect(res.envelope.summary).toContain('Echo: Summarize the repo')
@@ -259,7 +317,7 @@ describe('specrails_missions: send and wait', () => {
     replyMode = 'silent'
     const id = mission()
     const ref = `mission:${id}`
-    const res = await confirmed({ action: 'send', ref, message: 'long task', options: { waitMs: 50 } })
+    const res = await missions({ action: 'send', ref, message: 'long task', options: { waitMs: 50 } })
     expect(res.envelope.data.status).toBe('running')
     expect(res.envelope.summary).toContain('specrails_wait')
     const before = (await missions({ action: 'get', ref, fields: ['messages'] })).envelope
@@ -272,20 +330,87 @@ describe('specrails_missions: send and wait', () => {
   it('queues while busy and reports a failed turn', async () => {
     const id = mission()
     busy.add(id)
-    const queued = await confirmed({ action: 'send', ref: `mission:${id}`, message: 'next', options: { waitMs: 0 } })
+    const queued = await missions({ action: 'send', ref: `mission:${id}`, message: 'next', options: { waitMs: 0 } })
     expect(queued.envelope.data).toMatchObject({ queued: true, status: 'queued' })
     busy.clear()
     replyMode = 'error'
-    const failed = await confirmed({ action: 'send', ref: `mission:${id}`, message: 'boom' })
+    const failed = await missions({ action: 'send', ref: `mission:${id}`, message: 'boom' })
     expect(failed.envelope.data).toMatchObject({ status: 'failed', error: 'provider down' })
+  })
+
+  it('returns a long reply whole, not an excerpt', async () => {
+    const id = mission()
+    const long = 'x'.repeat(9_800)
+    const res = await missions({ action: 'send', ref: `mission:${id}`, message: long })
+    expect(res.envelope.data.reply.text).toHaveLength(long.length + 'Echo: '.length)
+  })
+
+  it('a wait on a mission that finishes its turn wakes with what it said (no get round trip)', async () => {
+    const id = mission()
+    const ref = `mission:${id}`
+    replyMode = 'silent'
+    const sentNow = await missions({ action: 'send', ref, message: 'Profile the game', options: { waitMs: 0 } })
+    expect(sentNow.envelope.data.status).toBe('running')
+    const waiting = call(client, 'specrails_wait', { action: 'until', refs: [ref], timeoutMs: 3_000 })
+    setTimeout(() => {
+      busy.delete(id)
+      const message = say(id, 'assistant', 'P1: shadowBlur per cell.\n```options\n["Measure first","Fix render"]\n```')
+      h.ctx.eventBus.publish({ type: 'agent_done', conversationId: id, fullText: message.content, messageId: message.id, timestamp: 'now' } as never)
+    }, 30)
+    const woke = await waiting
+    const fired = (woke.envelope.data.fired as Array<{ ref: string; data?: Row }>).find((item) => item.ref === ref)!
+    expect(fired.data).toMatchObject({ reply: { text: expect.stringContaining('shadowBlur per cell') }, pendingCards: [expect.objectContaining({ kind: 'options' })] })
+    expect(woke.envelope.summary).toContain(`${ref} replied: P1: shadowBlur per cell.`)
+  })
+
+  it('a wait right after a new turn starts never returns the previous turn\'s end (no cursor)', async () => {
+    const id = mission()
+    const ref = `mission:${id}`
+    eventJournalFor(h.db, h.ctx.eventBus)
+    // The previous turn ended; a new one has just started.
+    say(id, 'assistant', 'Old answer')
+    h.ctx.eventBus.publish({ type: 'agent_done', conversationId: id, fullText: 'Old answer', timestamp: 'now' } as never)
+    h.ctx.eventBus.publish({ type: 'agent_input_started', conversationId: id, queueId: null, messageId: 'u2', text: 'Next', timestamp: 'now' } as never)
+    const waiting = call(client, 'specrails_wait', { action: 'until', refs: [ref], timeoutMs: 3_000 })
+    setTimeout(() => {
+      const message = say(id, 'assistant', 'New answer')
+      h.ctx.eventBus.publish({ type: 'agent_done', conversationId: id, fullText: 'New answer', messageId: message.id, timestamp: 'now' } as never)
+    }, 50)
+    const woke = await waiting
+    const fired = (woke.envelope.data.fired as Array<{ ref: string; data?: Row }>).find((item) => item.ref === ref)!
+    expect((fired.data as { reply: { text: string } }).reply.text).toBe('New answer')
+  })
+
+  it('marks long messages as truncated in get, and message reads one whole', async () => {
+    const id = mission()
+    const report = `Analysis ${'x'.repeat(9_000)} the end`
+    const long = say(id, 'assistant', report)
+    const got = await missions({ action: 'get', ref: `mission:${id}`, fields: ['messages'] })
+    const listed = (got.envelope.data.messageList as Array<{ id: string; truncated?: boolean; chars?: number }>).find((m) => m.id === long.id)!
+    expect(listed).toMatchObject({ truncated: true, chars: report.length })
+    const whole = await missions({ action: 'message', ref: `mission:${id}`, options: { message: long.id } })
+    expect(whole.envelope.data.text).toBe(report)
+    expect((await missions({ action: 'message', ref: `mission:${id}` })).envelope.data.id).toBe(long.id)
   })
 
   it('a stale preview (provider changed) refuses the old token', async () => {
     const id = mission()
-    const first = await missions({ action: 'send', ref: `mission:${id}`, message: 'x' })
+    // A costly step of its own (renew) still confirms; its token binds to the mission's engine.
+    const first = await missions({ action: 'renew', ref: `mission:${id}` })
+    expect(first.envelope.error.code).toBe('confirmation_required')
     await missions({ action: 'update', ref: `mission:${id}`, provider: 'codex' })
-    const second = await missions({ action: 'send', ref: `mission:${id}`, message: 'x', confirm: first.envelope.error.confirmToken })
+    const second = await missions({ action: 'renew', ref: `mission:${id}`, confirm: first.envelope.error.confirmToken })
     expect(second.envelope.error.code).toBe('stale')
+  })
+
+  it('[spec:mission-plan/mcp] reads the mission\'s plan of work and each step\'s status', async () => {
+    const id = mission()
+    const ref = `mission:${id}`
+    expect((await missions({ action: 'get', ref, fields: ['plan'] })).envelope.data.plan).toBeNull()
+    say(id, 'system', JSON.stringify({ kind: 'mission-plan', title: 'Login', steps: [{ content: 'Form', status: 'completed' }, { content: 'Tests', status: 'in_progress' }], source: 'todo-tool', at: '2026-11-28T16:00:00Z' }))
+    const got = await missions({ action: 'get', ref, fields: ['plan'] })
+    expect(got.envelope.data.plan).toEqual({ title: 'Login', done: 1, total: 2, steps: [{ step: 'Form', status: 'completed' }, { step: 'Tests', status: 'in_progress' }], at: '2026-11-28T16:00:00Z' })
+    expect(got.envelope.untrusted).toEqual(expect.arrayContaining(['/data/plan/steps/*/step']))
   })
 
   it('edits, steers and removes queued messages', async () => {
@@ -401,7 +526,7 @@ describe('specrails_missions: get, cards and links', () => {
     seedCards(id)
     const cards = (await missions({ action: 'get', ref: `mission:${id}` })).envelope.data.pendingCards
     const options = cards.find((c: Row) => c.kind === 'options')
-    const reply = await confirmed({ action: 'card_decide', ref: `mission:${id}`, cardId: options.id, decision: '0' })
+    const reply = await missions({ action: 'card_decide', ref: `mission:${id}`, cardId: options.id, decision: '0' })
     expect(sent.at(-1)!.text).toBe('Ship it')
     expect(reply.envelope.data.reply.text).toBe('Echo: Ship it')
 
@@ -507,6 +632,17 @@ describe('specrails_missions: Intent', () => {
     expect(done.envelope.state.offers).toEqual([])
   })
 
+  it('a seeded Intent brings back what its opening turn found, with the mission\'s own choices (no invented menu)', async () => {
+    openingReply = 'Spec #9 is already covered at the base.\n```options\n["Close it as already covered","Add more edge-case tests"]\n```'
+    const started = await confirmed({ action: 'intent_start', project: 'shop-api', options: { spec: 'spec:shop-api/9' } })
+    expect(started.isError).toBe(false)
+    expect(started.envelope.data).toMatchObject({ ref: 'intent:shop-api/f2', turn: { status: 'replied', reply: { text: expect.stringContaining('already covered at the base') } } })
+    expect(started.envelope.summary).toMatch(/^Started intent:shop-api\/f2\. The mission says: Spec #9 is already covered/)
+    const labels = (started.envelope.state.offers as Array<{ label: string }>).map((offer) => offer.label)
+    expect(labels).toEqual(expect.arrayContaining(['Reply: Close it as already covered', 'Reply: Add more edge-case tests']))
+    expectUntrusted(started.envelope, '/data/turn/reply/text')
+  })
+
   it('starts Intent in a new mission from a spec, lists open Intents, reads diff and cost, closes a needs-review Intent', async () => {
     const started = await confirmed({ action: 'intent_start', project: 'shop-api', options: { spec: 'spec:shop-api/9' } })
     expect(started.envelope.data).toMatchObject({ ref: 'intent:shop-api/f2', spec: 'spec:shop-api/9' })
@@ -542,7 +678,7 @@ describe('specrails_missions: continuing an open Intent from an external client'
     expect(ids).toEqual(expect.arrayContaining(['send', 'intent', 'intent.pause', 'intent.hand_off', 'intent.discard']))
     expect(ids).not.toContain('intent.send')
 
-    const replied = await confirmed({ action: 'send', ref: `mission:${id}`, message: 'Add a farewell too', options: { waitMs: 2000 } })
+    const replied = await missions({ action: 'send', ref: `mission:${id}`, message: 'Add a farewell too', options: { waitMs: 2000 } })
     expect(replied.envelope.data).toMatchObject({ status: 'replied', reply: { text: 'Echo: Add a farewell too' } })
     expect(sent.at(-1)).toMatchObject({ id, text: 'Add a farewell too', options: expect.objectContaining({ surface: 'mcp' }) })
     // A write returns the fresh state (the settled turn: no re-read needed).
@@ -553,7 +689,7 @@ describe('specrails_missions: continuing an open Intent from an external client'
     const running = await missions({ action: 'get', ref: `mission:${id}` })
     const interrupt = running.envelope.state.offers.find((o: Row) => o.id === 'interrupt')
     expect(interrupt.call.args).toMatchObject({ action: 'send', options: { deliveryMode: 'interrupt' } })
-    const cut = await confirmed({ action: 'send', ref: `mission:${id}`, message: 'Stop, use blue instead', options: { deliveryMode: 'interrupt', waitMs: 200 } })
+    const cut = await missions({ action: 'send', ref: `mission:${id}`, message: 'Stop, use blue instead', options: { deliveryMode: 'interrupt', waitMs: 200 } })
     expect(cut.envelope.data).toMatchObject({ accepted: true, queued: true })
     expect(sent.at(-1)).toMatchObject({ text: 'Stop, use blue instead', options: expect.objectContaining({ deliveryMode: 'steer', surface: 'mcp' }) })
   })
@@ -566,7 +702,7 @@ describe('specrails_missions: continuing an open Intent from an external client'
     const got = await missions({ action: 'intent_get', ref: 'intent:shop-api/f1' })
     const card = got.envelope.data.pendingCards[0]
     expect(card).toMatchObject({ kind: 'options' })
-    const answered = await confirmed({ action: 'card_decide', ref: `mission:${id}`, cardId: card.id, decision: '0', options: { waitMs: 2000 } })
+    const answered = await missions({ action: 'card_decide', ref: `mission:${id}`, cardId: card.id, decision: '0', options: { waitMs: 2000 } })
     expect(answered.envelope.data.status).toBe('replied')
     expect(sent.at(-1)).toMatchObject({ text: 'Start the app', options: expect.objectContaining({ surface: 'mcp' }) })
   })
@@ -600,6 +736,10 @@ describe('specrails_missions: continuing an open Intent from an external client'
     const first = await missions({ action: 'intent_hand_off', ref: 'intent:shop-api/f1' })
     expect(first.envelope.error.code).toBe('confirmation_required')
     expect(first.envelope.error.preview.effect).toContain('On Rail 2.')
+    // The person reads the spec's title and a measured estimate, not a raw ref and "cannot be estimated".
+    expect(first.envelope.error.preview.effect).toContain('Hands «Measure frame pacing» (branch')
+    expect(first.envelope.error.preview.effect).not.toContain('intent:shop-api/f1')
+    expect(first.envelope.error.preview.effect).toContain('Estimated cost 0.60–1.20 USD, from similar runs of this project.')
     const handed = await missions({ action: 'intent_hand_off', ref: 'intent:shop-api/f1', confirm: first.envelope.error.confirmToken })
     expect(handed.envelope.data).toMatchObject({ state: 'handed_off', rail: 'rail:shop-api/1', runs: ['run:shop-api/lr1'] })
     expect(intentCalls.at(-1)).toMatchObject({ op: 'hand-off', input: { flowId: 'f1', railIndex: 1, missionEngine: true } })

@@ -44,7 +44,8 @@ const CONTRACT_LAYER = '## Contract Layer'
 const LIST_BUDGET_TOKENS = 1_250
 const DETAIL_BUDGET_TOKENS = 8_500
 const EXCERPT_CHARS = 600
-const ASYNC_WAIT_DEFAULT_MS = 20_000
+// Writing a spec takes ~30–45 s: waiting the full window answers most requests in one call.
+const ASYNC_WAIT_DEFAULT_MS = 45_000
 const ASYNC_WAIT_MAX_MS = 45_000
 const ASYNC_KEEP_MS = 15 * 60_000
 const ATTACH_MAX_BYTES = 5 * 1024 * 1024
@@ -242,7 +243,7 @@ export function projectSpecState(row: ProjectRow, ticket: Row, facts: { children
 
 // ── Async AI results (spec generation, AI edit, SMASH) ──────────────────────
 
-interface AsyncOutcome { status: 'pending' | 'done' | 'failed'; kind: string; spec?: number; text?: string; error?: string; smashedAt?: string; children?: number[]; at: number }
+interface AsyncOutcome { status: 'pending' | 'done' | 'failed'; kind: string; spec?: number; text?: string; error?: string; smashedAt?: string; children?: number[]; at: number; projectId?: string }
 /** Results of async AI actions of this process, kept 15 minutes so a later `get(options.request)` can read them. */
 const asyncOutcomes = new Map<string, AsyncOutcome>()
 
@@ -287,15 +288,19 @@ function settle(kind: string, key: string, msg: WsMessage): AsyncOutcome | null 
  * listener is attached before the request, so a fast completion is never
  * missed; it stays attached after the wait (up to 15 min) to keep the outcome.
  */
-async function runAsync(ctx: V2CallContext, kind: string, start: () => Promise<{ key: string; response: Row }>, waitMs: number): Promise<{ key: string; response: Row; outcome: AsyncOutcome }> {
+async function runAsync(ctx: V2CallContext, kind: string, start: () => Promise<{ key: string; response: Row }>, waitMs: number, scope: { row: ProjectRow; spec?: number }): Promise<{ key: string; response: Row; outcome: AsyncOutcome }> {
   sweepOutcomes()
+  // Answered while still pending: the result lands later in the caller's MCP log row (mission-journal).
+  let answered = false
   const early: WsMessage[] = []
   let key: string | null = null
   let resolveDone: ((outcome: AsyncOutcome) => void) | null = null
   const done = new Promise<AsyncOutcome>((resolve) => { resolveDone = resolve })
   let unsubscribe: (() => void) | null = null
   const finish = (outcome: AsyncOutcome) => {
+    outcome = { ...outcome, projectId: scope.row.id }
     asyncOutcomes.set(key!, outcome)
+    if (answered) lateJournal(ctx, scope.row, key!, { ...outcome, spec: outcome.spec ?? scope.spec })
     unsubscribe?.()
     clearTimeout(expiry)
     resolveDone?.(outcome)
@@ -317,13 +322,14 @@ async function runAsync(ctx: V2CallContext, kind: string, start: () => Promise<{
     throw err
   }
   key = started.key
-  asyncOutcomes.set(key, { status: 'pending', kind, at: Date.now() })
+  asyncOutcomes.set(key, { status: 'pending', kind, at: Date.now(), projectId: scope.row.id })
   for (const msg of early.splice(0)) { const outcome = settle(kind, key, msg); if (outcome) { finish(outcome); break } }
   const current = asyncOutcomes.get(key)!
-  if (current.status !== 'pending' || waitMs <= 0) return { ...started, outcome: current }
+  if (current.status !== 'pending' || waitMs <= 0) { answered = current.status === 'pending'; return { ...started, outcome: current } }
   let timer: NodeJS.Timeout | undefined
   const outcome = await Promise.race([done, new Promise<AsyncOutcome>((resolve) => { timer = setTimeout(() => resolve(asyncOutcomes.get(key!)!), waitMs) })])
   clearTimeout(timer)
+  answered = outcome.status === 'pending'
   return { ...started, outcome }
 }
 
@@ -362,10 +368,12 @@ export function forecastFor(ctx: V2CallContext, row: ProjectRow, surfaces: reado
 
 const SURFACES = { create: ['quick-spec'], refine: ['quick-spec', 'explore-spec'], ai_edit: ['ai-edit'], smash: ['smash'] } as const
 
-function costlyPreview(ctx: V2CallContext, args: Row, surfaces: readonly string[], effectKey: string, row: ProjectRow, ref: Ref | null, versionFacts: unknown): PreviewInput {
+function costlyPreview(ctx: V2CallContext, args: Row, surfaces: readonly string[], effectKey: string, row: ProjectRow, ref: Ref | null, versionFacts: unknown, title?: unknown): PreviewInput {
   const forecast = forecastFor(ctx, row, surfaces)
+  // The person reads the spec's title, not its ref.
+  const name = typeof title === 'string' && title.trim() ? `«${clip(neutralize(title.trim()), 80)}»` : ref ?? row.slug
   return {
-    effect: ctx.v2.t(effectKey, { ref: ref ?? row.slug }),
+    effect: ctx.v2.t(effectKey, { ref: name }),
     refs: ref ? [ref] : [],
     version: `p${shortHash({ facts: versionFacts, a: args.ref ?? null })}`,
     cost: { forecastUsd: forecast, runs: 1 },
@@ -497,8 +505,28 @@ async function searchSpecs(ctx: V2CallContext, args: Row): Promise<unknown> {
 async function getAsyncOutcome(ctx: V2CallContext, args: Row, requestKey: string): Promise<unknown> {
   const outcome = asyncOutcomes.get(requestKey)
   if (!outcome) throw new V2ToolError('not_found', ctx.v2.t('specs.error.request_unknown', { request: requestKey }))
-  const row = ctx.v2.project(args)
-  return asyncResult(ctx, row, requestKey, outcome, {})
+  // The request remembers its project: reading it needs no ref or project.
+  const row = (outcome.projectId ? ctx.v2.projects().find((project) => project.id === outcome.projectId) : undefined) ?? ctx.v2.project(args)
+  // Still running: wait for it here (bounded), so reading the result never needs a separate wait.
+  let current = outcome
+  const deadline = Date.now() + waitMsOf(args)
+  while (current.status === 'pending' && Date.now() < deadline && !ctx.signal?.aborted) {
+    await new Promise((done) => setTimeout(done, 250))
+    current = asyncOutcomes.get(requestKey) ?? current
+  }
+  return asyncResult(ctx, row, requestKey, current, {})
+}
+
+/** A result that settled after the call answered "still running": the call's MCP log row shows how it ended. */
+function lateJournal(ctx: V2CallContext, row: ProjectRow, key: string, outcome: AsyncOutcome): void {
+  try {
+    ctx.v2.journalLater?.({
+      ok: outcome.status !== 'failed',
+      summary: ctx.v2.t(`specs.summary.async.${outcome.kind}.${outcome.status}`, { spec: outcome.spec ? specRef(row, outcome.spec) : '', request: key, error: outcome.error ?? '' }),
+      ...(outcome.spec ? { refs: { spec: specRef(row, outcome.spec) } } : {}),
+      ...(outcome.status === 'failed' ? { error: { code: 'failed', message: outcome.error ?? 'failed' } } : {}),
+    })
+  } catch { /* the log never fails the result */ }
 }
 
 /** The envelope of an async AI action (pending, done or failed). */
@@ -811,7 +839,7 @@ async function createSpec(ctx: V2CallContext, args: Row): Promise<unknown> {
       const run = await runAsync(ctx, 'generate', async () => {
         const response = asRecord(await apiCall(ctx, 'POST', `${base(row)}/tickets/generate-spec`, body))
         return { key: String(response.requestId), response: {} }
-      }, waitMsOf(args))
+      }, waitMsOf(args), { row })
       if (run.outcome.status === 'done' && run.outcome.spec) {
         const ticket = await readTicket(ctx, row, run.outcome.spec).catch(() => null)
         if (ticket) return createdResult(ctx, row, ticket, mode)
@@ -999,7 +1027,7 @@ export const specsTool = defineTool({
       doc: 'Paged backlog (default 25, max 100). filter: status (draft|todo|in_progress|on_review|done|cancelled|active|all; array or CSV), label (any of), priority, milestone (2 or M2), rail (index or name), since (ISO), epic (ref); query = text; options.sort updated|priority|id|created. view detail adds summary, triage, jira, order.',
     },
     get: {
-      tier: 'read', required: ['ref'], handler: getSpec,
+      tier: 'read', oneOf: ['ref', 'options.request'], handler: getSpec,
       doc: 'One spec with its decision state. view detail (or fields) adds body and sections: criteria, addenda, timeline (runs, deliveries, edits; cursor/limit page it, options.kinds), handoff (options.format pr|md|html), attachments, files (options.repository), spend. options.request reads an async AI result (create request, ai_edit, smash).',
     },
     search: { tier: 'read', required: ['query'], handler: searchSpecs, doc: 'Ranked text search over title, summary, body, labels, addenda, comments (≤ 30). With filter it narrows list instead.' },
@@ -1007,7 +1035,7 @@ export const specsTool = defineTool({
       tier: (args) => AI_CREATE_MODES.has(String(args.mode)) || (args.mode === 'draft' && optionsOf(args).contractRefine === true) ? 'ai-spawn' : 'write',
       confirm: (args) => AI_CREATE_MODES.has(String(args.mode)) || (args.mode === 'draft' && optionsOf(args).contractRefine === true) ? 'costly' : null,
       required: ['mode'], oneOf: ['title', 'body'],
-      doc: 'mode request: the spec agent writes the spec from the person\'s request or problem (AI; waits up to options.waitMs, default 20 s); draft: a complete spec you wrote (title, body, options.criteria/labels/priority/intent/summary); verbatim: the body as written (no AI); idea: a draft-status spec to shape later. options.repositoryIds, labels, priority, model, aiEngine, contractRefine.',
+      doc: 'mode request: the spec agent writes the spec from the person\'s request or problem (AI; waits up to options.waitMs, default 45 s); draft: a complete spec you wrote (title, body, options.criteria/labels/priority/intent/summary); verbatim: the body as written (no AI); idea: a draft-status spec to shape later. options.repositoryIds, labels, priority, model, aiEngine, contractRefine.',
       preview: (ctx, args) => costlyPreview(ctx, args, SURFACES.create, 'specs.confirm.create', ctx.v2.project(args), null, { idea: ideaOf(args) }),
       handler: createSpec,
     },
@@ -1057,20 +1085,20 @@ export const specsTool = defineTool({
     },
     refine: {
       tier: 'ai-spawn', confirm: 'costly', required: ['ref'], doc: 'Adds or redoes the Contract Layer (AI). options.aiEngine. Waits up to options.waitMs.',
-      preview: async (ctx, args) => { const t = specTarget(ctx, args); const ticket = await readTicket(ctx, t.row, t.id); return costlyPreview(ctx, args, SURFACES.refine, 'specs.confirm.refine', t.row, t.ref, ticket.updated_at) },
+      preview: async (ctx, args) => { const t = specTarget(ctx, args); const ticket = await readTicket(ctx, t.row, t.id); return costlyPreview(ctx, args, SURFACES.refine, 'specs.confirm.refine', t.row, t.ref, ticket.updated_at, ticket.title) },
       handler: async (ctx, args) => {
         const { row, id } = specTarget(ctx, args)
         const run = await runAsync(ctx, 'refine', async () => {
           await apiCall(ctx, 'POST', `${base(row)}/tickets/${id}/contract-refine`, pass(optionsOf(args), ['aiEngine']))
           return { key: `refine:${id}`, response: {} }
-        }, waitMsOf(args))
+        }, waitMsOf(args), { row, spec: id })
         return asyncResult(ctx, row, run.key, { ...run.outcome, spec: id }, {})
       },
     },
     ai_edit: {
       tier: 'ai-spawn', confirm: 'costly', required: ['ref', 'body'],
       doc: 'body = editing instructions. Returns the AI proposal (not applied): apply it with update(patch.body). options.priorProposal and priorInstructions refine a proposal; options.cancel = request id stops one.',
-      preview: async (ctx, args) => { const t = specTarget(ctx, args); const ticket = await readTicket(ctx, t.row, t.id); return costlyPreview(ctx, args, SURFACES.ai_edit, 'specs.confirm.ai_edit', t.row, t.ref, ticket.updated_at) },
+      preview: async (ctx, args) => { const t = specTarget(ctx, args); const ticket = await readTicket(ctx, t.row, t.id); return costlyPreview(ctx, args, SURFACES.ai_edit, 'specs.confirm.ai_edit', t.row, t.ref, ticket.updated_at, ticket.title) },
       handler: async (ctx, args) => {
         const { row, id, ref } = specTarget(ctx, args)
         const options = optionsOf(args)
@@ -1084,19 +1112,19 @@ export const specsTool = defineTool({
             instructions: args.body, description: textOf(ticket.description) || ' ', title: ticket.title, ...pass(options, ['attachmentIds', 'priorInstructions', 'priorProposal', 'aiEngine']),
           }))
           return { key: String(response.requestId), response: {} }
-        }, waitMsOf(args))
+        }, waitMsOf(args), { row, spec: id })
         return asyncResult(ctx, row, run.key, { ...run.outcome, spec: id }, {})
       },
     },
     smash: {
       tier: 'ai-spawn', confirm: 'costly', required: ['ref'], doc: 'Splits a spec into ordered sub-specs (an epic). options.mode simple|full, model. Needs a Contract Layer; waits up to options.waitMs.',
-      preview: async (ctx, args) => { const t = specTarget(ctx, args); const ticket = await readTicket(ctx, t.row, t.id); return costlyPreview(ctx, args, SURFACES.smash, 'specs.confirm.smash', t.row, t.ref, ticket.updated_at) },
+      preview: async (ctx, args) => { const t = specTarget(ctx, args); const ticket = await readTicket(ctx, t.row, t.id); return costlyPreview(ctx, args, SURFACES.smash, 'specs.confirm.smash', t.row, t.ref, ticket.updated_at, ticket.title) },
       handler: async (ctx, args) => {
         const { row, id } = specTarget(ctx, args)
         const run = await runAsync(ctx, 'smash', async () => {
           await apiCall(ctx, 'POST', `${base(row)}/tickets/${id}/smash`, pass(optionsOf(args), ['mode', 'model']))
           return { key: `smash:${id}`, response: {} }
-        }, waitMsOf(args))
+        }, waitMsOf(args), { row, spec: id })
         return asyncResult(ctx, row, run.key, { ...run.outcome, spec: id }, {})
       },
     },
@@ -1147,7 +1175,7 @@ export const specsTool = defineTool({
         const options = optionsOf(args)
         const response = asRecord(await apiCall(ctx, 'POST', `${base(row)}/tickets/${id}/addenda`, {
           body: args.body, ...pass(options, ['kind']), ...(typeof args.title === 'string' ? { title: args.title } : pass(options, ['title'])),
-          createdBy: ctx.originConversationId ? 'agent' : 'mcp', originConversationId: ctx.originConversationId ?? undefined,
+          createdBy: ctx.firstPartyAgent && ctx.originConversationId ? 'agent' : 'mcp', originConversationId: ctx.originConversationId ?? undefined,
         }))
         return addendumResult(ctx, row, id, response, 'specs.summary.addendum_added')
       },

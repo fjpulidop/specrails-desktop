@@ -17,6 +17,8 @@ import {
   archiveAgentConversation,
   unarchiveAgentConversation,
   createAgentConversation,
+  missionDefaultTierLevel,
+  setMissionDefaultTierLevel,
   copyAgentHistory,
   listAgentConversations,
   getAgentConversation,
@@ -39,6 +41,7 @@ import { killBackgroundProcessesForChat, listBackgroundProcesses, purgeBackgroun
 import { decorateAgentInputMessages, getAgentInput, AgentInputConflictError, AgentInputLimitError } from './agent-input-store'
 import { askSideQuestion, SideQuestionError, validateSideQuestionRequest, type SideQuestionDeps } from './mission-side-question'
 import { SessionRenewalError, summaryLanguage, writeSessionSummary, type SessionSummaryDeps } from './mission-session-summary'
+import { latestMissionPlan } from './mission-plan'
 
 // ─── Agent chat REST surface (/api/agent) ─────────────────────────────────────
 //
@@ -238,6 +241,17 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     res.json(manager.activeTurns())
   })
 
+  // The permission level new missions start at, wherever they are created (app, MCP, Run on a PR).
+  router.get('/mission-defaults', (_req: Request, res: Response) => {
+    res.json({ tierLevel: missionDefaultTierLevel(desktopDb) })
+  })
+  router.patch('/mission-defaults', (req: Request, res: Response) => {
+    const level = (req.body ?? {}).tierLevel
+    if (![0, 1, 2, 3].includes(level)) { res.status(400).json({ error: 'tier_level_invalid', message: 'tierLevel must be 0, 1, 2 or 3.' }); return }
+    setMissionDefaultTierLevel(desktopDb, level)
+    res.json({ tierLevel: missionDefaultTierLevel(desktopDb) })
+  })
+
   router.post('/conversations', (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>
     // No explicit provider ⇒ the machine's primary (a local-only machine lands
@@ -262,9 +276,13 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       provider,
       model: requestedModel,
       pinnedProjectId: typeof body.pinnedProjectId === 'string' ? body.pinnedProjectId : null,
-      tierLevel: body.tierLevel !== undefined ? normalizeLevel(body.tierLevel) : 0,
+      // Absent: the person's default (the level they last chose in the app; Autonomous until then).
+      tierLevel: body.tierLevel !== undefined ? normalizeLevel(body.tierLevel) : missionDefaultTierLevel(desktopDb),
       // Off-catalog values fall back to null (= no provider-specific override).
       reasoningEffort: validEffort(provider, effectiveModel, body.reasoningEffort) ?? null,
+      // Created by an external MCP client: Desktop marks it (the person did not make it here).
+      ...(typeof body.title === 'string' && body.title.trim() ? { title: body.title.trim().slice(0, 200) } : {}),
+      ...(body.origin === 'mcp' ? { origin: { kind: 'mcp' as const, client: typeof body.originClient === 'string' ? body.originClient : null } } : {}),
     })
     manager.notifyConversationCreated(conversation.id)
     res.status(201).json({ conversation })
@@ -361,6 +379,13 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
       purgeAt: conversation.deleted_at ? new Date(Date.parse(`${conversation.deleted_at}`) + AGENT_TRASH_RETENTION_MS).toISOString() : null,
     }))
     res.json({ items, retentionDays: Math.round(AGENT_TRASH_RETENTION_MS / 86_400_000) })
+  })
+
+  // The mission's work plan (Plan pill; MCP specrails_missions get field plan).
+  router.get('/conversations/:id/plan', (req: Request, res: Response) => {
+    const conversation = getAgentConversation(desktopDb, String(req.params.id))
+    if (!conversation || conversation.deleted_at) { res.status(404).json({ error: 'Unknown conversation' }); return }
+    res.json({ plan: latestMissionPlan(desktopDb, conversation.id) })
   })
 
   router.get('/conversations/:id', (req: Request, res: Response) => {
@@ -511,7 +536,9 @@ export function createAgentChatRouter(deps: AgentRouterDeps): Router {
     ) {
       patch.reasoning_effort = null
     }
-    res.json({ conversation: updateAgentConversation(desktopDb, conversation.id, patch) })
+    const updated = updateAgentConversation(desktopDb, conversation.id, patch)
+    if (patch.title !== undefined && patch.title !== conversation.title) manager.notifyTitle(conversation.id, updated?.title ?? null)
+    res.json({ conversation: updated })
   })
 
   // Stop everything live in a mission (turn, Core session, background processes).

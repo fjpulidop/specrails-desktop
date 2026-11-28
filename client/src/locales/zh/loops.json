@@ -61,7 +61,9 @@
     "exportLegacy": "导出原始图",
     "originalCopyName": "原始图：{{name}}",
     "convert": "转换为Core",
-    "more": "更多操作"
+    "more": "更多操作",
+    "runOnPr": "在 PR 上运行…",
+    "runOnDevice": "在设备上运行…"
   },
   "card": {
     "nodes_one": "{{count}} 个节点",
@@ -87,7 +89,9 @@
       "note": "内置循环。你正在编辑内置循环本身：发布后，你的更改将应用于使用它的每个轨道、代理聊天启动以及 Companion。编辑期间，轨道会继续运行最后发布的版本。使用“恢复原始版本”可回到默认版本。",
       "restored": "内置循环已恢复为原始版本",
       "confirmTitle": "恢复原始内置循环？",
-      "confirmBody": "这将放弃你对此内置循环的更改，并为所有使用它的轨道发布其原始版本。如果想保留你的版本，请先复制它。"
+      "confirmBody": "这将放弃你对此内置循环的更改，并为所有使用它的轨道发布其原始版本。如果想保留你的版本，请先复制它。",
+      "prCiNote": "内置循环,监控拉取请求的 CI 并修复。可从交付上的“修复 CI”、任务的提议,或在此处通过“在 PR 上运行”启动。你可以改进它的提示、限制和步骤;它必须持续等待检查,并且只推送经过验证的修复。发布的更改从下一次 CI 运行开始生效;使用“恢复原始版本”可返回。",
+      "confirmBodyPrCi": "这会丢弃你的更改，并为之后的 CI 运行发布原始循环。"
     },
     "addNode": "添加节点",
     "deleteNode": "删除节点",
@@ -319,6 +323,14 @@
     "freestyle": {
       "name": "Freestyle",
       "description": "将 spec 直接交给模型, 给予完全自由 — 无管线, 像普通编码智能体一样工作, 然后验证+改进直到全部通过。"
+    },
+    "factory_pr-ci": {
+      "name": "修复 PR CI",
+      "description": "持续关注拉取请求的 CI：等待检查、修复失败和与基础分支的合并冲突、在本地验证并推送，直到检查全部通过。"
+    },
+    "factory_mobile-test": {
+      "name": "在移动设备上测试",
+      "description": "为模拟器构建 iOS 或 Android 应用，并在 Tapflow 设备上运行。交付后会提供，也可以在此对所选代码运行。确定性流程，无 AI 回合。"
     }
   },
   "import": {
@@ -391,5 +403,77 @@
     "openFailed": "无法打开循环窗口"
   },
   "confirmDeleteTitle": "删除“{{name}}”？",
-  "confirmDeleteAction": "删除循环"
+  "confirmDeleteAction": "删除循环",
+  "runOnPr": {
+    "title": "修复拉取请求的 CI",
+    "description": "Specrails 会监控 PR 的检查,修复失败,并只向其分支推送经过验证的修复。进度和结果显示在拥有该仓库的项目的任务中。",
+    "urlLabel": "拉取请求 URL",
+    "chooseProject": "此仓库属于多个项目。请选择运行位置:",
+    "openMission": "打开任务",
+    "hint": "你的 GitHub 账号必须能向该仓库推送;PR 必须处于打开状态,且其分支在同一仓库中(不是 fork)。",
+    "cancel": "取消",
+    "submit": "开始",
+    "checking": "正在检查 PR…",
+    "started": "正在修复 PR 的 CI:可在任务中跟进",
+    "alreadyRunning": "此 PR 上已有修复在运行:正在打开其任务",
+    "errors": {
+      "pr_url_invalid": "这不是拉取请求 URL。请粘贴完整链接,例如 https://github.com/owner/repo/pull/12。",
+      "pr_no_push_access": "你的 GitHub 账号无法向此仓库推送,修复永远无法到达 PR。未启动任何内容。",
+      "pr_repository_not_in_any_project": "没有项目包含此仓库。请将其添加到项目后重试。",
+      "pr_project_ambiguous": "此仓库属于多个项目。请选择一个。",
+      "pr_not_open": "该拉取请求未处于打开状态。",
+      "pr_fork_unsupported": "PR 的分支位于 fork 中,Specrails 无法推送。未启动任何内容。",
+      "target_pr_not_found": "GitHub 找不到该拉取请求。",
+      "pr_github_unavailable": "无法连接 GitHub 或访问被拒绝(请确认 gh 已登录)。未启动任何内容。",
+      "engine_unsupported": "修复 PR 的 CI 需要 Loops、PR 交付和最新的 Core。",
+      "pr_ci_disabled": "此机器上已关闭 PR CI 循环。",
+      "generic": "无法启动修复。"
+    }
+  },
+  "runOnDevice": {
+    "title": "在移动设备上测试",
+    "description": "为模拟器构建应用并在 Tapflow 设备上打开。选择要测试的代码；不会发布或合并任何内容。",
+    "project": "项目",
+    "loading": "加载中…",
+    "what": "测试内容",
+    "target": {
+      "checkout": "当前代码",
+      "delivery": "审查中的交付",
+      "branch": "分支"
+    },
+    "checkoutHint": "按当前状态构建你的工作副本（{{branch}}），包括未提交的更改。构建输出会放在 Git 通常忽略的文件夹中。",
+    "checkoutNoApp": "工作副本中没有 Specrails 能构建的 iOS 或 Android 应用。请选择交付或分支。",
+    "detached": "分离的 HEAD",
+    "branchHint": "在临时副本中构建，运行结束后删除：不会改动你的工作副本。",
+    "deliveryHint": "在你做决定之前，构建该交付自己的工作副本。",
+    "platformLabel": "平台",
+    "both": "两者",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "deviceLabel": "设备（可选）",
+    "deviceFor": "{{platform}} 设备",
+    "deviceAuto": "任意 {{platform}} 设备（由 Tapflow 选择）",
+    "deviceBooted": "{{device}}（运行中）",
+    "tapflowOff": "Tapflow 已关闭。请在 插件 ▸ Tapflow 中开启后再在设备上运行。",
+    "cancel": "取消",
+    "submit": "在设备上运行",
+    "starting": "正在启动…",
+    "close": "关闭",
+    "running": "正在构建并安装到设备…",
+    "launched": "运行中：{{summary}}",
+    "failed": "移动测试未完成。",
+    "openDevice": "打开 {{device}}",
+    "runHint": "此运行也会出现在项目的运行列表中，并附有完整日志。",
+    "errors": {
+      "branch_not_found": "此项目中不存在该分支。",
+      "no_app": "此代码没有所选平台的应用。",
+      "delivery_code_gone": "此交付的代码已不在这台机器上（已发布或已丢弃）。",
+      "tapflow_not_installed": "未安装 Tapflow。请在 插件 ▸ Tapflow 中安装。",
+      "engine_unsupported": "在移动设备上测试需要能运行主机任务的 Specrails Core。请更新 Core。",
+      "generic": "无法启动移动测试。"
+    },
+    "onDevice": "{{device}} 上的 {{platform}}"
+  }
 }

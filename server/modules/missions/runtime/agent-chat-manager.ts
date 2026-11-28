@@ -49,6 +49,7 @@ import {
 import {
   getAgentConversation,
   addAgentMessage,
+  markAgentMessageSurface,
   updateAgentConversation,
   listAgentMessages,
   findAgentSystemMessages,
@@ -88,6 +89,7 @@ import { FAILURE_BRIEFING_REF_KIND } from './agent-failure-briefing'
 import { buildSessionSeedBlock, SESSION_SUMMARY_KIND, SessionRenewalError, type SessionSummaryResult, type SessionSummaryRow } from './mission-session-summary'
 import { conversationSessionState, listActiveSessionCursors, listSubagents, settleOrphanedSessionCursors } from './agent-session-store'
 import { observeQuotaLine } from '../../provider-quota/runtime/stream-observer'
+import { isTodoTool, planFromTodoWrite, publishMissionPlan } from './mission-plan'
 
 export type { AgentContextReference } from './agent-context-resolver'
 
@@ -590,6 +592,11 @@ export class AgentChatManager {
     this._broadcast({ type: 'agent_conversation_created', conversationId, timestamp: new Date().toISOString() })
   }
 
+  /** A title set outside a turn (rename, MCP `update`) reaches every open window. */
+  notifyTitle(conversationId: string, title: string | null): void {
+    this._broadcast({ type: 'agent_title', conversationId, title: title ?? '', timestamp: new Date().toISOString() })
+  }
+
   /** Spend recorded outside a turn (a side question) refreshes the project's dashboards. */
   notifySpendingInvalidated(projectId: string): void {
     this._broadcast({ type: 'spending.invalidated', projectId })
@@ -906,13 +913,16 @@ export class AgentChatManager {
       ? deliverAgentInput(this._db, conversationId, options.queueId, 'sent')
       : addAgentMessage(this._db, { conversationId, role: 'user', content: userText, attachmentIds, contextRefs: options.contextRefs })
     if (!message) return
+    // Written from an external MCP client: Desktop shows where it came from.
+    const viaMcp = options.surface === 'mcp'
+    if (viaMcp) markAgentMessageSurface(this._db, message.id, 'mcp')
     // Queued turns were announced by the drain loop. Direct turns must also
     // reach every open client, including Desktop when Companion sent the input.
     if (!currentMessageId) this._broadcast({
       type: 'agent_input_started', conversationId, queueId: options.queueId ?? null,
       messageId: message.id, text: message.content, timestamp: message.created_at,
       contextRefs: options.contextRefs ?? [], attachmentIds: attachmentIds ?? [],
-      deliveryReceipt: 'sent',
+      deliveryReceipt: 'sent', ...(viaMcp ? { surface: 'mcp' } : {}),
     })
     this._autoTitle(conversationId, conversation.title)
 
@@ -933,7 +943,8 @@ export class AgentChatManager {
       ? ' | Protocol: fenced protocol blocks MUST be tagged exactly intent-draft, spec-draft or options (never json); never ask the user to type #noframe'
       : ''
     const flowNote = flowTurn
-      ? ` | Intent: worktree=${JSON.stringify(flowTurn.cwd)}${flowTurn.branch ? ` branch=${flowTurn.branch}` : ''} (write only inside it)`
+      // The plan reminder rides every Intent turn: in the persona alone, agents skipped it for short changes.
+      ? ` | Intent: worktree=${JSON.stringify(flowTurn.cwd)}${flowTurn.branch ? ` branch=${flowTurn.branch}` : ''} (write only inside it) | Plan: if this turn's work has more than one step, show your plan before the first change and update it as each step starts and ends (your todo list, or specrails_missions plan)`
       // Only await when Intent is wired: an unconditional await would put a
       // microtask before the spawn on every mission turn (no Intent port ⇒ no offer).
       : this._flowTurns?.offerable && await this._flowOfferable(conversationId) ? ' | Intent: offerable' : ''
@@ -1344,6 +1355,11 @@ export class AgentChatManager {
                 break
               case 'tool-use':
                 if (ev.toolUseId) legacyToolCalls.set(ev.toolUseId, { name: ev.name, input: ev.inputPreview })
+                // The agent's own todo list is the mission's plan (a preview cut short is skipped).
+                if (isTodoTool(ev.name)) {
+                  const plan = planFromTodoWrite(ev.inputPreview)
+                  if (plan) publishMissionPlan(conversationId, plan, 'todo-tool')
+                }
                 // Core-session turns are audited by the session projector (full
                 // input); native provider turns are audited here from the preview.
                 if (!coreContext && this._agentAudit && conversation.pinned_project_id) {

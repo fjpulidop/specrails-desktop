@@ -40,7 +40,12 @@ const PATTERNS: Array<{ kind: ProviderLimitKind; re: RegExp }> = [
 // "resets 3am (Europe/Madrid)", "resets at 14:00", "resets in 2 hours".
 const RESETS_RE = /\b(?:resets?|try again)\s+(?:at\s+)?((?:in\s+)?[^\n·(]*?\d[^\n·(]*?)(\s*\([^)]*\))?(?=\s*(?:\(error|[.,;]\s|\n|$))/i
 
+// A dated reset: Codex says "try again at Nov 28th, 2026 2:43 AM" (the comma would end RESETS_RE early).
+const DATED_RESET_RE = /\b(?:resets?|try again)\s+(?:at\s+|on\s+)?([A-Za-z]{3,9}\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4},?\s+\d{1,2}(?::\d{2})?\s*(?:[ap]\.?m\.?)?(?:\s*\([^)]*\))?)/i
+
 export function extractLimitReset(text: string): string | null {
+  const dated = DATED_RESET_RE.exec(text)
+  if (dated) return dated[1].trim().replace(/[.,;:]+$/, '')
   const m = RESETS_RE.exec(text)
   if (!m) return null
   const value = `${m[1].trim()}${m[2] ? ` ${m[2].trim()}` : ''}`.trim().replace(/[.,;:]+$/, '')

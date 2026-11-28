@@ -21,13 +21,13 @@ import { BUDGET_PANEL_PARAM, OPEN_APP_SETTINGS_EVENT, OPEN_BUDGET_PANEL_EVENT, O
 import { dispatchTerminalSettingsUpdated } from './features/settings/lib/terminal-settings-events'
 import { Surface, useNativeWindowHandoff } from './components/ui/surface'
 import { TooltipProvider } from './components/ui/tooltip'
-import { replaySurfaceStorageWrites, surfaceWindowRoute } from './lib/native-surfaces'
+import { isSpareSurfaceWindow, prewarmSurfaceWindow, replaySurfaceStorageWrites, surfaceWindowRoute } from './lib/native-surfaces'
 import { useShowSurfaceToasts, useTrackSurfaceToasts } from './lib/surface-toasts'
 import { listenSurfaceShellRequests } from './lib/surface-shell-requests'
 import { SurfaceDocsHost } from './features/docs/components/SurfaceDocsHost'
 import { useToastsUsableOverModals } from './lib/toasts-over-modals'
 // The shell is static; its content chunk starts loading as soon as the route is known.
-import { isAppSettingsSurfaceResult, preloadSurfaceWindowContent, SurfaceWindowContent } from './SurfaceWindowContent'
+import { isAppSettingsSurfaceResult, preloadSurfaceWindowContent, SpareSurfaceWindowContent, SurfaceWindowContent } from './SurfaceWindowContent'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './components/ui/dialog'
 import { useKeyboardShortcuts, useCheatsheetState } from './hooks/useKeyboardShortcuts'
 import { KeyboardShortcutsCheatsheet } from './components/KeyboardShortcutsCheatsheet'
@@ -1024,13 +1024,13 @@ function InboxOwner({ enabled, children }: { enabled: boolean; children: React.R
 }
 
 /** A native surface window: the surface's own content, no app shell (docs/internals/native-window-surfaces.md). */
-function SurfaceWindowRoutes({ route }: { route: NonNullable<ReturnType<typeof surfaceWindowRoute>> }) {
+function SurfaceWindowRoutes({ children }: { children: React.ReactNode }) {
   return (
     <SharedWebSocketProvider url={WS_URL}><ThemeProvider><LanguageProvider>
       <DesktopProvider isolated><UiModeProvider initialMode="agent" persist={false}>
         <TooltipProvider delayDuration={400}>
           <div className="h-screen overflow-hidden bg-popover">
-            <SurfaceWindowContent id={route.id} params={route.params} />
+            {children}
             {/* This window's own toaster: a toast shows where the person acted (closing hands the live ones to the opener). */}
             <ThemedToaster />
             <SurfaceToastTracker />
@@ -1068,17 +1068,35 @@ function useSurfaceShellRequests() {
   }, [])
 }
 
+/** After startup, once the main window has settled: the spare window never competes with its first paint. */
+const SURFACE_PREWARM_DELAY_MS = 3000
+
+/**
+ * The main window loads the spare surface window once it is idle after startup, so the first
+ * Settings / Job detail / board window opens at once (the host keeps one ready after that).
+ */
+function useSurfaceWindowPrewarm(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return
+    const timer = setTimeout(() => { void prewarmSurfaceWindow().catch(() => {}) }, SURFACE_PREWARM_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [enabled])
+}
+
 function AppRoutes() {
   const secondary = isMissionWindowRoute()
   const surface = surfaceWindowRoute()
+  useSurfaceWindowPrewarm(!secondary && !surface && !isSpareSurfaceWindow() && !isLoopWindowRoute() && !isPluginWindowRoute())
   useSuppressNativeContextMenu()
   useSurfaceStorageReplay()
   useSurfaceShellRequests()
   useShowSurfaceToasts()
   if (surface) {
-    preloadSurfaceWindowContent(surface.id)
-    return <SurfaceWindowRoutes route={surface} />
+    void preloadSurfaceWindowContent(surface.id)
+    return <SurfaceWindowRoutes><SurfaceWindowContent id={surface.id} params={surface.params} /></SurfaceWindowRoutes>
   }
+  // The pre-loaded spare: the same shell, waiting for the surface the host gives it.
+  if (isSpareSurfaceWindow()) return <SurfaceWindowRoutes><SpareSurfaceWindowContent /></SurfaceWindowRoutes>
   if (isLoopWindowRoute() || isPluginWindowRoute()) return (
     <SharedWebSocketProvider url={WS_URL}><ThemeProvider><LanguageProvider>
       <DesktopProvider isolated><UiModeProvider initialMode="agent" persist={false}>

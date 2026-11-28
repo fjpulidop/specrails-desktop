@@ -112,6 +112,7 @@
   "confirm.class.costly": "Das startet KI-Arbeit, die Geld kostet.",
   "confirm.cost": "Geschätzte Kosten {{low}}–{{high}} USD.",
   "confirm.cost_unknown": "Die Kosten lassen sich nicht schätzen.",
+  "confirm.cost_similar": "Geschätzte Kosten {{low}}–{{high}} USD, nach ähnlichen Läufen dieses Projekts.",
   "confirm.runs": "Das startet {{count}} Ausführungen.",
   "error.not_implemented": "{{label}} ist in dieser Version noch nicht verfügbar.",
   "error.not_implemented_legacy": "{{label}} ist in dieser Version noch nicht verfügbar; nutze bis dahin {{legacy}}.",
