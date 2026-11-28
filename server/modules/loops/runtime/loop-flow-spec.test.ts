@@ -51,13 +51,26 @@ describe('flow-spec definition', () => {
 
   it('tags the tests with the derived requirement ids, demonstrates untested requirements and records them as evidence, between derive and check', () => {
     expect(definition.nodes.derive!.ends).toMatchObject({ pass: 'tag' })
-    expect(definition.nodes.tag!).toMatchObject({ kind: 'role-turn', ends: { next: 'check', invalid: 'check', failed: 'failed' } })
+    expect(definition.nodes.tag!).toMatchObject({ kind: 'role-turn', ends: { next: 'tag-report', invalid: 'check', failed: 'failed' } })
     const tag = definition.nodes.tag!.params as { roleId: string; stance: string; prompt: string; sessionContinuity: string }
     expect(tag).toMatchObject({ roleId: 'developer', stance: 'fixer', sessionContinuity: 'none' })
     expect(tag.prompt).toContain('[spec:<capability>/<requirement-slug>]')
     expect(tag.prompt).toContain('add one focused test that asserts its observable behaviour')
     expect(tag.prompt).toContain('tasks.md and design.md up to date with the tests')
     expect(tag.prompt).toContain('Never change production code, existing assertions, the delta specs or the proposal')
+  })
+
+  it('hands the failing tests the tag step saw to the reviewer as a failing check', () => {
+    expect(definition.nodes.tag!.ends).toMatchObject({ next: 'tag-report', invalid: 'check' })
+    expect(definition.nodes['tag-report']!).toMatchObject({ kind: 'assign', ends: { next: 'check' } })
+    expect((definition.nodes['tag-report']!.params as { set: Record<string, string> }).set).toEqual({ tagReport: '{{outputs.tag.structured}}' })
+    const tag = definition.nodes.tag!.params as { prompt: string }
+    expect(tag.prompt).toContain('every test that fails, with the command you ran and its error')
+    const review = definition.nodes.review!.params as { prompt: string }
+    expect(review.prompt).toContain('{{run.tagReport}}. A failing test it lists is a failing check')
+    // Reset at the start and every round: a stale report never reaches a later review.
+    expect((definition.nodes.init!.params as { set: Record<string, unknown> }).set).toMatchObject({ tagReport: '' })
+    expect((definition.nodes['begin-correction']!.params as { set: Record<string, unknown> }).set).toMatchObject({ tagReport: '' })
   })
 
   it('re-derives after a correction round even when the fixer changed no code (an artifact finding)', () => {

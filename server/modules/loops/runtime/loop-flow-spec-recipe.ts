@@ -125,7 +125,7 @@ export function flowSpecGraph(): LoopGraph {
     nodes.push({ id, type: 'core', position: { x, y: nodes.length * 140 }, data: { kind, label, params } })
     for (const [outcome, target] of Object.entries(outcomes)) edges.push({ id: `e-${id}-${outcome}`, source: id, target, label: outcome })
   }
-  node('init', 'Initialize repair budgets', 'assign', { set: { derivationRepairs: 0, correctionRounds: 0, correctionLimit: FLOW_CORRECTION_ROUNDS, latestFindings: '' } }, { next: 'derive', failed: 'failed' })
+  node('init', 'Initialize repair budgets', 'assign', { set: { derivationRepairs: 0, correctionRounds: 0, correctionLimit: FLOW_CORRECTION_ROUNDS, latestFindings: '', tagReport: '' } }, { next: 'derive', failed: 'failed' })
   node('derive', 'Derive OpenSpec change', 'derive-change', { change, summaryPath: FLOW_SUMMARY_FILE, feedback: '{{run.latestFindings}}' }, { pass: 'tag', fail: 'repair-guard' })
   // The requirement ids only exist once derive wrote the delta specs, so the Intent's tests cannot carry
   // them yet: without this step every first review failed on missing tags alone and spent a whole
@@ -140,14 +140,16 @@ export function flowSpecGraph(): LoopGraph {
       `Tag the existing tests of OpenSpec change ${change} with the requirements they demonstrate.`,
       `Read the delta specs under openspec/changes/${change}/specs/. For every ADDED or MODIFIED requirement, find the tests in this worktree that demonstrate it and add its id to their titles as \`[spec:<capability>/<requirement-slug>]\` (or a \`// spec: <capability>/<requirement-slug>\` comment, \`# spec:\` in Python and shell, on the line before the test).`,
       'The slug is the requirement name after `### Requirement:`, lowercased, accents removed, every run of other characters one dash. A test already carrying the right tag stays as it is.',
-      'Then, for every ADDED or MODIFIED requirement no existing test demonstrates, add one focused test that asserts its observable behaviour (its scenarios), tagged with its id, in a test file that already differs from the base (part of this change), reusing that file\'s harness and helpers. Run the tests you touched.',
+      'Then, for every ADDED or MODIFIED requirement no existing test demonstrates, add one focused test that asserts its observable behaviour (its scenarios), tagged with its id, in a test file that already differs from the base (part of this change), reusing that file\'s harness and helpers. Run every test file you touched, in full.',
       `Then bring openspec/changes/${change}/tasks.md and design.md up to date with the tests: wherever they say a behaviour has no automated test or name the evidence for a task, cite the tests you tagged or added, and add every test file you changed to the files the change touches. Change nothing else there.`,
-      'Never change production code, existing assertions, the delta specs or the proposal, and never expand scope: a test only demonstrates behaviour the code already has. A requirement only documentation can show needs no test. List under incomplete each requirement you could not demonstrate, with the reason.',
+      'Never change production code, existing assertions, the delta specs or the proposal, and never expand scope: a test only demonstrates behaviour the code already has. A requirement only documentation can show needs no test. List under incomplete each requirement you could not demonstrate, with the reason, and every test that fails, with the command you ran and its error: you never fix production code, the review does.',
       'Return summary and incomplete.',
     ].join(' '),
     structuredOutput: FIX_SCHEMA,
     sessionContinuity: 'none',
-  }, { next: 'check', invalid: 'check', failed: 'failed' }, 360)
+  }, { next: 'tag-report', invalid: 'check', failed: 'failed' }, 360)
+  // Kept as a run variable: a tag turn that ends invalid has no structured report to interpolate.
+  node('tag-report', 'Record the tag step report', 'assign', { set: { tagReport: '{{outputs.tag.structured}}' } }, { next: 'check', failed: 'failed' }, 360)
   node('repair-guard', 'Repair the derivation once', 'condition', { expr: `$vars.derivationRepairs < ${FLOW_DERIVATION_REPAIRS}` }, { true: 'repair-count', false: 'failed' }, 360)
   node('repair-count', 'Count derivation repair', 'assign', { increment: { derivationRepairs: 1 } }, { next: 'derive', failed: 'failed' }, 360)
   // The configured setup runs first (a Python project's venv, for example): the Intent worktree is a
@@ -161,6 +163,9 @@ export function flowSpecGraph(): LoopGraph {
       'Judge whether the derived proposal, design, delta specs and checked tasks describe the real code faithfully: no invented requirements, nothing material left out.',
       'Derivation coverage measured by Core (every changed file must appear in design.md "## Blast radius"): {{outputs.derive.derivation}}.',
       'Treat EVERY file in unexplainedFiles as an issue. Inspect the real code and the host verification evidence: {{outputs.check}}.',
+      // The host check runs only the configured and proposed commands; the tag step ran every test file it
+      // touched, end-to-end suites included. Without this a defect it saw shipped (benchmark arkanoidex-12).
+      'The tag step ran the change\'s tests and reported: {{run.tagReport}}. A failing test it lists is a failing check: a blocking issue for the fixer, unless the real code shows it passes.',
       'Every issue must be actionable by a fixer (code or tests) or by the deriver (artifacts): name the file and what must change.',
       'Scope: what the person asked for or decided during the Intent session (the accepted scope that comes with the spec, the conversation summary, the `Decision:` lines) IS requested, even where it departs from the intent\'s original constraints: a later request supersedes an earlier constraint it contradicts.',
       'Never ask to revert, remove or restore that behaviour; judge its correctness, tests, accessibility and how faithfully the artifacts describe it. When the artifacts call it out of scope or keep a superseded constraint as a Non-Goal, the issue is for the deriver: describe it as a requirement.',
@@ -185,7 +190,7 @@ export function flowSpecGraph(): LoopGraph {
   // A change nobody asked for is the person's call: no fixer round may revert (or bless) it.
   node('scope-gate', 'Ask the person about unrequested changes', 'condition', { expr: 'exists($outputs.review.structured.unrequested.0)' }, { true: FLOW_SCOPE_DECISION_END, false: 'correction-budget' }, 720)
   node('correction-budget', 'Check the correction budget', 'condition', { expr: '$vars.correctionRounds < $vars.correctionLimit' }, { true: 'begin-correction', false: FLOW_CHANGES_REQUESTED_END }, 720)
-  node('begin-correction', 'Count correction round', 'assign', { increment: { correctionRounds: 1 }, set: { derivationRepairs: 0 } }, { next: 'fix', failed: 'failed' }, 720)
+  node('begin-correction', 'Count correction round', 'assign', { increment: { correctionRounds: 1 }, set: { derivationRepairs: 0, tagReport: '' } }, { next: 'fix', failed: 'failed' }, 720)
   node('fix', 'Fixer', 'role-turn', {
     roleId: 'developer',
     stance: 'fixer',
