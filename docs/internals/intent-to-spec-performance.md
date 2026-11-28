@@ -168,7 +168,31 @@ keyboard priority, two requirements without a test), the re-review verified them
   `openspec/`), and `fix-progress` ended the run as "no progress". Fixed: it re-derives either way
   (the correction budget still bounds the rounds); mirrored in Core. → experiment 4.
 
-### Experiment 2 (measured in the table above) — the reviewer keeps its session
+### 2026-11-28 03:20 — experiment 4 on Codex: re-derive on no progress; experiment 2 reverted
+
+Codex (gpt-6.2-sol), with the tag step and the re-derive fix:
+
+| Case | Outcome | Minutes | USD | Rounds | Reviews | Slowest steps |
+|---|---|---|---|---|---|---|
+| tetrisex-11 | success | 15.6 | 4.47 | 1 | 66 (7) → 94 | fix 167 s, derive 140 s + 99 s |
+| arkanoidex-12 | failed | 8.6 | 3.95 | 1 | 64 (3) → invalid output | fix 109 s, derive 97 s |
+| arkanoidex-14 | failed | 11.3 | 4.48 | 1 | 67 (7) → invalid output | fix 207 s, derive 148 s |
+
+- Both failures are the same new bug: the **resumed** Codex reviewer (experiment 2,
+  `sessionContinuity: 'run'`) answered its re-review outside the structured schema
+  (`invalid_role_output`: missing `unrequested`/`followUps`, extra properties), and Core's repair
+  turn in the same session failed too. Its re-review text approved the correction. Fresh Codex
+  reviewers never did this tonight.
+- Experiment 2's gain was small: re-reviews 9–17 s instead of 22–45 s on Claude, and 47–59 s
+  instead of 57–69 s on Codex. **Reverted**: the reviewer starts fresh each round; convergence
+  comes from the prompt (the previous verdict and the re-review rules). Follow-up for Core: a
+  repair of invalid structured output could start a fresh session instead of resuming.
+- Codex quota: four Codex runs used ~60 % of its 5-hour window, so the matrix stopped at its
+  quota gate (by design). Claude cases are about 3 % of Claude's 5-hour window each.
+- Codex's slowest steps are the fixer (109–224 s) and each derivation (74–148 s); the tag step
+  takes 41–58 s on Codex (8–20 s on Claude).
+
+### Experiment 2 (reverted, see above) — the reviewer keeps its session
 
 From commit "perf(intent-spec): the reviewer keeps its session across rounds",
 the review node uses `sessionContinuity: 'run'` (Core reuses the reviewer's
