@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1949 source/build files. Nearby tests are linked where names
+Includes 1961 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -900,6 +900,10 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [sample-guide-state.ts](../../client/src/features/onboarding/lib/sample-guide-state.ts)
 - [sample-model.ts](../../client/src/features/onboarding/lib/sample-model.ts)
 
+## client/src/features/plugins/components
+
+- [TapflowPanel.tsx](../../client/src/features/plugins/components/TapflowPanel.tsx) · [test](../../client/src/features/plugins/components/__tests__/TapflowPanel.test.tsx)
+
 ## client/src/features/plugins/lib
 
 - [plugin-windows.ts](../../client/src/features/plugins/lib/plugin-windows.ts) · [test](../../client/src/features/plugins/lib/__tests__/plugin-windows.test.ts)
@@ -1467,6 +1471,11 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [make-soak.mjs](../../scripts/benchmark/scenarios/make-soak.mjs)
 - [make-soak2.mjs](../../scripts/benchmark/scenarios/make-soak2.mjs)
 - [make-speed.mjs](../../scripts/benchmark/scenarios/make-speed.mjs)
+
+## scripts/benchmarks
+
+- [intent-to-spec-matrix.mjs](../../scripts/benchmarks/intent-to-spec-matrix.mjs)
+- [intent-to-spec.mjs](../../scripts/benchmarks/intent-to-spec.mjs)
 
 ## server / agent
 
@@ -2530,6 +2539,21 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 - [composition.ts](../../server/modules/subscription-usage/runtime/composition.ts)
 - [usage-service.ts](../../server/modules/subscription-usage/runtime/usage-service.ts) · [test](../../server/modules/subscription-usage/runtime/usage-service.test.ts)
+
+## server/modules/tapflow
+
+- [application.ts](../../server/modules/tapflow/application.ts) · [test](../../server/modules/tapflow/__tests__/application.test.ts)
+- [domain.ts](../../server/modules/tapflow/domain.ts) · [test](../../server/modules/tapflow/__tests__/domain.test.ts)
+- [index.ts](../../server/modules/tapflow/index.ts)
+- [runtime.ts](../../server/modules/tapflow/runtime.ts)
+
+## server/modules/tapflow/adapters
+
+- [footprint.ts](../../server/modules/tapflow/adapters/footprint.ts)
+- [http.ts](../../server/modules/tapflow/adapters/http.ts)
+- [process.ts](../../server/modules/tapflow/adapters/process.ts)
+- [relay.ts](../../server/modules/tapflow/adapters/relay.ts)
+- [store.ts](../../server/modules/tapflow/adapters/store.ts)
 
 ## server/modules/terminals/domain
 

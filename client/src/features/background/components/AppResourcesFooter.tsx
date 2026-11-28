@@ -1,6 +1,6 @@
 import { useState, type ComponentType, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Activity, Bot, Box, ChevronRight, Cog, Cpu, GitBranch, HardDrive, Plug, Sparkles, Terminal, TrainTrack } from 'lucide-react'
+import { Activity, Bot, Box, ChevronRight, Cog, Cpu, GitBranch, HardDrive, Plug, Smartphone, Sparkles, Terminal, TrainTrack } from 'lucide-react'
 import { HoverPopover } from '../../../components/ui/hover-popover'
 import { cn } from '../../../lib/utils'
 import { openAppSettings } from '../../../lib/app-settings-events'
@@ -18,6 +18,7 @@ const CATEGORY_STYLE: Record<AppResourceCategoryId, { icon: ComponentType<{ clas
   rails: { icon: TrainTrack, bar: 'bg-accent-secondary' },
   background: { icon: Cog, bar: 'bg-accent-info' },
   terminals: { icon: Terminal, bar: 'bg-accent-success' },
+  tapflow: { icon: Smartphone, bar: 'bg-accent-warning' },
   'agent-cli': { icon: Sparkles, bar: 'bg-accent-intent' },
   mcp: { icon: Plug, bar: 'bg-accent-review' },
   git: { icon: GitBranch, bar: 'bg-foreground' },

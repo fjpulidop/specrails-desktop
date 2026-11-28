@@ -300,13 +300,17 @@ export class TerminalManager {
       projectDb?: DbInstance | null
       /** Resolved terminal settings (shell-integration toggle is the only field consumed today). */
       settings?: Pick<TerminalSettings, 'shellIntegrationEnabled'>
+      /** Runs this program in the PTY instead of the login shell (no shell integration), e.g. an installer. */
+      command?: { file: string; args: readonly string[]; env?: Record<string, string> }
+      /** Called once when the PTY exits, whether it ended by itself or was killed. */
+      onExit?: (exit: { code: number | null; signal: number | null }) => void
     },
   ): TerminalSessionMeta {
     const currentCount = this.byProject.get(projectId)?.size ?? 0
     if (currentCount >= TERMINAL_MAX_PER_PROJECT) throw new TerminalLimitExceededError()
 
-    const shell = resolveShell()
-    const baseArgs = shellArgs(shell)
+    const shell = opts.command?.file ?? resolveShell()
+    const baseArgs = opts.command ? [...opts.command.args] : shellArgs(shell)
     const cols = clampDim(opts.cols ?? TERMINAL_DEFAULT_COLS, 2, 1000)
     const rows = clampDim(opts.rows ?? TERMINAL_DEFAULT_ROWS, 2, 1000)
     // Build the PTY env from a SystemRoot-backfilled base so PowerShell/cmd can
@@ -320,6 +324,7 @@ export class TerminalManager {
     }
     env.TERM = 'xterm-256color'
     env.COLORTERM = 'truecolor'
+    for (const [k, v] of Object.entries(opts.command?.env ?? {})) env[k] = v
 
     const id = uuidv4()
     const projectSlug = opts.projectSlug ?? projectId
@@ -329,7 +334,8 @@ export class TerminalManager {
       shell,
       id,
       projectSlug,
-      opts.settings ?? { shellIntegrationEnabled: false },
+      // A given program is not a shell: integration would wrap it in a shell rc it never reads.
+      opts.command ? { shellIntegrationEnabled: false } : (opts.settings ?? { shellIntegrationEnabled: false }),
     )
     for (const [k, v] of Object.entries(shellIntegration.env)) env[k] = v
     const args = shellIntegration.replaceArgs ? shellIntegration.args : shellIntegration.args.length > 0
@@ -403,6 +409,7 @@ export class TerminalManager {
       }
       cleanupSessionShim(session.projectSlug, session.id)
       this.removeFromRegistry(session)
+      try { opts.onExit?.({ code: e?.exitCode ?? null, signal: e?.signal ?? null }) } catch { /* the owner's callback must not break PTY teardown */ }
     })
 
     this.sessions.set(id, session)

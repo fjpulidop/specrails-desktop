@@ -79,6 +79,7 @@ import { isNavigableUrl } from './modules/browser/runtime/browser-playwright'
 import { createTelemetryRouter } from './modules/accounting/runtime/telemetry-receiver'
 import { HEADROOM_RELAY_PATH, HeadroomManager } from './headroom-manager'
 import { createGlobalPluginsRouter } from './global-plugins-router'
+import { createTapflowRuntime, type TapflowPlugin } from './modules/tapflow'
 import { runCompactionForAll } from './modules/accounting/runtime/telemetry-compactor'
 import { FrameworkManager } from './framework-manager'
 import { withFileLock } from './artifact-registry'
@@ -421,6 +422,7 @@ let _agentChatManager: AgentChatManager | null = null
 let _sessionHosts: SessionHostRegistry | null = null
 let _blueprintChatManager: BlueprintChatManager | null = null
 let _headroomManager: HeadroomManager | null = null
+let _tapflowPlugin: TapflowPlugin | null = null
 
 server.on('upgrade', (request, socket, head) => {
   const urlStr = request.url ?? '/'
@@ -832,7 +834,12 @@ configureSharedRuntimePackageCache(path.join(resolveSpecrailsHome(), '.specrails
     { relayOrigin: `http://127.0.0.1:${port}` },
   )
   _headroomManager = headroomManager
-  app.use('/api/global-plugins', createGlobalPluginsRouter(headroomManager))
+  // Tapflow (iOS Simulator / Android emulator): not installed and inactive by default; a service that was
+  // active when the app stopped starts again.
+  const tapflowPlugin = createTapflowRuntime({ db: registry.desktopDb, broadcast: (message) => broadcast(message as unknown as WsMessage) })
+  _tapflowPlugin = tapflowPlugin
+  tapflowPlugin.restoreOnBoot().catch((err) => console.error('[tapflow] boot start failed:', err))
+  app.use('/api/global-plugins', createGlobalPluginsRouter(headroomManager, tapflowPlugin))
   headroomManager.startActiveProxyOnBoot().catch((err) => {
     console.error('[headroom] boot start failed:', err)
   })
@@ -1172,6 +1179,7 @@ async function shutdown(exitCode = 0): Promise<void> {
     Promise.resolve().then(() => bindRunAdmission(null)),
     Promise.resolve().then(() => _registry?.shutdown()),
     Promise.resolve().then(() => getTerminalManager().shutdown()),
+    Promise.resolve().then(() => _tapflowPlugin?.shutdown()),
     Promise.resolve().then(() => _mobileGateway?.stop()),
     Promise.resolve().then(() => _mcpManager?.stop()),
     Promise.resolve().then(() => _agentChatManager?.shutdown()),

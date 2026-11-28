@@ -21,7 +21,8 @@
     "mcp": "MCP 和运行器",
     "git": "Git",
     "other": "其他",
-    "server": "Specrails 服务器"
+    "server": "Specrails 服务器",
+    "tapflow": "Tapflow 与模拟器"
   },
   "items": {
     "server": "Specrails 服务器",

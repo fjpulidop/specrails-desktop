@@ -243,6 +243,27 @@ describe('TerminalManager lifecycle', () => {
     await tm.shutdown()
   })
 
+  it('runs a given program instead of the shell, with its env, and reports its exit to onExit', async () => {
+    const exits: Array<{ code: number | null; signal: number | null }> = []
+    const meta = tm.create('__app__', {
+      cwd: os.tmpdir(),
+      command: { file: process.execPath, args: ['-e', 'process.stdout.write("installer:" + process.env.SPECRAILS_PROBE); process.exit(7)'], env: { SPECRAILS_PROBE: 'ok' } },
+      onExit: (exit) => exits.push(exit),
+    })
+    expect(meta.shell).toBe(process.execPath)
+    expect(await waitFor(() => exits.length === 1, 5000)).toBe(true)
+    expect(exits[0]!.code).toBe(7)
+    // The output stays readable for a client attaching just after the exit (tombstone).
+    expect(tm.getTombstone(meta.id, '__app__')).toMatchObject({ code: 7 })
+  }, 10_000)
+
+  it('reports a killed program to onExit too', async () => {
+    const exits: Array<{ code: number | null; signal: number | null }> = []
+    const meta = tm.create('__app__', { cwd: os.tmpdir(), command: { file: process.execPath, args: ['-e', 'setInterval(() => {}, 1000)'] }, onExit: (exit) => exits.push(exit) })
+    tm.kill('__app__', meta.id)
+    expect(await waitFor(() => exits.length === 1, 5000)).toBe(true)
+  }, 10_000)
+
   it('spawns a PTY with project cwd and TERM/COLORTERM set', async () => {
     const meta = tm.create('proj-A', { cwd: os.tmpdir(), cols: 80, rows: 24 })
     expect(meta.projectId).toBe('proj-A')

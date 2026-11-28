@@ -137,7 +137,8 @@
       "cancel": "キャンセル",
       "installBusy": "インストール中…",
       "configureBusy": "設定中…",
-      "reviewBusy": "確認中…"
+      "reviewBusy": "確認中…",
+      "details": "詳細"
     },
     "status": {
       "attention": "要確認",
@@ -149,7 +150,8 @@
       "configuredCount_one": "{{count}} 件設定済み",
       "configuredCount_other": "{{count}} 件設定済み",
       "installedCount_one": "{{count}} 件インストール済み",
-      "installedCount_other": "{{count}} 件インストール済み"
+      "installedCount_other": "{{count}} 件インストール済み",
+      "unsupported": "利用不可"
     },
     "catalog": {
       "headroom": {
@@ -160,6 +162,9 @@
       },
       "serena": {
         "description": "Serena MCP によるプロジェクトローカルのセマンティックコードナビゲーション。"
+      },
+      "tapflow": {
+        "description": "Specrails から iOS シミュレーターと Android エミュレーターを動かし、エージェントが作ったアプリをテストさせます。"
       }
     },
     "headroom": {
@@ -335,6 +340,36 @@
       "configuredDescription": "Jira プロジェクト、ステータスのマッピング、破棄ステータス、同期、接続状態を管理します。",
       "loadFailed": "現在の Jira 設定を読み込めませんでした: {{message}}",
       "notConfiguredDescription": "このプロジェクトを Jira に接続します。"
+    },
+    "tapflow": {
+      "title": "Tapflow",
+      "dialogDescription": "iOS シミュレーターと Android エミュレーターを Specrails にストリーミングし、エージェントからも使えます。",
+      "loading": "Tapflow を確認中…",
+      "summary": "Specrails が Tapflow をインストール・実行・計測します。テスト中だけオンにしてください。デバイスは必要なときに起動します。",
+      "externalHint": "この Tapflow は Specrails の外で起動されました。Specrails は利用しますが停止しません。",
+      "activate": "Tapflow をオン",
+      "deactivate": "Tapflow をオフ",
+      "install": "インストール",
+      "uninstall": "アンインストール",
+      "requirementsLabel": "要件",
+      "requirements": {
+        "ios": "iOS シミュレーター: Apple Silicon の macOS と Xcode 26 または 27。",
+        "android": "Android エミュレーター: この Tapflow バージョンでは同じく Apple Silicon が必要です（Windows は未対応）。"
+      },
+      "installerHint": "ここで Tapflow のセットアップが実行されます。質問に答えてください（パスワードの入力、Android SDK のインストール、システム設定が開くことがあります）。",
+      "installerDone": "セットアップが完了しました。テストするときに Tapflow をオンにしてください。",
+      "installerFailed": "セットアップはコード {{code}} で終了しました。もう一度インストールを押せます。",
+      "phase": {
+        "unsupported": "このコンピュータでは利用できません",
+        "not-installed": "未インストール",
+        "installing": "インストール中…",
+        "installed": "インストール済み・オフ",
+        "starting": "起動中…",
+        "running": "オン",
+        "running-external": "オン（Specrails の外で起動）",
+        "failed": "失敗"
+      },
+      "rerunSetup": "セットアップを再実行"
     }
   }
 }

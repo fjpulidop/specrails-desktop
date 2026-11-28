@@ -2,7 +2,7 @@ import { API_ORIGIN } from '../../../lib/origin'
 import { requestJson } from '../../../lib/api-response'
 import type { ResourceSample } from './mission-resources-api'
 
-export type AppResourceCategoryId = 'missions' | 'rails' | 'background' | 'terminals' | 'agent-cli' | 'mcp' | 'git' | 'other' | 'server'
+export type AppResourceCategoryId = 'missions' | 'rails' | 'background' | 'terminals' | 'tapflow' | 'agent-cli' | 'mcp' | 'git' | 'other' | 'server'
 
 export interface AppResourceTotals { cpuPercent: number; memoryBytes: number; processCount: number }
 

@@ -21,7 +21,8 @@
     "mcp": "MCP y runners",
     "git": "Git",
     "other": "Otros",
-    "server": "Servidor de Specrails"
+    "server": "Servidor de Specrails",
+    "tapflow": "Tapflow y simuladores"
   },
   "items": {
     "server": "Servidor de Specrails",

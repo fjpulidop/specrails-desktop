@@ -103,6 +103,9 @@ const coreDependencies: Record<string, string[]> = {
   // Inbox (needs-you read-model): pure vocabulary; the collector depends only on its own port.
   'machine-installs/domain.ts': [],
   'machine-installs/application.ts': ['./domain'],
+  'tapflow/domain.ts': [],
+  'tapflow/application.ts': ['./domain'],
+  'tapflow/index.ts': ['./domain', './application', './adapters/http', './runtime'],
   'machine-installs/index.ts': ['./application', './domain'],
   'inbox/domain.ts': ['../../shared/run-question'],
   'inbox/ports.ts': ['./domain'],

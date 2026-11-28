@@ -12,6 +12,7 @@ import { attributeListeners, type AttributedListener, type RunPortLease } from '
 import { listeningPorts, type ListenerReader } from './modules/terminals/runtime/listening-ports'
 import { runPortLeases } from './modules/terminals/runtime/run-port-leases'
 import { listRailWorktrees } from './modules/delivery/runtime/rail-worktrees-store'
+import { tapflowResourceRoots, tapflowServicePid, withDeviceFootprints } from './modules/tapflow'
 import fs from 'node:fs'
 
 type Registry = Pick<ProjectRegistry, 'listContexts' | 'getProjectRow' | 'desktopDb'>
@@ -32,7 +33,7 @@ function titleOf(db: DbInstance | undefined, table: 'chat_conversations' | 'agen
 }
 
 /** Every process tree with a known owner, in attribution priority: agent sessions, rails/loops/jobs, background
- * processes, terminals. */
+ * processes, terminals, Tapflow. */
 export function listAppResourceRoots(registry: Registry, table: ProcessSample[]): AppResourceRoot[] {
   const roots: AppResourceRoot[] = []
   const projectName = (id: string | null | undefined) => (id ? registry.getProjectRow(id)?.name : undefined)
@@ -69,6 +70,8 @@ export function listAppResourceRoots(registry: Registry, table: ProcessSample[])
   for (const t of getTerminalManager().listProcessRoots()) {
     roots.push({ category: 'terminals', label: t.name, pid: t.pid, projectId: t.projectId, projectName: projectName(t.projectId) })
   }
+  // Tapflow (supervised or the person's own) and its booted devices; nothing when no Tapflow runs.
+  for (const root of tapflowResourceRoots(table, tapflowServicePid())) roots.push({ category: 'tapflow', ...root })
   return roots
 }
 
@@ -144,7 +147,8 @@ export function registerAppResourceRoutes(router: Router, registry: Registry, op
     }
   })
   const sampler = createAppResourcesSampler({
-    readProcessTable,
+    // Simulator memory as physical footprint (RSS overcounts their shared memory several times).
+    readProcessTable: options.readProcessTable ?? (async () => { const table = await readProcessTable(); return table && withDeviceFootprints(table) }),
     listRoots: options.listRoots ?? ((table) => listAppResourceRoots(registry, table)),
     serverPid: options.serverPid,
   })

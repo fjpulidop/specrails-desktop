@@ -21,7 +21,8 @@
     "mcp": "MCP とランナー",
     "git": "Git",
     "other": "その他",
-    "server": "Specrails サーバー"
+    "server": "Specrails サーバー",
+    "tapflow": "Tapflow とシミュレーター"
   },
   "items": {
     "server": "Specrails サーバー",

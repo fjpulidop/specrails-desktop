@@ -6,14 +6,15 @@
  */
 import type { MissionResourceTotals, ProcessSample } from './mission-resources'
 
-export type AppResourceCategoryId = 'missions' | 'rails' | 'background' | 'terminals' | 'agent-cli' | 'mcp' | 'git' | 'other' | 'server'
+export type AppResourceCategoryId = 'missions' | 'rails' | 'background' | 'terminals' | 'tapflow' | 'agent-cli' | 'mcp' | 'git' | 'other' | 'server'
 
 /** Display and attribution order. */
-export const APP_RESOURCE_CATEGORIES: readonly AppResourceCategoryId[] = ['missions', 'rails', 'background', 'terminals', 'agent-cli', 'mcp', 'git', 'other', 'server']
+export const APP_RESOURCE_CATEGORIES: readonly AppResourceCategoryId[] = ['missions', 'rails', 'background', 'terminals', 'tapflow', 'agent-cli', 'mcp', 'git', 'other', 'server']
 
 /** A process tree Specrails knows the owner of. */
 export interface AppResourceRoot {
-  category: 'missions' | 'rails' | 'background' | 'terminals'
+  /** `tapflow`: the Tapflow service and the simulators/emulators it runs (they descend from launchd, not from us). */
+  category: 'missions' | 'rails' | 'background' | 'terminals' | 'tapflow'
   label: string
   pid: number
   projectId?: string

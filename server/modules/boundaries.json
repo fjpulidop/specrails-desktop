@@ -4231,6 +4231,62 @@
       ]
     }
   },
+  "tapflow": {
+    "publicEntries": [
+      "index.ts"
+    ],
+    "dependencies": {
+      "adapters/footprint.ts": [
+        "../domain",
+        "node:child_process"
+      ],
+      "adapters/http.ts": [
+        "../application",
+        "express"
+      ],
+      "adapters/process.ts": [
+        "../application",
+        "../domain",
+        "node:child_process",
+        "node:fs",
+        "node:os",
+        "node:path"
+      ],
+      "adapters/relay.ts": [
+        "../application",
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ],
+      "adapters/store.ts": [
+        "../../../db",
+        "../../../desktop-db",
+        "../application",
+        "../domain"
+      ],
+      "application.ts": [
+        "./domain"
+      ],
+      "domain.ts": [],
+      "index.ts": [
+        "./adapters/http",
+        "./application",
+        "./domain",
+        "./runtime"
+      ],
+      "runtime.ts": [
+        "../../db",
+        "../../path-resolver",
+        "../terminals/runtime/terminal-manager",
+        "./adapters/footprint",
+        "./adapters/process",
+        "./adapters/relay",
+        "./adapters/store",
+        "./application",
+        "./domain"
+      ]
+    }
+  },
   "terminals": {
     "publicEntries": [
       "domain/app-resources.ts",
