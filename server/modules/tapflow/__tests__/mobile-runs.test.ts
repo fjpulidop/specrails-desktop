@@ -15,6 +15,7 @@ const tempRepo = (tree: Record<string, string>) => {
   return root
 }
 const IOS = { 'Shop.xcodeproj/project.pbxproj': 'productType = "com.apple.product-type.application";\nSDKROOT = iphoneos;\n' }
+const SDK = { sdk: '/sdk', jdk: null }
 const ANDROID = { 'settings.gradle.kts': '', 'app/build.gradle.kts': 'plugins { id("com.android.application") }' }
 
 describe('chooseScheme', () => {
@@ -43,10 +44,24 @@ describe('mobile builder', () => {
 
   it('reports a failing build with its command and log tail, and a missing artifact', async () => {
     const repo = tempRepo(ANDROID)
-    const failed = await createMobileBuilder({ runner: fakeRunner(repo, null, 1) })(repo, ['android'], () => {})
+    const failed = await createMobileBuilder({ runner: fakeRunner(repo, null, 1), android: () => SDK })(repo, ['android'], () => {})
     expect(failed).toMatchObject({ outcome: 'failed', command: './gradlew :app:assembleDebug', tail: expect.stringContaining('cannot be found') })
-    const empty = await createMobileBuilder({ runner: fakeRunner(repo, null, 0) })(repo, ['android'], () => {})
+    const empty = await createMobileBuilder({ runner: fakeRunner(repo, null, 0), android: () => SDK })(repo, ['android'], () => {})
     expect(empty).toMatchObject({ outcome: 'failed', detail: expect.stringContaining('no .apk') })
+  })
+
+  it('gives a Gradle build the SDK and JDK a worktree lacks, and stops early without an SDK', async () => {
+    vi.stubEnv('ANDROID_HOME', ''); vi.stubEnv('ANDROID_SDK_ROOT', ''); vi.stubEnv('JAVA_HOME', '')
+    try {
+      const repo = tempRepo(ANDROID)
+      const envs: Array<Record<string, string> | undefined> = []
+      const runner: StepRunner = { run: async (step, _cwd, _line, _timeout, env) => { envs.push(env); fs.mkdirSync(path.join(repo, 'app/build/outputs/apk/debug'), { recursive: true }); fs.writeFileSync(path.join(repo, 'app/build/outputs/apk/debug/app-debug.apk'), ''); return { code: 0, tail: '' } } }
+      const built = await createMobileBuilder({ runner, android: () => ({ sdk: '/sdk', jdk: '/jdk' }) })(repo, ['android'], () => {})
+      expect(built).toMatchObject({ outcome: 'built', artifacts: [{ platform: 'android', path: expect.stringContaining('app-debug.apk') }] })
+      expect(envs).toEqual([{ ANDROID_HOME: '/sdk', JAVA_HOME: '/jdk' }])
+      const missing = await createMobileBuilder({ runner, android: () => ({ sdk: null, jdk: '/jdk' }) })(repo, ['android'], () => {})
+      expect(missing).toMatchObject({ outcome: 'failed', detail: expect.stringContaining('No Android SDK') })
+    } finally { vi.unstubAllEnvs() }
   })
 
   it('says there is nothing to build for a platform the project does not have, and asks to share an unlisted scheme', async () => {

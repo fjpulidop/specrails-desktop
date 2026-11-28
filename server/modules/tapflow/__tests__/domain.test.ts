@@ -71,6 +71,13 @@ describe('service configuration', () => {
     expect(androidSdkCandidates({ ANDROID_HOME: '/a', ANDROID_SDK_ROOT: ' ' }, '/u')).toEqual(['/a', '/u/Library/Android/sdk'])
   })
 
+  it('gives a worktree Gradle build the SDK and JDK, never over the person\'s own variables', async () => {
+    const { androidBuildEnvironment } = await import('../domain')
+    expect(androidBuildEnvironment({}, { sdk: '/sdk', jdk: '/jdk' })).toEqual({ ANDROID_HOME: '/sdk', JAVA_HOME: '/jdk' })
+    expect(androidBuildEnvironment({ ANDROID_SDK_ROOT: '/mine', JAVA_HOME: '/myjdk' }, { sdk: '/sdk', jdk: '/jdk' })).toEqual({})
+    expect(androidBuildEnvironment({}, { sdk: null, jdk: null })).toEqual({})
+  })
+
   it('installs the pinned packages with the given Node and npm, then runs tapflow setup, quoting every path', () => {
     const script = installerScript({ nodePath: "/Apps/Spec rails/node", npmCli: '/n/npm-cli.js', toolsDir: "/h/o'k/tools", tapflowCli: '/h/tools/tapflow.js', home: '/h/tools/home' })
     expect(TAPFLOW_PACKAGES).toEqual([`tapflow@${TAPFLOW_VERSION}`, `@tapflowio/mcp-server@${TAPFLOW_VERSION}`])

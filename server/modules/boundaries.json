@@ -4250,6 +4250,13 @@
       "index.ts"
     ],
     "dependencies": {
+      "adapters/android-toolchain.ts": [
+        "../domain",
+        "node:child_process",
+        "node:fs",
+        "node:os",
+        "node:path"
+      ],
       "adapters/delivery.ts": [
         "../mobile-project",
         "./process",
@@ -4261,14 +4268,11 @@
         "node:path"
       ],
       "adapters/device-window.ts": [
-        "../domain",
+        "./android-toolchain",
         "./relay",
         "express",
         "node:child_process",
-        "node:crypto",
-        "node:fs",
-        "node:os",
-        "node:path"
+        "node:crypto"
       ],
       "adapters/footprint.ts": [
         "../domain",
@@ -4282,7 +4286,9 @@
         "express"
       ],
       "adapters/mobile-build.ts": [
+        "../domain",
         "../mobile-project",
+        "./android-toolchain",
         "node:child_process",
         "node:fs",
         "node:path",
@@ -4323,6 +4329,7 @@
       "adapters/process.ts": [
         "../application",
         "../domain",
+        "./android-toolchain",
         "node:child_process",
         "node:fs",
         "node:os",

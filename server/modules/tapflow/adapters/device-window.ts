@@ -13,11 +13,8 @@
  */
 import crypto from 'node:crypto'
 import { execFile } from 'node:child_process'
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
-import { androidSdkCandidates } from '../domain'
 import type { Request, Response } from 'express'
+import { adbPath } from './android-toolchain'
 import { createTapflowSecrets } from './relay'
 
 export interface DeviceTarget {
@@ -80,8 +77,7 @@ export function emulatorSerials(adbDevices: string): string[] {
  */
 async function shutdownDevice(target: DeviceTarget): Promise<void> {
   if (target.platform === 'ios') { await run('xcrun', ['simctl', 'shutdown', target.deviceId]); return }
-  const sdk = androidSdkCandidates(process.env, os.homedir()).find((dir) => fs.existsSync(path.join(dir, 'platform-tools', 'adb')))
-  const adb = sdk ? path.join(sdk, 'platform-tools', 'adb') : 'adb'
+  const adb = adbPath()
   const avd = target.deviceId.replace(/^avd:/, '')
   for (const serial of emulatorSerials(await run(adb, ['devices']))) {
     const name = (await run(adb, ['-s', serial, 'emu', 'avd', 'name'])).split('\n')[0]?.trim()

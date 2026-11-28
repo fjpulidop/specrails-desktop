@@ -7,10 +7,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {
-  androidSdkCandidates, installerScript, nodeMajor, serviceEnvironment, tapflowConfig, TAPFLOW_MIN_NODE_MAJOR,
+  installerScript, nodeMajor, serviceEnvironment, tapflowConfig, TAPFLOW_MIN_NODE_MAJOR,
   type TapflowIssue,
 } from '../domain'
 import type { InstallerTerminal, TapflowInstallation, TapflowService } from '../application'
+import { findAndroidSdk } from './android-toolchain'
 
 /** `<SPECRAILS_REGISTRY_HOME or ~>/.specrails/tools/tapflow`, beside Headroom's tools. */
 export function tapflowToolsDir(env: NodeJS.ProcessEnv = process.env): string {
@@ -156,7 +157,7 @@ export function createTapflowService(deps: { paths: TapflowPaths; spawnImpl?: ty
       const log = fs.openSync(paths.serviceLog, 'w')
       const base = { ...process.env }
       delete base.NODE_OPTIONS
-      const androidSdk = androidSdkCandidates(process.env, os.homedir()).find((sdk) => fs.existsSync(path.join(sdk, 'platform-tools', 'adb'))) ?? null
+      const androidSdk = findAndroidSdk()
       const env = { ...base, ...serviceEnvironment({ home: paths.home, port, preloadPath: paths.preload, nodeBinDir: path.dirname(nodePath), basePath: process.env.PATH ?? '/usr/bin:/bin:/usr/sbin', androidSdk }) }
       const proc = spawnImpl(nodePath, [paths.tapflowCli, 'start'], { cwd: paths.home, env, stdio: ['ignore', log, log] })
       fs.closeSync(log)

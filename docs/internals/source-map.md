@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1973 source/build files. Nearby tests are linked where names
+Includes 1974 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -2554,6 +2554,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## server/modules/tapflow/adapters
 
+- [android-toolchain.ts](../../server/modules/tapflow/adapters/android-toolchain.ts)
 - [delivery.ts](../../server/modules/tapflow/adapters/delivery.ts)
 - [device-window.ts](../../server/modules/tapflow/adapters/device-window.ts)
 - [footprint.ts](../../server/modules/tapflow/adapters/footprint.ts)

@@ -144,6 +144,22 @@ export function androidSdkCandidates(env: Record<string, string | undefined>, ho
   return [env.ANDROID_HOME, env.ANDROID_SDK_ROOT, `${home}/Library/Android/sdk`].filter((value): value is string => Boolean(value && value.trim()))
 }
 
+/** Android Studio's bundled JDK on macOS, the only JDK on many Macs set up for Android. */
+export const ANDROID_STUDIO_JDK = '/Applications/Android Studio.app/Contents/jbr/Contents/Home'
+
+/**
+ * What a Gradle build in a worktree needs beyond the server's environment. A worktree has no
+ * `local.properties` (Android Studio writes it and it is ignored), so the SDK comes from ANDROID_HOME; a
+ * Mac whose only JDK is Android Studio's has no `java` for Gradle unless JAVA_HOME points at it. The
+ * person's own variables always win.
+ */
+export function androidBuildEnvironment(env: Record<string, string | undefined>, found: { sdk: string | null; jdk: string | null }): Record<string, string> {
+  return {
+    ...(!env.ANDROID_HOME && !env.ANDROID_SDK_ROOT && found.sdk ? { ANDROID_HOME: found.sdk } : {}),
+    ...(!env.JAVA_HOME && found.jdk ? { JAVA_HOME: found.jdk } : {}),
+  }
+}
+
 /**
  * Shell script the installer terminal runs (macOS only, so zsh is always there): the pinned packages with
  * Specrails' Node and npm, then Tapflow's own interactive setup, whose prompts the person answers.
