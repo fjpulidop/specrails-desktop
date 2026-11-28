@@ -221,6 +221,70 @@ artifact lines stale (tasks.md "no direct test", a design assumption), a finding
 deriver that the re-derivation fixed (fixer 20 s, no code). Re-deriving after every tag step
 would cost ~60 s on each run to save it in one of three, so it is not done.
 
+### 2026-11-28 05:12 and 07:50 — final pass with experiment 6 (commit 85d87090)
+
+**Claude (sonnet), all ten synthetic cases: 10/10 success**, seven without a correction round.
+
+| Case | Minutes | USD | Rounds | Reviews |
+|---|---|---|---|---|
+| tetrisex-2 | 1.3 | 0.74 | 0 | 88 |
+| arkanoidex-11 | 2.0 | 0.77 | 0 | 86 |
+| tetrisex-9 | 2.2 | 0.90 | 0 | 88 |
+| arkanoidex-8 | 2.6 | 1.05 | 0 | 84 |
+| tetrisex-4 | 2.8 | 1.02 | 0 | 90 |
+| deckdex-3 | 3.0 | 0.92 | 0 | 88 |
+| arkanoidex-14 | 3.6 | 1.18 | 0 | 87 |
+| tetrisex-3 | 6.7 | 3.45 | 1 | 80 → 86 |
+| tetrisex-11 | 8.0 | 3.70 | 1 | 82 → 88 |
+| arkanoidex-12 | 8.9 | 2.80 | 1 | check failed → 86 |
+
+**Codex (gpt-6.2-sol), the spec #10 replay and the cases that had needed a round: 3/4 success**
+(tetrisex-3 not launched: the quota gate stopped the pass at 70 %).
+
+| Case | Minutes | USD | Rounds | Reviews |
+|---|---|---|---|---|
+| tetris-frame-pacing (spec #10) | 10.3 | 3.40 | 1 | 83 → 92 |
+| arkanoidex-14 | 10.8 | 3.18 | 1 | 88 → 90 |
+| arkanoidex-12 | 11.7 | 3.18 | 1 | check failed → 91 |
+| tetrisex-11 | 14.5 | 5.61 | 2 | 74 → 84 → 89, **failed** (budget spent) |
+
+Against the baseline (spec #10 on Codex: 21.5 min, 7.27 USD, failed) the same hand-off now
+succeeds in 10.3 min for 3.40 USD.
+
+What the remaining rounds were:
+
+- **arkanoidex-12 (both providers): a real defect.** The handed-off code exposed the title's
+  Play button as "Play ↗" (a decorative arrow in its accessible name), and 14 end-to-end tests
+  looking for "Play" failed. The tag step reported it instead of touching production code,
+  `check` failed, and the fixer gave the button an explicit accessible name. That round is the
+  flow doing its job.
+- **Every other round, on both providers, had one finding in common: tasks.md and design.md
+  still said a behaviour had no automated test, or left a changed test file out of the files
+  the change touches**, because they were derived before the tag step tagged or added those
+  tests. On Codex tetrisex-11 the third review's only issue (score 89) was exactly that, and it
+  ended the run.
+
+### 2026-11-28 08:33 — experiment 7: the tag step cites its tests as evidence
+
+The tag step now also updates the change's tasks.md and design.md: their test evidence cites the
+tests it tagged or added, and the files the change touches include every test file it changed.
+It still never edits the delta specs, the proposal, production code or existing assertions.
+(Mirrored in Core: fixture, docs and engine test.)
+
+Claude, the three cases where it mattered or as control:
+
+| Case | Final pass (exp. 6) | Exp. 7 |
+|---|---|---|
+| tetrisex-11 | 8.0 min, 3.70 USD, 1 round | **3.5 min, 1.20 USD, 0 rounds** (88) |
+| tetrisex-3 | 6.7 min, 3.45 USD, 1 round | **6.5 min, 1.75 USD, 0 rounds** (88) |
+| arkanoidex-14 | 3.6 min, 1.18 USD, 0 rounds | 3.6 min, 1.09 USD, 0 rounds (88) |
+
+A first exp. 7 pass at 07:22 ran with a sidecar that had not been rebuilt, so it executed the
+exp. 6 recipe (its runs' `definition_json` still had the old prompt); its three results are kept
+as `final-claude-repeat` samples of the final configuration (tetrisex-11 5.5 min / 1 round,
+tetrisex-3 6.9 min / 1 round, arkanoidex-14 3.5 min / 0 rounds, the same artifact findings). The
+harness now records each run's definition hash so a stale build shows in the results.
+
 ### Experiment 2 (reverted, see above) — the reviewer keeps its session
 
 From commit "perf(intent-spec): the reviewer keeps its session across rounds",
