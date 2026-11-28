@@ -95,7 +95,46 @@ resumed with `--resume 45b765d0-587f-4049-a4e5-4b78fd88d9f3` after the reset.
 - Codex is out of quota until 02:43, so the night starts on Claude (default model `sonnet`); the
   Codex comparison with the baseline follows when it resets.
 
-### Experiment 2 (pending measurement) — the reviewer keeps its session
+### 2026-11-28 02:35 — convergent review + reviewer session, on Claude (sonnet)
+
+Five synthetic cases (the night's first valid runs; Codex was out of quota):
+
+| Case | Changed lines | Outcome | Minutes | USD | AI turns | Rounds | Reviews (score, blocking issues) |
+|---|---|---|---|---|---|---|---|
+| tetrisex-9 | 143 | success | 2.6 | 1.51 | 5 | 1 | 78 (1) → 88 (0) |
+| arkanoidex-14 | 297 | success | 5.2 | 2.75 | 6 | 1 | 62 (5) → 86 (0) |
+| arkanoidex-12 | 171 | success | 4.1 | 2.20 | 5 | 1 | 58 (4) → 84 (0) |
+| tetrisex-4 | 388 | success | 1.8 | 0.66 | 2 | 0 | 90 (0) |
+| tetrisex-11 | 335 | success | 5.1 | 3.05 | 6 | 1 | 62 (5) → 86 (0) |
+| deckdex-3 (python) | 408 | failed | 1.4 | 0.43 | 1 | 0 | — (check could not start) |
+| deckdex-3, setup fix | 408 | scope-decision | 2.3 | 0.67 | 2 | 0 | 80 (2 "unrequested") |
+
+- **The review converges**: every correction round ended in approval at the second review, with
+  no new blocking issue (the baseline found new ones every round and never approved). The
+  re-review takes 9–17 s (the reviewer keeps its session) against 22–45 s for the first.
+- **Most first-round issues are requirement tags**: the Intent's tests cannot carry the ids
+  `[spec:<capability>/<slug>]` before derive invents them, so the first review always asked for
+  them, and a whole round (fix, re-derive, check, re-review: about half of each successful run)
+  was spent on it. The rest are real gaps (a requirement no test demonstrates). → experiment 3.
+- **Python projects could not pass Intent → Spec at all** (deckdex-3): the configured check is
+  `.venv/bin/python -m pytest`, but the flow-spec verify nodes, unlike the implement and PR CI
+  recipes, never ran the configured setup that builds the git-ignored venv in the fresh Intent
+  worktree (`spawn .venv/bin/python ENOENT`). Fixed in the recipe and the Core reference
+  definition (fjpulidop/specrails-core#489): both verify nodes take `setup: 'configured'`.
+- **Test scaffolding was treated as a scope question** (deckdex-3, second run): the reviewer
+  listed mocked `setUp` and new isolation tests as `unrequested`, which stops the run for the
+  person. `unrequested` is now product behaviour only. (A synthetic case has no conversation, so
+  its scope evidence is thinner than a real hand-off's.)
+
+### Experiment 3 — a tag step between derive and check (measuring)
+
+After each derivation a `tag` role-turn (developer, fixer stance; test titles and tag comments
+only, no assertions, tests, production code or `openspec/`) tags the existing tests with the
+derived requirement ids, so the first review judges real gaps instead of missing ids. Mirrored in
+the Core reference definition. Measured on the ten synthetic cases (Claude) and on
+tetris-frame-pacing (Codex, comparable with the baseline).
+
+### Experiment 2 (measured in the table above) — the reviewer keeps its session
 
 From commit "perf(intent-spec): the reviewer keeps its session across rounds",
 the review node uses `sessionContinuity: 'run'` (Core reuses the reviewer's

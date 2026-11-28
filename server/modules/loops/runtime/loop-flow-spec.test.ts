@@ -58,6 +58,11 @@ describe('flow-spec definition', () => {
     expect(tag.prompt).toContain('no assertions, no new tests, no production code, nothing under openspec/')
   })
 
+  it('re-derives after a correction round even when the fixer changed no code (an artifact finding)', () => {
+    expect(definition.nodes['fix-progress']!.ends).toEqual({ true: 'derive', false: 'derive' })
+    expect(definition.nodes['correction-budget']!.ends).toMatchObject({ false: FLOW_CHANGES_REQUESTED_END })
+  })
+
   it('prepares the configured setup before both verifications (a fresh worktree lacks git-ignored environments)', () => {
     expect(definition.nodes.check!.params).toMatchObject({ commands: 'configured', setup: 'configured' })
     expect(definition.nodes.verify!.params).toMatchObject({ commands: 'configured', setup: 'configured' })
@@ -114,7 +119,7 @@ describe('flow-spec definition', () => {
     expect(prompt).toContain('Do not edit anything under openspec/')
     expect(definition.nodes['review-policy']!.ends.false).toBe('review-findings')
     expect(definition.nodes.check!.ends.fail).toBe('check-findings')
-    expect(definition.nodes['fix-progress']!.ends).toEqual({ true: 'derive', false: FLOW_CHANGES_REQUESTED_END })
+    expect(definition.nodes['fix-progress']!.ends).toEqual({ true: 'derive', false: 'derive' })
     expect(definition.nodes['correction-budget']!.ends.false).toBe(FLOW_CHANGES_REQUESTED_END)
     expect(definition.nodes.init!.params).toMatchObject({ set: { correctionLimit: FLOW_CORRECTION_ROUNDS } })
     // The fixer writes: the run must deliver only a verified candidate.

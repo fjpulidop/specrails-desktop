@@ -197,7 +197,10 @@ export function flowSpecGraph(): LoopGraph {
     structuredOutput: FIX_SCHEMA,
     sessionContinuity: 'none',
   }, { next: 'fix-progress', invalid: 'failed', failed: 'failed' }, 720)
-  node('fix-progress', 'Check the correction changed the candidate', 'condition', { expr: 'exists($outputs.fix.candidateHash) && $outputs.fix.candidateHash != null && $outputs.fix.candidateHash != $outputs.check.candidateHash' }, { true: 'derive', false: FLOW_CHANGES_REQUESTED_END }, 720)
+  // A fixer that changed no code is not a dead end: a finding about the artifacts is the deriver's (the
+  // fixer may not edit openspec/), so it re-derives either way; the correction budget still bounds the
+  // rounds (benchmark case arkanoidex-12 ended at changes-requested over a stale baseline requirement).
+  node('fix-progress', 'Check the correction changed the candidate', 'condition', { expr: 'exists($outputs.fix.candidateHash) && $outputs.fix.candidateHash != null && $outputs.fix.candidateHash != $outputs.check.candidateHash' }, { true: 'derive', false: 'derive' }, 720)
   node('archive', 'Archive OpenSpec', 'openspec-archive', { change, requiresVerified: true }, { next: 'verify', failed: 'failed' })
   node('verify', 'Verify archived candidate', 'verify', { commands: 'configured', additionalCommandsFrom: 'derive', setup: 'configured' }, { pass: 'done', fail: 'failed', failed: 'failed' })
   nodes.push(
