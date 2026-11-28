@@ -8,8 +8,19 @@ Status: in progress (set to `complete` when the plan below is done).
 
 How to run: start the dev app (`~/.specrails-dev/.specrails/bench/devprobe/relaunch.sh`,
 after `npm run build:sidecar` and a host build when the server changed), then
-`node scripts/benchmarks/intent-to-spec.mjs ~/.specrails-dev/.specrails/bench/cases/<case>.json`.
-Results land in `~/.specrails-dev/.specrails/bench/results/` (`results.jsonl` one line per run).
+`node scripts/benchmarks/intent-to-spec.mjs ~/.specrails-dev/.specrails/bench/cases/<case>.json`
+(one case; `--provider/--model/--effort` override its engine, `--tag` labels the variant) or
+`node scripts/benchmarks/intent-to-spec-matrix.mjs [cases…] --parallel 2 --provider claude --tag <variant>`
+(several). Results land in `~/.specrails-dev/.specrails/bench/results/` (`results.jsonl` one line
+per run; lines with `invalid` are kept as evidence and excluded from comparisons).
+
+**Case corpus.** `tetris-frame-pacing` replays the real hand-off of spec #10 (its conversation is
+forked). Ten synthetic cases replay delivered hand-offs of real projects (arkanoidEX #8 #11 #12 #14,
+deckdex #3, tetrisEX #2 #3 #4 #9 #11; 140 to 2,600 changed lines): the Intent starts from the
+spec's title and intent (problem, outcome, success signals, constraints) with the code fixed at
+the handed-off commit, and no conversation. Each case runs in its own fixture clone, registered
+as a `bench-<case>` project, whose `main` is the case base and which has **no remote** (an Intent
+branches from the remote default branch when there is one).
 
 ## Baseline: the failed run of spec #10 (tetris, dev)
 
@@ -68,6 +79,21 @@ false`, so it would never resume by itself. Codex says "try again at Nov 28th,
 time or a named zone): from now on a limit-paused Intent → Spec run resumes on
 its own at the provider's reset. This run was recorded before the fix, so it is
 resumed with `--resume 45b765d0-587f-4049-a4e5-4b78fd88d9f3` after the reset.
+
+### 2026-11-28 01:40 — corpus, two reliability fixes, and run 1 invalidated
+
+- **Fixture bug (benchmark):** the first runs of the night (run 1 `45b765d0`, and the first
+  Claude runs of tetrisex-9 and arkanoidex-14) were based on the source repository's current
+  `origin/main`, not on the case base: the derived change "reverted" every feature merged since,
+  and the reviewer correctly stopped at `scope-decision`. Fixtures no longer have a remote and the
+  harness refuses to hand off an Intent based elsewhere. Those results are marked `invalid`; run 1
+  is stopped and the case runs again from scratch (the real baseline run `213f7ec7` had the right
+  base, `df8d881`).
+- **Quota bug (product):** a refusal whose prose gave no reset stayed "rejected indefinitely" even
+  though the usage window at 100 % said when it resets. It now takes that window's reset and
+  expires with it.
+- Codex is out of quota until 02:43, so the night starts on Claude (default model `sonnet`); the
+  Codex comparison with the baseline follows when it resets.
 
 ### Experiment 2 (pending measurement) — the reviewer keeps its session
 

@@ -129,7 +129,9 @@ export function flowSpecGraph(): LoopGraph {
   node('derive', 'Derive OpenSpec change', 'derive-change', { change, summaryPath: FLOW_SUMMARY_FILE, feedback: '{{run.latestFindings}}' }, { pass: 'check', fail: 'repair-guard' })
   node('repair-guard', 'Repair the derivation once', 'condition', { expr: `$vars.derivationRepairs < ${FLOW_DERIVATION_REPAIRS}` }, { true: 'repair-count', false: 'failed' }, 360)
   node('repair-count', 'Count derivation repair', 'assign', { increment: { derivationRepairs: 1 } }, { next: 'derive', failed: 'failed' }, 360)
-  node('check', 'Verify derived candidate', 'verify', { commands: 'configured', additionalCommandsFrom: 'derive' }, { pass: 'review', fail: 'check-findings', failed: 'failed' })
+  // The configured setup runs first (a Python project's venv, for example): the Intent worktree is a
+  // fresh checkout without the git-ignored environment its checks need (benchmark case deckdex-3).
+  node('check', 'Verify derived candidate', 'verify', { commands: 'configured', additionalCommandsFrom: 'derive', setup: 'configured' }, { pass: 'review', fail: 'check-findings', failed: 'failed' })
   node('check-findings', 'Capture failing verification', 'assign', { set: { latestFindings: 'Host verification failed for the current candidate: {{outputs.check}}' } }, { next: 'correction-budget', failed: 'failed' }, 720)
   node('review', 'Reviewer', 'role-turn', {
     roleId: 'reviewer',
@@ -179,7 +181,7 @@ export function flowSpecGraph(): LoopGraph {
   }, { next: 'fix-progress', invalid: 'failed', failed: 'failed' }, 720)
   node('fix-progress', 'Check the correction changed the candidate', 'condition', { expr: 'exists($outputs.fix.candidateHash) && $outputs.fix.candidateHash != null && $outputs.fix.candidateHash != $outputs.check.candidateHash' }, { true: 'derive', false: FLOW_CHANGES_REQUESTED_END }, 720)
   node('archive', 'Archive OpenSpec', 'openspec-archive', { change, requiresVerified: true }, { next: 'verify', failed: 'failed' })
-  node('verify', 'Verify archived candidate', 'verify', { commands: 'configured', additionalCommandsFrom: 'derive' }, { pass: 'done', fail: 'failed', failed: 'failed' })
+  node('verify', 'Verify archived candidate', 'verify', { commands: 'configured', additionalCommandsFrom: 'derive', setup: 'configured' }, { pass: 'done', fail: 'failed', failed: 'failed' })
   nodes.push(
     { id: 'done', type: 'end', position: { x: 0, y: nodes.length * 140 }, data: { outcome: 'success', requiresVerified: true } },
     { id: 'failed', type: 'end', position: { x: 360, y: nodes.length * 140 }, data: { outcome: 'failure' } },

@@ -49,6 +49,11 @@ describe('factory:flow-spec gating', () => {
 describe('flow-spec definition', () => {
   const definition = compileLoopToDefinition(flowSpecGraph(), { id: FLOW_SPEC_LOOP_ID, title: 'Intent → Spec', constants: {}, provider: 'claude', roles: { reviewer: { access: 'read' } } })
 
+  it('prepares the configured setup before both verifications (a fresh worktree lacks git-ignored environments)', () => {
+    expect(definition.nodes.check!.params).toMatchObject({ commands: 'configured', setup: 'configured' })
+    expect(definition.nodes.verify!.params).toMatchObject({ commands: 'configured', setup: 'configured' })
+  })
+
   it('matches the Core reference fixture shape (entry, roles, kinds, routing)', () => {
     expect(definition).toMatchObject({ id: 'factory-flow-spec', entry: fixture.entry, journal: fixture.journal, change: fixture.change, delivery: { requiresVerified: true } })
     expect(definition.roles).toEqual([...fixture.roles].sort())
