@@ -30,6 +30,28 @@ export const MOBILE_TEST_ENDS = {
   failed: 'failed',
 } as const
 
+/**
+ * What an edited Test in Mobile Device must keep to stay runnable (checked on publish, like Fix PR CI): it
+ * builds through `mobile.build` and puts the app on a device through `tapflow.deliver`, uses no other host
+ * task (Desktop performs only these two for it) and never changes the spec. Steps after the launch (an
+ * agent exploring the app with Tapflow's tools, say) and the end reasons are free to add.
+ */
+export function mobileTestGraphContractErrors(graph: LoopGraph): Array<{ code: string; message: string; nodeId?: string }> {
+  const errors: Array<{ code: string; message: string; nodeId?: string }> = []
+  const hostTasks = graph.nodes.filter(node => node.type === 'core' && (node.data as { kind?: unknown }).kind === 'host-task')
+  const task = (node: typeof hostTasks[number]) => ((node.data as { params?: { task?: unknown } }).params?.task)
+  for (const node of hostTasks) {
+    const name = task(node)
+    if (typeof name !== 'string' || !(MOBILE_TEST_HOST_TASKS as readonly string[]).includes(name)) {
+      errors.push({ code: 'mobile_test_unknown_host_task', nodeId: node.id, message: `"${String(name)}" is not a task Desktop performs for Test in Mobile Device (${MOBILE_TEST_HOST_TASKS.join(', ')}).` })
+    }
+  }
+  if (!hostTasks.some(node => task(node) === 'mobile.build')) errors.push({ code: 'mobile_test_no_build', message: 'Test in Mobile Device must build the app (a mobile.build host task).' })
+  if (!hostTasks.some(node => task(node) === 'tapflow.deliver')) errors.push({ code: 'mobile_test_no_device', message: 'Test in Mobile Device must put the app on a device (a tapflow.deliver host task).' })
+  if (graph.config.change !== 'none') errors.push({ code: 'mobile_test_changes_spec', message: 'Test in Mobile Device never changes the spec (change: none).' })
+  return errors
+}
+
 export function mobileTestGraph(): LoopGraph {
   const nodes: LoopNode[] = [{ id: 'start', type: 'start', position: { x: 0, y: 0 } }]
   const edges: LoopGraph['edges'] = [{ id: 'e-start', source: 'start', target: 'build' }]

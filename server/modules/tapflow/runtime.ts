@@ -11,7 +11,7 @@ import { createInstallation, createInstallerTerminal, createTapflowService, tapf
 import { createTapflowRelay } from './adapters/relay'
 import { createTapflowStore } from './adapters/store'
 import { createFootprintReader } from './adapters/footprint'
-import { createTapflowDelivery } from './adapters/delivery'
+import { createTapflowDelivery, createTapflowDeviceList, type ChoosableDevice } from './adapters/delivery'
 import { createMobileBuilder } from './adapters/mobile-build'
 import { createMobileTestHandlers } from './adapters/mobile-handlers'
 import { refreshMobileTestOffer, type MobileOfferEnv } from './adapters/mobile-offer'
@@ -83,7 +83,7 @@ export async function tapflowReady(): Promise<boolean> {
   return phase !== 'unsupported' && phase !== 'not-installed' && phase !== 'installing'
 }
 
-export const mobileOfferEnv: MobileOfferEnv = { tapflowReady }
+export const mobileOfferEnv: MobileOfferEnv = { tapflowReady, devices: () => tapflowDevices() }
 
 let deviceWindowsInstance: ReturnType<typeof createDeviceWindows> | null = null
 /** Device windows (tickets, the signed-in redirect, release on close), bound to the managed install. */
@@ -95,20 +95,24 @@ export function tapflowDeviceWindows(): ReturnType<typeof createDeviceWindows> {
   return deviceWindowsInstance
 }
 
+/** Where the managed Tapflow answers, for delivery and the device list. */
+const managedTarget = () => {
+  const state = currentStore?.read()
+  return state?.installedVersion && state.nodePath ? { port: state.port, nodePath: state.nodePath } : null
+}
+const managedAnswering = (port: number) => currentRelay?.answering(port) ?? Promise.resolve(false)
+
 /** Host-task handlers of `factory:mobile-test` for one project database. */
 export function createMobileTestHandlersFor(db: DbInstance, onFinished?: (runId: string) => void) {
-  const paths = tapflowPaths()
   return createMobileTestHandlers({
     store: createMobileRunsStore(db),
     build: createMobileBuilder(),
-    deliver: createTapflowDelivery({
-      paths,
-      target: () => {
-        const state = currentStore?.read()
-        return state?.installedVersion && state.nodePath ? { port: state.port, nodePath: state.nodePath } : null
-      },
-      answering: (port) => currentRelay?.answering(port) ?? Promise.resolve(false),
-    }),
+    deliver: createTapflowDelivery({ paths: tapflowPaths(), target: managedTarget, answering: managedAnswering }),
     onFinished,
   })
+}
+
+/** The devices a run can be pointed at, while Tapflow is on (null otherwise). */
+export function tapflowDevices(): Promise<ChoosableDevice[] | null> {
+  return createTapflowDeviceList({ paths: tapflowPaths(), target: managedTarget, answering: managedAnswering })()
 }

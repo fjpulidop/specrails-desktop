@@ -57,3 +57,26 @@ Once the app runs, the offer SHALL open the device in a native Specrails window 
 #### Scenario: Close the window
 - **WHEN** the person closes the device window and does not reopen it within the grace period
 - **THEN** the device is shut down and its screen capture stops
+
+### Requirement: Run from Loops
+Test in Mobile Device SHALL be listed in Loops with the built-ins while Core runs host tasks, editable in place and never copied or run as a generic or rail loop. Its card SHALL offer Run on a device: the person picks the project, what to test (the checkout as it is, a delivery on review, or a branch), the platform among those the code builds (remembered per project) and, optionally, the device per platform; the run is followed in the same dialog until the app is open, with a button per device. A branch SHALL be built in a temporary worktree outside the repository, removed when the run ends, so the checkout is never touched. The agents' MCP `mobile_test` SHALL take the same targets and devices. Publishing an edit SHALL keep its contract: a `mobile.build` and a `tapflow.deliver` step, no other host task, and no spec change.
+
+#### Scenario: Test the current code
+- **WHEN** the person runs it on the checkout with iOS chosen
+- **THEN** the checkout is built as it is, uncommitted changes included, and the app opens on an iOS device
+
+#### Scenario: Test a branch
+- **WHEN** the person runs it on a branch
+- **THEN** the branch is built in a temporary worktree, the checkout stays on its branch, and the worktree is removed once the run ends
+
+#### Scenario: Choose the device
+- **WHEN** the person picks a device that Tapflow lists
+- **THEN** the app runs on that device; if it is gone, Tapflow's usual pick applies
+
+#### Scenario: Not runnable
+- **WHEN** Tapflow is off or missing, Core cannot run host tasks, the branch does not exist or the code has no app for the platform
+- **THEN** nothing starts and the dialog says why
+
+#### Scenario: Gradle build in a worktree
+- **WHEN** an Android app is built in a worktree, which has no `local.properties`
+- **THEN** the build gets the Android SDK (ANDROID_HOME) and a JDK 17+ (JAVA_HOME, else Android Studio's) unless the person set their own

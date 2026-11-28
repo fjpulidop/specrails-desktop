@@ -558,18 +558,26 @@ export const integrationsTool = defineTool({
     // ── Test in Mobile Device (Tapflow) ──
     mobile_test: {
       tier: 'write',
-      doc: 'Builds the iOS/Android app of a delivery for the simulator and runs it on a Tapflow device (factory:mobile-test). options.delivery: the delivery ref or id (on review, or merged locally); options.platforms: ["ios"], ["android"] or both. Returns the run ref: wait on it with specrails_wait.',
+      doc: 'Builds the iOS/Android app for the simulator and runs it on a Tapflow device (factory:mobile-test). What to test: options.delivery (a delivery ref or id, on review or merged locally), or options.target "checkout" (the project checkout as it is) or "branch" with options.branch (built in a temporary worktree; the checkout is untouched). options.platforms: ["ios"], ["android"] or both. options.devices: { ios?, android? } Tapflow device ids to use (else Tapflow picks). Returns the run ref: wait on it with specrails_wait.',
       handler: async (ctx, args) => {
         const options = optionsOf(args)
         const parsed = parseRef(options.delivery)
         const deliveryId = parsed?.kind === 'delivery' ? parsed.id : str(options.delivery)
-        if (!deliveryId) throw new V2ToolError('invalid_input', 'mobile_test needs options.delivery (a delivery ref or id).')
+        const kind = str(options.target)
+        const branch = str(options.branch)
+        const target = deliveryId ? null
+          : kind === 'checkout' ? { kind: 'checkout' }
+          : kind === 'branch' && branch ? { kind: 'branch', branch }
+          : undefined
+        if (target === undefined) throw new V2ToolError('invalid_input', 'mobile_test needs options.delivery (a delivery ref or id), options.target "checkout", or options.target "branch" with options.branch.')
         const platforms = (Array.isArray(options.platforms) ? options.platforms : [options.platforms]).filter((value): value is 'ios' | 'android' => value === 'ios' || value === 'android')
         if (!platforms.length) throw new V2ToolError('invalid_input', 'mobile_test needs options.platforms: ["ios"], ["android"] or both.')
+        const devicesIn = asRecord(options.devices)
+        const devices = Object.fromEntries((['ios', 'android'] as const).flatMap((platform) => (str(devicesIn[platform]) ? [[platform, str(devicesIn[platform])]] : [])))
         const { row, base } = projectBase(ctx, parsed?.project && args.project === undefined ? { ...args, project: parsed.project } : args)
-        const out = asRecord(await apiCall(ctx, 'POST', `${base}/mobile-test/start`, { deliveryId, platforms }))
+        const out = asRecord(await apiCall(ctx, 'POST', `${base}/mobile-test/start`, { ...(deliveryId ? { deliveryId } : { target }), platforms, ...(Object.keys(devices).length ? { devices } : {}) }))
         const run = formatRef('run', String(out.runId), row.slug)
-        return result({ run, platforms }, writeMeta(ctx.v2.t('integrations.summary.mobile_test_started', { platforms: platforms.map((platform) => (platform === 'ios' ? 'iOS' : 'Android')).join(' + ') }), { refs: { run, delivery: formatRef('delivery', deliveryId, row.slug) } }))
+        return result({ run, platforms }, writeMeta(ctx.v2.t('integrations.summary.mobile_test_started', { platforms: platforms.map((platform) => (platform === 'ios' ? 'iOS' : 'Android')).join(' + ') }), { refs: { run, ...(deliveryId ? { delivery: formatRef('delivery', deliveryId, row.slug) } : {}) } }))
       },
     },
     plugins_deactivate: { tier: 'write', required: ['id'], doc: 'Turns a plugin off without uninstalling (Headroom: options.provider).', handler: (ctx, args) => pluginOp(ctx, args, 'deactivate') },

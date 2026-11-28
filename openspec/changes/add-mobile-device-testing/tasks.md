@@ -19,3 +19,11 @@
 
 - [x] 3.1 Suites and typecheck
 - [x] 3.2 Live: an iOS sample project from the offer to the app running on the simulator
+
+## 5. Run from Loops
+
+- [x] 5.1 Seed `factory:mobile-test` as an editable built-in; never copied, never a generic or rail loop; publish contract
+- [x] 5.2 Start on a checkout, a delivery or a branch (temporary worktree, removed at the end), with a chosen device per platform; options and run view routes
+- [x] 5.3 Loops card Run on a device and its dialog; a loop window asks the main window to open the device; strings in the 8 locales
+- [x] 5.4 MCP `mobile_test` with `target` checkout/branch and `devices`
+- [x] 5.5 Gradle builds get ANDROID_HOME and a JDK 17+; live: an Android app from the loop to the emulator

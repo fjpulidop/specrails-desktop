@@ -209,6 +209,15 @@ describe('plugins and Headroom', () => {
     expect((await tool({ action: 'mobile_test', options: { delivery: 'd-7', platforms: ['web'] } })).envelope.error.code).toBe('invalid_input')
   })
 
+  it('[spec:mobile-device-testing/run-from-loops] starts a mobile test on the checkout or a branch, with chosen devices', async () => {
+    route(`POST ${P}/mobile-test/start`, { status: 202, body: { runId: 'r-43' } })
+    expect((await tool({ action: 'mobile_test', options: { target: 'checkout', platforms: ['ios'], devices: { ios: 'SIM-1', web: 'x' } } })).envelope.ok).toBe(true)
+    expect(calls(`POST ${P}/mobile-test/start`)[0].body).toEqual({ target: { kind: 'checkout' }, platforms: ['ios'], devices: { ios: 'SIM-1' } })
+    expect((await tool({ action: 'mobile_test', options: { target: 'branch', branch: 'feat/x', platforms: ['android'] } })).envelope.ok).toBe(true)
+    expect(calls(`POST ${P}/mobile-test/start`)[1].body).toEqual({ target: { kind: 'branch', branch: 'feat/x' }, platforms: ['android'] })
+    expect((await tool({ action: 'mobile_test', options: { target: 'branch', platforms: ['android'] } })).envelope.error.code).toBe('invalid_input')
+  })
+
   it('confirms an uninstall', async () => {
     route(`GET ${P}/plugins`, { body: { plugins: [{ name: 'serena', status: 'installed', version: '1' }] } })
     route(`DELETE ${P}/plugins/serena`, { body: { ok: true } })

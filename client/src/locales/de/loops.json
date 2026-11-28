@@ -62,7 +62,8 @@
     "originalCopyName": "Original: {{name}}",
     "convert": "In Core umwandeln",
     "more": "Weitere Aktionen",
-    "runOnPr": "Auf einem PR ausführen…"
+    "runOnPr": "Auf einem PR ausführen…",
+    "runOnDevice": "Auf einem Gerät ausführen…"
   },
   "card": {
     "nodes_one": "{{count}} Knoten",
@@ -326,6 +327,10 @@
     "factory_pr-ci": {
       "name": "PR-CI reparieren",
       "description": "Behält die CI eines Pull Requests im Blick: wartet auf die Checks, behebt Fehler und Merge-Konflikte mit dem Basis-Branch, verifiziert lokal und pusht, bis die Checks grün sind."
+    },
+    "factory_mobile-test": {
+      "name": "Auf Mobilgerät testen",
+      "description": "Baut die iOS- oder Android-App für den Simulator und startet sie auf einem Tapflow-Gerät. Wird nach einer Lieferung angeboten oder hier mit dem gewählten Code gestartet. Deterministisch, ohne KI-Zug."
     }
   },
   "import": {
@@ -424,5 +429,51 @@
       "pr_ci_disabled": "Der PR-CI-Loop ist auf diesem Rechner ausgeschaltet.",
       "generic": "Die Reparatur konnte nicht gestartet werden."
     }
+  },
+  "runOnDevice": {
+    "title": "Auf Mobilgerät testen",
+    "description": "Baut die App für den Simulator und öffnet sie auf einem Tapflow-Gerät. Wähle den Code zum Testen; nichts wird veröffentlicht oder zusammengeführt.",
+    "project": "Projekt",
+    "loading": "Wird geladen…",
+    "what": "Was testen",
+    "target": {
+      "checkout": "Aktueller Code",
+      "delivery": "Eine Lieferung im Review",
+      "branch": "Ein Branch"
+    },
+    "checkoutHint": "Baut deinen Checkout im aktuellen Zustand ({{branch}}), inklusive nicht committeter Änderungen. Build-Ausgaben landen in Ordnern, die Git meist ignoriert.",
+    "checkoutNoApp": "Der Checkout hat keine iOS- oder Android-App, die Specrails bauen kann. Wähle eine Lieferung oder einen Branch.",
+    "detached": "losgelöster HEAD",
+    "branchHint": "Wird in einer temporären Kopie gebaut, die nach dem Lauf entfernt wird: dein Checkout bleibt unberührt.",
+    "deliveryHint": "Baut die eigene Arbeitskopie der Lieferung, bevor du darüber entscheidest.",
+    "platformLabel": "Plattform",
+    "both": "Beide",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "deviceLabel": "Gerät (optional)",
+    "deviceFor": "Gerät für {{platform}}",
+    "deviceAuto": "Beliebiges {{platform}}-Gerät (Tapflow wählt)",
+    "deviceBooted": "{{device}} (läuft)",
+    "tapflowOff": "Tapflow ist aus. Schalte es unter Plugins ▸ Tapflow ein, um auf einem Gerät auszuführen.",
+    "cancel": "Abbrechen",
+    "submit": "Auf Gerät ausführen",
+    "starting": "Wird gestartet…",
+    "close": "Schließen",
+    "running": "Wird gebaut und auf dem Gerät installiert…",
+    "launched": "Läuft: {{summary}}",
+    "failed": "Der Mobiltest wurde nicht abgeschlossen.",
+    "openDevice": "{{device}} öffnen",
+    "runHint": "Der Lauf erscheint auch bei den Läufen des Projekts, mit vollständigem Log.",
+    "errors": {
+      "branch_not_found": "Dieser Branch existiert in diesem Projekt nicht.",
+      "no_app": "Dieser Code hat keine App für die gewählte Plattform.",
+      "delivery_code_gone": "Der Code dieser Lieferung ist nicht mehr auf diesem Rechner (veröffentlicht oder verworfen).",
+      "tapflow_not_installed": "Tapflow ist nicht installiert. Installiere es unter Plugins ▸ Tapflow.",
+      "engine_unsupported": "Auf Mobilgerät testen braucht eine Specrails Core, die Host-Aufgaben ausführt. Aktualisiere Core.",
+      "generic": "Der Mobiltest konnte nicht gestartet werden."
+    },
+    "onDevice": "{{platform}} auf {{device}}"
   }
 }

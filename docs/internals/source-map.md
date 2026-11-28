@@ -5,7 +5,7 @@ architectural dependency declaration. Search a heading or filename and read only
 the relevant source and tests. Feature prefixes group the legacy server files;
 new bounded modules live under `server/modules/`.
 
-Includes 1974 source/build files. Nearby tests are linked where names
+Includes 1976 source/build files. Nearby tests are linked where names
 match; integration suites may live elsewhere. Use `rg` to find other consumers.
 
 ## cli
@@ -652,6 +652,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [LoopTurnLimits.tsx](../../client/src/features/loops/components/LoopTurnLimits.tsx) · [test](../../client/src/features/loops/components/LoopTurnLimits.test.tsx)
 - [LoopWindowSurface.tsx](../../client/src/features/loops/components/LoopWindowSurface.tsx) · [test](../../client/src/features/loops/components/__tests__/LoopWindowSurface.test.tsx)
 - [ReviewerFamilySuggestion.tsx](../../client/src/features/loops/components/ReviewerFamilySuggestion.tsx) · [test](../../client/src/features/loops/components/ReviewerFamilySuggestion.test.tsx)
+- [RunOnDeviceDialog.tsx](../../client/src/features/loops/components/RunOnDeviceDialog.tsx) · [test](../../client/src/features/loops/components/__tests__/RunOnDeviceDialog.test.tsx)
 - [RunOnPrDialog.tsx](../../client/src/features/loops/components/RunOnPrDialog.tsx)
 - [TemplatePreviewModal.tsx](../../client/src/features/loops/components/TemplatePreviewModal.tsx) · [test](../../client/src/features/loops/components/__tests__/TemplatePreviewModal.test.tsx)
 
@@ -690,6 +691,7 @@ match; integration suites may live elsewhere. Use `rg` to find other consumers.
 - [loop-validate.ts](../../client/src/features/loops/lib/loop-validate.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-validate.test.ts)
 - [loop-windows.ts](../../client/src/features/loops/lib/loop-windows.ts) · [test](../../client/src/features/loops/lib/__tests__/loop-windows.test.ts)
 - [loops-api.ts](../../client/src/features/loops/lib/loops-api.ts) · [test](../../client/src/features/loops/lib/__tests__/loops-api.test.ts)
+- [mobile-test-run.ts](../../client/src/features/loops/lib/mobile-test-run.ts)
 - [pr-ci-run.ts](../../client/src/features/loops/lib/pr-ci-run.ts)
 - [reviewer-family-suggestion.ts](../../client/src/features/loops/lib/reviewer-family-suggestion.ts) · [test](../../client/src/features/loops/lib/reviewer-family-suggestion.test.ts)
 - [runtime-graph-edges.ts](../../client/src/features/loops/lib/runtime-graph-edges.ts) · [test](../../client/src/features/loops/lib/__tests__/runtime-graph-edges.test.ts)

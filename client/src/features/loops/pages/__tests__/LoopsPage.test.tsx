@@ -276,6 +276,20 @@ describe('LoopsPage', () => {
     expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument()
   })
 
+  it('[spec:mobile-device-testing/run-from-loops] lists Test in Mobile Device with a Run on a device button, never copied', async () => {
+    api.list.mockResolvedValue([
+      loop({ id: 'factory:mobile-test', name: 'Test in Mobile Device', status: 'published', builtinId: 'factory:mobile-test', builtinModified: false }),
+    ])
+    renderPage()
+    const card = await screen.findByTestId('builtin-loop-card')
+    expect(within(card).getByRole('button', { name: 'Run on a device…' })).toBeInTheDocument()
+    expect(within(card).queryByRole('button', { name: 'Run on a PR…' })).not.toBeInTheDocument()
+    fireEvent.click(within(card).getByRole('button', { name: 'More actions' }))
+    expect(screen.queryByRole('menuitem', { name: 'Duplicate' })).not.toBeInTheDocument()
+    fireEvent.click(within(card).getByRole('button', { name: 'Run on a device…' }))
+    expect(await screen.findByTestId('run-on-device-dialog')).toBeInTheDocument()
+  })
+
   it('runs Fix PR CI on a pasted PR and opens its mission; a refusal is explained and starts nothing', async () => {
     api.list.mockResolvedValue([
       loop({ id: 'factory:pr-ci', name: 'Fix PR CI', status: 'published', builtinId: 'factory:pr-ci', builtinModified: false }),

@@ -59,6 +59,7 @@ load every UI component. Changes to this surface require updating the boundary m
 - [hooks/useOpenMission.ts](hooks/useOpenMission.ts)
 - [lib/agent-api.ts](lib/agent-api.ts)
 - [lib/agent-refs.ts](lib/agent-refs.ts)
+- [lib/device-windows.ts](lib/device-windows.ts)
 - [lib/mission-run-state.ts](lib/mission-run-state.ts)
 - [lib/mission-search.ts](lib/mission-search.ts)
 - [lib/mission-windows.ts](lib/mission-windows.ts)

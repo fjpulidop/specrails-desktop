@@ -1,4 +1,4 @@
-import { PR_CI_LOOP_ID } from '../../../lib/builtin-loop-ids'
+import { MOBILE_TEST_LOOP_ID, PR_CI_LOOP_ID } from '../../../lib/builtin-loop-ids'
 import { ExternalLink } from 'lucide-react'
 import { isLoopWindowRoute, openLoopWindow } from '../lib/loop-windows'
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -7,8 +7,9 @@ import { LoopMigrationPanel } from '../components/LoopMigrationPanel'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { PageHeader } from '../../../components/ui/page-header'
-import { Workflow, Plus, Pencil, Trash2, Copy, Upload, Download, Sparkles, Eye, Play, FileDown, FileUp, RotateCcw, MoreHorizontal, GitPullRequest } from 'lucide-react'
+import { Workflow, Plus, Pencil, Trash2, Copy, Upload, Download, Sparkles, Eye, Play, FileDown, FileUp, RotateCcw, MoreHorizontal, GitPullRequest, Smartphone } from 'lucide-react'
 import { RunOnPrDialog } from '../components/RunOnPrDialog'
+import { RunOnDeviceDialog } from '../components/RunOnDeviceDialog'
 import { buildExportEnvelope, parseImportFile, exportFilename } from '../lib/loop-export'
 import { filterTemplates, categoryCounts } from '../lib/loop-template-filter'
 import { TemplatePreviewModal } from '../components/TemplatePreviewModal'
@@ -75,6 +76,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
   const [previewTemplate, setPreviewTemplate] = useState<LoopTemplateSummary | null>(null)
   const [confirmRestoreId, setConfirmRestoreId] = useState<string | null>(null)
   const [runOnPrOpen, setRunOnPrOpen] = useState(false)
+  const [runOnDeviceOpen, setRunOnDeviceOpen] = useState(false)
   const [runLoop, setRunLoop] = useState<LoopDefinition | null>(null)
   const [conversionLoop, setConversionLoop] = useState<LoopDefinition | null>(null)
   // Multi-select for export. Selection is over user loops only (drafts+published).
@@ -418,12 +420,14 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
                     onToggleSelect={() => toggleSelect(loop.id)}
                     onEdit={() => openBuilder(loop.id)}
                     onPublish={loop.status === 'draft' ? () => handlePublish(loop.id) : undefined}
-                    // Fix PR CI runs on pull requests as itself: it is improved in place, never copied.
-                    onDuplicate={loop.id === PR_CI_LOOP_ID ? undefined : () => handleDuplicate(loop.id)}
+                    // Fix PR CI and Test in Mobile Device run as themselves: improved in place, never copied.
+                    onDuplicate={loop.id === PR_CI_LOOP_ID || loop.id === MOBILE_TEST_LOOP_ID ? undefined : () => handleDuplicate(loop.id)}
                     onExport={() => downloadLoops([loop])}
                     onRestore={loop.builtinModified ? () => setConfirmRestoreId(loop.id) : undefined}
                     // Fix PR CI on any open PR the person can push to, on demand.
                     onRunOnPr={loop.id === PR_CI_LOOP_ID && loop.status === 'published' ? () => setRunOnPrOpen(true) : undefined}
+                    // Test in Mobile Device on the code the person picks (checkout, delivery or branch).
+                    onRunOnDevice={loop.id === MOBILE_TEST_LOOP_ID && loop.status === 'published' ? () => setRunOnDeviceOpen(true) : undefined}
                   />
                 ))}
               </Section>
@@ -557,6 +561,7 @@ export default function LoopsPage({ onOpenBuilder, onWindowOpened, inDialog = fa
 
       {/* Restore-original confirm for an edited built-in. */}
       {runOnPrOpen && <RunOnPrDialog onClose={() => setRunOnPrOpen(false)} />}
+      {runOnDeviceOpen && <RunOnDeviceDialog projects={projects.map((project) => ({ id: project.id, name: project.name }))} initialProjectId={activeProjectId} onClose={() => setRunOnDeviceOpen(false)} />}
       <ConfirmDialog
         open={confirmRestoreId !== null}
         onOpenChange={(o) => { if (!o) setConfirmRestoreId(null) }}
@@ -619,6 +624,7 @@ function LoopCard({
   onRun,
   onRestore,
   onRunOnPr,
+  onRunOnDevice,
 }: {
   loop: LoopDefinition
   /** Built-in loop: badge, no Delete/Unpublish/Convert; Restore when edited. */
@@ -640,6 +646,8 @@ function LoopCard({
   onRestore?: () => void
   /** Fix PR CI: start it on a pull request the person pastes. */
   onRunOnPr?: () => void
+  /** Test in Mobile Device: start it on the code the person picks. */
+  onRunOnDevice?: () => void
 }) {
   const { t } = useTranslation('loops')
   const nodeCount = loop.graph?.nodes?.length ?? 0
@@ -672,6 +680,7 @@ function LoopCard({
       <div className="flex items-center gap-1">
         {onRun && <CardButton icon={Play} label={t('actions.run')} onClick={onRun} />}
         {onRunOnPr && <CardButton icon={GitPullRequest} label={t('actions.runOnPr')} onClick={onRunOnPr} />}
+        {onRunOnDevice && <CardButton icon={Smartphone} label={t('actions.runOnDevice')} onClick={onRunOnDevice} />}
         <CardButton icon={Pencil} label={t('actions.edit')} onClick={onEdit} />
         <DropdownMenu>
           <DropdownMenuTrigger

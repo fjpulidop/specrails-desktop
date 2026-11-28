@@ -62,7 +62,8 @@
     "originalCopyName": "Original: {{name}}",
     "convert": "Convert to Core",
     "more": "More actions",
-    "runOnPr": "Run on a PR…"
+    "runOnPr": "Run on a PR…",
+    "runOnDevice": "Run on a device…"
   },
   "card": {
     "nodes_one": "{{count}} node",
@@ -326,6 +327,10 @@
     "factory_pr-ci": {
       "name": "Fix PR CI",
       "description": "Keeps an eye on a pull request's CI: waits for the checks, fixes failures and merge conflicts with the base branch, verifies locally and pushes, until the checks are green."
+    },
+    "factory_mobile-test": {
+      "name": "Test in Mobile Device",
+      "description": "Builds the iOS or Android app for the simulator and runs it on a Tapflow device. Offered after a delivery, or run here on the code you pick. Deterministic, no AI turn."
     }
   },
   "import": {
@@ -424,5 +429,51 @@
       "pr_ci_disabled": "The PR CI loop is turned off on this machine.",
       "generic": "The repair could not be started."
     }
+  },
+  "runOnDevice": {
+    "title": "Test in Mobile Device",
+    "description": "Builds the app for the simulator and opens it on a Tapflow device. Pick the code to test; nothing is published or merged.",
+    "project": "Project",
+    "loading": "Loading…",
+    "what": "What to test",
+    "target": {
+      "checkout": "Current code",
+      "delivery": "A delivery on review",
+      "branch": "A branch"
+    },
+    "checkoutHint": "Builds your checkout as it is now ({{branch}}), uncommitted changes included. Build output goes to folders Git usually ignores.",
+    "checkoutNoApp": "The checkout has no iOS or Android app Specrails can build. Pick a delivery or a branch.",
+    "detached": "detached HEAD",
+    "branchHint": "Built in a temporary copy, removed when the run ends: your checkout is not touched.",
+    "deliveryHint": "Builds the delivery's own working copy, before you decide on it.",
+    "platformLabel": "Platform",
+    "both": "Both",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "deviceLabel": "Device (optional)",
+    "deviceFor": "Device for {{platform}}",
+    "deviceAuto": "Any {{platform}} device (Tapflow picks)",
+    "deviceBooted": "{{device}} (running)",
+    "tapflowOff": "Tapflow is off. Turn it on in Plugins ▸ Tapflow to run on a device.",
+    "cancel": "Cancel",
+    "submit": "Run on device",
+    "starting": "Starting…",
+    "close": "Close",
+    "running": "Building and installing on the device…",
+    "launched": "Running: {{summary}}",
+    "failed": "The mobile test did not finish.",
+    "openDevice": "Open {{device}}",
+    "runHint": "The run also appears with the project's runs, with its full log.",
+    "errors": {
+      "branch_not_found": "That branch does not exist in this project.",
+      "no_app": "This code has no app for the chosen platform.",
+      "delivery_code_gone": "The code of this delivery is no longer on this machine (it was published or discarded).",
+      "tapflow_not_installed": "Tapflow is not installed. Install it in Plugins ▸ Tapflow.",
+      "engine_unsupported": "Test in Mobile Device needs a Specrails Core that runs host tasks. Update Core.",
+      "generic": "Could not start the mobile test."
+    },
+    "onDevice": "{{platform}} on {{device}}"
   }
 }

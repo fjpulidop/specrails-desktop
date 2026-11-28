@@ -55,9 +55,9 @@ describe('built-in loop seeding', () => {
     // Unknown capabilities never rewrite existing rows.
     expect((await ensureBuiltinLoops(db, noCore)).refreshed).toEqual([])
     const refreshed = await ensureBuiltinLoops(db, withCore)
-    // Implement moves to its definition variant; Fix PR CI appears once Core can run it.
+    // Implement moves to its definition variant; Fix PR CI and Test in Mobile Device appear once Core can run them.
     expect(refreshed.refreshed).toEqual(['factory:implement'])
-    expect(refreshed.inserted).toEqual(['factory:pr-ci'])
+    expect(refreshed.inserted).toEqual(['factory:pr-ci', 'factory:mobile-test'])
     const row = getLoop(db, 'factory:implement')!
     expect(isDefinitionGraph(row.graph)).toBe(true)
     expect(row.builtinModified).toBe(false)
@@ -78,12 +78,12 @@ describe('built-in loop seeding', () => {
     expect(isDefinitionGraph(row.graph)).toBe(false)
   })
 
-  it('seeds Implement, and Fix PR CI only when Core runs host tasks: Freestyle and Quick SDD are no longer built-ins', async () => {
+  it('seeds Implement, and Fix PR CI and Test in Mobile Device only when Core runs host tasks: Freestyle and Quick SDD are no longer built-ins', async () => {
     await ensureBuiltinLoops(db, withCore)
-    expect([...EDITABLE_BUILTIN_LOOP_IDS]).toEqual(['factory:implement', 'factory:pr-ci'])
+    expect([...EDITABLE_BUILTIN_LOOP_IDS]).toEqual(['factory:implement', 'factory:pr-ci', 'factory:mobile-test'])
     expect(getLoop(db, 'factory:freestyle')).toBeUndefined()
     expect(getLoop(db, 'factory:sdd-quick-openspec')).toBeUndefined()
-    expect(builtinLoopDefaults(CORE).map((d) => d.id)).toEqual(['factory:implement', 'factory:pr-ci'])
+    expect(builtinLoopDefaults(CORE).map((d) => d.id)).toEqual(['factory:implement', 'factory:pr-ci', 'factory:mobile-test'])
     expect(builtinLoopDefaults({ engineV2: 1, workflowDefinitions: 1 }).map((d) => d.id)).toEqual(['factory:implement'])
     expect(builtinLoopDefaults(undefined).map((d) => d.id)).toEqual(['factory:implement'])
   })

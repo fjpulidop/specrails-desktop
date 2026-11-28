@@ -62,7 +62,8 @@
     "originalCopyName": "原始图：{{name}}",
     "convert": "转换为Core",
     "more": "更多操作",
-    "runOnPr": "在 PR 上运行…"
+    "runOnPr": "在 PR 上运行…",
+    "runOnDevice": "在设备上运行…"
   },
   "card": {
     "nodes_one": "{{count}} 个节点",
@@ -326,6 +327,10 @@
     "factory_pr-ci": {
       "name": "修复 PR CI",
       "description": "持续关注拉取请求的 CI：等待检查、修复失败和与基础分支的合并冲突、在本地验证并推送，直到检查全部通过。"
+    },
+    "factory_mobile-test": {
+      "name": "在移动设备上测试",
+      "description": "为模拟器构建 iOS 或 Android 应用，并在 Tapflow 设备上运行。交付后会提供，也可以在此对所选代码运行。确定性流程，无 AI 回合。"
     }
   },
   "import": {
@@ -424,5 +429,51 @@
       "pr_ci_disabled": "此机器上已关闭 PR CI 循环。",
       "generic": "无法启动修复。"
     }
+  },
+  "runOnDevice": {
+    "title": "在移动设备上测试",
+    "description": "为模拟器构建应用并在 Tapflow 设备上打开。选择要测试的代码；不会发布或合并任何内容。",
+    "project": "项目",
+    "loading": "加载中…",
+    "what": "测试内容",
+    "target": {
+      "checkout": "当前代码",
+      "delivery": "审查中的交付",
+      "branch": "分支"
+    },
+    "checkoutHint": "按当前状态构建你的工作副本（{{branch}}），包括未提交的更改。构建输出会放在 Git 通常忽略的文件夹中。",
+    "checkoutNoApp": "工作副本中没有 Specrails 能构建的 iOS 或 Android 应用。请选择交付或分支。",
+    "detached": "分离的 HEAD",
+    "branchHint": "在临时副本中构建，运行结束后删除：不会改动你的工作副本。",
+    "deliveryHint": "在你做决定之前，构建该交付自己的工作副本。",
+    "platformLabel": "平台",
+    "both": "两者",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "deviceLabel": "设备（可选）",
+    "deviceFor": "{{platform}} 设备",
+    "deviceAuto": "任意 {{platform}} 设备（由 Tapflow 选择）",
+    "deviceBooted": "{{device}}（运行中）",
+    "tapflowOff": "Tapflow 已关闭。请在 插件 ▸ Tapflow 中开启后再在设备上运行。",
+    "cancel": "取消",
+    "submit": "在设备上运行",
+    "starting": "正在启动…",
+    "close": "关闭",
+    "running": "正在构建并安装到设备…",
+    "launched": "运行中：{{summary}}",
+    "failed": "移动测试未完成。",
+    "openDevice": "打开 {{device}}",
+    "runHint": "此运行也会出现在项目的运行列表中，并附有完整日志。",
+    "errors": {
+      "branch_not_found": "此项目中不存在该分支。",
+      "no_app": "此代码没有所选平台的应用。",
+      "delivery_code_gone": "此交付的代码已不在这台机器上（已发布或已丢弃）。",
+      "tapflow_not_installed": "未安装 Tapflow。请在 插件 ▸ Tapflow 中安装。",
+      "engine_unsupported": "在移动设备上测试需要能运行主机任务的 Specrails Core。请更新 Core。",
+      "generic": "无法启动移动测试。"
+    },
+    "onDevice": "{{device}} 上的 {{platform}}"
   }
 }

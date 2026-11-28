@@ -482,7 +482,7 @@ describe('loops-router: Fix PR CI as an editable built-in', () => {
 
   it('[spec:pr-ci-loop-editable/fix-pr-ci-shows-in-loops] is listed with the built-ins when Core runs host tasks, edited in place, never copied', async () => {
     const rows = (await request(prApp).get('/api/loops')).body.loops as Array<{ id: string; builtinId?: string; status: string }>
-    expect(rows.filter(row => row.builtinId).map(row => row.id).sort()).toEqual(['factory:implement', 'factory:pr-ci'])
+    expect(rows.filter(row => row.builtinId).map(row => row.id).sort()).toEqual(['factory:implement', 'factory:mobile-test', 'factory:pr-ci'])
     expect(rows.find(row => row.id === 'factory:pr-ci')).toMatchObject({ status: 'published' })
     // Its host tasks and the CI offer find a run by its id: a copy could never run.
     expect((await request(prApp).post('/api/loops/factory:pr-ci/duplicate').send({})).body).toMatchObject({ error: 'pr_ci_not_copyable' })
@@ -502,5 +502,20 @@ describe('loops-router: Fix PR CI as an editable built-in', () => {
     expect(refused.body).toMatchObject({ error: 'pr_ci_contract', errors: [{ code: 'pr_ci_unverified_push', nodeId: push.id }] })
     // Rails keep running the last published graph while the refused edit stays a Draft.
     expect(getLoop(db, 'factory:pr-ci')).toMatchObject({ status: 'draft', builtinModified: true })
+  })
+
+  it('[spec:mobile-device-testing/run-from-loops] lists Test in Mobile Device with the built-ins, never copied, and keeps its build and device steps on publish', async () => {
+    const rows = (await request(prApp).get('/api/loops')).body.loops as Array<{ id: string; status: string }>
+    expect(rows.find(row => row.id === 'factory:mobile-test')).toMatchObject({ status: 'published' })
+    expect((await request(prApp).post('/api/loops/factory:mobile-test/duplicate').send({})).body).toMatchObject({ error: 'mobile_test_not_copyable' })
+    expect([404, 409]).toContain((await request(prApp).post('/api/loops/factory/factory:mobile-test/fork').send({})).status)
+    const graph = structuredClone(getLoop(db, 'factory:mobile-test')!.graph)
+    const deliver = graph.nodes.find(node => (node.data as { params?: { task?: string } } | undefined)?.params?.task === 'tapflow.deliver')!
+    ;(deliver.data as { params: Record<string, unknown> }).params.task = 'pr.sync'
+    expect((await request(prApp).put('/api/loops/factory:mobile-test').send({ graph })).status).toBe(200)
+    const refused = await request(prApp).post('/api/loops/factory:mobile-test/publish')
+    expect(refused.status).toBe(422)
+    expect(refused.body).toMatchObject({ error: 'mobile_test_contract' })
+    expect(refused.body.errors.map((error: { code: string }) => error.code).sort()).toEqual(['mobile_test_no_device', 'mobile_test_unknown_host_task'])
   })
 })

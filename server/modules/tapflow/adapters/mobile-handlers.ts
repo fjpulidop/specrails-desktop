@@ -13,7 +13,7 @@ import type { MobileRunsStore } from './mobile-runs-store'
 export interface MobileTestHandlerDeps {
   store: MobileRunsStore
   build: (targetPath: string, platforms: readonly MobilePlatform[], log: (line: string) => void) => Promise<BuildOutcome>
-  deliver: (request: { artifactPath: string; platform: MobilePlatform; log: (line: string) => void; signal?: AbortSignal }) => Promise<DeliveryOutcome>
+  deliver: (request: { artifactPath: string; platform: MobilePlatform; deviceId?: string; log: (line: string) => void; signal?: AbortSignal }) => Promise<DeliveryOutcome>
   /** Called after a run ends in a handler (the offer card follows it). */
   onFinished?: (runId: string) => void
 }
@@ -30,7 +30,7 @@ export function createMobileTestHandlers(deps: MobileTestHandlerDeps): Record<'m
   return {
     'mobile.build': async ({ runId, log }) => {
       const run = store.get(runId)
-      if (!run) return { outcome: 'error', output: { detail: 'This run has no mobile test target; start it from the Test in Mobile Device offer.' } }
+      if (!run) return { outcome: 'error', output: { detail: 'This run has no mobile test target; start it from the Test in Mobile Device offer or Loops.' } }
       const outcome = await deps.build(run.targetPath, run.platforms, log)
       if (outcome.outcome === 'built') {
         store.setArtifacts(runId, outcome.artifacts)
@@ -52,7 +52,7 @@ export function createMobileTestHandlers(deps: MobileTestHandlerDeps): Record<'m
       for (const artifact of run.artifacts) {
         let outcome: DeliveryOutcome
         try {
-          outcome = await deps.deliver({ artifactPath: artifact.path, platform: artifact.platform, log, signal })
+          outcome = await deps.deliver({ artifactPath: artifact.path, platform: artifact.platform, ...(run.devices[artifact.platform] ? { deviceId: run.devices[artifact.platform] } : {}), log, signal })
         } catch (err) {
           outcome = { outcome: 'failed', detail: (err as Error).message }
         }

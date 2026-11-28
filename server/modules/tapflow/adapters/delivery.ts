@@ -18,6 +18,8 @@ export type DeliveryOutcome =
 export interface DeliveryRequest {
   artifactPath: string
   platform: MobilePlatform
+  /** The Tapflow device the person chose; otherwise (or when it is gone) the usual pick. */
+  deviceId?: string
   log: (line: string) => void
   signal?: AbortSignal
 }
@@ -74,6 +76,36 @@ async function openTapflowTools(opts: { nodePath: string; mcpServer: string; por
   }
 }
 
+/** A device the person can choose for a run (Loops ▸ Test in Mobile Device). */
+export interface ChoosableDevice { id: string; name: string; platform: MobilePlatform; booted: boolean }
+
+/**
+ * The devices Tapflow offers, while it is on: one `list_devices` call (it connects to nothing, so no
+ * device is held). Null when Tapflow is off or does not answer: the run then lets Tapflow pick.
+ */
+export function createTapflowDeviceList(deps: Pick<DeliveryDeps, 'paths' | 'target' | 'answering' | 'openTools'>) {
+  const openTools = deps.openTools ?? openTapflowTools
+  return async function listDevices(): Promise<ChoosableDevice[] | null> {
+    const target = deps.target()
+    if (!target || !(await deps.answering(target.port))) return null
+    const token = createTapflowSecrets(deps.paths.secretsDir).token()
+    if (!token) return null
+    const tools = await openTools({ nodePath: target.nodePath, mcpServer: path.join(deps.paths.toolsDir, 'node_modules', '@tapflowio', 'mcp-server', 'dist', 'index.js'), port: target.port, token })
+    try {
+      const listed = await tools.call('list_devices', {}, 30_000)
+      if (listed.isError) return null
+      const agents = JSON.parse(listed.text) as Array<{ devices?: TapflowDevice[] }>
+      return agents.flatMap((agent) => agent.devices ?? [])
+        .filter((device): device is TapflowDevice & { platform: MobilePlatform } => device.platform === 'ios' || device.platform === 'android')
+        .map((device) => ({ id: device.id, name: device.name, platform: device.platform, booted: /booted/i.test(device.status) }))
+    } catch {
+      return null
+    } finally {
+      await tools.close().catch(() => undefined)
+    }
+  }
+}
+
 export function createTapflowDelivery(deps: DeliveryDeps) {
   const upload = deps.upload ?? uploadBuild
   const openTools = deps.openTools ?? openTapflowTools
@@ -101,7 +133,7 @@ export function createTapflowDelivery(deps: DeliveryDeps) {
       const listed = await tools.call('list_devices', {})
       if (listed.isError) return { outcome: 'failed', detail: `Tapflow could not list its devices: ${listed.text}` }
       const agents = JSON.parse(listed.text) as Array<{ devices?: TapflowDevice[] }>
-      const device = pickDevice(agents.flatMap((agent) => agent.devices ?? []), platform)
+      const device = pickDevice(agents.flatMap((agent) => agent.devices ?? []), platform, request.deviceId)
       if (!device) {
         return { outcome: 'unavailable', detail: platform === 'android' ? 'Tapflow has no Android emulator. Run its setup for Android in Plugins ▸ Tapflow.' : 'Tapflow has no iOS simulator. Install an iOS Simulator runtime in Xcode.' }
       }

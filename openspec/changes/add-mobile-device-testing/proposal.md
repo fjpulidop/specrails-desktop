@@ -8,6 +8,7 @@ With Tapflow installed (change `add-tapflow-plugin`), a person who built a nativ
 - **Platform choice**: a single-platform project tests its platform without asking; a multiplatform one asks iOS / Android / Both, recommending the platform the change touched (shared code → both) or the person's last choice for the project, which is remembered.
 - **Built-in loop `factory:mobile-test`** ("Test in Mobile Device"): a Core definition with two Desktop host tasks, `mobile.build` (detect, resolve the Xcode scheme, run the build in the run's working copy, find the artifact) and `tapflow.deliver` (upload the build, open a device session, boot, install, launch, always disconnect). Autonomous: a failure ends the run with the reason and the build log tail. Offered only when Tapflow is installed, the Core advertises host tasks and the project has a mobile app.
 - **Offer after delivery**: a mission row like the PR CI offer, with the platform buttons when the project is multiplatform.
+- **Run from Loops** (follow-up): Test in Mobile Device is listed in Loops (editable in place, never copied) with Run on a device: the checkout as it is, a delivery on review or a branch (temporary worktree), the platform and an optional device; the MCP `mobile_test` takes the same targets.
 - **Device lifecycle**: one device per platform, shut down after an idle grace period once nobody watches it (the spike measured the capture running until `shutdown_device`).
 
 ## Capabilities

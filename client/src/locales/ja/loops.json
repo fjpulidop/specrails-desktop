@@ -62,7 +62,8 @@
     "originalCopyName": "元のグラフ: {{name}}",
     "convert": "Coreに変換",
     "more": "その他の操作",
-    "runOnPr": "PR で実行…"
+    "runOnPr": "PR で実行…",
+    "runOnDevice": "デバイスで実行…"
   },
   "card": {
     "nodes_one": "{{count}} 個のノード",
@@ -326,6 +327,10 @@
     "factory_pr-ci": {
       "name": "PR の CI を修正",
       "description": "プルリクエストの CI を見守ります。チェックを待ち、失敗とベースブランチとのマージ競合を修正し、ローカルで検証してプッシュし、チェックが通るまで続けます。"
+    },
+    "factory_mobile-test": {
+      "name": "モバイルデバイスでテスト",
+      "description": "iOS または Android アプリをシミュレーター向けにビルドし、Tapflow デバイスで起動します。デリバリー後に提案されるほか、ここで選んだコードに対して実行できます。決定的で、AI のターンはありません。"
     }
   },
   "import": {
@@ -424,5 +429,51 @@
       "pr_ci_disabled": "このマシンでは PR CI ループが無効です。",
       "generic": "修正を開始できませんでした。"
     }
+  },
+  "runOnDevice": {
+    "title": "モバイルデバイスでテスト",
+    "description": "アプリをシミュレーター向けにビルドし、Tapflow デバイスで開きます。テストするコードを選んでください。公開やマージは行いません。",
+    "project": "プロジェクト",
+    "loading": "読み込み中…",
+    "what": "テスト対象",
+    "target": {
+      "checkout": "現在のコード",
+      "delivery": "レビュー中のデリバリー",
+      "branch": "ブランチ"
+    },
+    "checkoutHint": "作業コピーを現在の状態のまま（{{branch}}）、未コミットの変更も含めてビルドします。ビルド出力は通常 Git が無視するフォルダーに置かれます。",
+    "checkoutNoApp": "作業コピーに Specrails がビルドできる iOS / Android アプリがありません。デリバリーかブランチを選んでください。",
+    "detached": "detached HEAD",
+    "branchHint": "一時コピーでビルドし、実行終了時に削除します。作業コピーには触れません。",
+    "deliveryHint": "判断する前に、デリバリー自身の作業コピーをビルドします。",
+    "platformLabel": "プラットフォーム",
+    "both": "両方",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "deviceLabel": "デバイス（任意）",
+    "deviceFor": "{{platform}} のデバイス",
+    "deviceAuto": "任意の {{platform}} デバイス（Tapflow が選択）",
+    "deviceBooted": "{{device}}（起動中）",
+    "tapflowOff": "Tapflow がオフです。デバイスで実行するには プラグイン ▸ Tapflow でオンにしてください。",
+    "cancel": "キャンセル",
+    "submit": "デバイスで実行",
+    "starting": "開始中…",
+    "close": "閉じる",
+    "running": "ビルドしてデバイスにインストール中…",
+    "launched": "実行中: {{summary}}",
+    "failed": "モバイルテストは完了しませんでした。",
+    "openDevice": "{{device}} を開く",
+    "runHint": "この実行はプロジェクトの実行一覧にも完全なログ付きで表示されます。",
+    "errors": {
+      "branch_not_found": "このブランチはこのプロジェクトにありません。",
+      "no_app": "このコードには選んだプラットフォームのアプリがありません。",
+      "delivery_code_gone": "このデリバリーのコードはもうこのマシンにありません（公開済みまたは破棄済み）。",
+      "tapflow_not_installed": "Tapflow がインストールされていません。プラグイン ▸ Tapflow でインストールしてください。",
+      "engine_unsupported": "モバイルデバイスでのテストには、ホストタスクを実行できる Specrails Core が必要です。Core を更新してください。",
+      "generic": "モバイルテストを開始できませんでした。"
+    },
+    "onDevice": "{{device}} の {{platform}}"
   }
 }

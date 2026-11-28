@@ -1,13 +1,18 @@
 /**
- * "Test in Mobile Device" after a delivery: the mission card (a system row, like the PR CI offer), the start
- * that records the run's target and launches `factory:mobile-test`, and the card's follow-up.
+ * "Test in Mobile Device": the mission card after a delivery (a system row, like the PR CI offer), the
+ * start that records the run's target and launches `factory:mobile-test`, and the card's follow-up. The
+ * same start serves Loops ▸ Test in Mobile Device and the agents' MCP, where the person picks the target.
  *
- * What is tested: the delivery's own worktree while it is on review (it stays mounted for the decision, so
- * the person can test before deciding), or the project checkout after a local merge. A delivery published
- * as a pull request has released its worktree: the offer expires (test before publishing).
+ * What is tested:
+ * - a delivery: its own worktree while it is on review (it stays mounted for the decision, so the person
+ *   can test before deciding), or the project checkout after a local merge. A delivery published as a
+ *   pull request has released its worktree: the offer expires (test before publishing);
+ * - the project checkout as it is (the person's own work in progress);
+ * - a branch, without touching the checkout: a temporary detached worktree, removed when the run ends.
  */
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
+import path from 'node:path'
 import type { ProjectContext } from '../../../project-registry'
 import { getDesktopSetting, setDesktopSetting } from '../../../desktop-db'
 import { newId } from '../../../ids'
@@ -17,13 +22,16 @@ import type { ReasoningEffort } from '../../../providers/types'
 import { resolveProjectRepository } from '../../../project-repositories'
 import { resolveAgentDefaults } from '../../agents/runtime/agent-defaults'
 import { loadCoreAgentRuntime } from '../../agent-runtime/runtime/agent-runtime-loader'
-import { getPrDelivery, type RailPrDeliveryRow } from '../../delivery/runtime/rail-pr-store'
+import { getPrDelivery, listActivePrDeliveries, readSpecSnapshot, type RailPrDeliveryRow } from '../../delivery/runtime/rail-pr-store'
 import { listRailWorktrees } from '../../delivery/runtime/rail-worktrees-store'
 import { loadConstantMap } from '../../loops/runtime/loop-constants'
+import { resolveBuiltinLoop } from '../../loops/runtime/builtin-loops'
 import { MOBILE_TEST_LOOP_ID, mobileTestGraph } from '../../loops/runtime/loop-mobile-test-recipe'
 import { getAgentChatManager } from '../../missions/runtime/agent-chat-registry'
 import { choosePlatforms, detectMobileApps, type MobilePlatform } from '../mobile-project'
 import { projectFilesAt } from './mobile-build'
+import { withRepoLock } from '../../../repo-lock'
+import type { ChoosableDevice } from './delivery'
 import { createMobileRunsStore, type MobileTestRun } from './mobile-runs-store'
 
 export const MOBILE_TEST_OFFER_KIND = 'mobile-test-offer'
@@ -48,16 +56,21 @@ export interface MobileOfferEnv {
   /** Tapflow is installed and supported on this machine (the offer is pointless otherwise). */
   tapflowReady: () => Promise<boolean>
   capabilities?: () => Promise<Record<string, number> | undefined>
+  /** The devices Tapflow offers while it is on (null when off); for the start form. */
+  devices?: () => Promise<ChoosableDevice[] | null>
 }
 
 const REVIEW_DECISIONS = new Set(['on_review'])
 const LOCAL_DECISIONS = new Set(['merged', 'completed'])
 
-async function hostTasksSupported(env: MobileOfferEnv): Promise<boolean> {
+async function coreCapabilities(env: MobileOfferEnv): Promise<Record<string, number> | undefined> {
   try {
-    const caps = await (env.capabilities ?? (async () => (await loadCoreAgentRuntime()).api?.capabilities as Record<string, number> | undefined))()
-    return caps?.engineV2 === 1 && caps.workflowDefinitions === 1 && caps.hostTasks === 1
-  } catch { return false }
+    return await (env.capabilities ?? (async () => (await loadCoreAgentRuntime()).api?.capabilities as Record<string, number> | undefined))()
+  } catch { return undefined }
+}
+const runsHostTasks = (caps: Record<string, number> | undefined) => caps?.engineV2 === 1 && caps.workflowDefinitions === 1 && caps.hostTasks === 1
+async function hostTasksSupported(env: MobileOfferEnv): Promise<boolean> {
+  return runsHostTasks(await coreCapabilities(env))
 }
 
 /** The working copy to test for a delivery, or null when its code is not on this machine any more. */
@@ -119,39 +132,175 @@ export async function refreshMobileTestOffer(c: ProjectContext, deliveryId: stri
   }
 }
 
-export type MobileStartResult = { ok: true; runId: string } | { ok: false; status: number; error: string }
+export type MobileStartResult = { ok: true; runId: string } | { ok: false; status: number; error: string; code?: string }
+
+/** What a run tests: a delivery (the card), the checkout as it is, or a branch (Loops, MCP). */
+export type MobileTestTargetRequest = { kind: 'delivery'; deliveryId: string } | { kind: 'checkout' } | { kind: 'branch'; branch: string }
+
+export interface MobileStartRequest {
+  target: MobileTestTargetRequest
+  platforms: MobilePlatform[]
+  /** The device chosen per platform (Tapflow device id); absent = Tapflow picks. */
+  devices?: Partial<Record<MobilePlatform, string>>
+}
+
+const git = (cwd: string, args: string[]) => new Promise<{ ok: boolean; out: string }>((resolve) => {
+  execFile('git', args, { cwd, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) => resolve({ ok: !err, out: (err ? stderr : stdout).trim() }))
+})
+
+/** Where branch runs get their temporary worktrees: beside the project's database, never in the repository. */
+const scratchRoot = (c: Pick<ProjectContext, 'project'>) => path.join(path.dirname(c.project.db_path), 'mobile-test')
+
+/** The commit a branch name points at (local first, then a remote-tracking one), or null. */
+async function branchCommit(repo: string, branch: string): Promise<string | null> {
+  if (!branch || branch.startsWith('-') || /[\s~^:?*[\\]|\.\.|@\{/.test(branch)) return null
+  for (const ref of [`refs/heads/${branch}`, `refs/remotes/${branch}`]) {
+    const found = await git(repo, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`])
+    if (found.ok && /^[0-9a-f]{40,64}$/.test(found.out)) return found.out
+  }
+  return null
+}
+
+/** Removes a branch run's temporary worktree (best effort; `git worktree prune` covers a vanished folder). */
+async function removeScratchWorktree(repo: string, dir: string): Promise<void> {
+  await withRepoLock(repo, async () => {
+    await git(repo, ['worktree', 'remove', '--force', dir])
+    fs.rmSync(dir, { recursive: true, force: true })
+    await git(repo, ['worktree', 'prune'])
+  }).catch(() => undefined)
+}
+
+/** Leftovers of branch runs the server did not see end (a restart mid-run). */
+async function sweepScratchWorktrees(c: Pick<ProjectContext, 'db' | 'project'>, repo: string): Promise<void> {
+  const root = scratchRoot(c)
+  let entries: string[] = []
+  try { entries = fs.readdirSync(root) } catch { return }
+  const store = createMobileRunsStore(c.db)
+  for (const runId of entries) {
+    if (store.get(runId)?.state !== 'running') await removeScratchWorktree(repo, path.join(root, runId))
+  }
+}
 
 /** Records the run's target, remembers the platform choice and launches `factory:mobile-test`. */
-export async function startMobileTest(c: ProjectContext, request: { deliveryId: string; platforms: MobilePlatform[] }, env: MobileOfferEnv): Promise<MobileStartResult> {
-  const delivery = getPrDelivery(c.db, request.deliveryId)
-  if (!delivery) return { ok: false, status: 404, error: 'Delivery not found' }
-  if (!(await env.tapflowReady())) return { ok: false, status: 409, error: 'Tapflow is not installed. Install it in Plugins ▸ Tapflow.' }
-  if (!(await hostTasksSupported(env))) return { ok: false, status: 409, error: 'This Specrails Core cannot run host tasks; update Core.' }
-  const target = mobileTestTarget(c, delivery)
-  if (!target) return { ok: false, status: 409, error: 'The code of this delivery is no longer on this machine (it was published or discarded).' }
+export async function startMobileTest(c: ProjectContext, request: MobileStartRequest, env: MobileOfferEnv): Promise<MobileStartResult> {
+  const delivery = request.target.kind === 'delivery' ? getPrDelivery(c.db, request.target.deliveryId) : undefined
+  if (request.target.kind === 'delivery' && !delivery) return { ok: false, status: 404, error: 'Delivery not found', code: 'delivery_not_found' }
+  if (!(await env.tapflowReady())) return { ok: false, status: 409, error: 'Tapflow is not installed. Install it in Plugins ▸ Tapflow.', code: 'tapflow_not_installed' }
+  const capabilities = await coreCapabilities(env)
+  if (!runsHostTasks(capabilities)) return { ok: false, status: 409, error: 'This Specrails Core cannot run host tasks; update Core.', code: 'engine_unsupported' }
   const platforms = [...new Set(request.platforms)].filter((platform): platform is MobilePlatform => platform === 'ios' || platform === 'android')
-  if (!platforms.length) return { ok: false, status: 400, error: 'Choose iOS, Android or both.' }
+  if (!platforms.length) return { ok: false, status: 400, error: 'Choose iOS, Android or both.', code: 'platforms_required' }
+  const repository = resolveProjectRepository(c.project)
   const runId = newId()
+
+  let target: { path: string; kind: MobileTestRun['targetKind'] }
+  let scratch: string | null = null
+  if (request.target.kind === 'delivery') {
+    const found = mobileTestTarget(c, delivery!)
+    if (!found) return { ok: false, status: 409, error: 'The code of this delivery is no longer on this machine (it was published or discarded).', code: 'delivery_code_gone' }
+    target = found
+  } else if (request.target.kind === 'checkout') {
+    target = { path: repository.path, kind: 'checkout' }
+  } else {
+    const branch = request.target.branch.trim()
+    const commit = await branchCommit(repository.path, branch)
+    if (!commit) return { ok: false, status: 404, error: `There is no branch "${branch}" in this project.`, code: 'branch_not_found' }
+    await sweepScratchWorktrees(c, repository.path)
+    scratch = path.join(scratchRoot(c), runId)
+    fs.mkdirSync(path.dirname(scratch), { recursive: true })
+    const added = await withRepoLock(repository.path, () => git(repository.path, ['worktree', 'add', '--detach', scratch!, commit]))
+    if (!added.ok) return { ok: false, status: 500, error: `Could not check out ${branch} to build it: ${added.out}`, code: 'branch_checkout_failed' }
+    target = { path: scratch, kind: 'branch' }
+  }
+  const apps = detectMobileApps(projectFilesAt(target.path))
+  const missing = platforms.filter((platform) => !apps.some((app) => app.platform === platform))
+  if (missing.length === platforms.length) {
+    if (scratch) await removeScratchWorktree(repository.path, scratch)
+    return { ok: false, status: 409, error: `This code has no ${missing.map((platform) => (platform === 'ios' ? 'iOS' : 'Android')).join(' or ')} app Specrails can build.`, code: 'no_app' }
+  }
+  const devices = Object.fromEntries(Object.entries(request.devices ?? {}).filter(([platform, id]) => platforms.includes(platform as MobilePlatform) && typeof id === 'string' && /^[A-Za-z0-9:._-]{1,128}$/.test(id))) as MobileTestRun['devices']
+
   const store = createMobileRunsStore(c.db)
-  store.create({ runId, projectId: c.project.id, platforms, targetPath: target.path, targetKind: target.kind, deliveryId: delivery.id, conversationId: delivery.origin_conversation_id ?? null })
+  store.create({ runId, projectId: c.project.id, platforms, targetPath: target.path, targetKind: target.kind, deliveryId: delivery?.id ?? null, conversationId: delivery?.origin_conversation_id ?? null, devices })
   setDesktopSetting(c.desktopDb, rememberKey(c.project.id), platforms.length > 1 ? 'both' : platforms[0]!)
   const provider = c.project.provider ?? 'claude'
   const adapter = getAdapter(provider)
   const defaults = resolveAgentDefaults(c.desktopDb, provider)
   const model = defaults?.pipelineModel ?? adapter.defaultModel()
   const effort = defaults?.pipelineEffort && isReasoningEffortValidForModel(adapter, model, defaults.pipelineEffort) ? defaults.pipelineEffort as ReasoningEffort : undefined
-  const repository = resolveProjectRepository(c.project)
+  // The built-in as the person edited and published it in Loops (its contract is checked on publish).
+  const resolved = resolveBuiltinLoop(c.desktopDb, MOBILE_TEST_LOOP_ID, capabilities)
   c.loopRunManager.run({
-    runId, loopId: MOBILE_TEST_LOOP_ID, loopName: 'Test in Mobile Device', graph: mobileTestGraph(), projectId: c.project.id,
+    runId, loopId: MOBILE_TEST_LOOP_ID, loopName: resolved?.name ?? 'Test in Mobile Device', graph: resolved?.graph ?? mobileTestGraph(), projectId: c.project.id,
     repositoryId: repository.id, cwd: target.path, repoDir: target.path,
     railIndex: null, ticketId: null, spec: undefined,
     constants: loadConstantMap(c.desktopDb), provider, model, ...(effort ? { effort } : {}),
   })
     .then((result) => c.onLoopRunFinished(result.runId, result.outcome, result.stallReason ? { stallReason: result.stallReason } : undefined))
     .catch((error) => { console.error('[tapflow] mobile test run failed:', error); c.onLoopRunFinished(runId, 'failed') })
-    .finally(() => { void refreshMobileTestOffer(c, delivery.id, env) })
-  void refreshMobileTestOffer(c, delivery.id, env)
+    .finally(() => {
+      // The app is installed on the device: the branch's worktree is no longer needed.
+      if (scratch) void removeScratchWorktree(repository.path, scratch)
+      if (delivery) void refreshMobileTestOffer(c, delivery.id, env)
+    })
+  if (delivery) void refreshMobileTestOffer(c, delivery.id, env)
   return { ok: true, runId }
+}
+
+/** A run's state for the start form and the MCP (what ran where, or why it stopped). */
+export function mobileTestRunView(c: Pick<ProjectContext, 'db'>, runId: string) {
+  const run = createMobileRunsStore(c.db).get(runId)
+  if (!run) return null
+  const result = run.result ?? {}
+  return {
+    runId: run.runId, state: run.state, platforms: run.platforms, targetKind: run.targetKind, deliveryId: run.deliveryId,
+    ...(typeof result.summary === 'string' ? { summary: result.summary } : {}),
+    ...(typeof result.detail === 'string' ? { detail: result.detail } : {}),
+    ...(typeof result.command === 'string' ? { command: result.command } : {}),
+    devices: Array.isArray(result.devices) ? (result.devices as Array<Record<string, unknown>>).map((device) => ({ platform: device.platform, name: device.name, id: device.id, sessionId: device.sessionId, buildId: device.buildId })) : [],
+  }
+}
+
+const deliveryLabel = (row: RailPrDeliveryRow) => {
+  const titles = (readSpecSnapshot(row.spec_snapshot) ?? []).map((entry) => entry.title).filter((title): title is string => Boolean(title))
+  return titles.length ? titles.join(' · ').slice(0, 140) : row.loop_name ?? row.branch ?? row.id.slice(0, 8)
+}
+
+/**
+ * What the start form offers (Loops ▸ Test in Mobile Device ▸ Run on a device): the checkout's apps and
+ * current branch, the deliveries on review with an app, the local branches, and Tapflow's devices.
+ */
+export async function mobileTestOptions(c: ProjectContext, env: MobileOfferEnv) {
+  const repository = resolveProjectRepository(c.project)
+  const [ready, hostTasks, current, branchList] = await Promise.all([
+    env.tapflowReady(), hostTasksSupported(env),
+    git(repository.path, ['rev-parse', '--abbrev-ref', 'HEAD']),
+    git(repository.path, ['for-each-ref', '--sort=-committerdate', '--count=50', '--format=%(refname:short)', 'refs/heads']),
+  ])
+  const apps = detectMobileApps(projectFilesAt(repository.path))
+  const remembered = rememberedPlatforms(c)
+  const choice = choosePlatforms(apps, [], remembered)
+  const deliveries = listActivePrDeliveries(c.db)
+    .filter((row) => REVIEW_DECISIONS.has(row.decision) && row.loop_id !== MOBILE_TEST_LOOP_ID)
+    .flatMap((row) => {
+      const found = mobileTestTarget(c, row)
+      const platforms = found ? [...new Set(detectMobileApps(projectFilesAt(found.path)).map((app) => app.platform))] : []
+      return found && platforms.length ? [{ id: row.id, label: deliveryLabel(row), platforms }] : []
+    })
+    .slice(0, 20)
+  const devices = ready && env.devices ? await env.devices().catch(() => null) : null
+  return {
+    ready, hostTasks,
+    checkout: {
+      branch: current.ok && current.out !== 'HEAD' ? current.out : null,
+      platforms: [...new Set(apps.map((app) => app.platform))],
+      recommended: choice.kind === 'single' ? choice.platform : choice.kind === 'ask' ? choice.recommended : remembered ?? 'both',
+    },
+    remembered,
+    deliveries,
+    branches: branchList.ok ? branchList.out.split('\n').filter(Boolean) : [],
+    devices,
+  }
 }
 
 export function dismissMobileTestOffer(c: ProjectContext, deliveryId: string): boolean {

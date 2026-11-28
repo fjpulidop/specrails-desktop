@@ -8,7 +8,7 @@ Lifecycle: **Install** opens an installer terminal (app scope `__app__`) that in
 `tapflow@0.33.0` and `@tapflowio/mcp-server@0.33.0` with Specrails' Node and npm into
 `~/.specrails/tools/tapflow`, then runs Tapflow's interactive `tapflow setup`; exit 0 records the install.
 **Activate** starts a supervised `tapflow start` on port 4310 (lean, no audio, display sleep allowed, one
-automated device), kept on loopback by a preload, and creates its admin account and token on first use.
+automated devices, one per platform), kept on loopback by a preload, and creates its admin account and token on first use.
 **Deactivate** stops it with SIGTERM. A crash shows as inactive with the reason; an active service is
 started again at app start; a Tapflow the person runs themselves is shown as running-external and never
 stopped.
@@ -24,6 +24,26 @@ stopped.
 | `desktop_settings` key `plugins.tapflow.state` | [adapters/store.ts](adapters/store.ts) |
 | `GET/POST /api/global-plugins/tapflow[/install|activate|deactivate|uninstall]` | [adapters/http.ts](adapters/http.ts), mounted by [global-plugins-router.ts](../../global-plugins-router.ts) |
 | Wiring (bundled Node, terminal manager, WS `plugin.tapflow_status`) | [runtime.ts](runtime.ts), created in [index.ts](../../index.ts) |
+
+## Test in Mobile Device (`factory:mobile-test`, OpenSpec change `add-mobile-device-testing`)
+
+Two Desktop host tasks build the app (`mobile.build`, [adapters/mobile-build.ts](adapters/mobile-build.ts):
+the project's own tools; a Gradle build gets ANDROID_HOME and a JDK 17+ from
+[adapters/android-toolchain.ts](adapters/android-toolchain.ts), since a worktree has no `local.properties`)
+and put it on a device (`tapflow.deliver`, [adapters/delivery.ts](adapters/delivery.ts): upload, pick or the
+chosen device, boot, install, launch, always disconnect). The run's target lives in `mobile_test_runs`
+(migrations 98-99). It starts three ways, all through `startMobileTest` in
+[adapters/mobile-offer.ts](adapters/mobile-offer.ts):
+
+- the mission card after a delivery (the delivery's worktree, or the checkout after a local merge);
+- Loops ▸ Test in Mobile Device ▸ Run on a device (the checkout as it is, a delivery on review, or a branch
+  built in a temporary worktree beside the project database, removed when the run ends);
+- the agents' MCP `specrails_integrations(mobile_test)` with the same targets.
+
+Routes under `/api/projects/:id/mobile-test`: `POST /start`, `GET /options` (what the dialog offers,
+Tapflow's devices included while it is on), `GET /runs/:runId`, `POST /dismiss`. The loop is an editable
+built-in: it keeps its id (never copied), and publishing an edit keeps its build and device steps
+(`mobileTestGraphContractErrors`).
 
 The Resources view lists a `tapflow` category (service tree, one root per booted simulator's
 `launchd_sim` and per emulator) through `listAppResourceRoots` in

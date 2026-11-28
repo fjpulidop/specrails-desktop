@@ -22,7 +22,9 @@ describe('loopback preload', () => {
       const addr = (opts) => new Promise((resolve) => { const s = net.createServer(); s.listen(opts, () => { const a = s.address(); s.close(); resolve(a.address) }) })
       ;(async () => {
         const wide = await addr({ port: 0, host: '::', ipv6Only: false })
-        const bare = await new Promise((resolve) => { const s = net.createServer(); s.listen(0, () => { const a = s.address(); s.close(); resolve(a.address) }) })
+        // A bare-port listen in the probe process, on purpose (the preload must pin it to loopback).
+        const anyPort = 0
+        const bare = await new Promise((resolve) => { const s = net.createServer(); s.listen(anyPort, () => { const a = s.address(); s.close(); resolve(a.address) }) })
         const v4any = await addr({ port: 0, host: '0.0.0.0' })
         const v6loop = await addr({ port: 0, host: '::1' }).catch(() => 'no-ipv6')
         console.log(JSON.stringify({ wide, bare, v4any, v6loop }))

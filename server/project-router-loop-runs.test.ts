@@ -108,6 +108,13 @@ describe('project-router standalone loop runs', () => {
     expect(res.body.error).toBe('pr_ci_requires_delivery')
   })
 
+  it('[spec:mobile-device-testing/run-from-loops] never runs Test in Mobile Device as a generic loop: it needs a target', async () => {
+    const app = buildApp({ provider: 'claude', providers: ['claude'] })
+    const res = await request(app).post('/api/projects/p1/loop-runs').send({ loopId: 'factory:mobile-test' })
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('mobile_test_requires_target')
+  })
+
   it.each([true, false])('gates a {{cmd:freestyle}} loop on the project provider capability (codex freestyle=%s)', async (capable) => {
     const { getAdapter } = await import('./providers/registry')
     const capabilities = getAdapter('codex').capabilities

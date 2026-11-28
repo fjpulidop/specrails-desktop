@@ -12,10 +12,11 @@ import {
 } from '../domain'
 import type { InstallerTerminal, TapflowInstallation, TapflowService } from '../application'
 import { findAndroidSdk } from './android-toolchain'
+import { resolveSpecrailsHome } from '../../../util/specrails-home'
 
 /** `<SPECRAILS_REGISTRY_HOME or ~>/.specrails/tools/tapflow`, beside Headroom's tools. */
 export function tapflowToolsDir(env: NodeJS.ProcessEnv = process.env): string {
-  return path.join(env.SPECRAILS_REGISTRY_HOME || os.homedir(), '.specrails', 'tools', 'tapflow')
+  return path.join(resolveSpecrailsHome(env.SPECRAILS_REGISTRY_HOME || undefined), '.specrails', 'tools', 'tapflow')
 }
 
 export interface TapflowPaths {

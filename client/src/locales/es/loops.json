@@ -62,7 +62,8 @@
     "originalCopyName": "Original: {{name}}",
     "convert": "Convertir a Core",
     "more": "Más acciones",
-    "runOnPr": "Ejecutar sobre una PR…"
+    "runOnPr": "Ejecutar sobre una PR…",
+    "runOnDevice": "Probar en dispositivo…"
   },
   "card": {
     "nodes_one": "{{count}} nodo",
@@ -326,6 +327,10 @@
     "factory_pr-ci": {
       "name": "Arreglar CI del PR",
       "description": "Vigila el CI de un pull request: espera a los checks, corrige fallos y conflictos con la rama base, verifica en local y hace push, hasta que los checks pasen."
+    },
+    "factory_mobile-test": {
+      "name": "Probar en dispositivo móvil",
+      "description": "Compila la app de iOS o Android para el simulador y la abre en un dispositivo de Tapflow. Se ofrece tras una entrega, o lánzala aquí sobre el código que elijas. Determinista, sin turno de IA."
     }
   },
   "import": {
@@ -424,5 +429,51 @@
       "pr_ci_disabled": "El loop de CI de PR está desactivado en esta máquina.",
       "generic": "No se pudo iniciar la reparación."
     }
+  },
+  "runOnDevice": {
+    "title": "Probar en dispositivo móvil",
+    "description": "Compila la app para el simulador y la abre en un dispositivo de Tapflow. Elige qué código probar; no se publica ni se fusiona nada.",
+    "project": "Proyecto",
+    "loading": "Cargando…",
+    "what": "Qué probar",
+    "target": {
+      "checkout": "Código actual",
+      "delivery": "Una entrega en revisión",
+      "branch": "Una rama"
+    },
+    "checkoutHint": "Compila tu copia de trabajo tal como está ({{branch}}), con los cambios sin confirmar. La salida de compilación va a carpetas que Git suele ignorar.",
+    "checkoutNoApp": "La copia de trabajo no tiene una app de iOS o Android que Specrails sepa compilar. Elige una entrega o una rama.",
+    "detached": "HEAD separado",
+    "branchHint": "Se compila en una copia temporal que se borra al terminar la ejecución: tu copia de trabajo no se toca.",
+    "deliveryHint": "Compila la copia de trabajo de la propia entrega, antes de que decidas sobre ella.",
+    "platformLabel": "Plataforma",
+    "both": "Ambas",
+    "platform": {
+      "ios": "iOS",
+      "android": "Android"
+    },
+    "deviceLabel": "Dispositivo (opcional)",
+    "deviceFor": "Dispositivo para {{platform}}",
+    "deviceAuto": "Cualquier dispositivo {{platform}} (elige Tapflow)",
+    "deviceBooted": "{{device}} (encendido)",
+    "tapflowOff": "Tapflow está apagado. Enciéndelo en Plugins ▸ Tapflow para probar en un dispositivo.",
+    "cancel": "Cancelar",
+    "submit": "Probar en dispositivo",
+    "starting": "Iniciando…",
+    "close": "Cerrar",
+    "running": "Compilando e instalando en el dispositivo…",
+    "launched": "En marcha: {{summary}}",
+    "failed": "La prueba en móvil no terminó.",
+    "openDevice": "Abrir {{device}}",
+    "runHint": "La ejecución también aparece en las ejecuciones del proyecto, con su log completo.",
+    "errors": {
+      "branch_not_found": "Esa rama no existe en este proyecto.",
+      "no_app": "Este código no tiene app para la plataforma elegida.",
+      "delivery_code_gone": "El código de esta entrega ya no está en este equipo (se publicó o se descartó).",
+      "tapflow_not_installed": "Tapflow no está instalado. Instálalo en Plugins ▸ Tapflow.",
+      "engine_unsupported": "Probar en dispositivo móvil necesita una Specrails Core que ejecute tareas del host. Actualiza Core.",
+      "generic": "No se pudo iniciar la prueba en móvil."
+    },
+    "onDevice": "{{platform}} en {{device}}"
   }
 }

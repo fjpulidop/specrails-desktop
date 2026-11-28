@@ -4,12 +4,17 @@ import { OPEN_MISSION_EVENT, OPEN_MISSION_NATIVE_EVENT, requestOpenMission, type
 import { isTauri } from '../../../lib/tauri-shell'
 import { useAgentChat } from '../context/AgentChatContext'
 import { useOpenMission } from '../hooks/useOpenMission'
+import { openDeviceWindow, type DeviceTarget } from '../lib/device-windows'
+
+/** A loop editor window asks the main window to open a device (Loops ▸ Test in Mobile Device). */
+const OPEN_DEVICE_NATIVE_EVENT = 'specrails://open-device'
 
 /**
  * Answers `requestOpenMission` (lib/mission-events) in the main window: Mission
  * mode shows the mission (switching project when it is pinned elsewhere), Board
  * mode opens it in the floating agent panel, like the live board's mission cards.
- * Loop editor windows ask through the host's `specrails://open-mission` event.
+ * Loop editor windows ask through the host's `specrails://open-mission` event, and for a device window
+ * through `specrails://open-device`: the main window opens it so it also releases the device on close.
  */
 export function MissionOpenRequests() {
   const { uiMode } = useUiMode()
@@ -28,13 +33,18 @@ export function MissionOpenRequests() {
     window.addEventListener(OPEN_MISSION_EVENT, onRequest)
     // A loop editor window asks through the host (Loops ▸ Fix PR CI ▸ Run on a PR).
     let disposed = false
-    let unlisten: (() => void) | undefined
+    const unlisten: Array<() => void> = []
     if (isTauri()) {
-      void import('@tauri-apps/api/event').then(({ listen }) => listen<OpenMissionDetail>(OPEN_MISSION_NATIVE_EVENT, event => {
-        if (typeof event.payload?.conversationId === 'string') requestOpenMission(event.payload.conversationId)
-      })).then(stop => { if (disposed) stop(); else unlisten = stop }).catch(() => {})
+      const keep = (stop: () => void) => { if (disposed) stop(); else unlisten.push(stop) }
+      void import('@tauri-apps/api/event').then(({ listen }) => Promise.all([
+        listen<OpenMissionDetail>(OPEN_MISSION_NATIVE_EVENT, event => {
+          if (typeof event.payload?.conversationId === 'string') requestOpenMission(event.payload.conversationId)
+        }).then(keep),
+        // The host validated the target before relaying it.
+        listen<DeviceTarget>(OPEN_DEVICE_NATIVE_EVENT, event => { void openDeviceWindow(event.payload).catch(() => {}) }).then(keep),
+      ])).catch(() => {})
     }
-    return () => { disposed = true; unlisten?.(); window.removeEventListener(OPEN_MISSION_EVENT, onRequest) }
+    return () => { disposed = true; for (const stop of unlisten.splice(0)) stop(); window.removeEventListener(OPEN_MISSION_EVENT, onRequest) }
   }, [])
   return null
 }

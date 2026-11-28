@@ -199,11 +199,15 @@ export interface TapflowDevice {
 const STOCK_DEVICE = /^(iPhone \d+[a-z]?( (Pro|Pro Max|Plus|mini))?|iPhone Air|iPhone SE.*|tapflow-(phone|compact|large)|Pixel.*|Medium Phone.*)$/
 
 /**
- * The device to run on: a phone of the platform that is already booted (no boot cost), else a stock
+ * The device to run on: the one the person chose (if Tapflow still lists it), else a phone of the platform
+ * that is already booted (no boot cost), else a stock
  * phone (the newest-looking first, as listed), else any phone; tablets and person-named devices last.
  */
-export function pickDevice(devices: readonly TapflowDevice[], platform: MobilePlatform): TapflowDevice | null {
+export function pickDevice(devices: readonly TapflowDevice[], platform: MobilePlatform, preferredId?: string): TapflowDevice | null {
   const ofPlatform = devices.filter((device) => device.platform === platform)
+  // The device the person chose, when Tapflow still has it.
+  const preferred = preferredId ? ofPlatform.find((device) => device.id === preferredId) : undefined
+  if (preferred) return preferred
   const phones = ofPlatform.filter((device) => (device.formFactor ?? 'phone') === 'phone')
   const booted = (list: readonly TapflowDevice[]) => list.find((device) => /booted/i.test(device.status))
   return booted(phones.filter((device) => STOCK_DEVICE.test(device.name)))
